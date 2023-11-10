@@ -252,18 +252,14 @@ def dist_nearest_points(
         df_data = data[coord_names].copy()
     elif isinstance(data, xr.DataArray):
         df_grid = vd.grid_to_table(data).dropna()
-        df_data = df_grid[
-            [coord_names[0], coord_names[1]]
-        ].copy()  # pylint: disable=unsubscriptable-object
+        df_data = df_grid[[coord_names[0], coord_names[1]]].copy()  # pylint: disable=unsubscriptable-object
     elif isinstance(data, xr.Dataset):
         try:
             df_grid = vd.grid_to_table(data[next(iter(data.variables))]).dropna()
             # df_grid = vd.grid_to_table(data[list(data.variables)[0]]).dropna()
         except IndexError:
             df_grid = vd.grid_to_table(data).dropna()
-        df_data = df_grid[
-            [coord_names[0], coord_names[1]]
-        ].copy()  # pylint: disable=unsubscriptable-object
+        df_data = df_grid[[coord_names[0], coord_names[1]]].copy()  # pylint: disable=unsubscriptable-object
 
     min_dist, _ = KDTree(df_targets.values).query(df_data.values, 1)
 
@@ -415,7 +411,14 @@ def sample_grids(
 
 def extract_prism_data(
     prism_layer: xr.Dataset,
-) -> tuple[pd.DataFrame, xr.Dataset, float, float, float, xr.DataArray,]:
+) -> tuple[
+    pd.DataFrame,
+    xr.Dataset,
+    float,
+    float,
+    float,
+    xr.DataArray,
+]:
     """
     extract necessary info from starting prism layer, adds variables 'topo' and
     'starting_topo' to prism layer dataset (prisms_ds), converts it into dataframe
