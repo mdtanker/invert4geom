@@ -393,7 +393,7 @@ def solver(
 
     if solver_type == "scipy least squares":
         """
-        https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lsqr.html # noqa: E501 pylint: disable=pointless-string-statement
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lsqr.htmake ml # noqa: E501
         """
         if damping is None:
             damping = 0
@@ -628,7 +628,8 @@ def end_inversion(
             logging.info(
                 (
                     "\nInversion terminated after %s iterations because "
-                    "there was no significant variation in the L2-norm over 2 iterations"
+                    "there was no significant variation in the L2-norm over 2 "
+                    "iterations"
                     "\nChange parameter 'delta_l2_norm_tolerance' if desired."
                 )
                 % (iteration_number)

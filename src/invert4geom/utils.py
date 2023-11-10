@@ -448,12 +448,12 @@ def extract_prism_data(
 
     # check prisms above reference have densities of opposite sign to prisms below
     # try:
-    #     if not prisms_ds.density.to_numpy().max() == -prisms_ds.density.to_numpy().min():
+    #     if not prisms_ds.density.to_numpy().max() == -prisms_ds.density.to_numpy().min(): # noqa: E501
     #         msg = "densities should be represented as contrasts not absolutes."
     #         raise ValueError(msg)
     # # if not, they should at least be equal (if starting topo model is flat)
     # except:
-    #     if not prisms_ds.density.to_numpy().max() == prisms_ds.density.to_numpy().min():
+    #     if not prisms_ds.density.to_numpy().max() == prisms_ds.density.to_numpy().min(): # noqa: E501
     #         msg = "densities should be represented as contrasts not absolutes."
     #         raise ValueError(msg)
 
@@ -590,11 +590,17 @@ def enforce_confining_surface(
     updated_topo = df[f"iter_{iteration_number}_correction"] + df.topo
     if "upper_bounds" in df:
         if np.any((df.upper_bounds - updated_topo) < 0):
-            msg = "Constraining didn't work and updated topography intersects upper constraining surface"
+            msg = (
+                "Constraining didn't work and updated topography intersects upper "
+                "constraining surface"
+            )
             raise ValueError(msg)
     if "lower_bounds" in df:
         if np.any((updated_topo - df.lower_bounds) < 0):
-            msg = "Constraining didn't work and updated topography intersects lower constraining surface"
+            msg = (
+                "Constraining didn't work and updated topography intersects lower "
+                "constraining surface"
+            )
             raise ValueError(msg)
     return df
 
