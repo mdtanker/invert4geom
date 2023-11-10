@@ -267,9 +267,7 @@ def dist_nearest_points(
 
     if isinstance(data, pd.DataFrame):
         return df_data
-    elif isinstance(data, (xr.DataArray, xr.Dataset)):
-        return df_data.set_index([coord_names[0], coord_names[1]][::-1]).to_xarray()
-    return None
+    return df_data.set_index([coord_names[0], coord_names[1]][::-1]).to_xarray()
 
 
 def normalize_xarray(da, low=0, high=1):
@@ -588,20 +586,18 @@ def enforce_confining_surface(
     # check that when constrained correction is added to topo it doesn't intersect
     # either bounding layer
     updated_topo = df[f"iter_{iteration_number}_correction"] + df.topo
-    if "upper_bounds" in df:
-        if np.any((df.upper_bounds - updated_topo) < 0):
-            msg = (
-                "Constraining didn't work and updated topography intersects upper "
-                "constraining surface"
-            )
-            raise ValueError(msg)
-    if "lower_bounds" in df:
-        if np.any((updated_topo - df.lower_bounds) < 0):
-            msg = (
-                "Constraining didn't work and updated topography intersects lower "
-                "constraining surface"
-            )
-            raise ValueError(msg)
+    if "upper_bounds" in df and np.any((df.upper_bounds - updated_topo) < 0):
+        msg = (
+            "Constraining didn't work and updated topography intersects upper "
+            "constraining surface"
+        )
+        raise ValueError(msg)
+    if "lower_bounds" in df and np.any((updated_topo - df.lower_bounds) < 0):
+        msg = (
+            "Constraining didn't work and updated topography intersects lower "
+            "constraining surface"
+        )
+        raise ValueError(msg)
     return df
 
 

@@ -193,7 +193,7 @@ def prism_properties(
     elif method == "generator":
         # slower, but doesn't allocate memory
         prisms_properties = [
-            list(prisms_layer.prism_layer.get_prism((y, x)))
+            list(prisms_layer.prism_layer.get_prism((y, x)))  # noqa: RUF005
             + [prisms_layer.density.values[y, x]]
             for y in range(prisms_layer.northing.size)
             for x in range(prisms_layer.easting.size)

@@ -750,6 +750,7 @@ def test_geo_inversion_returns():
         prism_layer=prisms_ds,
         max_iterations=3,
     )
+    print(results)
     # prisms_df, gravity, params, elapsed_time = results
     # print(prisms_df)
     # print(gravity)
