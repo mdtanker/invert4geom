@@ -173,8 +173,10 @@ def prism_properties(
             range(prisms_layer.northing.size), range(prisms_layer.easting.size)
         ):
             prisms_properties.append(
-                list(prisms_layer.prism_layer.get_prism((y, x)))
-                + [prisms_layer.density.values[y, x]]
+                [
+                    *list(prisms_layer.prism_layer.get_prism((y, x))),
+                    prisms_layer.density.values[y, x],
+                ]
             )
         prisms_properties = np.array(prisms_properties)
     elif method == "forloops":
@@ -182,8 +184,10 @@ def prism_properties(
         for y in range(prisms_layer.northing.size):
             for x in range(prisms_layer.easting.size):
                 prisms_properties.append(
-                    list(prisms_layer.prism_layer.get_prism((y, x)))
-                    + [prisms_layer.density.values[y, x]]
+                    [
+                        *list(prisms_layer.prism_layer.get_prism((y, x))),
+                        prisms_layer.density.values[y, x],
+                    ]
                 )
         np.asarray(prisms_properties)
     elif method == "generator":
@@ -354,7 +358,7 @@ def jacobian(
 def solver(
     jac: np.array,
     residuals: np.array,
-    weights: np.array = None,
+    # weights: np.array = None,
     damping: float | None = None,
     solver_type: str = "scipy least squares",
     # bounds =None,
@@ -393,7 +397,7 @@ def solver(
 
     if solver_type == "scipy least squares":
         """
-        https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lsqr.htmake ml # noqa: E501
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lsqr.html
         """
         if damping is None:
             damping = 0
@@ -608,11 +612,11 @@ def end_inversion(
         if l2_norm > starting_l2_norm * (1 + perc_increase_limit):
             logging.info(
                 (
-                    "\nInversion terminated after {} iterations because "
-                    "L2 norm ({}) \nwas over {}% greater"
-                    "than starting L2 norm ({})"
+                    "\nInversion terminated after %s iterations because "
+                    "L2 norm (%s) \nwas over %s%% greater"
+                    "than starting L2 norm (%s)"
                     "\nChange parameter 'perc_increase_limit' if desired."
-                ).format(
+                )(
                     iteration_number,
                     l2_norm,
                     perc_increase_limit * 100,
@@ -631,8 +635,7 @@ def end_inversion(
                     "there was no significant variation in the L2-norm over 2 "
                     "iterations"
                     "\nChange parameter 'delta_l2_norm_tolerance' if desired."
-                )
-                % (iteration_number)
+                )(iteration_number)
             )
 
             end = True
@@ -641,10 +644,10 @@ def end_inversion(
         if l2_norm < l2_norm_tolerance:
             logging.info(
                 (
-                    "\nInversion terminated after {} iterations because "
-                    "L2-norm ({}) was less then set tolerance: {}"
+                    "\nInversion terminated after %s iterations because "
+                    "L2-norm (%s) was less then set tolerance: %s"
                     "\nChange parameter 'delta_l2_norm_tolerance' if desired."
-                ).format(iteration_number, l2_norm, l2_norm_tolerance)
+                )(iteration_number, l2_norm, l2_norm_tolerance)
             )
 
             end = True
@@ -653,9 +656,9 @@ def end_inversion(
     if iteration_number >= max_iterations:
         logging.info(
             (
-                "\nInversion terminated after {} iterations with L2-norm"
-                "={} because maximum number of iterations ({}) reached."
-            ).format(iteration_number, round(l2_norm, 2), max_iterations)
+                "\nInversion terminated after %s iterations with L2-norm"
+                "=%s because maximum number of iterations (%s) reached."
+            )(iteration_number, round(l2_norm, 2), max_iterations)
         )
 
         end = True
@@ -732,7 +735,6 @@ def geo_inversion(
     solver_type: str = "scipy least squares",
     solver_damping: float | None = None,
     solver_weights: np.array | None = None,
-    max_layer_change_per_iter: float | None = None,
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
     weights_after_solving=False,
@@ -774,8 +776,6 @@ def geo_inversion(
     solver_damping : float, optional
         _description_, by default None
     solver_weights : np.array, optional
-        _description_, by default None
-    max_layer_change_per_iter : float, optional
         _description_, by default None
     upper_confining_layer : xr.DataArray, optional
         _description_, by default None
@@ -869,7 +869,7 @@ def geo_inversion(
 
         # print correction values
         logging.info(
-            ("Layer correction median: {} m, RMSE:{} m").format(
+            ("Layer correction median: %s m, RMSE:%s m")(
                 round(np.median(surface_correction), 4),
                 round(utils.rmse(surface_correction), 4),
             )
