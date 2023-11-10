@@ -736,18 +736,19 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
         expected_misfit, 0.01
     )
 
-@pytest.mark.use_numba1()
+
+@pytest.mark.use_numba()
 def test_geo_inversion_returns():
     """
     Test the inversions returned values.
     """
     gravity_df = dummy_misfit_df(regional=False)
-    prisms_ds=dummy_prism_layer()
+    prisms_ds = dummy_prism_layer()
     results = inversion.geo_inversion(
-        input_grav = gravity_df,
-        input_grav_column = "observed_grav",
-        prism_layer = prisms_ds,
-        max_iterations = 3,
+        input_grav=gravity_df,
+        input_grav_column="observed_grav",
+        prism_layer=prisms_ds,
+        max_iterations=3,
     )
     # prisms_df, gravity, params, elapsed_time = results
     # print(prisms_df)

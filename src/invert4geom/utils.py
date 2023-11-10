@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 
 # import itertools
 # import os
@@ -10,7 +11,6 @@ import copy
 # import sys
 # from getpass import getpass
 import warnings
-import logging
 
 import harmonica as hm
 import numpy as np
@@ -43,7 +43,7 @@ def rmse(data: np.array, as_median: bool = False) -> float:
     data : np.array
         input data
     as_median : bool, optional
-        choose to give root median squared erro instead, by default False
+        choose to give root median squared error instead, by default False
 
     Returns
     -------
@@ -238,26 +238,32 @@ def filter_grid(
 def dist_nearest_points(
     targets: pd.DataFrame,
     data: pd.DataFrame | xr.DataArray | xr.Dataset,
-    coord_names: list = ["easting", "northing"],
-):
+    coord_names: list | None = None,
+) -> pd.DataFrame | xr.DataArray | xr.Dataset:
     """
     for all gridcells calculate to the distance to the nearest target.
     """
 
+    if coord_names is None:
+        coord_names = ["easting", "northing"]
     df_targets = targets[[coord_names[0], coord_names[1]]].copy()
 
     if isinstance(data, pd.DataFrame):
         df_data = data[coord_names].copy()
     elif isinstance(data, xr.DataArray):
         df_grid = vd.grid_to_table(data).dropna()
-        df_data = df_grid[[coord_names[0], coord_names[1]]].copy()  # pylint: disable=unsubscriptable-object
+        df_data = df_grid[
+            [coord_names[0], coord_names[1]]
+        ].copy()  # pylint: disable=unsubscriptable-object
     elif isinstance(data, xr.Dataset):
         try:
             df_grid = vd.grid_to_table(data[next(iter(data.variables))]).dropna()
             # df_grid = vd.grid_to_table(data[list(data.variables)[0]]).dropna()
         except IndexError:
             df_grid = vd.grid_to_table(data).dropna()
-        df_data = df_grid[[coord_names[0], coord_names[1]]].copy()  # pylint: disable=unsubscriptable-object
+        df_data = df_grid[
+            [coord_names[0], coord_names[1]]
+        ].copy()  # pylint: disable=unsubscriptable-object
 
     min_dist, _ = KDTree(df_targets.values).query(df_data.values, 1)
 
@@ -265,7 +271,7 @@ def dist_nearest_points(
 
     if isinstance(data, pd.DataFrame):
         return df_data
-    if isinstance(data, (xr.DataArray, xr.Dataset)):
+    elif isinstance(data, (xr.DataArray, xr.Dataset)):
         return df_data.set_index([coord_names[0], coord_names[1]][::-1]).to_xarray()
     return None
 
@@ -401,13 +407,15 @@ def sample_grids(
     # reset index name to be same as originals
     df4.index.name = df1.index.name
 
-    # check that dataframe is identical to orignal except for new column
+    # check that dataframe is identical to original except for new column
     pd.testing.assert_frame_equal(df4.drop(columns=name), df1)
 
     return df4
 
 
-def extract_prism_data(prism_layer: xr.Dataset) -> tuple:
+def extract_prism_data(
+    prism_layer: xr.Dataset,
+) -> tuple[pd.DataFrame, xr.Dataset, float, float, float, xr.DataArray,]:
     """
     extract necessary info from starting prism layer, adds variables 'topo' and
     'starting_topo' to prism layer dataset (prisms_ds), converts it into dataframe
@@ -476,16 +484,14 @@ def get_spacing(prisms_df: pd.DataFrame) -> float:
     float
         spacing of prisms
     """
-    return abs(
-        prisms_df.northing.unique()[1] - prisms_df.northing.unique()[0]
-    )
+    return abs(prisms_df.northing.unique()[1] - prisms_df.northing.unique()[0])
 
 
 def sample_bounding_surfaces(
     prisms_df: pd.DataFrame,
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
-) -> pd.DataFrame :
+) -> pd.DataFrame:
     """
     sample upper and/or lower confining layers into prisms dataframe
 
@@ -558,10 +564,10 @@ def enforce_confining_surface(
         for i, j in enumerate(df[f"iter_{iteration_number}_correction"]):
             if j > df.max_change_above[i]:
                 number_enforced += 1
-                df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_above[i]
-        logging.info(
-            "enforced upper confining surface at %s prisms", number_enforced
-            )
+                df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_above[
+                    i
+                ]
+        logging.info("enforced upper confining surface at %s prisms", number_enforced)
     if "lower_bounds" in df:
         # get max downward change allowed for each prism
         # negative values indicate max allowed downward change
@@ -571,20 +577,20 @@ def enforce_confining_surface(
         for i, j in enumerate(df[f"iter_{iteration_number}_correction"]):
             if j < df.max_change_below[i]:
                 number_enforced += 1
-                df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_below[i]
-        logging.info(
-            "enforced lower confining surface at %s prisms", number_enforced
-            )
+                df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_below[
+                    i
+                ]
+        logging.info("enforced lower confining surface at %s prisms", number_enforced)
 
-    # check that when constrainted correction is added to topo it doesn't intersect
+    # check that when constrained correction is added to topo it doesn't intersect
     # either bounding layer
     updated_topo = df[f"iter_{iteration_number}_correction"] + df.topo
     if "upper_bounds" in df:
-        if np.any((df.upper_bounds - updated_topo)<0):
+        if np.any((df.upper_bounds - updated_topo) < 0):
             msg = "Constraining didn't work and updated topography intersects upper constraining surface"
             raise ValueError(msg)
     if "lower_bounds" in df:
-        if np.any((updated_topo - df.lower_bounds)<0):
+        if np.any((updated_topo - df.lower_bounds) < 0):
             msg = "Constraining didn't work and updated topography intersects lower constraining surface"
             raise ValueError(msg)
     return df

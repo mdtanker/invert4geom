@@ -12,7 +12,7 @@ import xarray.testing as xrt
 
 from invert4geom import utils
 
-pd.set_option('display.max_columns', None)
+pd.set_option("display.max_columns", None)
 ################
 ################
 # DUMMY FUNCTIONS
@@ -42,18 +42,19 @@ def dummy_prism_layer():
     """
     (easting, northing) = vd.grid_coordinates(region=[-200, 200, 100, 500], spacing=200)
     data = [[0, 0, 0], [-30, -30, -30], [30, 30, 30]]
-    surface = vd.make_xarray_grid((easting, northing), data, data_names="surface").surface
+    surface = vd.make_xarray_grid(
+        (easting, northing), data, data_names="surface"
+    ).surface
     dens = 2670
     reference = 0
-    density = xr.where(
-        surface >= reference, dens, -dens
-    )
+    density = xr.where(surface >= reference, dens, -dens)
     return hm.prism_layer(
         coordinates=(easting[0, :], northing[:, 0]),
         surface=surface,
         reference=reference,
         properties={"density": density},
     )
+
 
 def dummy_prism_layer_flat_bottom():
     """
@@ -83,6 +84,7 @@ def dummy_prism_layer_flat():
         reference=-100,
         properties={"density": density},
     )
+
 
 ################
 ################
@@ -126,7 +128,7 @@ def test_rmedianse():
 def test_nearest_grid_fill(test_input):
     # make a grid with a hole in it
     grid = dummy_grid().scalars
-    grid.loc[dict(easting=100, northing=200)] = np.nan
+    grid.loc[{"easting": 100, "northing": 200}] = np.nan
     # check the grid has a hole
     assert grid.isnull().any()
     # fill the hole
@@ -135,11 +137,11 @@ def test_nearest_grid_fill(test_input):
     assert not filled.isnull().any()
     # check fill value is equal to one of the adjacent cells
     expected = [
-        filled.loc[dict(easting=0, northing=200)],
-        filled.loc[dict(easting=200, northing=200)],
-        filled.loc[dict(easting=100, northing=300)],
+        filled.loc[{"easting": 0, "northing": 200}],
+        filled.loc[{"easting": 200, "northing": 200}],
+        filled.loc[{"easting": 100, "northing": 300}],
     ]
-    assert filled.loc[dict(easting=100, northing=200)] in expected
+    assert filled.loc[{"easting": 100, "northing": 200}] in expected
 
 
 @pytest.mark.parametrize(
@@ -161,7 +163,7 @@ def test_filter_grid(test_input):
     grid = dummy_grid().scalars
     # filter the grid
     filtered = utils.filter_grid(grid, 10000, filt_type=test_input)
-    # check the filtered grid is not identical to the orginal grid
+    # check the filtered grid is not identical to the original grid
     with pytest.raises(AssertionError):
         xrt.assert_identical(grid, filtered)
     # set all grid values to 0, and check grids are identical to check metadata is
@@ -189,7 +191,7 @@ def test_filter_grid_nans():
     # create some dummy data
     grid = dummy_grid().scalars
     # add a nan to the grid
-    grid.loc[dict(easting=100, northing=200)] = np.nan
+    grid.loc[{"easting": 100, "northing": 200}] = np.nan
     # check the grid has a hole
     assert grid.isnull().any()
     # filter the grid
@@ -275,9 +277,7 @@ def test_normalize_xarray_values():
     da = xr.DataArray(data, dims="x")
     da_normalized = utils.normalize_xarray(da, low=0, high=1)
     expected_values = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
-    npt.assert_array_almost_equal(
-        da_normalized.values, expected_values, decimal=6
-    )
+    npt.assert_array_almost_equal(da_normalized.values, expected_values, decimal=6)
 
 
 def test_normalize_xarray_negative_values():
@@ -288,9 +288,7 @@ def test_normalize_xarray_negative_values():
     da = xr.DataArray(data, dims="x")
     da_normalized = utils.normalize_xarray(da, low=0, high=1)
     expected_values = np.array([0.0, 0.5, 1.0])
-    npt.assert_array_almost_equal(
-        da_normalized.values, expected_values, decimal=6
-    )
+    npt.assert_array_almost_equal(da_normalized.values, expected_values, decimal=6)
 
 
 def test_normalize_xarray_custom_range():
@@ -301,9 +299,7 @@ def test_normalize_xarray_custom_range():
     da = xr.DataArray(data, dims="x")
     da_normalized = utils.normalize_xarray(da, low=-1, high=1)
     expected_values = np.array([-1.0, 0.0, 1.0])
-    npt.assert_array_almost_equal(
-        da_normalized.values, expected_values, decimal=6
-    )
+    npt.assert_array_almost_equal(da_normalized.values, expected_values, decimal=6)
 
 
 def test_normalized_mindist_defaults():
@@ -513,9 +509,7 @@ def test_extract_prism_data():
     assert density_contrast == 2670
     assert zref == 0
     assert spacing == 200
-    expected = np.array([[  0.,   0.,   0.],
-       [-30., -30., -30.],
-       [ 30.,  30.,  30.]])
+    expected = np.array([[0.0, 0.0, 0.0], [-30.0, -30.0, -30.0], [30.0, 30.0, 30.0]])
     npt.assert_array_equal(expected, topo_grid)
     npt.assert_array_equal(expected, prisms_ds.starting_topo)
 
@@ -526,7 +520,7 @@ def test_get_spacing():
     harmonica prism layer.
     """
     prisms_df = dummy_prism_layer().to_dataframe().reset_index().dropna().astype(float)
-    assert utils.get_spacing(prisms_df)==200
+    assert utils.get_spacing(prisms_df) == 200
 
 
 def test_sample_bounding_surfaces_valid_values():
@@ -605,7 +599,7 @@ def test_enforce_confining_surface_none():
     topo_grid = xr.where(prisms_ds.density > 0, prisms_ds.top, prisms_ds.bottom)
     prisms_ds["topo"] = topo_grid
     prisms_df = prisms_ds.to_dataframe().reset_index().dropna().astype(float)
-    prisms_df['iter_3_correction'] = [20.0] * 9
+    prisms_df["iter_3_correction"] = [20.0] * 9
     enforced = utils.enforce_confining_surface(prisms_df, iteration_number=3)
     pdt.assert_frame_equal(prisms_df, enforced)
 
@@ -618,21 +612,19 @@ def test_enforce_confining_surface_upper():
     topo_grid = xr.where(prisms_ds.density > 0, prisms_ds.top, prisms_ds.bottom)
     prisms_ds["topo"] = topo_grid
     prisms_df = prisms_ds.to_dataframe().reset_index().dropna().astype(float)
-    prisms_df['upper_bounds'] = [40.0] * 9
-    prisms_df['iter_3_correction'] = [20.0] * 9
-    prisms_df['initial_correction'] = prisms_df.iter_3_correction
+    prisms_df["upper_bounds"] = [40.0] * 9
+    prisms_df["iter_3_correction"] = [20.0] * 9
+    prisms_df["initial_correction"] = prisms_df.iter_3_correction
     enforced = utils.enforce_confining_surface(prisms_df, iteration_number=3)
     # print(enforced)
     # check max change above is correct
     expected = pd.Series(
-        [40.0,40.0,40.0, 70.0,70.0,70.0, 10.0,10.0,10.0],
-        name='max_change_above'
+        [40.0, 40.0, 40.0, 70.0, 70.0, 70.0, 10.0, 10.0, 10.0], name="max_change_above"
     )
     pdt.assert_series_equal(expected, enforced.max_change_above)
     # check that constrained correction values are correct
     expected = pd.Series(
-        [20.0,20.0,20.0, 20.0,20.0,20.0, 10.0,10.0,10.0],
-        name='iter_3_correction'
+        [20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 10.0, 10.0, 10.0], name="iter_3_correction"
     )
     pdt.assert_series_equal(expected, enforced.iter_3_correction)
 
@@ -645,21 +637,20 @@ def test_enforce_confining_surface_upper_crosses():
     topo_grid = xr.where(prisms_ds.density > 0, prisms_ds.top, prisms_ds.bottom)
     prisms_ds["topo"] = topo_grid
     prisms_df = prisms_ds.to_dataframe().reset_index().dropna().astype(float)
-    prisms_df['upper_bounds'] = [0.0] * 9
-    prisms_df['iter_3_correction'] = [40.0, 0.0, -40.0] * 3
-    prisms_df['initial_correction'] = prisms_df.iter_3_correction
+    prisms_df["upper_bounds"] = [0.0] * 9
+    prisms_df["iter_3_correction"] = [40.0, 0.0, -40.0] * 3
+    prisms_df["initial_correction"] = prisms_df.iter_3_correction
     enforced = utils.enforce_confining_surface(prisms_df, iteration_number=3)
     # print(enforced)
     # check max change above is correct
     expected = pd.Series(
-        [0.0,0.0,0.0, 30.0,30.0,30.0, -30.0,-30.0,-30.0],
-        name='max_change_above'
+        [0.0, 0.0, 0.0, 30.0, 30.0, 30.0, -30.0, -30.0, -30.0], name="max_change_above"
     )
     pdt.assert_series_equal(expected, enforced.max_change_above)
     # check that constrained correction values are correct
     expected = pd.Series(
-        [0.0,0.0,-40.0, 30.0,0.0,-40.0, -30.0,-30.0,-40.0],
-        name='iter_3_correction'
+        [0.0, 0.0, -40.0, 30.0, 0.0, -40.0, -30.0, -30.0, -40.0],
+        name="iter_3_correction",
     )
     pdt.assert_series_equal(expected, enforced.iter_3_correction)
 
@@ -672,21 +663,21 @@ def test_enforce_confining_surface_lower():
     topo_grid = xr.where(prisms_ds.density > 0, prisms_ds.top, prisms_ds.bottom)
     prisms_ds["topo"] = topo_grid
     prisms_df = prisms_ds.to_dataframe().reset_index().dropna().astype(float)
-    prisms_df['lower_bounds'] = [-40.0] * 9
-    prisms_df['iter_3_correction'] = [-20.0] * 9
-    prisms_df['initial_correction'] = prisms_df.iter_3_correction
+    prisms_df["lower_bounds"] = [-40.0] * 9
+    prisms_df["iter_3_correction"] = [-20.0] * 9
+    prisms_df["initial_correction"] = prisms_df.iter_3_correction
     enforced = utils.enforce_confining_surface(prisms_df, iteration_number=3)
     # print(enforced)
     # check max change below is correct
     expected = pd.Series(
-        [-40.0,-40.0,-40.0, -10.0,-10.0,-10.0, -70.0,-70.0,-70.0],
-        name='max_change_below'
+        [-40.0, -40.0, -40.0, -10.0, -10.0, -10.0, -70.0, -70.0, -70.0],
+        name="max_change_below",
     )
     pdt.assert_series_equal(expected, enforced.max_change_below)
     # check that constrained correction values are correct
     expected = pd.Series(
-        [-20.0,-20.0,-20.0, -10.0,-10.0,-10.0, -20.0,-20.0,-20.0],
-        name='iter_3_correction'
+        [-20.0, -20.0, -20.0, -10.0, -10.0, -10.0, -20.0, -20.0, -20.0],
+        name="iter_3_correction",
     )
     pdt.assert_series_equal(expected, enforced.iter_3_correction)
 
@@ -699,21 +690,19 @@ def test_enforce_confining_surface_lower_crosses():
     topo_grid = xr.where(prisms_ds.density > 0, prisms_ds.top, prisms_ds.bottom)
     prisms_ds["topo"] = topo_grid
     prisms_df = prisms_ds.to_dataframe().reset_index().dropna().astype(float)
-    prisms_df['lower_bounds'] = [0.0] * 9
-    prisms_df['iter_3_correction'] = [40.0, 0.0, -40.0] * 3
-    prisms_df['initial_correction'] = prisms_df.iter_3_correction
+    prisms_df["lower_bounds"] = [0.0] * 9
+    prisms_df["iter_3_correction"] = [40.0, 0.0, -40.0] * 3
+    prisms_df["initial_correction"] = prisms_df.iter_3_correction
     enforced = utils.enforce_confining_surface(prisms_df, iteration_number=3)
     # print(enforced)
     # check max change below is correct
     expected = pd.Series(
-        [0.0,0.0,0.0, 30.0,30.0,30.0, -30.0,-30.0,-30.0],
-        name='max_change_below'
+        [0.0, 0.0, 0.0, 30.0, 30.0, 30.0, -30.0, -30.0, -30.0], name="max_change_below"
     )
     pdt.assert_series_equal(expected, enforced.max_change_below)
     # check that constrained correction values are correct
     expected = pd.Series(
-        [40.0,0.0,0.0, 40.0,30.0,30.0, 40.0,0.0,-30.0],
-        name='iter_3_correction'
+        [40.0, 0.0, 0.0, 40.0, 30.0, 30.0, 40.0, 0.0, -30.0], name="iter_3_correction"
     )
     pdt.assert_series_equal(expected, enforced.iter_3_correction)
 
@@ -726,42 +715,30 @@ def test_enforce_confining_surface_both():
     topo_grid = xr.where(prisms_ds.density > 0, prisms_ds.top, prisms_ds.bottom)
     prisms_ds["topo"] = topo_grid
     prisms_df = prisms_ds.to_dataframe().reset_index().dropna().astype(float)
-    prisms_df['lower_bounds'] = [-20.0] * 9
-    prisms_df['upper_bounds'] = [20.0] * 9
-    prisms_df['iter_3_correction'] = [40.0, 0.0, -40.0] * 3
-    prisms_df['initial_correction'] = prisms_df.iter_3_correction
+    prisms_df["lower_bounds"] = [-20.0] * 9
+    prisms_df["upper_bounds"] = [20.0] * 9
+    prisms_df["iter_3_correction"] = [40.0, 0.0, -40.0] * 3
+    prisms_df["initial_correction"] = prisms_df.iter_3_correction
     enforced = utils.enforce_confining_surface(prisms_df, iteration_number=3)
     print(enforced)
     # check max change below is correct
     expected = pd.Series(
-        [-20.0,-20.0,-20.0, 10.0,10.0,10.0, -50.0,-50.0,-50.0],
-        name='max_change_below'
+        [-20.0, -20.0, -20.0, 10.0, 10.0, 10.0, -50.0, -50.0, -50.0],
+        name="max_change_below",
     )
     pdt.assert_series_equal(expected, enforced.max_change_below)
     # check max change above is correct
     expected = pd.Series(
-        [20.0,20.0,20.0, 50.0,50.0,50.0, -10.0,-10.0,-10.0],
-        name='max_change_above'
+        [20.0, 20.0, 20.0, 50.0, 50.0, 50.0, -10.0, -10.0, -10.0],
+        name="max_change_above",
     )
     pdt.assert_series_equal(expected, enforced.max_change_above)
     # check that constrained correction values are correct
     expected = pd.Series(
-        [20.0,0.0,-20.0, 40.0,10.0,10.0, -10.0,-10.0,-40.0],
-        name='iter_3_correction'
+        [20.0, 0.0, -20.0, 40.0, 10.0, 10.0, -10.0, -10.0, -40.0],
+        name="iter_3_correction",
     )
     pdt.assert_series_equal(expected, enforced.iter_3_correction)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def test_apply_surface_correction():

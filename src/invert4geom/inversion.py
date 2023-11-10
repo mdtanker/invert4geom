@@ -203,13 +203,13 @@ def prism_properties(
 
 @numba.jit(forceobj=True, parallel=True)
 def jacobian_prism(
-    prisms_properties,
-    grav_easting,
-    grav_northing,
-    grav_upward,
+    prisms_properties: np.ndarray,
+    grav_easting: np.ndarray,
+    grav_northing: np.ndarray,
+    grav_upward: np.ndarray,
     delta: float,
     jac: np.ndarray,
-):
+) -> np.ndarray:
     """
     Function to calculate the Jacobian matrix with the vertical gravity derivative
     as a numerical approximation with small prisms
@@ -222,7 +222,7 @@ def jacobian_prism(
         returns a np.ndarray of shape (number of gravity points, number of prisms)
 
     """
-    # Build a small prism ontop of existing prism (thickness equal to delta)
+    # Build a small prism on top of existing prism (thickness equal to delta)
     for i in numba.prange(len(prisms_properties)):  # pylint: disable=not-an-iterable
         prism = prisms_properties[i]
         density = prism[6]
@@ -251,7 +251,7 @@ def jacobian(
     prisms_layer: xr.Dataset = None,
     prism_spacing: float | None = None,
     prism_size: float | None = None,
-    prisms_properties_method="itertools",
+    prisms_properties_method: str = "itertools",
 ) -> np.ndarray:
     """
     dispatcher for creating the jacobian matrix with 2 method options
@@ -357,9 +357,9 @@ def solver(
     weights: np.array = None,
     damping: float | None = None,
     solver_type: str = "scipy least squares",
-    bounds=None,
-    surface=None,
-):
+    # bounds =None,
+    # surface=None,
+) -> np.ndarray:
     """
     Calculate shift to add to prism's for each iteration of the inversion. Finds
     the least-squares solution to the Jacobian and the gravity residual
@@ -387,8 +387,8 @@ def solver(
 
     Returns
     -------
-    np.array
-        array of corrrection values to apply to each prism.
+    np.ndarray
+        array of correction values to apply to each prism.
     """
 
     if solver_type == "scipy least squares":
@@ -404,7 +404,7 @@ def solver(
             damp=damping,  # float, typically 0-1
             # atol= ,
             # btol=1e-4, # if 1e-6, residuals should be accurate to ~6 digits
-            iter_lim=5000,  # limit of iterations, just incase of issues
+            iter_lim=5000,  # limit of iterations, just in case of issues
         )
         # print(f"number of solver iters:{results[2]}")
         step = results[0]
@@ -528,7 +528,7 @@ def solver(
 def update_l2_norms(
     rmse: float,
     l2_norm: float,
-):
+) -> tuple[float, float]:
     """update the l2 norm and delta l2 norm of the misfit"""
     # square-root of RMSE is the l-2 norm
     updated_l2_norm = np.sqrt(rmse)
@@ -565,7 +565,7 @@ def end_inversion(
     previous_delta_l2_norm: float,
     delta_l2_norm_tolerance: float,
     perc_increase_limit: float = 0.20,
-) -> tuple:
+) -> tuple[bool, list]:
     """
     check if the inversion should be terminated
 
@@ -606,12 +606,18 @@ def end_inversion(
         pass
     else:
         if l2_norm > starting_l2_norm * (1 + perc_increase_limit):
-            logging.info((
-                "\nInversion terminated after %s iterations because "
-                "L2 norm (%s) \nwas over %s%% greater"
-                "than starting L2 norm (%s)"
-                "\nChange parameter 'perc_increase_limit' if desired."
-                ) % (iteration_number, l2_norm, perc_increase_limit*100, starting_l2_norm)
+            logging.info(
+                (
+                    "\nInversion terminated after {} iterations because "
+                    "L2 norm ({}) \nwas over {}% greater"
+                    "than starting L2 norm ({})"
+                    "\nChange parameter 'perc_increase_limit' if desired."
+                ).format(
+                    iteration_number,
+                    l2_norm,
+                    perc_increase_limit * 100,
+                    starting_l2_norm,
+                )
             )
             end = True
             termination_reason.append("l2-norm increasing")
@@ -619,33 +625,37 @@ def end_inversion(
         if (delta_l2_norm <= delta_l2_norm_tolerance) & (
             previous_delta_l2_norm <= delta_l2_norm_tolerance
         ):
-            logging.info((
-                "\nInversion terminated after %s iterations because "
-                "there was no significant variation in the L2-norm over 2 iterations"
-                "\nChange parameter 'delta_l2_norm_tolerance' if desired."
-                ) % (iteration_number)
+            logging.info(
+                (
+                    "\nInversion terminated after %s iterations because "
+                    "there was no significant variation in the L2-norm over 2 iterations"
+                    "\nChange parameter 'delta_l2_norm_tolerance' if desired."
+                )
+                % (iteration_number)
             )
 
             end = True
             termination_reason.append("delta l2-norm tolerance")
 
         if l2_norm < l2_norm_tolerance:
-            logging.info((
-                "\nInversion terminated after %s iterations because "
-                "L2-norm (%s) was less then set tolerance: %s"
-                "\nChange parameter 'delta_l2_norm_tolerance' if desired."
-                ) % (iteration_number, l2_norm, l2_norm_tolerance)
+            logging.info(
+                (
+                    "\nInversion terminated after {} iterations because "
+                    "L2-norm ({}) was less then set tolerance: {}"
+                    "\nChange parameter 'delta_l2_norm_tolerance' if desired."
+                ).format(iteration_number, l2_norm, l2_norm_tolerance)
             )
 
             end = True
             termination_reason.append("l2-norm tolerance")
 
     if iteration_number >= max_iterations:
-        logging.info((
-                "\nInversion terminated after %s iterations with L2-norm"
-                "=%s because maximum number of iterations (%s) reached."
-                ) % (iteration_number, round(l2_norm, 2), max_iterations)
-            )
+        logging.info(
+            (
+                "\nInversion terminated after {} iterations with L2-norm"
+                "={} because maximum number of iterations ({}) reached."
+            ).format(iteration_number, round(l2_norm, 2), max_iterations)
+        )
 
         end = True
         termination_reason.append("max iterations")
@@ -662,7 +672,7 @@ def update_gravity_and_misfit(
     """
     calculate the forward gravity of the supplied prism layer, add the results to a
     new dataframe column, and update the residual misfit. The supplied gravity dataframe
-     needs a 'reg' column, which describes the regional componet and can be 0.
+     needs a 'reg' column, which describes the regional component and can be 0.
 
     Parameters
     ----------
@@ -726,7 +736,7 @@ def geo_inversion(
     lower_confining_layer: xr.DataArray | None = None,
     weights_after_solving=False,
     # plot_convergence=False,
-):
+) -> tuple[pd.DataFrame, pd.DataFrame, dict, int]:
     """
     perform a geometry inversion, where the topography is updated to minimize the
     residual misfit between the forward gravity of the layer, and the observed gravity.
@@ -786,12 +796,14 @@ def geo_inversion(
     gravity = copy.deepcopy(input_grav)
 
     # extract variables from starting prism layer
-    (prisms_df,
-    prisms_ds,
-    density_contrast,
-    zref,
-    prism_spacing,
-    topo_grid) = utils.extract_prism_data(prism_layer)
+    (
+        prisms_df,
+        prisms_ds,
+        density_contrast,
+        zref,
+        prism_spacing,
+        topo_grid,
+    ) = utils.extract_prism_data(prism_layer)
 
     # create empty jacobian matrix
     empty_jac = np.empty(
@@ -814,9 +826,7 @@ def geo_inversion(
     iter_times = []
 
     for iter, _ in enumerate(range(max_iterations), start=1):
-        logging.info(
-        '\n #################################### \n iteration %s', iter
-        )
+        logging.info("\n #################################### \n iteration %s", iter)
         # start iteration timer
         iter_time_start = time.perf_counter()
 
@@ -857,10 +867,11 @@ def geo_inversion(
         )
 
         # print correction values
-        logging.info((
-            "Layer correction median: %s m, RMSE:%s m"
-            ) % (round(np.median(surface_correction),4),
-            round(utils.rmse(surface_correction),4))
+        logging.info(
+            ("Layer correction median: {} m, RMSE:{} m").format(
+                round(np.median(surface_correction), 4),
+                round(utils.rmse(surface_correction), 4),
+            )
         )
 
         # add corrections to prisms_df
@@ -901,9 +912,7 @@ def geo_inversion(
 
         # update the misfit RMSE
         updated_rmse = utils.rmse(gravity[f"iter_{iter}_final_misfit"])
-        logging.info(
-            "updated misfit RMSE: %s", round(updated_rmse, 4)
-            )
+        logging.info("updated misfit RMSE: %s", round(updated_rmse, 4))
         final_rmse = updated_rmse
 
         # update the l2 and delta l2 norms
@@ -915,7 +924,8 @@ def geo_inversion(
         )
         logging.info(
             "updated delta L2-norm : %s, tolerance: %s",
-            round(delta_l2_norm, 4), delta_l2_norm_tolerance
+            round(delta_l2_norm, 4),
+            delta_l2_norm_tolerance,
         )
 
         # end iteration timer
