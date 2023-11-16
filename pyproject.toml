@@ -75,7 +75,9 @@ log_cli_level = "INFO"
 testpaths = [
   "tests",
 ]
-
+markers = [
+    "use_numba: mark test functions that call Numba jitted functions",
+]
 
 [tool.coverage]
 run.source = ["invert4geom"]

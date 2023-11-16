@@ -43,7 +43,22 @@ def tests(session: nox.Session) -> None:
     Run the unit and regular tests.
     """
     session.install(".[test]")
-    session.run("pytest", *session.posargs)
+
+    # run tests with numba jit disabled to get real coverage
+    session.run(
+        "pytest",
+        *session.posargs,
+        env={"NUMBA_DISABLE_JIT": "1"},
+    )
+
+    # run just the numba tests with numba jit enabled
+    session.run(
+        "pytest",
+        "-m",
+        "use_numba",
+        *session.posargs,
+        env={"NUMBA_DISABLE_JIT": "0"},
+    )
 
 
 @nox.session(reuse_venv=True)

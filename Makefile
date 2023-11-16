@@ -19,7 +19,7 @@ test_coverage:
 	NUMBA_DISABLE_JIT=1 pytest
 
 test_numba:
-	NUMBA_DISABLE_JIT=0 pytest -rP -m use_numba1
+	NUMBA_DISABLE_JIT=0 pytest -rP -m use_numba
 
 format:
 	ruff format $(STYLE_CHECK_FILES)

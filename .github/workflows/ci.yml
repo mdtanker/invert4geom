@@ -13,6 +13,7 @@ concurrency:
 
 env:
   FORCE_COLOR: 3
+  NUMBA_DISABLE_JIT: "1"
 
 jobs:
   pre-commit:
