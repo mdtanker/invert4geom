@@ -26,3 +26,6 @@ format:
 
 check:
 	ruff check --fix $(STYLE_CHECK_FILES)
+
+lint:
+	pre-commit run --all-files
