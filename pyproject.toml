@@ -78,10 +78,19 @@ write_to = "src/invert4geom/_version.py"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+addopts = [
+  "-rA",
+  "--showlocals",
+  "--strict-markers",
+  "--strict-config",
+  "--cov", "--cov-report", "term-missing",
+  ]
 xfail_strict = true
 filterwarnings = [
   "error",
+  "ignore::DeprecationWarning",
+  "ignore::PendingDeprecationWarning",
+  "ignore::FutureWarning",
 ]
 log_cli_level = "INFO"
 testpaths = [
