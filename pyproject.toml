@@ -28,7 +28,27 @@ classifiers = [
   "Typing :: Typed",
 ]
 dynamic = ["version"]
-dependencies = []
+
+dependencies = [
+  "numpy",
+  "pandas",
+  "xarray",
+  "verde>=1.8.0",
+  "rioxarray",
+  "pykdtree",
+  "xrft",
+  "harmonica>=0.6.0",
+  "antarctic_plots",
+  "numba",
+  "scipy",
+  "nptyping",
+
+#  "pygmt>=0.9.0",
+#  "geopandas",
+#  "tqdm",
+#  "boule",
+#  "numba-progress",
+]
 
 [project.optional-dependencies]
 test = [
