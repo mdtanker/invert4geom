@@ -73,15 +73,8 @@ Homepage = "https://github.com/mdtanker/invert4geom"
 Discussions = "https://github.com/mdtanker/invert4geom/discussions"
 Changelog = "https://github.com/mdtanker/invert4geom/releases"
 
-
-[tool.hatch]
-version.source = "vcs"
-build.hooks.vcs.version-file = "src/invert4geom/_version.py"
-envs.default.dependencies = [
-  "pytest",
-  "pytest-cov",
-]
-
+[tool.setuptools_scm]
+write_to = "src/invert4geom/_version.py"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
