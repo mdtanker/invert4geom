@@ -37,11 +37,12 @@ def pylint(session: nox.Session) -> None:
     session.run("pylint", "invert4geom", *session.posargs)
 
 
-@nox.session
+@nox.session(venv_backend="mamba", python="3.11")
 def tests(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
     """
+    session.conda_install("antarctic-plots")
     session.install(".[test]")
 
     # run tests with numba jit disabled to get real coverage
