@@ -8,7 +8,6 @@ authors = [
   { name = "Matt Tankersley", email = "matt.d.tankersley@gmail.com" },
 ]
 description = "Constrained gravity inversion to recover the geometry of a density contrast."
-readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
   "Development Status :: 1 - Planning",
@@ -27,6 +26,7 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
+readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
@@ -58,7 +58,9 @@ test = [
 dev = [
   "pytest >=6",
   "pytest-cov >=3",
+  "ruff",
 ]
+
 docs = [
   "sphinx>=7.0",
   "myst_parser>=0.13",
@@ -154,14 +156,22 @@ select = [
 ]
 extend-ignore = [
   "PLR",    # Design related pylint codes
-  "E501",   # Line too long
+  "G004",   # Logging with f-strings
+  "PD901",  # Bad variable name warning
+  "PD003", # Changes .isna to .isnull
+  "PD004", # Changes .notna to .notnull
+  "PD011", # Changes .values() to .to_numpy()
 ]
 src = ["src"]
 unfixable = [
   "T20",  # Removes print statements
   "F841", # Removes unused variables
+  "PD003", # Changes .isna to .isnull
+  "PD004", # Changes .notna to .notnull
+  "PD011", # Changes .values() to .to_numpy()
 ]
 exclude = []
+line-length = 88 # Set the maximum line length to 88.
 flake8-unused-arguments.ignore-variadic-names = true
 isort.required-imports = ["from __future__ import annotations"]
 # Uncomment if using a _compat.typing backport
