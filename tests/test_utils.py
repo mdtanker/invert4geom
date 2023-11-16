@@ -20,7 +20,7 @@ pd.set_option("display.max_columns", None)
 ################
 
 
-def dummy_grid():
+def dummy_grid() -> xr.Dataset:
     (x, y, z) = vd.grid_coordinates(
         region=[000, 200, 200, 400],
         spacing=100,
@@ -36,7 +36,7 @@ def dummy_grid():
     )
 
 
-def dummy_prism_layer():
+def dummy_prism_layer() -> xr.Dataset:
     """
     Create a dummy prism layer
     """
@@ -56,7 +56,7 @@ def dummy_prism_layer():
     )
 
 
-def dummy_prism_layer_flat_bottom():
+def dummy_prism_layer_flat_bottom() -> xr.Dataset:
     """
     Create a dummy prism layer
     """
@@ -71,7 +71,7 @@ def dummy_prism_layer_flat_bottom():
     )
 
 
-def dummy_prism_layer_flat():
+def dummy_prism_layer_flat() -> xr.Dataset:
     """
     Create a dummy prism layer
     """
@@ -232,19 +232,19 @@ def test_dist_nearest_points():
     dist_df = utils.dist_nearest_points(
         targets,
         df,
-        coord_names=["easting", "northing"],
+        coord_names=("easting", "northing"),
     )
     # calculate the distance with a da
     dist_da = utils.dist_nearest_points(
         targets,
         da,
-        coord_names=["easting", "northing"],
+        coord_names=("easting", "northing"),
     )
     # calculate the distance with a ds
     dist_ds = utils.dist_nearest_points(
         targets,
         ds,
-        coord_names=["easting", "northing"],
+        coord_names=("easting", "northing"),
     )
     # print(dist_df)
     da_results = np.array(vd.grid_to_table(dist_da).min_dist)
@@ -412,7 +412,7 @@ def test_sample_grids_on_nodes():
     grid = dummy_grid().scalars
     name = "sampled_data"
     df = pd.DataFrame({"x": [0, 100, 200], "y": [200, 300, 400]})
-    result_df = utils.sample_grids(df, grid, name=name)
+    result_df = utils.sample_grids(df, grid, sampled_name=name)
     expected = pd.DataFrame(
         {"x": [0, 100, 200], "y": [200, 300, 400], name: [40000, 100000, 200000]}
     )
@@ -426,7 +426,7 @@ def test_sample_grids_off_nodes():
     grid = dummy_grid().scalars
     name = "sampled_data"
     df = pd.DataFrame({"x": [50, 101], "y": [280, 355]})
-    result_df = utils.sample_grids(df, grid, name=name)
+    result_df = utils.sample_grids(df, grid, sampled_name=name)
     expected = pd.DataFrame(
         {"x": [50, 101], "y": [280, 355], name: [83790.0, 138949.640109]}
     )
@@ -442,9 +442,11 @@ def test_sample_grids_custom_coordinate_names():
     df = pd.DataFrame({"lon": [0, 100, 200], "lat": [200, 300, 400]})
     # check function raises KeyError if coordinate names are not found in the grid
     with pytest.raises(KeyError):
-        utils.sample_grids(df, grid, name=name)
+        utils.sample_grids(df, grid, sampled_name=name)
     # check function works if coordinate names are provided
-    result_df = utils.sample_grids(df, grid, name=name, coord_names=("lon", "lat"))
+    result_df = utils.sample_grids(
+        df, grid, sampled_name=name, coord_names=("lon", "lat")
+    )
     expected = pd.DataFrame(
         {"lon": [0, 100, 200], "lat": [200, 300, 400], name: [40000, 100000, 200000]}
     )
@@ -459,7 +461,7 @@ def test_sample_grids_one_out_of_grid_coordinates():
     grid = dummy_grid().scalars
     name = "sampled_data"
     df = pd.DataFrame({"x": [0, -1000, 200], "y": [200, -1000, 400]})
-    result_df = utils.sample_grids(df, grid, name=name)
+    result_df = utils.sample_grids(df, grid, sampled_name=name)
     assert np.isnan(result_df[name].iloc[1])
 
 
@@ -471,7 +473,7 @@ def test_sample_grids_first_out_of_grid_coordinates():
     grid = dummy_grid().scalars
     name = "sampled_data"
     df = pd.DataFrame({"x": [-50, 150, 200], "y": [500, 350, 400]})
-    result_df = utils.sample_grids(df, grid, name=name)
+    result_df = utils.sample_grids(df, grid, sampled_name=name)
     assert np.isnan(result_df[name].iloc[0])
 
 
@@ -483,7 +485,7 @@ def test_sample_grids_last_out_of_grid_coordinates():
     grid = dummy_grid().scalars
     name = "sampled_data"
     df = pd.DataFrame({"x": [200, 150, 0], "y": [200, 350, 0]})
-    result_df = utils.sample_grids(df, grid, name=name)
+    result_df = utils.sample_grids(df, grid, sampled_name=name)
     assert np.isnan(result_df[name].iloc[2])
 
 
@@ -495,7 +497,7 @@ def test_sample_grids_all_out_of_grid_coordinates_all():
     grid = dummy_grid().scalars
     name = "sampled_data"
     points = pd.DataFrame({"x": [-100, -200, -300], "y": [500, 1000, 600]})
-    result_df = utils.sample_grids(points, grid, name=name)
+    result_df = utils.sample_grids(points, grid, sampled_name=name)
     assert result_df[name].isnull().all()  # All values should be NaN
 
 
@@ -532,7 +534,7 @@ def test_sample_bounding_surfaces_valid_values():
     result_df = utils.sample_grids(
         points,
         lower_confining_layer,
-        name="sampled",
+        sampled_name="sampled",
     )
     expected = pd.DataFrame(
         {"x": [0, -100, 200], "y": [200, -300, 400], "sampled": [40000, np.nan, 200000]}

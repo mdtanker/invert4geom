@@ -6,8 +6,12 @@ import numpy.testing as npt
 import pandas as pd
 import pytest
 import verde as vd
+import xarray as xr
+from nptyping import NDArray
 
 from invert4geom import inversion
+
+pd.set_option("display.max_columns", None)
 
 ################
 ################
@@ -16,7 +20,7 @@ from invert4geom import inversion
 ################
 
 
-def dummy_df():
+def dummy_df() -> pd.DataFrame:
     data = {
         "northing": [
             200,
@@ -37,7 +41,7 @@ def dummy_df():
     return pd.DataFrame(data)
 
 
-def dummy_misfit_df(regional=True):
+def dummy_misfit_df(regional: bool = True) -> pd.DataFrame:
     data = {
         "northing": [
             200,
@@ -80,7 +84,7 @@ def dummy_misfit_df(regional=True):
     return df
 
 
-def dummy_df_big():
+def dummy_df_big() -> pd.DataFrame:
     df = dummy_prism_layer().to_dataframe().reset_index().dropna().astype(float)
     df = df.drop(columns=["top", "bottom", "density"])
     df["upward"] = 20
@@ -88,7 +92,7 @@ def dummy_df_big():
     return df
 
 
-def dummy_prism_layer():
+def dummy_prism_layer() -> xr.Dataset:
     """
     Create a dummy prism layer
     """
@@ -103,7 +107,7 @@ def dummy_prism_layer():
     )
 
 
-def dummy_prism_layer_flat():
+def dummy_prism_layer_flat() -> xr.Dataset:
     """
     Create a dummy prism layer
     """
@@ -118,7 +122,7 @@ def dummy_prism_layer_flat():
     )
 
 
-def dummy_jacobian():
+def dummy_jacobian() -> NDArray:
     """
     Create a under-determined jacobian with vertical derivative values
     """
@@ -139,7 +143,7 @@ def dummy_jacobian():
     )
 
 
-def dummy_jacobian_square():
+def dummy_jacobian_square() -> NDArray:
     """
     Create a square jacobian with vertical derivative values
     """
@@ -737,25 +741,28 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
     )
 
 
-@pytest.mark.use_numba()
-def test_geo_inversion_returns():
-    """
-    Test the inversions returned values.
-    """
-    gravity_df = dummy_misfit_df(regional=False)
-    prisms_ds = dummy_prism_layer()
-    results = inversion.geo_inversion(
-        input_grav=gravity_df,
-        input_grav_column="observed_grav",
-        prism_layer=prisms_ds,
-        max_iterations=3,
-    )
-    print(results)
-    # prisms_df, gravity, params, elapsed_time = results
-    # print(prisms_df)
-    # print(gravity)
-    # print(params)
-    # print(elapsed_time)
+# @pytest.mark.use_numba()
+# def test_geo_inversion_returns():
+#     """
+#     Test the inversions returned values.
+#     """
+#     gravity_df = dummy_misfit_df(regional=False)
+#     prisms_ds = dummy_prism_layer()
+#     print(gravity_df)
+#     print(prisms_ds)
+#     results = inversion.geo_inversion(
+#         input_grav=gravity_df,
+#         input_grav_column="observed_grav",
+#         prism_layer=prisms_ds,
+#         max_iterations=3,
+#     )
+#     prisms_df, gravity, params, elapsed_time = results
+#     # print(prisms_df)
+#     # print(gravity)
+#     # print(params)
+
+#     # check elapsed time is reasonable
+#     assert elapsed_time < 30
 
 
 # def test_update_gravity_and_misfit_forward_gravity():

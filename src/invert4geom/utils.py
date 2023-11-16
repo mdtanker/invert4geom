@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import typing
 
 # import itertools
 # import os
@@ -19,7 +20,7 @@ import pygmt
 import verde as vd
 import xarray as xr
 import xrft
-from antarctic_plots import profile
+from nptyping import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 # from antarctic_plots import utils as ap_utils
@@ -34,13 +35,13 @@ from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 # from tqdm.autonotebook import tqdm
 
 
-def rmse(data: np.array, as_median: bool = False) -> float:
+def rmse(data: NDArray, as_median: bool = False) -> float:
     """
     function to give the root mean/median squared error (RMSE) of data
 
     Parameters
     ----------
-    data : np.array
+    data : NDArray
         input data
     as_median : bool, optional
         choose to give root median squared error instead, by default False
@@ -51,7 +52,7 @@ def rmse(data: np.array, as_median: bool = False) -> float:
         RMSE value
     """
     if as_median:
-        value = np.sqrt(np.nanmedian(data**2).item())
+        value: float = np.sqrt(np.nanmedian(data**2).item())
     else:
         value = np.sqrt(np.nanmean(data**2).item())
 
@@ -85,7 +86,7 @@ def nearest_grid_fill(
     original_name = grid.name
 
     if method == "rioxarray":
-        filled = (
+        filled: xr.DataArray = (
             grid.rio.write_crs("epsg:3031")
             .rio.set_spatial_dims(original_dims[1], original_dims[0])
             .rio.write_nodata(np.nan)
@@ -123,7 +124,7 @@ def filter_grid(
     filter_width: float | None = None,
     filt_type: str = "lowpass",
     # change_spacing:bool=False,
-):
+) -> xr.DataArray:
     """
     _summary_
 
@@ -217,7 +218,7 @@ def filter_grid(
     # else:
     #     pass
     if grid.isnull().any():
-        result = xr.where(grid.notnull(), unpadded, grid)
+        result: xr.DataArray = xr.where(grid.notnull(), unpadded, grid)
     else:
         result = unpadded.copy()
 
@@ -238,18 +239,20 @@ def filter_grid(
 def dist_nearest_points(
     targets: pd.DataFrame,
     data: pd.DataFrame | xr.DataArray | xr.Dataset,
-    coord_names: list | None = None,
-) -> pd.DataFrame | xr.DataArray | xr.Dataset:
+    coord_names: tuple[str, str] | None = None,
+) -> typing.Any:
     """
     for all gridcells calculate to the distance to the nearest target.
     """
 
     if coord_names is None:
-        coord_names = ["easting", "northing"]
+        coord_names = ("easting", "northing")
+
     df_targets = targets[[coord_names[0], coord_names[1]]].copy()
 
+    df_data: pd.DataFrame | xr.DataArray | xr.Dataset
     if isinstance(data, pd.DataFrame):
-        df_data = data[coord_names].copy()
+        df_data = data[list(coord_names)].copy()
     elif isinstance(data, xr.DataArray):
         df_grid = vd.grid_to_table(data).dropna()
         df_data = df_grid[[coord_names[0], coord_names[1]]].copy()  # pylint: disable=unsubscriptable-object
@@ -270,7 +273,28 @@ def dist_nearest_points(
     return df_data.set_index([coord_names[0], coord_names[1]][::-1]).to_xarray()
 
 
-def normalize_xarray(da, low=0, high=1):
+def normalize_xarray(
+    da: xr.DataArray,
+    low: float = 0,
+    high: float = 1,
+) -> xr.DataArray:
+    """
+    Normalize a grid between provided values
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        grid to normalize
+    low : float, optional
+        lower value for normalization, by default 0
+    high : float, optional
+        higher value for normalization, by default 1
+
+    Returns
+    -------
+    xr.DataArray
+        a normalized grid
+    """
     # min_val = da.values.min()
     # max_val = da.values.max()
 
@@ -279,19 +303,21 @@ def normalize_xarray(da, low=0, high=1):
     min_val = da.quantile(0)
     max_val = da.quantile(1)
 
-    da2 = (high - low) * (((da - min_val) / (max_val - min_val)).clip(0, 1)) + low
+    da2: xr.DataArray = (high - low) * (
+        ((da - min_val) / (max_val - min_val)).clip(0, 1)
+    ) + low
 
     return da2.drop("quantile")
 
 
 def normalized_mindist(
     points: pd.DataFrame,
-    grid: xr.DataArray,  # Union[xr.DataArray, xr.Dataset],
+    grid: xr.DataArray,
     low: float | None = None,
     high: float | None = None,
     mindist: float | None = None,
-    region: list | None = None,
-):
+    region: list[float] | None = None,
+) -> xr.DataArray:
     """
     Find the minimum distance between each grid cell and the nearest point. If low and
     high are provided, normalize the min dists grid between these values. If region is
@@ -308,10 +334,10 @@ def normalized_mindist(
 
     constraint_points = points.copy()
 
-    min_dist = dist_nearest_points(
+    min_dist: xr.DataArray = dist_nearest_points(
         targets=constraint_points,
         data=grid,
-        coord_names=(original_dims[1], original_dims[0]),
+        coord_names=(str(original_dims[1]), str(original_dims[0])),
     ).min_dist
 
     # set points < mindist to 0
@@ -337,6 +363,8 @@ def normalized_mindist(
     if (low is None) & (high is None):
         pass
     else:
+        assert low is not None
+        assert high is not None
         min_dist = normalize_xarray(min_dist, low=low, high=high)
 
     return min_dist
@@ -345,9 +373,9 @@ def normalized_mindist(
 def sample_grids(
     df: pd.DataFrame,
     grid: str | xr.DataArray,
-    name: str,
-    **kwargs,
-):
+    sampled_name: str,
+    **kwargs: typing.Any,
+) -> pd.DataFrame:
     """
     Sample data at every point along a line
 
@@ -358,18 +386,18 @@ def sample_grids(
         "coor_names".
     grid : str or xr.DataArray
         Grid to sample, either file name or xr.DataArray
-    name : str,
+    sampled_name : str,
         Name for sampled column
 
     Returns
     -------
     pd.DataFrame
-        Dataframe with new column (name) of sample values from (grid)
+        Dataframe with new column (sampled_name) of sample values from (grid)
     """
 
     # drop name column if it already exists
     try:
-        df1 = df.drop(columns=name)
+        df1 = df.drop(columns=sampled_name)
     except KeyError:
         df1 = df.copy()
 
@@ -386,14 +414,14 @@ def sample_grids(
     sampled = pygmt.grdtrack(
         points=points,
         grid=grid,
-        newcolname=name,
+        newcolname=sampled_name,
         # radius=kwargs.get("radius", None),
         no_skip=True,  # if false causes issues
         verbose=kwargs.get("verbose", "w"),
         interpolation=kwargs.get("interpolation", "c"),
     )
 
-    df3[name] = sampled[name]
+    df3[sampled_name] = sampled[sampled_name]
 
     # reset index to previous
     df4 = df3.set_index("index")
@@ -402,7 +430,7 @@ def sample_grids(
     df4.index.name = df1.index.name
 
     # check that dataframe is identical to original except for new column
-    pd.testing.assert_frame_equal(df4.drop(columns=name), df1)
+    pd.testing.assert_frame_equal(df4.drop(columns=sampled_name), df1)
 
     return df4
 
@@ -485,7 +513,7 @@ def get_spacing(prisms_df: pd.DataFrame) -> float:
     float
         spacing of prisms
     """
-    return abs(prisms_df.northing.unique()[1] - prisms_df.northing.unique()[0])
+    return float(abs(prisms_df.northing.unique()[1] - prisms_df.northing.unique()[0]))
 
 
 def sample_bounding_surfaces(
@@ -514,18 +542,18 @@ def sample_bounding_surfaces(
     df = prisms_df.copy()
 
     if upper_confining_layer is not None:
-        df = profile.sample_grids(
+        df = sample_grids(
             df=df,
             grid=upper_confining_layer,
-            name="upper_bounds",
+            sampled_name="upper_bounds",
             coord_names=["easting", "northing"],
         )
         assert len(df.upper_bounds) != 0
     if lower_confining_layer is not None:
-        df = profile.sample_grids(
+        df = sample_grids(
             df=df,
             grid=lower_confining_layer,
-            name="lower_bounds",
+            sampled_name="lower_bounds",
             coord_names=["easting", "northing"],
         )
         assert len(df.lower_bounds) != 0
@@ -585,7 +613,7 @@ def enforce_confining_surface(
 
     # check that when constrained correction is added to topo it doesn't intersect
     # either bounding layer
-    updated_topo = df[f"iter_{iteration_number}_correction"] + df.topo
+    updated_topo: pd.Series[float] = df[f"iter_{iteration_number}_correction"] + df.topo
     if "upper_bounds" in df and np.any((df.upper_bounds - updated_topo) < 0):
         msg = (
             "Constraining didn't work and updated topography intersects upper "
@@ -604,7 +632,7 @@ def enforce_confining_surface(
 def apply_surface_correction(
     prisms_df: pd.DataFrame,
     iteration_number: int,
-) -> tuple:
+) -> tuple[pd.DataFrame, xr.DataArray]:
     """
     update the prisms dataframe and dataset with the surface correction. Ensure that
     the updated surface doesn't intersect the optional confining surfaces.
@@ -640,7 +668,7 @@ def update_prisms_ds(
     prisms_ds: xr.Dataset,
     correction_grid: xr.DataArray,
     zref: float,
-):
+) -> xr.Dataset:
     """
     apply the corrections grid and update the prism tops, bottoms, topo, and
     densities.
@@ -671,7 +699,7 @@ def add_updated_prism_properties(
     prisms_df: pd.DataFrame,
     prisms_ds: xr.Dataset,
     iteration_number: int,
-):
+) -> pd.DataFrame:
     """
     update the prisms dataframe the the new prism tops, bottoms, topo, and densities
     """
