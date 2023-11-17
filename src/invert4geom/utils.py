@@ -449,9 +449,9 @@ def extract_prism_data(
     extract necessary info from starting prism layer, adds variables 'topo' and
     'starting_topo' to prism layer dataset (prisms_ds), converts it into dataframe
     (prisms_df), gets the density contrast value (density) from the max density value in
-     prisms_df, gets the reference level (zref) from the min value of the prims tops,
-     gets the prism spacing (spacing) from prisms_ds, and creates a grid of the starting
-     topography (topo_grid) from the tops and bottoms of the prism layer.
+    prisms_df, gets the reference level (zref) from the min value of the prims tops,
+    gets the prism spacing (spacing) from prisms_ds, and creates a grid of the starting
+    topography (topo_grid) from the tops and bottoms of the prism layer.
 
     Parameters
     ----------
