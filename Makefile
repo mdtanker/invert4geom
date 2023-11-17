@@ -10,9 +10,6 @@ install:
 remove:
 	mamba remove --name $(PROJECT) --all
 
-docs:
-	sphinx-build docs/ docs/build/
-
 test: test_coverage test_numba
 
 test_coverage:
