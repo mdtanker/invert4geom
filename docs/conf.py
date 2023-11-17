@@ -8,13 +8,13 @@ author = "Matt Tankersley"
 version = release = importlib.metadata.version("invert4geom")
 
 extensions = [
-    "myst_parser",
+    "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
-    "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",
+    "myst_parser",
 ]
 
 source_suffix = [".rst", ".md"]
