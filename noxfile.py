@@ -119,6 +119,8 @@ def build_api_docs(session: nox.Session) -> None:
         "--module-first",
         "--no-toc",
         "--force",
+        "--separate",
+        "--templatedir=template/",
         "../src/invert4geom",
     )
 
