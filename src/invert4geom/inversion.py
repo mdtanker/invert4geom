@@ -103,21 +103,19 @@ def jacobian_annular(
     jac: NDArray,
 ) -> NDArray:
     """
-    Function to calculate the Jacobian matrix using the annular cylinder approximation
-    The resulting Jacobian is a matrix (numpy array) with a row per gravity observation
-    and a column per prism. This approximates the prisms as an annulus, and calculates
-    it's vertical gravity derivative.
-
-    Takes arrays from `jacobian`, feeds them into `grav_column_der`, and returns
-    the jacobian.
+        Function to calculate the Jacobian matrix using the annular cylinder approximation
+        The resulting Jacobian is a matrix (numpy array) with a row per gravity observation
+        and a column per prism. This approximates the prisms as an annulus, and calculates
+        it's vertical gravity derivative.
+        Takes arrays from `jacobian`, feeds them into `grav_column_der`, and returns
+        the jacobian.
 
     Parameters
     ----------
     grav_easting, grav_northing, grav_upward : NDArray
         coordinates of gravity observation points.
     prism_easting, prism_northing, prism_top, : NDArray
-        coordinates of prism's center in northing, easting, and upward directions,
-        respectively
+        coordinates of prism's center in northing, easting, and upward directions, respectively
     prism_density : NDArray
         density of prisms, in kg/m^3
     prism_spacing : float
@@ -595,11 +593,10 @@ def end_inversion(
 
     Returns
     -------
-    tuple
+    tuple[bool, list[str]]
         first term is a boolean of whether or not to end the inversion, second term is a
-         list of termination reasons.
+        list of termination reasons.
     """
-
     end = False
     termination_reason = []
 
@@ -670,7 +667,7 @@ def update_gravity_and_misfit(
     """
     calculate the forward gravity of the supplied prism layer, add the results to a
     new dataframe column, and update the residual misfit. The supplied gravity dataframe
-     needs a 'reg' column, which describes the regional component and can be 0.
+    needs a 'reg' column, which describes the regional component and can be 0.
 
     Parameters
     ----------
@@ -741,7 +738,7 @@ def geo_inversion(
     * weight the surface correction values with a weighting grid with
     `weights_after_solving`
     * bound the topography of the layer, with `upper_confining_layer` and
-        `lower_confining_layer`
+    `lower_confining_layer`
     Optionally weight the Jacobian matrix by distance to the nearest constraints
 
     Parameters

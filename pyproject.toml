@@ -60,7 +60,6 @@ dev = [
   "pytest-cov >=3",
   "ruff",
 ]
-
 docs = [
   "sphinx>=7.0",
   "myst_parser>=0.13",
