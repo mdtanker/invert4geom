@@ -1,5 +1,6 @@
 # invert4geom
 
+
 [![Actions Status][actions-badge]][actions-link]
 [![Documentation Status][rtd-badge]][rtd-link]
 
@@ -9,7 +10,12 @@
 
 [![GitHub Discussion][github-discussions-badge]][github-discussions-link]
 
+
 <!-- SPHINX-START -->
+
+**Invert4geom** is a Python library for performing 3D geometric gravity inversions, where the aim is to recover the geometry of a density contrast.
+
+Typically use cases include modeling the Moho, the sediment-basement contact, or bathymetry. These density contrasts are represented by a layer of vertical right-rectangular prisms. 
 
 <!-- prettier-ignore-start -->
 [actions-badge]:            https://github.com/mdtanker/invert4geom/workflows/CI/badge.svg
