@@ -1,4 +1,5 @@
 # Contributing
+
 See the [Scientific Python Developer Guide][spc-dev-intro] for a detailed
 description of best practices for developing scientific packages.
 
@@ -29,7 +30,9 @@ environment for each run.
 
 # Setting up a development environment manually
 
-You can set up a development environment by running:
+You can set up a development environment in two ways:
+
+## with venv
 
 ```bash
 python3 -m venv .venv
@@ -46,6 +49,22 @@ py -m venv .venv
 py -m install -v -e .[dev]
 ```
 
+## with mamba
+
+If mamba isn't installed:
+
+```python
+conda install mamba
+```
+
+Then create the environment with the inclused Makefile commands:
+
+```python
+make create
+conda activate invert4geom
+make install
+```
+
 # Post setup
 
 You should prepare pre-commit, which will help you by checking that commits pass
@@ -56,23 +75,23 @@ pip install pre-commit # or brew install pre-commit on macOS
 pre-commit install # Will install a pre-commit hook into the git repo
 ```
 
-You can also/alternatively run `pre-commit run` (changes only) or
-`pre-commit run --all-files` to check even without installing the hook.
+You can also/alternatively run `make lint` to check even without installing the hook.
 
 # Testing
 
-Use pytest to run the unit checks:
+Use pytest to run the unit checks and generate coverage reports:
 
-```bash
-pytest
+```
+make test
 ```
 
-# Coverage
+# Formatting
 
-Use pytest-cov to generate coverage reports:
+Use the Makefile commands to locally format and check the code with `ruff`:
 
-```bash
-pytest --cov=invert4geom
+```
+make check
+make format
 ```
 
 # Building docs
@@ -96,7 +115,7 @@ nox, this is such an important tool that it deserves to be installed on its own.
 Install pre-commit and run:
 
 ```bash
-pre-commit run -a
+make lint
 ```
 
 to check all files.
