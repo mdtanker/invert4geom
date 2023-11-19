@@ -53,13 +53,13 @@ py -m install -v -e .[dev]
 
 If mamba isn't installed:
 
-```python
+```
 conda install mamba
 ```
 
 Then create the environment with the inclused Makefile commands:
 
-```python
+```
 make create
 conda activate invert4geom
 make install
@@ -75,7 +75,8 @@ pip install pre-commit # or brew install pre-commit on macOS
 pre-commit install # Will install a pre-commit hook into the git repo
 ```
 
-You can also/alternatively run `make lint` to check even without installing the hook.
+You can also/alternatively run `make lint` to check even without installing the
+hook.
 
 # Testing
 

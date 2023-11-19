@@ -28,21 +28,21 @@ Source code on GitHub <https://github.com/mdtanker/invert4geom>
 :start-after: <!-- SPHINX-START -->
 ```
 
-::::{grid} 2
-:::{grid-item-card}  {octicon}`rocket` Getting started?
-:text-align: center
-New to Invert4geom? Start here!
+::::{grid} 2 :::{grid-item-card} {octicon}`rocket` Getting started? :text-align:
+center New to Invert4geom? Start here!
+
 ```{button-ref} overview
     :click-parent:
     :color: primary
     :outline:
     :expand:
 ```
+
 :::
 
-:::{grid-item-card} {octicon}`comment-discussion` Need help?
-:text-align: center
+:::{grid-item-card} {octicon}`comment-discussion` Need help? :text-align: center
 Start a discussion on GitHub!
+
 ```{button-link} https://github.com/mdtanker/invert4geom/discussions
     :click-parent:
     :color: primary
@@ -50,10 +50,11 @@ Start a discussion on GitHub!
     :expand:
     Discussions
 ```
+
 :::
 
-:::{grid-item-card} {octicon}`file-badge` Reference documentation
-:text-align: center
+:::{grid-item-card} {octicon}`file-badge` Reference documentation :text-align:
+center
 
 A list of modules and functions
 
@@ -63,6 +64,7 @@ A list of modules and functions
     :outline:
     :expand:
 ```
+
 :::
 
 :::{grid-item-card} {octicon}`bookmark` Using Invert4geom for research?
@@ -76,6 +78,7 @@ Citations help support our work
     :outline:
     :expand:
 ```
+
 :::
 
 ::::
@@ -101,8 +104,6 @@ how you can contribute to the project.
 ```{note}
 *Many parts of this documentation was adapted from the* [Fatiando project](https://www.fatiando.org/).
 ```
-
-
 
 ## Indices and tables
 
