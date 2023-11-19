@@ -57,3 +57,7 @@ nitpick_ignore = [
 ]
 
 always_document_param_types = True
+
+add_module_names = False
+
+add_function_parentheses = False
