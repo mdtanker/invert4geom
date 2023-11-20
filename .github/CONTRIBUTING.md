@@ -57,7 +57,7 @@ If mamba isn't installed:
 conda install mamba
 ```
 
-Then create the environment with the inclused Makefile commands:
+Then create the environment with the included Makefile commands:
 
 ```
 make create
