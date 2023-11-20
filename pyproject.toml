@@ -42,6 +42,7 @@ dependencies = [
   "numba",
   "scipy",
   "nptyping",
+  "numba_progress",
 
 #  "pygmt>=0.9.0",
 #  "geopandas",
