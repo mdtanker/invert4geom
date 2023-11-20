@@ -3,9 +3,6 @@ from __future__ import annotations
 import copy
 import itertools
 import logging
-
-# import pathlib
-# import pickle
 import time
 import typing
 
@@ -14,17 +11,10 @@ import numba
 import numpy as np
 import pandas as pd
 import scipy as sp
-
-# import verde as vd
 import xarray as xr
 from nptyping import NDArray
 
-# import warnings
-# from tqdm.autonotebook import tqdm
-from invert4geom import utils
-
-# warnings.filterwarnings("ignore", message="pandas.Int64Index")
-# warnings.filterwarnings("ignore", message="pandas.Float64Index")
+from invert4geom import plotting, utils
 
 
 @numba.jit(cache=True, nopython=True)  # type: ignore[misc]
@@ -39,9 +29,9 @@ def grav_column_der(
     prism_density: NDArray,
 ) -> NDArray:
     """
-    Function to calculate the vertical derivate of the gravitational acceleration at an
-    observation point caused by a right, rectangular prism. Approximated with Hammer's
-    annulus approximation.
+        Function to calculate the vertical derivate of the gravitational acceleration at
+        an observation point caused by a right, rectangular prism. Approximated with
+        Hammer's annulus approximation.
 
     Parameters
     ----------
@@ -220,12 +210,24 @@ def jacobian_prism(
 
     Takes arrays from `jacobian` and calculates the jacobian.
 
+    Parameters
+    ----------
+    prisms_properties : NDArray
+        array of prism properties of shape (number of prisms, 7) with the 7 entries for
+        each prism being: west, east, south, north, bottom, top, density
+    grav_easting, grav_northing,grav_upward : NDArray
+        coordinates of gravity observation points.
+    delta : float
+        thickness in meters of small prisms used to calculate vertical derivative
+    jac : NDArray
+        empty jacobian matrix with a row per gravity observation and a column per prism
+
     Returns
     -------
     NDArray
         returns a NDArray of shape (number of gravity points, number of prisms)
-
     """
+
     # Build a small prism on top of existing prism (thickness equal to delta)
     for i in numba.prange(len(prisms_properties)):  # pylint: disable=not-an-iterable
         prism = prisms_properties[i]
@@ -374,7 +376,7 @@ def solver(
         prisms.
     residuals : NDArray
         array of gravity residuals
-    damping : float
+    damping : float | None, optional
         positive damping (Tikhonov 0th order) regularization
     solver_type : {
         'verde least squares',
@@ -529,7 +531,21 @@ def update_l2_norms(
     rmse: float,
     l2_norm: float,
 ) -> tuple[float, float]:
-    """update the l2 norm and delta l2 norm of the misfit"""
+    """
+    update the l2 norm and delta l2 norm of the misfit
+
+    Parameters
+    ----------
+    rmse : float
+        root mean square error of the residual gravity misfit
+    l2_norm : float
+        l2 norm of the residual gravity misfit
+    Returns
+    -------
+    tuple[float, float]
+        updated l2 norm and delta l2 norm
+    """
+
     # square-root of RMSE is the l-2 norm
     updated_l2_norm = np.sqrt(rmse)
 
@@ -574,7 +590,7 @@ def end_inversion(
     iteration_number : int
         the iteration number, starting at 1 not 0
     max_iterations : int
-        the maximum allowed iterations, inclusive
+        the maximum allowed iterations, inclusive and starting at 1
     l2_norm : float
         the current iteration's l2 norm
     starting_l2_norm : float
@@ -621,7 +637,7 @@ def end_inversion(
             previous_delta_l2_norm <= delta_l2_norm_tolerance
         ):
             logging.info(
-                "\nInversion terminated after %s iterations because there was no"
+                "\nInversion terminated after %s iterations because there was no "
                 "significant variation in the L2-norm over 2 iterations \n"
                 "Change parameter 'delta_l2_norm_tolerance' if desired.",
                 iteration_number,
@@ -632,9 +648,9 @@ def end_inversion(
 
         if l2_norm < l2_norm_tolerance:
             logging.info(
-                "\nInversion terminated after %s iterations because L2-norm (%s) was"
+                "\nInversion terminated after %s iterations because L2-norm (%s) was "
                 "less then set tolerance: %s \nChange parameter "
-                "'delta_l2_norm_tolerance' if desired.",
+                "'l2_norm_tolerance' if desired.",
                 iteration_number,
                 l2_norm,
                 l2_norm_tolerance,
@@ -645,7 +661,7 @@ def end_inversion(
 
     if iteration_number >= max_iterations:
         logging.info(
-            "\nInversion terminated after %s iterations with L2-norm=%s because"
+            "\nInversion terminated after %s iterations with L2-norm=%s because "
             "maximum number of iterations (%s) reached.",
             iteration_number,
             round(l2_norm, 2),
@@ -720,65 +736,73 @@ def run_inversion(
     max_iterations: int,
     l2_norm_tolerance: float = 0.2,
     delta_l2_norm_tolerance: float = 1.001,
-    perc_increase_limit: float = 0.20,
-    deriv_type: str = "prisms",
+    perc_increase_limit: float = 0.10,
+    deriv_type: str = "annulus",
     jacobian_prism_size: float = 1,
     solver_type: str = "scipy least squares",
     solver_damping: float | None = None,
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
     weights_after_solving: bool = False,
-    # plot_convergence: bool = False,
+    plot_convergence: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]:
     """
-    perform a geometry inversion, where the topography is updated to minimize the
+    perform a geometric inversion, where the topography is updated to minimize the
     residual misfit between the forward gravity of the layer, and the observed gravity.
     To aid in regularizing an ill-posed problem choose any of the following options:
     * add damping to the solver, with `solver_damping`
     * weight the surface correction values with a weighting grid with
-    `weights_after_solving`
+    `weights_after_solving` and the `weights` variable of the prisms dataset
     * bound the topography of the layer, with `upper_confining_layer` and
     `lower_confining_layer`
-    Optionally weight the Jacobian matrix by distance to the nearest constraints
 
     Parameters
     ----------
     input_grav : pd.DataFrame
-        _description_
+        dataframe with gravity data and coordinates, must have columns "res" and "reg"
+        for residual and regional gravity.
     input_grav_column : str
-        _description_
+        column name containing the gravity data *before* regional separation
     prism_layer : xr.Dataset
-        _description_
+        starting prism layer
     max_iterations : int
-        _description_
+        the maximum allowed iterations, inclusive and starting at 1
     l2_norm_tolerance : float, optional
-        _description_, by default 0.2
+        _the l2 norm value to end the inversion at, by default 0.2
     delta_l2_norm_tolerance : float, optional
-        _description_, by default 1.001
+        the delta l2 norm value to end the inversion at, by default 1.001
     perc_increase_limit : float, optional
-        _description_, by default .20
+        the set tolerance for decimal percentage increase relative to the starting l2
+        norm, by default 0.10
     deriv_type : str, optional
-        _description_, by default "prisms"
+        either "annulus" or "prism" to determine method of calculating the vertical
+        derivate of gravity of a prism, by default "annulus"
     jacobian_prism_size : float, optional
-        _description_, by default 1
+        height of prisms in meters for vertical derivative, by default 1
     solver_type : str, optional
-        _description_, by default "verde least squares"
-    solver_damping : float, optional
-        _description_, by default None
-    upper_confining_layer : xr.DataArray, optional
-        _description_, by default None
-    lower_confining_layer : xr.DataArray, optional
-        _description_, by default None
+        solver type to use, by default "scipy least squares"
+    solver_damping : float | None, optional
+        damping parameter for regularization of the solver, by default None
+    upper_confining_layer : xr.DataArray | None, optional
+        topographic layer to use as upper limit for inverted topography, by default None
+    lower_confining_layer : xr.DataArray | None, optional
+        topographic layer to use as lower limit for inverted topography, by default None
     weights_after_solving : bool, optional
         use "weights" variable of prisms dataset to scale surface corrections grid, by
-        default False
+        default False, by default False
+    plot_convergence : bool, optional
+        plot the misfit convergence, by default False
+
     Returns
     -------
-    tuple
+    tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
         prisms_df: pd.DataFrame, prism properties for each iteration,
         gravity: pd.DataFrame, gravity anomalies for each iteration,
         params: dict, Properties of the inversion such as kwarg values,
+        elapsed_time: float, time in seconds for the inversion to run
     """
+
+    logging.info("starting inversion")
 
     time_start = time.perf_counter()
 
@@ -793,6 +817,10 @@ def run_inversion(
         prism_spacing,
         _,
     ) = utils.extract_prism_data(prism_layer)
+
+    logging.info("extracted zref is %s", zref)
+    logging.info("extracted prism spacing is %s", prism_spacing)
+    logging.info("extracted density contrast is %s", density_contrast)
 
     # create empty jacobian matrix
     empty_jac: NDArray = np.empty(
@@ -972,7 +1000,7 @@ def run_inversion(
         "iter_times": iter_times,
     }
 
-    # if plot_convergence is True:
-    #     plotting.plot_convergence(gravity, iter_times=iter_times)
+    if plot_convergence is True:
+        plotting.plot_convergence(gravity, iter_times=iter_times)
 
     return prisms_df, gravity, params, elapsed_time
