@@ -713,7 +713,7 @@ def update_gravity_and_misfit(
     return gravity
 
 
-def geo_inversion(
+def run_inversion(
     input_grav: pd.DataFrame,
     input_grav_column: str,
     prism_layer: xr.Dataset,
