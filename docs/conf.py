@@ -16,7 +16,10 @@ extensions = [
     "sphinx_copybutton",
     "myst_parser",
     "sphinx_design",
+    "nbsphinx",
 ]
+
+nbsphinx_execute = "auto"
 
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
