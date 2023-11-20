@@ -1,16 +1,8 @@
-# import contextlib
 from __future__ import annotations
 
 import copy
 import logging
 import typing
-
-# import itertools
-# import os
-# import pathlib
-# import string
-# import sys
-# from getpass import getpass
 import warnings
 
 import harmonica as hm
@@ -22,17 +14,6 @@ import xarray as xr
 import xrft
 from nptyping import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
-
-# from antarctic_plots import utils as ap_utils
-
-
-# import scipy as sp
-# import dask
-# import geopandas as gpd
-
-# from requests import get
-# from sklearn.metrics import mean_squared_error
-# from tqdm.autonotebook import tqdm
 
 
 def rmse(data: NDArray, as_median: bool = False) -> float:
@@ -123,7 +104,6 @@ def filter_grid(
     grid: xr.DataArray,
     filter_width: float | None = None,
     filt_type: str = "lowpass",
-    # change_spacing:bool=False,
 ) -> xr.DataArray:
     """
     _summary_
@@ -201,22 +181,6 @@ def filter_grid(
         }
     )
 
-    # if change_spacing is True:
-    #     region = ap_utils.get_grid_info(grid)[1]
-    #     grid = fetch.resample_grid(
-    #         grid,
-    #         spacing=filter_width,
-    #         verbose="q",
-    #         region = region,
-    #     )
-    #     unpadded = fetch.resample_grid(
-    #         unpadded,
-    #         spacing=filter_width,
-    #         verbose="q",
-    #         region = region,
-    #     )
-    # else:
-    #     pass
     if grid.isnull().any():
         result: xr.DataArray = xr.where(grid.notnull(), unpadded, grid)
     else:
@@ -243,6 +207,21 @@ def dist_nearest_points(
 ) -> typing.Any:
     """
     for all gridcells calculate to the distance to the nearest target.
+
+    Parameters
+    ----------
+    targets : pd.DataFrame
+        contains the coordinates of the targets
+    data : pd.DataFrame | xr.DataArray | xr.Dataset
+        the grid data, in either gridded or tabular form
+    coord_names : tuple[str, str] | None, optional
+        the names of the coordinates for both the targets and the data, by default None
+
+    Returns
+    -------
+    typing.Any
+        the distance to the nearest target for each gridcell, in the same format as the
+        input for `data`.
     """
 
     if coord_names is None:
@@ -322,12 +301,30 @@ def normalized_mindist(
     Find the minimum distance between each grid cell and the nearest point. If low and
     high are provided, normalize the min dists grid between these values. If region is
     provided, all grid cells outside region are set to a distance of 0.
-    """
-    grid = copy.deepcopy(grid)
 
-    # if a dataset supplied, use first variable as a dataarray
-    # if isinstance(grid, xr.Dataset):
-    #     grid = grid[list(grid.variables.keys())[0]]
+    Parameters
+    ----------
+    points : pd.DataFrame
+        coordinates of the points
+    grid : xr.DataArray
+        gridded data to find min dists for each grid cell
+    low : float | None, optional
+        lower value for normalization, by default None
+    high : float | None, optional
+        higher value for normalization, by default None
+    mindist : float | None, optional
+        the minimum allowed distance, all values below are set equal to, by default None
+    region : list[float] | None, optional
+        bounding region for which all grid cells outside will be set to low, by default
+        None
+
+    Returns
+    -------
+    xr.DataArray
+        grid of normalized minimum distances
+    """
+
+    grid = copy.deepcopy(grid)
 
     # get coordinate names
     original_dims = list(grid.sizes.keys())
@@ -340,11 +337,11 @@ def normalized_mindist(
         coord_names=(str(original_dims[1]), str(original_dims[0])),
     ).min_dist
 
-    # set points < mindist to 0
+    # set points < mindist to low
     if mindist is not None:
         min_dist = xr.where(min_dist < mindist, 0, min_dist)
 
-    # set points outside of region to 0
+    # set points outside of region to low
     if region is not None:
         df = vd.grid_to_table(min_dist)
         df["are_inside"] = vd.inside(
@@ -574,7 +571,7 @@ def enforce_confining_surface(
         prism layer dataframe with optional 'upper_bounds' or 'lower_bounds' columns,
         and current iteration's topography.
     iteration_number : int
-        number of the current iteration
+        number of the current iteration, starting at 1 not 0
 
     Returns
     -------
@@ -636,19 +633,24 @@ def apply_surface_correction(
     """
     update the prisms dataframe and dataset with the surface correction. Ensure that
     the updated surface doesn't intersect the optional confining surfaces.
+
+    Parameters
+    ----------
+    prisms_df : pd.DataFrame
+        dataframe of prism properties
+    iteration_number : int
+        the iteration number, starting at 1 not 0
+
+    Returns
+    -------
+    tuple[pd.DataFrame, xr.DataArray]
+        updated prisms dataframe and correction grid
     """
+
     df = prisms_df.copy()
 
     # for negative densities, negate the correction
     df.loc[df.density < 0, f"iter_{iteration_number}_correction"] *= -1
-
-    # grid the corrections
-    # correction_grid_before = (
-    #     df.rename(columns={f"iter_{iteration_number}_correction": "z"})
-    #     .set_index(["northing", "easting"])
-    #     .to_xarray()
-    #     .z
-    # )
 
     # optionally constrain the surface correction with bounding surfaces
     df = enforce_confining_surface(df, iteration_number)
@@ -672,7 +674,22 @@ def update_prisms_ds(
     """
     apply the corrections grid and update the prism tops, bottoms, topo, and
     densities.
+
+    Parameters
+    ----------
+    prisms_ds : xr.Dataset
+        harmonica prism layer
+    correction_grid : xr.DataArray
+        grid of corrections to apply to the prism layer
+    zref : float
+        reference level for the prism layer
+
+    Returns
+    -------
+    xr.Dataset
+        updated prism layer with new tops, bottoms, topo, and densities
     """
+
     ds = prisms_ds.copy()
 
     density_contrast = ds.density.values.max()
@@ -702,7 +719,23 @@ def add_updated_prism_properties(
 ) -> pd.DataFrame:
     """
     update the prisms dataframe the the new prism tops, bottoms, topo, and densities
+    the iteration number, starting at 1 not 0
+
+    Parameters
+    ----------
+    prisms_df : pd.DataFrame
+        dataframe of prism properties
+    prisms_ds : xr.Dataset
+        dataset of prism properties
+    iteration_number : int
+        the iteration number, starting at 1 not 0
+
+    Returns
+    -------
+    pd.DataFrame
+        updated prism dataframe with new tops, bottoms, topo, and densities
     """
+
     df = prisms_df.copy()
     ds = prisms_ds.copy()
 
