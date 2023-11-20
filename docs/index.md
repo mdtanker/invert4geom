@@ -12,8 +12,16 @@ gallery/index
 ```{toctree}
 :maxdepth: 1
 :hidden:
+:caption: User guide
+user_guide/simple_inversion
+```
+
+```{toctree}
+:maxdepth: 1
+:hidden:
 :caption: Reference documentation
 api/invert4geom
+citing.md
 ```
 
 ```{toctree}

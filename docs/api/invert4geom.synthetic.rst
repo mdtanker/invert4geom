@@ -1,6 +1,6 @@
-invert4geom.inversion
+invert4geom.synthetic
 ---------------------
-.. automodule:: invert4geom.inversion
+.. automodule:: invert4geom.synthetic
    :members:
    :undoc-members:
    :show-inheritance:
