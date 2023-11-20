@@ -80,7 +80,7 @@ def docs(session: nox.Session) -> None:
 
     extra_installs = ["sphinx-autobuild"] if args.serve else []
 
-    session.install("-e.[docs]", *extra_installs)
+    session.install("-e.[docs,viz]", *extra_installs)
     session.chdir("docs")
 
     if args.builder == "linkcheck":

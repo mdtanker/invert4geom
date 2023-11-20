@@ -5,7 +5,7 @@ create:
 	mamba create --name $(PROJECT) --yes --force antarctic-plots python=3.11
 
 install:
-	pip install -e .[test,dev,docs]
+	pip install -e .[viz,test,dev,docs]
 
 remove:
 	mamba remove --name $(PROJECT) --all
