@@ -721,3 +721,58 @@ def add_updated_prism_properties(
     df["topo"] = prisms_iter.topo
 
     return df
+
+
+def grids_to_prisms(
+    surface: xr.DataArray,
+    reference: float | xr.DataArray,
+    density: float | int | xr.DataArray,
+    input_coord_names: tuple[str, str] = ("easting", "northing"),
+) -> xr.Dataset:
+    """
+    create a Harmonica layer of prisms with assigned densities.
+
+    Parameters
+    ----------
+    surface : xr.DataArray
+        data to use for prism surface
+    reference : float | xr.DataArray
+        data or constant to use for prism reference, if value is below surface, prism
+        will be inverted
+    density : float | int | xr.DataArray
+        data or constant to use for prism densities.
+    input_coord_names : tuple[str, str], optional
+        names of the coordinates in the input dataarray, by default
+        ["easting", "northing"]
+    Returns
+    -------
+    xr.Dataset
+       a prisms layer with assigned densities
+    """
+
+    # if density provided as a single number, use it for all prisms
+    if isinstance(density, (float, int)):
+        dens = density * np.ones_like(surface)
+    # if density provided as a dataarray, map each density to the correct prisms
+    elif isinstance(density, xr.DataArray):
+        dens = density
+    else:
+        msg = "invalid density type, should be a number or DataArray"
+        raise ValueError(msg)
+
+    # create layer of prisms based off input dataarrays
+    prisms = hm.prism_layer(
+        coordinates=(
+            surface[input_coord_names[0]].values,
+            surface[input_coord_names[1]].values,
+        ),
+        surface=surface,
+        reference=reference,
+        properties={
+            "density": dens,
+        },
+    )
+
+    prisms["thickness"] = prisms.top - prisms.bottom
+
+    return prisms
