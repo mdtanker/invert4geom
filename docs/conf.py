@@ -29,7 +29,7 @@ exclude_patterns = [
     ".venv",
 ]
 
-html_theme = "furo"
+nbsphinx_execute = "auto"
 
 myst_enable_extensions = [
     "colon_fence",
@@ -59,7 +59,42 @@ nitpick_ignore = [
 ]
 
 always_document_param_types = True
-
 add_module_names = False
-
 add_function_parentheses = False
+
+# API doc configuration
+# -----------------------------------------------------------------------------
+# autosummary_generate = True
+# autodoc_default_options = {
+#     "members": True,
+#     "show-inheritance": True,
+# }
+# apidoc_module_dir = '../src/invert4geom'
+# apidoc_excluded_paths = ['tests']
+# apidoc_separate_modules = False
+
+# HTML output configuration
+# -----------------------------------------------------------------------------
+html_title = f'{project} <span class="project-version">{version}</span>'
+# html_logo = "_static/harmonica-logo.png"
+# html_favicon = "_static/favicon.png"
+html_last_updated_fmt = "%b %d, %Y"
+html_copy_source = True
+html_show_sourcelink = True
+html_show_sphinx = True
+html_show_copyright = False
+html_theme = "sphinx_book_theme"
+html_theme_options = {
+    "repository_url": "https://github.com/mdtanker/invert4geom",
+    "repository_branch": "main",
+    "path_to_docs": "doc",
+    # "launch_buttons": {
+    #     "binderhub_url": "https://mybinder.org",
+    #     "notebook_interface": "jupyterlab",
+    # },
+    "use_edit_page_button": True,
+    "use_issues_button": True,
+    "use_repository_button": True,
+    "use_download_button": True,
+    "home_page_in_toc": False,
+}

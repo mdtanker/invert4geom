@@ -74,7 +74,7 @@ docs = [
   "myst_parser>=0.13",
   "sphinx_copybutton",
   "sphinx_autodoc_typehints",
-  "furo>=2023.08.17",
+  "sphinx-book-theme>=0.3",
   "sphinx_design",
   "nbsphinx",
 ]
