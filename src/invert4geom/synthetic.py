@@ -78,7 +78,7 @@ def synthetic_topography_simple(
         pixel_register = True
 
     # create grid of coordinates
-    (x, y) = vd.grid_coordinates(
+    (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
         region=region,
         spacing=spacing,
         pixel_register=pixel_register,

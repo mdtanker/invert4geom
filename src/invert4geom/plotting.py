@@ -162,8 +162,8 @@ def plot_inversion_topo_results(
     for g in [initial_topo, final_topo]:
         topo_lims.append(ap_utils.get_min_max(g))
 
-    topo_min = min([i[0] for i in topo_lims]) * topo_cmap_perc
-    topo_max = max([i[1] for i in topo_lims]) * topo_cmap_perc
+    topo_min = min([i[0] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
+    topo_max = max([i[1] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
 
     # set figure parameters
     sub_width = 5
@@ -349,15 +349,15 @@ def plot_inversion_iteration_results(
     for g in corrections_grids:
         corrections_lims.append(ap_utils.get_min_max(g))
 
-    misfit_min = min([i[0] for i in misfit_lims])
-    misfit_max = max([i[1] for i in misfit_lims])
+    misfit_min = min([i[0] for i in misfit_lims])  # pylint: disable=consider-using-generator
+    misfit_max = max([i[1] for i in misfit_lims])  # pylint: disable=consider-using-generator
     misfit_lim = vd.maxabs(misfit_min, misfit_max) * misfit_cmap_perc
 
-    topo_min = min([i[0] for i in topo_lims]) * topo_cmap_perc
-    topo_max = max([i[1] for i in topo_lims]) * topo_cmap_perc
+    topo_min = min([i[0] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
+    topo_max = max([i[1] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
 
-    corrections_min = min([i[0] for i in corrections_lims])
-    corrections_max = max([i[1] for i in corrections_lims])
+    corrections_min = min([i[0] for i in corrections_lims])  # pylint: disable=consider-using-generator
+    corrections_max = max([i[1] for i in corrections_lims])  # pylint: disable=consider-using-generator
     corrections_lim = (
         vd.maxabs(corrections_min, corrections_max) * corrections_cmap_perc
     )
@@ -729,7 +729,7 @@ def show_prism_layers(
         plotter.camera.zoom(kwargs.get("zoom", 1.2))
 
     # Add a ceiling light
-    add_light(plotter, prisms[i])
+    add_light(plotter, prisms[i])  # pylint: disable=undefined-loop-variable
 
     plotter.show_axes()
 
