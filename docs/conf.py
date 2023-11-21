@@ -16,10 +16,9 @@ extensions = [
     "myst_parser",
     "sphinx_design",
     "nbsphinx",
+    "sphinx.ext.viewcode",
+    # "sphinx.ext.autosummary",
 ]
-
-nbsphinx_execute = "auto"
-
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
     "_build",
