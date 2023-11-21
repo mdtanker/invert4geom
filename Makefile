@@ -26,3 +26,8 @@ check:
 
 lint:
 	pre-commit run --all-files
+
+pylint:
+	pylint invert4geom
+
+style: format check lint pylint
