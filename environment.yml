@@ -14,11 +14,10 @@ dependencies:
   - pykdtree
   - xrft
   - harmonica>=0.6.0
-  - antarctic_plots
+  - antarctic-plots
   - numba
   - scipy
   - nptyping
-  - numba_progress
   # viz
   - pyvista
   - trame
@@ -27,3 +26,5 @@ dependencies:
   # test
   - pytest >=6
   - pytest-cov >=3
+  - pip:
+    - numba-progress
