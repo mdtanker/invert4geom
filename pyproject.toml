@@ -66,6 +66,8 @@ dev = [
   "pytest >=6",
   "pytest-cov >=3",
   "ruff",
+  "nox",
+  "pre-commit",
 ]
 docs = [
   "sphinx>=7.0",
