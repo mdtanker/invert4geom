@@ -27,4 +27,4 @@ dependencies:
   - pytest >=6
   - pytest-cov >=3
   - pip:
-    - numba-progress
+      - numba-progress
