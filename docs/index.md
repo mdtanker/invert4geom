@@ -17,7 +17,7 @@ user_guide/simple_inversion
 ```
 
 ```{toctree}
-:maxdepth: 1
+:maxdepth: 2
 :hidden:
 :caption: Reference documentation
 api/invert4geom
@@ -36,21 +36,22 @@ Source code on GitHub <https://github.com/mdtanker/invert4geom>
 :start-after: <!-- SPHINX-START -->
 ```
 
-::::{grid} 2 :::{grid-item-card} {octicon}`rocket` Getting started? :text-align:
-center New to Invert4geom? Start here!
 
+::::{grid} 2
+:::{grid-item-card} {octicon}`rocket` Getting started?
+:text-align: center
+New to Invert4geom? Start here!
 ```{button-ref} overview
     :click-parent:
     :color: primary
     :outline:
     :expand:
 ```
-
 :::
 
-:::{grid-item-card} {octicon}`comment-discussion` Need help? :text-align: center
+:::{grid-item-card} {octicon}`comment-discussion` Need help?
+:text-align: center
 Start a discussion on GitHub!
-
 ```{button-link} https://github.com/mdtanker/invert4geom/discussions
     :click-parent:
     :color: primary
@@ -58,38 +59,31 @@ Start a discussion on GitHub!
     :expand:
     Discussions
 ```
-
 :::
 
-:::{grid-item-card} {octicon}`file-badge` Reference documentation :text-align:
-center
-
+:::{grid-item-card} {octicon}`file-badge` Reference documentation
+:text-align: center
 A list of modules and functions
-
 ```{button-ref} api/invert4geom
     :click-parent:
     :color: primary
     :outline:
     :expand:
 ```
-
 :::
 
 :::{grid-item-card} {octicon}`bookmark` Using Invert4geom for research?
 :text-align: center
-
 Citations help support our work
-
 ```{button-ref} citing
     :click-parent:
     :color: primary
     :outline:
     :expand:
 ```
-
 :::
-
 ::::
+
 
 ```{admonition} Early-stages of development
 :class: seealso

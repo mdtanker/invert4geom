@@ -6,7 +6,6 @@ project = "invert4geom"
 copyright = "2023, Matt Tankersley"
 author = "Matt Tankersley"
 version = release = importlib.metadata.version("invert4geom")
-
 extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
