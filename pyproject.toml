@@ -180,7 +180,7 @@ unfixable = [
   "PD004", # Changes .notna to .notnull
   "PD011", # Changes .values() to .to_numpy()
 ]
-exclude = []
+exclude = ["docs/index.md"]
 line-length = 88 # Set the maximum line length to 88.
 flake8-unused-arguments.ignore-variadic-names = true
 isort.required-imports = ["from __future__ import annotations"]
