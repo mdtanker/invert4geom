@@ -89,6 +89,10 @@ jobs:
       - name: List installed packages
         run: mamba list
 
+      # Install the package in editable mode
+      - name: Install local package
+        run: pip install -e .
+
       - name: Run the tests
         run: >-
           pytest -ra --cov --cov-report=xml --cov-report=term --durations=20
