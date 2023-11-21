@@ -1,5 +1,4 @@
-# Requirements for running the Github Action: test
-# only need run-time dependencies
+# Requirements for running the github action: test only need run-time dependencies
 name: invert4geom
 channels:
   - conda-forge
@@ -28,4 +27,3 @@ dependencies:
   # test
   - pytest >=6
   - pytest-cov >=3
-  
