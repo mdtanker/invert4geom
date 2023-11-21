@@ -88,11 +88,20 @@ make test
 
 # Formatting
 
-Use the Makefile commands to locally format and check the code with `ruff`:
+Use the Makefile commands to locally format and check the code with `ruff` and
+`pylint`:
+
+```
+make style
+```
+
+This will run the following commands:
 
 ```
 make check
 make format
+make lint
+make pylint
 ```
 
 # Building docs

@@ -1,0 +1,31 @@
+# Requirements for running the github action: test only need run-time dependencies
+name: invert4geom
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.8
+  - pip
+  # Run-time
+  - numpy
+  - pandas
+  - xarray
+  - verde>=1.8.0
+  - rioxarray
+  - pykdtree
+  - xrft
+  - harmonica>=0.6.0
+  - antarctic-plots
+  - numba
+  - scipy
+  - nptyping
+  # viz
+  - pyvista
+  - trame
+  - ipywidgets
+  - matplotlib
+  # test
+  - pytest >=6
+  - pytest-cov >=3
+  - pip:
+      - numba-progress

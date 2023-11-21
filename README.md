@@ -24,8 +24,6 @@ tesseroids instead of prisms.
 See the [overview](overview.md) for further description of this package and what
 it can be used for.
 
-The tutorials
-
 <!-- prettier-ignore-start -->
 [actions-badge]:            https://github.com/mdtanker/invert4geom/workflows/CI/badge.svg
 [actions-link]:             https://github.com/mdtanker/invert4geom/actions

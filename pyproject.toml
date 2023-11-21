@@ -68,6 +68,7 @@ dev = [
   "ruff",
   "nox",
   "pre-commit",
+  "pylint",
 ]
 docs = [
   "sphinx>=4.0",
