@@ -314,7 +314,7 @@ def plot_inversion_iteration_results(
     parameters : dict[str, typing.Any]
         inversion parameters resulting from the inversion
     iterations : list[int]
-        list of all the iteration numbers which occured in the inversion
+        list of all the iteration numbers which occurred in the inversion
     topo_cmap_perc : float, optional
         value to multiply the max and min colorscale values by, by default 1
     misfit_cmap_perc : float, optional
@@ -564,7 +564,7 @@ def plot_inversion_results(
     # list of iterations, e.g. [1,2,3,4]
     its = [int(s[5:][:-15]) for s in misfits]
 
-    # get on x amonut of iterations to plot
+    # get on x amount of iterations to plot
     if iters_to_plot is not None:
         if iters_to_plot > max(its):
             iterations = its
