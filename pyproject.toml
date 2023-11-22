@@ -180,7 +180,7 @@ unfixable = [
   "PD004", # Changes .notna to .notnull
   "PD011", # Changes .values() to .to_numpy()
 ]
-exclude = ["docs/index.md"]
+exclude = ["docs/index.md", "CHANGELOG.md"]
 line-length = 88 # Set the maximum line length to 88.
 flake8-unused-arguments.ignore-variadic-names = true
 isort.required-imports = ["from __future__ import annotations"]
@@ -195,7 +195,7 @@ extend-include = ["*.ipynb"]
 
 [tool.pylint]
 py-version = "3.8"
-ignore-paths = [".*/_version.py"]
+ignore-paths = [".*/_version.py", "CHANGELOG.md"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
 messages_control.disable = [
