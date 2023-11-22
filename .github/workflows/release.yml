@@ -10,10 +10,6 @@ on:
   #   types:
   #     - published
 
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
   # job to determine appropriate version number, update changelog, and create a release commit
   # release:
@@ -49,7 +45,11 @@ jobs:
   release-test-pypi:
     name: Publish in-dev package to test.pypi.org
     needs: build-package
-    environment: release-test-pypi
+    environment:
+      name: testpypi
+      url: https://pypi.org/p/invert4geom
+    permissions:
+      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
@@ -69,7 +69,11 @@ jobs:
   release-pypi:
     name: Publish released package to pypi.org
     needs: release-test-pypi
-    environment: release-pypi
+    environment:
+      name: pypi
+      url: https://pypi.org/p/invert4geom
+    permissions:
+      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
     if:
       github.ref == 'refs/heads/main' && github.event.action == 'published' &&
       needs.release-test-pypi.status == 'success'
