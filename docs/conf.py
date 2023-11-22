@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import importlib.metadata
+import invert4geom
 
 project = "invert4geom"
 copyright = "2023, Matt Tankersley"
 author = "Matt Tankersley"
-version = release = importlib.metadata.version("invert4geom")
+version = semantic_release.__version__
 extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",

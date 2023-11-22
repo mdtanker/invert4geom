@@ -11,31 +11,7 @@ on:
       - published
 
 jobs:
-  dist:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: hynek/build-and-inspect-python-package@v1
-
-  publish:
-    needs: [dist]
-    environment: pypi
-    permissions:
-      id-token: write
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
-
-    steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: artifact
-          path: dist
-
-      - uses: pypa/gh-action-pypi-publish@release/v1
-
+  # job to determine appropiate version number, update changelog, and create a release commit
   # release:
   #   runs-on: ubuntu-latest
   #   concurrency: release
@@ -52,3 +28,31 @@ jobs:
   #       uses: python-semantic-release/python-semantic-release@master
   #       with:
   #         github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  # job to build and inspect the package
+  dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: hynek/build-and-inspect-python-package@v1
+
+  # job to publish the new version to pypi
+  publish:
+    needs: [dist]
+    environment: pypi
+    permissions:
+      id-token: write
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: artifact
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
