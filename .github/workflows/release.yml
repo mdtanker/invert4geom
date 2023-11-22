@@ -50,8 +50,7 @@ jobs:
     name: Publish in-dev package to test.pypi.org
     needs: build-package
     environment: release-test-pypi
-    if:
-      github.ref == 'refs/heads/main' && needs.build-package.status == 'success'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -72,8 +71,8 @@ jobs:
     needs: release-test-pypi
     environment: release-pypi
     if:
-      github.ref == 'refs/heads/main' && needs.release-test-pypi.status ==
-      'success' && github.event.action == 'published'
+      github.ref == 'refs/heads/main' && github.event.action == 'published' &&
+      needs.release-test-pypi.status == 'success'
     runs-on: ubuntu-latest
 
     steps:
