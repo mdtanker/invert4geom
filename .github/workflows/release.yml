@@ -1,8 +1,7 @@
-name: release
+name: CD
 
 on:
   workflow_dispatch:
-  pull_request:
   push:
     branches:
       - main
@@ -85,3 +84,9 @@ jobs:
 
       - name: Upload package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  # Upload to GitHub Releases on every release.
+  release-github:
+    name: Publish package distributions to GitHub Releases
+    uses: python-semantic-release/upload-to-gh-release@main
+    if: steps.release.outputs.released == 'true'
