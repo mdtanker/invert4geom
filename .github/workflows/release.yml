@@ -23,11 +23,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          token: ${{secrets.PAT}}
 
       - name: Python Semantic Release
         uses: python-semantic-release/python-semantic-release@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   # Always build & lint package.
   build-package:
@@ -44,7 +43,7 @@ jobs:
   # Upload to Test PyPI on every commit on main.
   release-test-pypi:
     name: Publish in-dev package to test.pypi.org
-    needs: build-package
+    needs: [release, build-package]
     environment:
       name: testpypi
       url: https://pypi.org/p/invert4geom
@@ -68,7 +67,7 @@ jobs:
   # Upload to real PyPI on GitHub Releases.
   release-pypi:
     name: Publish released package to pypi.org
-    needs: build-package
+    needs: [release, build-package]
     environment:
       name: pypi
       url: https://pypi.org/p/invert4geom
