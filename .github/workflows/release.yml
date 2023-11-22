@@ -74,9 +74,7 @@ jobs:
       url: https://pypi.org/p/invert4geom
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    if:
-      github.ref == 'refs/heads/main' && github.event.action == 'published' &&
-      needs.release-test-pypi.status == 'success'
+    if: github.ref == 'refs/heads/main' && github.event.action == 'published'
     runs-on: ubuntu-latest
 
     steps:
