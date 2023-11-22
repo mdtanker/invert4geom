@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -27,7 +27,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 readme = "README.md"
-dynamic = ["version"]
+version = "0.1.0"
 
 dependencies = [
   "numpy",
@@ -69,7 +69,7 @@ dev = [
   "nox",
   "pre-commit",
   "pylint",
-  "python-semantic-release",
+  "python-semantic-release >=8",
 ]
 docs = [
   "sphinx>=4.0",
@@ -87,9 +87,6 @@ Documentation = "https://invert4geom.readthedocs.io/"
 "Bug Tracker" = "https://github.com/mdtanker/invert4geom/issues"
 Discussions = "https://github.com/mdtanker/invert4geom/discussions"
 Changelog = "https://invert4geom.readthedocs.io/en/latest/changelog.html"
-
-[tool.setuptools_scm]
-write_to = "src/invert4geom/_version.py"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -210,5 +207,11 @@ messages_control.disable = [
 ]
 
 [tool.semantic_release]
-version_variable = "pyproject.toml:version"
+version_variables = ["src/invert4geom/__init__.py:__version__"]
+version_toml = ["pyproject.toml:project.version"]
 major_on_zero = false
+# build_command = "pip install poetry && poetry build"
+# build_command = """
+#     python -m pip install build~=0.10.0
+#     python -m build .
+# """
