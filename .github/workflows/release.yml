@@ -68,7 +68,7 @@ jobs:
   # Upload to real PyPI on GitHub Releases.
   release-pypi:
     name: Publish released package to pypi.org
-    needs: release-test-pypi
+    needs: build-package
     environment:
       name: pypi
       url: https://pypi.org/p/invert4geom
