@@ -14,6 +14,8 @@ gallery/index
 :hidden:
 :caption: User guide
 user_guide/simple_inversion
+user_guide/including_starting_model
+user_guide/adhering_to_constraints
 ```
 
 ```{toctree}
@@ -22,6 +24,7 @@ user_guide/simple_inversion
 :caption: Reference documentation
 api/invert4geom
 citing.md
+changelog.md
 ```
 
 ```{toctree}

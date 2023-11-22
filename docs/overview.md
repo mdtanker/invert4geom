@@ -23,3 +23,11 @@ easily mapped.
 Currently, this package is only intended to perform inversions using right
 rectangular prisms. Other types of volumes, such as tesseroids, are currently
 not implemented.
+
+Much of this software was developed as part of my Ph.D. thesis. For detailed
+description of the theory and implementation of this inversion, as well as many
+synthetic tests and a real-world application to modelling bathymetry, see
+chapter 3 and 4 of my thesis, available
+[here](https://doi.org/10.26686/wgtn.24408304). The code was originally included
+in [this GitHub repository](https://github.com/mdtanker/RIS_gravity_inversion),
+but much of it has been migrated here.
