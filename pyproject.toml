@@ -69,6 +69,7 @@ dev = [
   "nox",
   "pre-commit",
   "pylint",
+  "python-semantic-release",
 ]
 docs = [
   "sphinx>=4.0",
@@ -206,3 +207,7 @@ messages_control.disable = [
   "missing-module-docstring",
   "wrong-import-position",
 ]
+
+[tool.semantic_release]
+version_variable = "pyproject.toml:version"
+major_on_zero = false
