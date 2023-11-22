@@ -12,22 +12,22 @@ on:
 
 jobs:
   # job to determine appropriate version number, update changelog, and create a release commit
-  # release:
-  #   runs-on: ubuntu-latest
-  #   concurrency: release
-  #   permissions:
-  #     id-token: write
-  #     contents: write
+  release:
+    runs-on: ubuntu-latest
+    concurrency: release
+    permissions:
+      id-token: write
+      contents: write
 
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #       with:
-  #         fetch-depth: 0
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-  #     - name: Python Semantic Release
-  #       uses: python-semantic-release/python-semantic-release@master
-  #       with:
-  #         github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Python Semantic Release
+        uses: python-semantic-release/python-semantic-release@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   # Always build & lint package.
   build-package:
