@@ -5,7 +5,7 @@ import invert4geom
 project = "invert4geom"
 copyright = "2023, Matt Tankersley"
 author = "Matt Tankersley"
-version = semantic_release.__version__
+version = invert4geom.__version__
 extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
