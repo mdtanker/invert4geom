@@ -10,36 +10,18 @@ on:
     types:
       - published
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  FORCE_COLOR: 3
-
 jobs:
   dist:
-    name: Distribution build
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Build sdist and wheel
-        run: pipx run build
-
-      - uses: actions/upload-artifact@v3
-        with:
-          path: dist
-
-      - name: Check products
-        run: pipx run twine check dist/*
+      - uses: hynek/build-and-inspect-python-package@v1
 
   publish:
     needs: [dist]
-    name: Publish to PyPI
     environment: pypi
     permissions:
       id-token: write
@@ -53,8 +35,20 @@ jobs:
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@release/v1
-        if: github.event_name == 'release' && github.event.action == 'published'
-        with:
-          # Remember to tell (test-)pypi about this repo before publishing
-          # Remove this line to publish to PyPI
-          repository-url: https://test.pypi.org/legacy/
+
+  # release:
+  #   runs-on: ubuntu-latest
+  #   concurrency: release
+  #   permissions:
+  #     id-token: write
+  #     contents: write
+
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         fetch-depth: 0
+
+  #     - name: Python Semantic Release
+  #       uses: python-semantic-release/python-semantic-release@master
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
