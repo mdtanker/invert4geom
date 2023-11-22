@@ -11,7 +11,7 @@ on:
       - published
 
 jobs:
-  # job to determine appropiate version number, update changelog, and create a release commit
+  # job to determine appropriate version number, update changelog, and create a release commit
   # release:
   #   runs-on: ubuntu-latest
   #   concurrency: release
@@ -55,4 +55,3 @@ jobs:
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@release/v1
-
