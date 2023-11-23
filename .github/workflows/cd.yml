@@ -17,7 +17,6 @@ jobs:
   release:
     name: Semantic Release
     runs-on: ubuntu-latest
-    concurrency: semantic-release
     permissions:
       id-token: write
       contents: write
