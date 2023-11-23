@@ -63,9 +63,6 @@ jobs:
           name: Packages
           path: dist
         uses: actions/download-artifact@v3
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+
       - name: Upload package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
