@@ -45,9 +45,7 @@ jobs:
       url: https://pypi.org/p/invert4geom
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    if:
-      github.ref == 'refs/heads/main' && needs.semantic-release.released ==
-      'true'
+    if: startsWith(github.ref, 'refs/tags/') # only publish to PyPI on tag pushes
     steps:
       - name: Upload package to Test PyPI
         with:
@@ -64,25 +62,23 @@ jobs:
       url: https://pypi.org/p/invert4geom
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    if:
-      github.ref == 'refs/heads/main' && needs.semantic-release.released ==
-      'true'
+    if: startsWith(github.ref, 'refs/tags/') # only publish to PyPI on tag pushes
     steps:
       - name: Upload package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  # Upload to GitHub Releases.
-  release-github:
-    name: Publish package distributions to GitHub Releases
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: write
-    if:
-      github.ref == 'refs/heads/main' && needs.semantic-release.released ==
-      'true'
-    needs: [semantic-release]
-    steps:
-      - uses: python-semantic-release/upload-to-gh-release@main
-        with:
-          github_token: ${{ secrets.PAT }}
+  # # Upload to GitHub Releases.
+  # release-github:
+  #   name: Publish package distributions to GitHub Releases
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     id-token: write
+  #     contents: write
+  #   if:
+  #     github.ref == 'refs/heads/main' && needs.semantic-release.released ==
+  #     'true'
+  #   needs: [semantic-release]
+  #   steps:
+  #     - uses: python-semantic-release/upload-to-gh-release@main
+  #       with:
+  #         github_token: ${{ secrets.PAT }}
