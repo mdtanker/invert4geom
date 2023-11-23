@@ -2,6 +2,19 @@
 
 
 
+## v0.1.10 (2023-11-23)
+
+### Chore
+
+* chore: fixing cd.yml ([`6fcf6d9`](https://github.com/mdtanker/invert4geom/commit/6fcf6d99e69cb6d34aa79396e2401e205b5e5bee))
+
+* chore: fixing cd.yml ([`d63dd4c`](https://github.com/mdtanker/invert4geom/commit/d63dd4cf18ec743ee76c1f9cf8ff20082de351a2))
+
+### Fix
+
+* fix: force a version increment ([`8dfd424`](https://github.com/mdtanker/invert4geom/commit/8dfd424ce38f8eb417582130ddf87ce910933f93))
+
+
 ## v0.1.9 (2023-11-23)
 
 ### Fix
