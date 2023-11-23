@@ -43,13 +43,13 @@ jobs:
       - uses: hynek/build-and-inspect-python-package@v1
 
   # Download the build package files
-  download-package:
-    name: Download packages built by build-and-inspect-python-package
-    needs: build-package
-    with:
-      name: Packages
-      path: dist
-    uses: actions/download-artifact@v3
+  # download-package:
+  #   name: Download packages built by build-and-inspect-python-package
+  #   needs: build-package
+  #   with:
+  #     name: Packages
+  #     path: dist
+  #   uses: actions/download-artifact@v3
 
   # # Upload to Test PyPI on every commit on main.
   # release-test-pypi:
