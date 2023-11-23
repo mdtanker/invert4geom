@@ -6,71 +6,74 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # job to determine appropriate version number, update changelog, and create a release commit
-  release:
+  # checkout the repo and supply a PAT for the changelog update commit.
+  checkout-repo:
+    name: Checkout repository
+    with:
+      fetch-depth: 0
+      token: ${{secrets.PAT}}
+    uses: actions/checkout@v3
+
+  # determine appropriate version number, update changelog, and create a release commit
+  semantic-release:
+    name: Semantic Release
     runs-on: ubuntu-latest
-    concurrency: release
+    needs: checkout-repo
     permissions:
       id-token: write
       contents: write
+    uses: python-semantic-release/python-semantic-release@master
 
-    steps:
-      # Checkout the repo and supply a PAT for the changelog update commit.
-      - name: Checkout repository
-        id: checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          token: ${{secrets.PAT}}
+  # Always build & lint package.
+  build-package:
+    name: Build & verify package
+    needs: checkout-repo
+    uses: hynek/build-and-inspect-python-package@v1
 
-      # Determine the next version number and update the changelog.
-      - name: Python Semantic Release
-        id: semantic-release
-        uses: python-semantic-release/python-semantic-release@master
+  # Download the build package files
+  download-package:
+    name: Download packages built by build-and-inspect-python-package
+    needs: build-package
+    with:
+      name: Packages
+      path: dist
+    uses: actions/download-artifact@v3
 
-      # Always build & lint package.
-      - name: Build & verify package
-        id: build-package
-        uses: hynek/build-and-inspect-python-package@v1
+  # Upload to Test PyPI on every commit on main.
+  release-test-pypi:
+    name: Publish in-dev package to test.pypi.org
+    needs: [semantic-release, build-package, download-package]
+    environment:
+      name: testpypi
+      url: https://pypi.org/p/invert4geom
+    permissions:
+      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+    if: github.ref == 'refs/heads/main'
+    with:
+      repository-url: https://test.pypi.org/legacy/
+    uses: pypa/gh-action-pypi-publish@release/v1
 
-      # Download the build package files
-      - name: Download packages built by build-and-inspect-python-package
-        uses: actions/download-artifact@v3
-        with:
-          name: Packages
-          path: dist
+  # Upload to real PyPI on GitHub Releases.
+  release-pypi:
+    name: Publish released package to pypi.org
+    needs: [semantic-release, build-package, download-package]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/invert4geom
+    permissions:
+      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+    if: github.ref == 'refs/heads/main'
+    uses: pypa/gh-action-pypi-publish@release/v1
 
-      # Upload to Test PyPI on every commit on main.
-      - name: Publish in-dev package to test.pypi.org
-        id: release-test-pypi
-        needs: [semantic-release, build-package]
-        environment:
-          name: testpypi
-          url: https://pypi.org/p/invert4geom
-        permissions:
-          id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-        if: github.ref == 'refs/heads/main'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-
-      # Upload to real PyPI on GitHub Releases.
-      - name: Publish released package to pypi.org
-        id: release-pypi
-        needs: [semantic-release, build-package]
-        environment:
-          name: pypi
-          url: https://pypi.org/p/invert4geom
-        permissions:
-          id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-        if: github.ref == 'refs/heads/main'
-        uses: pypa/gh-action-pypi-publish@release/v1
-
-      # Upload to GitHub Releases.
-      - name: Publish package distributions to GitHub Releases
-        id: release-github
-        if: steps.semantic-release.outputs.released == 'true'
-        # if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}
-        needs: [semantic-release, build-package]
-        uses: python-semantic-release/upload-to-gh-release@main
+  # Upload to GitHub Releases.
+  release-github:
+    name: Publish package distributions to GitHub Releases
+    if: steps.semantic-release.outputs.released == 'true'
+    # if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}
+    needs: [semantic-release, build-package, download-package]
+    uses: python-semantic-release/upload-to-gh-release@main
