@@ -34,17 +34,6 @@ jobs:
         uses: python-semantic-release/python-semantic-release@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-  # # Always build & lint package. Need to re-checkout after semantic-release in case it
-  # # made a commit
-  # build-package:
-  #   name: Build & verify package
-  #   runs-on: ubuntu-latest
-  #   needs: semantic-release
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #       with:
-  #         fetch-depth: 0
-  #     - uses: hynek/build-and-inspect-python-package@v1
 
   # Upload to Test PyPI on every commit on main.
   release-test-pypi:
@@ -58,13 +47,6 @@ jobs:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
     if: github.ref == 'refs/heads/main'
     steps:
-      # Download the build package files
-      - name: Download packages built by build-and-inspect-python-package
-        with:
-          name: Packages
-          path: dist
-        uses: actions/download-artifact@v3
-
       - name: Upload package to Test PyPI
         with:
           repository-url: https://test.pypi.org/legacy/
@@ -82,13 +64,6 @@ jobs:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
     if: github.ref == 'refs/heads/main'
     steps:
-      # Download the build package files
-      - name: Download packages built by build-and-inspect-python-package
-        with:
-          name: Packages
-          path: dist
-        uses: actions/download-artifact@v3
-
       - name: Upload package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
