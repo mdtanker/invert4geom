@@ -2,6 +2,17 @@
 
 
 
+## v0.1.13 (2023-11-23)
+
+### Fix
+
+* fix: remove permission from inside steps ([`42cadef`](https://github.com/mdtanker/invert4geom/commit/42cadef257b43a891566bc19fa4b4eb33a4eb3c8))
+
+* fix: move environment outside of steps ([`9773658`](https://github.com/mdtanker/invert4geom/commit/9773658adc392c6a90f93bb36e5a6a261a7d4b21))
+
+* fix: reconfigure cd.yml ([`5fa82ed`](https://github.com/mdtanker/invert4geom/commit/5fa82ed7285fbfbeb29431001b050f8fc64c322b))
+
+
 ## v0.1.12 (2023-11-23)
 
 ### Fix
