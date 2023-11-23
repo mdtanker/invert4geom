@@ -6,34 +6,34 @@ on:
     branches:
       - main
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  # checkout the repo and supply a PAT for the changelog update commit.
-  checkout-repo:
-    name: Checkout repository
-    with:
-      fetch-depth: 0
-      token: ${{secrets.PAT}}
-    uses: actions/checkout@v3
-
   # determine appropriate version number, update changelog, and create a release commit
   semantic-release:
     name: Semantic Release
     runs-on: ubuntu-latest
-    needs: checkout-repo
+    concurrency: release
     permissions:
       id-token: write
       contents: write
-    uses: python-semantic-release/python-semantic-release@master
+    steps:
+      # checkout the repo and supply a PAT for the changelog update commit.
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{secrets.PAT}}
+
+      # use semantic-release
+      - uses: python-semantic-release/python-semantic-release@master
 
   # Always build & lint package.
   build-package:
     name: Build & verify package
-    needs: checkout-repo
-    uses: hynek/build-and-inspect-python-package@v1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: hynek/build-and-inspect-python-package@v1
 
   # Download the build package files
   download-package:
