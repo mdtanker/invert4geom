@@ -2,6 +2,13 @@
 
 
 
+## v0.1.18 (2023-11-23)
+
+### Fix
+
+* fix: use PAT instead of GH tocken ([`f2cb0d1`](https://github.com/mdtanker/invert4geom/commit/f2cb0d16e23535d56a9378113639814f2140a640))
+
+
 ## v0.1.17 (2023-11-23)
 
 ### Chore
