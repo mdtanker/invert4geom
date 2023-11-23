@@ -195,7 +195,7 @@ extend-include = ["*.ipynb"]
 
 [tool.pylint]
 py-version = "3.8"
-ignore-paths = [".*/_version.py", "CHANGELOG.md"]
+ignore-paths = ["CHANGELOG.md"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
 messages_control.disable = [
