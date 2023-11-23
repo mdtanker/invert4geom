@@ -86,4 +86,5 @@ jobs:
   release-github:
     name: Publish package distributions to GitHub Releases
     uses: python-semantic-release/upload-to-gh-release@main
-    if: steps.release.outputs.released == 'true'
+    if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}
+    needs: [release, build-package]
