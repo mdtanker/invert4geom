@@ -2,6 +2,13 @@
 
 
 
+## v0.1.8 (2023-11-23)
+
+### Fix
+
+* fix: replace hynek build with PSR build ([`f40cfe9`](https://github.com/mdtanker/invert4geom/commit/f40cfe9cce1fef2ee27d88c67862937b13b6bbc5))
+
+
 ## v0.1.7 (2023-11-23)
 
 ### Chore
