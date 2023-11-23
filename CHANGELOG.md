@@ -2,6 +2,13 @@
 
 
 
+## v0.1.9 (2023-11-23)
+
+### Fix
+
+* fix: trying to fix PSR making github release ([`b777890`](https://github.com/mdtanker/invert4geom/commit/b77789046db794a21eaa09d97c8079f15f371199))
+
+
 ## v0.1.8 (2023-11-23)
 
 ### Fix
