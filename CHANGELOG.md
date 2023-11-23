@@ -2,6 +2,13 @@
 
 
 
+## v0.1.11 (2023-11-23)
+
+### Fix
+
+* fix: publish pypi only if tag ([`1186e3e`](https://github.com/mdtanker/invert4geom/commit/1186e3ee650dfcc705789dc3c2cbf603d0a5cd24))
+
+
 ## v0.1.10 (2023-11-23)
 
 ### Chore
