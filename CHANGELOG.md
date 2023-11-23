@@ -2,6 +2,19 @@
 
 
 
+## v0.1.17 (2023-11-23)
+
+### Chore
+
+* chore: finally have release.yml fixed?! ([`6654e98`](https://github.com/mdtanker/invert4geom/commit/6654e98181e57a433f55870a0470dfa9ea56caf0))
+
+* chore: fixing release.yml ([`2a381b3`](https://github.com/mdtanker/invert4geom/commit/2a381b33087fcb5d74550231fd2d57816c1bb105))
+
+### Fix
+
+* fix: force version bump: ([`7c46909`](https://github.com/mdtanker/invert4geom/commit/7c469091dd542ce6ef5eee319f4005c1ca01d5d5))
+
+
 ## v0.1.16 (2023-11-23)
 
 ### Chore
