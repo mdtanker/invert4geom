@@ -52,7 +52,6 @@ jobs:
         with:
           fetch-depth: 0
       - name: Upload package to Test PyPI
-        needs: checkout
         if: startsWith(github.ref, 'refs/tags/') # only publish on tag pushes
         with:
           repository-url: https://test.pypi.org/legacy/
@@ -75,7 +74,6 @@ jobs:
         with:
           fetch-depth: 0
       - name: Upload package to PyPI
-        needs: checkout
         if: startsWith(github.ref, 'refs/tags/') # only publish on tag pushes
         uses: pypa/gh-action-pypi-publish@release/v1
 
