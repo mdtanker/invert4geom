@@ -2,6 +2,7 @@
 
 [![Actions Status][actions-badge]][actions-link]
 [![Documentation Status][rtd-badge]][rtd-link]
+[![Code-coverage][codecov-badge]][codecov-link]
 
 [![PyPI version][pypi-version]][pypi-link]
 [![Conda-Forge][conda-badge]][conda-link]
@@ -29,6 +30,8 @@ it can be used for.
 [actions-link]:             https://github.com/mdtanker/invert4geom/actions
 [conda-badge]:              https://img.shields.io/conda/vn/conda-forge/invert4geom
 [conda-link]:               https://github.com/conda-forge/invert4geom-feedstock
+[codecov-badge]:            https://codecov.io/github/mdtanker/invert4geom/badge.svg?
+[codecov-link]:             https://app.codecov.io/github/mdtanker/invert4geom
 [github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
 [github-discussions-link]:  https://github.com/mdtanker/invert4geom/discussions
 [pypi-link]:                https://pypi.org/project/invert4geom/

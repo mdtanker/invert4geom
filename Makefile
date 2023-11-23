@@ -4,8 +4,14 @@ STYLE_CHECK_FILES=.
 create:
 	mamba create --name $(PROJECT) --yes --force antarctic-plots python=3.11
 
+create_test_env:
+	mamba create --name test --yes python=3.11
+
 install:
 	pip install -e .[viz,test,dev,docs]
+
+install_test:
+	pip install invert4geom[viz,test,dev,docs]
 
 remove:
 	mamba remove --name $(PROJECT) --all
