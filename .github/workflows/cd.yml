@@ -22,14 +22,15 @@ jobs:
       contents: write
     steps:
       # checkout the repo and supply a PAT for the changelog update commit.
-      - uses: actions/checkout@v3
+      - id: checkout
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           token: ${{secrets.PAT}}
 
       # use semantic-release
-      id: semantic-release-job
-      uses: python-semantic-release/python-semantic-release@master
+      - id: semantic-release-job
+        uses: python-semantic-release/python-semantic-release@master
 
   # Always build & lint package. Need to re-checkout after semantic-release in case it
   # made a commit
