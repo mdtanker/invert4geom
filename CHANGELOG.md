@@ -2,6 +2,15 @@
 
 
 
+## v0.1.12 (2023-11-23)
+
+### Fix
+
+* fix: fixing cd.yml ([`ee7efde`](https://github.com/mdtanker/invert4geom/commit/ee7efdefad907bf9eab1904ef0a18a08be12df74))
+
+* fix: fixing publish action ([`182d8a9`](https://github.com/mdtanker/invert4geom/commit/182d8a9e6481db4294f216f211d41c68091742a1))
+
+
 ## v0.1.11 (2023-11-23)
 
 ### Fix
