@@ -30,6 +30,13 @@ jobs:
         id: build-package
         uses: hynek/build-and-inspect-python-package@v1
 
+      # Download the built package from the build-package job.
+      - name: Download packages built by build-and-inspect-python-package
+        uses: actions/download-artifact@v3
+        with:
+          name: Packages
+          path: dist
+
       # Upload to Test PyPI on every commit on main.
       - name: Publish in-dev package to test.pypi.org
         id: release-test-pypi
@@ -40,23 +47,6 @@ jobs:
         permissions:
           id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
         if: github.ref == 'refs/heads/main'
-
-      # Download the built package from the build-package job.
-      - name: Download packages built by build-and-inspect-python-package
-        uses: actions/download-artifact@v3
-        with:
-          name: Packages
-          path: dist
-
-      # Upload to Test PyPI
-      - name: Upload package to Test PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        environment:
-          name: testpypi
-        permissions:
-          id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-        with:
-          repository-url: https://test.pypi.org/legacy/
 
       # Upload to real PyPI on GitHub Releases.
       - name: Publish released package to pypi.org
