@@ -20,6 +20,9 @@ jobs:
     permissions:
       id-token: write
       contents: write
+    outputs:
+      semantic-release-result:
+        ${{ steps.semantic-release-job.outputs.released }}
     steps:
       # checkout the repo and supply a PAT for the changelog update commit.
       - id: checkout
@@ -97,9 +100,12 @@ jobs:
     permissions:
       id-token: write
       contents: write
-    if: steps.semantic-release-job.outputs.released == 'true'
+    # if: needs.semantic-release.outputs.semantic-release-result == 'true'
     # if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}
     needs: [semantic-release, build-package]
+    env:
+      semantic-release-result: ${{needs.semantic-release.outputs.semantic-release-result}}
+    if: semantic-release-result == 'true'
     steps:
       - uses: python-semantic-release/upload-to-gh-release@main
         with:
