@@ -45,9 +45,15 @@ jobs:
       url: https://pypi.org/p/invert4geom
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    if: startsWith(github.ref, 'refs/tags/') # only publish to PyPI on tag pushes
     steps:
+      # checkout the repo and supply a PAT for the changelog update commit.
+      - id: checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Upload package to Test PyPI
+        needs: checkout
+        if: startsWith(github.ref, 'refs/tags/') # only publish on tag pushes
         with:
           repository-url: https://test.pypi.org/legacy/
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -62,9 +68,15 @@ jobs:
       url: https://pypi.org/p/invert4geom
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    if: startsWith(github.ref, 'refs/tags/') # only publish to PyPI on tag pushes
     steps:
+      # checkout the repo and supply a PAT for the changelog update commit.
+      - id: checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Upload package to PyPI
+        needs: checkout
+        if: startsWith(github.ref, 'refs/tags/') # only publish on tag pushes
         uses: pypa/gh-action-pypi-publish@release/v1
 
   # # Upload to GitHub Releases.
