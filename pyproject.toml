@@ -210,8 +210,7 @@ messages_control.disable = [
 version_variables = ["src/invert4geom/__init__.py:__version__"]
 version_toml = ["pyproject.toml:project.version"]
 major_on_zero = false
-# build_command = "pip install poetry && poetry build"
-# build_command = """
-#     python -m pip install build~=0.10.0
-#     python -m build .
-# """
+build_command = """
+    python -m pip install build
+    python -m build .
+"""
