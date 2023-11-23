@@ -2,6 +2,79 @@
 
 
 
+## v0.1.7 (2023-11-23)
+
+### Chore
+
+* chore: create github release in cd.yml ([`7b717e7`](https://github.com/mdtanker/invert4geom/commit/7b717e7dfa1d82eb8d7bb3d98a4ab898f5f61461))
+
+* chore: create github release in cd.yml ([`4212fdc`](https://github.com/mdtanker/invert4geom/commit/4212fdc2b5a9f510b49e34aa6849bc5d5ea96e5d))
+
+* chore: create github release in cd.yml ([`1e78ab3`](https://github.com/mdtanker/invert4geom/commit/1e78ab3bf191e67a764b649e37ad86de4fd8ca86))
+
+* chore: create github release in cd.yml ([`b6888dd`](https://github.com/mdtanker/invert4geom/commit/b6888dd27f3a897caf3f0710b095354f68211526))
+
+* chore: create github release in cd.yml ([`65a4b93`](https://github.com/mdtanker/invert4geom/commit/65a4b93952369036899912188f154d4d490d703c))
+
+* chore: create github release in cd.yml ([`eb1775d`](https://github.com/mdtanker/invert4geom/commit/eb1775d677baf9c43b5861bc27e1a4dd7631508c))
+
+* chore: create github release in cd.yml ([`9f08208`](https://github.com/mdtanker/invert4geom/commit/9f082087a8aa1f83c60dab2a9d16fe8cf1f72df4))
+
+* chore: fixing cd.yml ([`074739f`](https://github.com/mdtanker/invert4geom/commit/074739f620b3e8de5af299b8df807b2b37081735))
+
+* chore: fixing cd.yml ([`da6eaa6`](https://github.com/mdtanker/invert4geom/commit/da6eaa69c9b7d53a5326bdc6849082425386e5f0))
+
+* chore: fixing cd.yml ([`0ae1fbe`](https://github.com/mdtanker/invert4geom/commit/0ae1fbecf01bd85ab7e98694d06a878a90883d28))
+
+* chore: fixing cd.yml ([`43528b4`](https://github.com/mdtanker/invert4geom/commit/43528b46ed6fff295a21835ddf6b063750f07dae))
+
+* chore: fixing cd.yml ([`afa57ea`](https://github.com/mdtanker/invert4geom/commit/afa57ea031c4f51f2e956a12a3182837d27a8a96))
+
+* chore: fixing cd.yml ([`0aa148f`](https://github.com/mdtanker/invert4geom/commit/0aa148f602229e847b4552fc5074b9b295866908))
+
+* chore: fixing cd.yml ([`16b83a9`](https://github.com/mdtanker/invert4geom/commit/16b83a9e5c543e2b25174d3aee7476345820a182))
+
+* chore: fixing cd.yml ([`695909f`](https://github.com/mdtanker/invert4geom/commit/695909f7de895f8b77d56245db6fa5b8b5a57e4d))
+
+* chore: fixing cd.yml ([`1a2fea3`](https://github.com/mdtanker/invert4geom/commit/1a2fea33b7b406461c1855e4ca13fa8cae4f3345))
+
+* chore: fixing cd.yml ([`32b63a3`](https://github.com/mdtanker/invert4geom/commit/32b63a3c3b4eae6535f3cf5796b3d3f2d2f4875e))
+
+* chore: fixing cd.yml ([`ff243dd`](https://github.com/mdtanker/invert4geom/commit/ff243ddf61963451155cdecb11b5f9f99cfb98f9))
+
+* chore: fixing cd.yml ([`276f3e2`](https://github.com/mdtanker/invert4geom/commit/276f3e2ab0ca74735f38deef939cbcb112ef65e7))
+
+* chore: fixing cd.yml ([`e1084ba`](https://github.com/mdtanker/invert4geom/commit/e1084ba74d028b0b9bfe47639cfb85a946344c88))
+
+* chore: fixing cd.yml ([`c20b9ab`](https://github.com/mdtanker/invert4geom/commit/c20b9ab40f7aee2f66684bbd2c5f0e81f554b7ad))
+
+* chore: fixing cd.yml ([`9957ce6`](https://github.com/mdtanker/invert4geom/commit/9957ce608c00044155d8bb4aa0f3db1b6ac3bfef))
+
+* chore: fix release.yml ([`283b0d6`](https://github.com/mdtanker/invert4geom/commit/283b0d6367cfde096b7322cd5d7655e505cc95ec))
+
+* chore: fixing release.yml ([`498164d`](https://github.com/mdtanker/invert4geom/commit/498164d8fa889f7e03801b2bc7f58081195bd64d))
+
+* chore: fixing release.yml ([`a30266f`](https://github.com/mdtanker/invert4geom/commit/a30266f0bdafbb8ab592f9a650bdc60e24836dbb))
+
+### Fix
+
+* fix: fake fix commit to test semantic-release ([`ffcd3ed`](https://github.com/mdtanker/invert4geom/commit/ffcd3ed2b2efaf434731710d8c8d23f94c8f121a))
+
+### Unknown
+
+* Dev (#22)
+
+* chore: rename CD to release
+
+* fix: fake fix commit to bump version ([`3be81dc`](https://github.com/mdtanker/invert4geom/commit/3be81dc32b700dcbc5600fb3c81a09c07064e809))
+
+* Dev (#21)
+
+* style: ignore CHANGELOG in formatting
+
+* fix: add release to CD action ([`8ad6482`](https://github.com/mdtanker/invert4geom/commit/8ad648201fd41c395852716c8f938250c4839fb7))
+
+
 ## v0.1.6 (2023-11-22)
 
 ### Chore
