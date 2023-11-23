@@ -63,6 +63,7 @@ jobs:
 
       - name: Upload package to Test PyPI
         with:
+          oidc: false
           repository-url: https://test.pypi.org/legacy/
         uses: pypa/gh-action-pypi-publish@release/v1
 
