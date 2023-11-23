@@ -28,7 +28,8 @@ jobs:
           token: ${{secrets.PAT}}
 
       # use semantic-release
-      - uses: python-semantic-release/python-semantic-release@master
+      id: semantic-release-job
+      uses: python-semantic-release/python-semantic-release@master
 
   # Always build & lint package. Need to re-checkout after semantic-release in case it
   # made a commit
@@ -95,7 +96,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
-    if: semantic-release.outputs.released == 'true'
+    if: steps.semantic-release-job.outputs.released == 'true'
     # if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}
     needs: [semantic-release, build-package]
     steps:
