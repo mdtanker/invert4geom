@@ -2,6 +2,13 @@
 
 
 
+## v0.1.15 (2023-11-23)
+
+### Fix
+
+* fix: seperate push and release jobs ([`2f0284a`](https://github.com/mdtanker/invert4geom/commit/2f0284a1b25c831212c17ad32d45a5ba6a00217b))
+
+
 ## v0.1.14 (2023-11-23)
 
 ### Fix
