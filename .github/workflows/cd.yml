@@ -14,13 +14,14 @@ concurrency:
 
 jobs:
   # determine appropriate version number, update changelog, and create a release commit
-  semantic-release:
+  release:
     name: Semantic Release
     runs-on: ubuntu-latest
     concurrency: semantic-release
     permissions:
       id-token: write
       contents: write
+
     steps:
       # checkout the repo and supply a PAT for the changelog update commit.
       - id: checkout
@@ -30,65 +31,47 @@ jobs:
           token: ${{secrets.PAT}}
 
       # use semantic-release
-      - id: semantic-release-job
+      - id: semantic-release
         uses: python-semantic-release/python-semantic-release@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  # Upload to Test PyPI on every commit on main.
-  release-test-pypi:
-    name: Publish in-dev package to test.pypi.org
-    runs-on: ubuntu-latest
-    needs: [semantic-release]
-    environment:
-      name: testpypi
-      url: https://pypi.org/p/invert4geom
-    permissions:
-      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    steps:
-      # checkout the repo and supply a PAT for the changelog update commit.
-      - id: checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Upload package to Test PyPI
-        if: startsWith(github.ref, 'refs/tags/') # only publish on tag pushes
+      # Upload to Test PyPI.
+      - id: release-test-pypi
+        name: Publish in-dev package to test.pypi.org
+        environment:
+          name: testpypi
+          url: https://pypi.org/p/invert4geom
+        permissions:
+          id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+        if: steps.release.outputs.released == 'true'
         with:
           repository-url: https://test.pypi.org/legacy/
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  # Upload to real PyPI on GitHub Releases.
-  release-pypi:
-    name: Publish released package to pypi.org
-    runs-on: ubuntu-latest
-    needs: [semantic-release]
-    environment:
-      name: pypi
-      url: https://pypi.org/p/invert4geom
-    permissions:
-      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    steps:
-      # checkout the repo and supply a PAT for the changelog update commit.
-      - id: checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Upload package to PyPI
-        if: startsWith(github.ref, 'refs/tags/') # only publish on tag pushes
+      # Upload to real PyPI on GitHub Releases.
+      - id: release-pypi
+        name: Publish released package to pypi.org
+        environment:
+          name: pypi
+          url: https://pypi.org/p/invert4geom
+        permissions:
+          id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+        if: steps.release.outputs.released == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  # # Upload to GitHub Releases.
-  # release-github:
-  #   name: Publish package distributions to GitHub Releases
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     id-token: write
-  #     contents: write
-  #   if:
-  #     github.ref == 'refs/heads/main' && needs.semantic-release.released ==
-  #     'true'
-  #   needs: [semantic-release]
-  #   steps:
-  #     - uses: python-semantic-release/upload-to-gh-release@main
-  #       with:
-  #         github_token: ${{ secrets.PAT }}
+    # # Upload to GitHub Releases.
+    # release-github:
+    #   name: Publish package distributions to GitHub Releases
+    #   runs-on: ubuntu-latest
+    #   permissions:
+    #     id-token: write
+    #     contents: write
+    #   if:
+    #     github.ref == 'refs/heads/main' && needs.semantic-release.released ==
+    #     'true'
+    #   needs: [semantic-release]
+    #   steps:
+    #     - uses: python-semantic-release/upload-to-gh-release@main
+    #       with:
+    #         github_token: ${{ secrets.PAT }}
