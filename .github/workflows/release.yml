@@ -12,9 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   # Upload to Test PyPI.
-  release-test-pypi
+  release-test-pypi:
     name: Publish in-dev package to test.pypi.org
     runs-on: ubuntu-latest
     permissions:
@@ -32,9 +31,8 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
         uses: pypa/gh-action-pypi-publish@release/v1
 
-
   # Upload to real PyPI on GitHub Releases.
-  release-pypi
+  release-pypi:
     name: Publish released package to pypi.org
     runs-on: ubuntu-latest
     permissions:
