@@ -41,8 +41,8 @@ jobs:
       # Upload to Test PyPI.
       - id: release-test-pypi
         name: Publish in-dev package to test.pypi.org
-        permissions:
-          id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+        # permissions:
+        #   id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
         if: steps.release.outputs.released == 'true'
         with:
           repository-url: https://test.pypi.org/legacy/
@@ -54,8 +54,8 @@ jobs:
         # environment:
         #   name: pypi
         #   url: https://pypi.org/p/invert4geom
-        permissions:
-          id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+        # permissions:
+        #   id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
         if: steps.release.outputs.released == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
 
