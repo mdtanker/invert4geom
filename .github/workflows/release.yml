@@ -4,7 +4,7 @@ name: release
 on:
   workflow_dispatch:
   release:
-    types: [released]
+    types: [published]
 
 # cancel any currently running workflows in this same PR
 concurrency:
@@ -12,6 +12,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Always build & lint package. Need to re-checkout after semantic-release in case it
+  # made a commit
+  build-package:
+    name: Build & verify package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: hynek/build-and-inspect-python-package@v1
+
   # Upload to Test PyPI.
   release-test-pypi:
     name: Publish in-dev package to test.pypi.org
@@ -21,11 +32,15 @@ jobs:
     environment:
       name: testpypi
       url: https://pypi.org/p/invert4geom
+    needs: [build-package]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      # Download the build package files
+      - name: Download packages built by build-and-inspect-python-package
         with:
-          fetch-depth: 0
+          name: Packages
+          path: dist
+        uses: actions/download-artifact@v3
+
       - name: Upload package to Test PyPI
         with:
           repository-url: https://test.pypi.org/legacy/
@@ -40,7 +55,14 @@ jobs:
     environment:
       name: pypi
       url: https://pypi.org/p/invert4geom
+    needs: [build-package]
     steps:
+      # Download the build package files
+      - name: Download packages built by build-and-inspect-python-package
+        with:
+          name: Packages
+          path: dist
+        uses: actions/download-artifact@v3
       - name: Checkout
         uses: actions/checkout@v2
         with:

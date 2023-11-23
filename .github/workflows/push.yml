@@ -7,16 +7,12 @@ on:
     branches:
       - main
 
-# cancel any currently running workflows in this same PR
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   # determine appropriate version number, update changelog, and create a release commit
   release:
     name: Semantic Release
     runs-on: ubuntu-latest
+    concurrency: release
     permissions:
       id-token: write
       contents: write
