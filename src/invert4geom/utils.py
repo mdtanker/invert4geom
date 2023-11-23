@@ -445,10 +445,8 @@ def extract_prism_data(
     """
     extract necessary info from starting prism layer, adds variables 'topo' and
     'starting_topo' to prism layer dataset (prisms_ds), converts it into dataframe
-    (prisms_df), gets the density contrast value (density) from the max density value in
-    prisms_df, gets the reference level (zref) from the min value of the prims tops,
-    gets the prism spacing (spacing) from prisms_ds, and creates a grid of the starting
-    topography (topo_grid) from the tops and bottoms of the prism layer.
+    (prisms_df), gets the prism spacing (spacing) from prisms_ds, and creates a grid of
+    the starting topography (topo_grid) from the tops and bottoms of the prism layer.
 
     Parameters
     ----------
@@ -458,30 +456,10 @@ def extract_prism_data(
     Returns
     -------
     tuple
-        prisms_df, prisms_ds, density_contrast, zref, spacing, topo_grid)
+        prisms_df, prisms_ds, spacing, topo_grid)
     """
 
     prisms_ds = copy.deepcopy(prism_layer.load())
-
-    # check that minimum elevation of prism tops is equal to max elevation of prism
-    # bottoms
-    # if not prisms_ds.top.to_numpy().min() == prisms_ds.bottom.to_numpy().max():
-    #     msg = "reference for prism layer is outside limits of tops and bottoms"
-    #     raise ValueError(msg)
-
-    # check prisms above reference have densities of opposite sign to prisms below
-    # try:
-    #     if not prisms_ds.density.to_numpy().max() == -prisms_ds.density.to_numpy().min(): # noqa: E501
-    #         msg = "densities should be represented as contrasts not absolutes."
-    #         raise ValueError(msg)
-    # # if not, they should at least be equal (if starting topo model is flat)
-    # except:
-    #     if not prisms_ds.density.to_numpy().max() == prisms_ds.density.to_numpy().min(): # noqa: E501
-    #         msg = "densities should be represented as contrasts not absolutes."
-    #         raise ValueError(msg)
-
-    density_contrast = prisms_ds.density.to_numpy().max()
-    zref = prisms_ds.top.to_numpy().min()
 
     # add starting topo to dataset
     topo_grid = xr.where(prisms_ds.density > 0, prisms_ds.top, prisms_ds.bottom)
@@ -493,7 +471,7 @@ def extract_prism_data(
 
     spacing = get_spacing(prisms_df)
 
-    return prisms_df, prisms_ds, density_contrast, zref, spacing, topo_grid
+    return prisms_df, prisms_ds, spacing, topo_grid
 
 
 def get_spacing(prisms_df: pd.DataFrame) -> float:
