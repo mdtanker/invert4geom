@@ -42,33 +42,33 @@ jobs:
           fetch-depth: 0
       - uses: hynek/build-and-inspect-python-package@v1
 
-  # Download the build package files
-  # download-package:
-  #   name: Download packages built by build-and-inspect-python-package
-  #   needs: build-package
-  #   with:
-  #     name: Packages
-  #     path: dist
-  #   uses: actions/download-artifact@v3
+  # Upload to Test PyPI on every commit on main.
+  release-test-pypi:
+    name: Publish in-dev package to test.pypi.org
+    needs: [semantic-release, build-package]
+    environment:
+      name: testpypi
+      url: https://pypi.org/p/invert4geom
+    permissions:
+      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+    if: github.ref == 'refs/heads/main'
+    steps:
+      # Download the build package files
+      - name: Download packages built by build-and-inspect-python-package
+        with:
+          name: Packages
+          path: dist
+        uses: actions/download-artifact@v3
 
-  # # Upload to Test PyPI on every commit on main.
-  # release-test-pypi:
-  #   name: Publish in-dev package to test.pypi.org
-  #   needs: [semantic-release, build-package, download-package]
-  #   environment:
-  #     name: testpypi
-  #     url: https://pypi.org/p/invert4geom
-  #   permissions:
-  #     id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-  #   if: github.ref == 'refs/heads/main'
-  #   with:
-  #     repository-url: https://test.pypi.org/legacy/
-  #   uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Upload package to Test PyPI
+        with:
+        repository-url: https://test.pypi.org/legacy/
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   # # Upload to real PyPI on GitHub Releases.
   # release-pypi:
   #   name: Publish released package to pypi.org
-  #   needs: [semantic-release, build-package, download-package]
+  #   needs: [semantic-release, build-package]
   #   environment:
   #     name: pypi
   #     url: https://pypi.org/p/invert4geom
@@ -82,5 +82,5 @@ jobs:
   #   name: Publish package distributions to GitHub Releases
   #   if: steps.semantic-release.outputs.released == 'true'
   #   # if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}
-  #   needs: [semantic-release, build-package, download-package]
+  #   needs: [semantic-release, build-package]
   #   uses: python-semantic-release/upload-to-gh-release@main
