@@ -34,6 +34,13 @@ jobs:
         id: build-package
         uses: hynek/build-and-inspect-python-package@v1
 
+      # Download the build package files
+      - name: Download packages built by build-and-inspect-python-package
+        uses: actions/download-artifact@v3
+        with:
+          name: Packages
+          path: dist
+
       # Upload to Test PyPI on every commit on main.
       - name: Publish in-dev package to test.pypi.org
         id: release-test-pypi
@@ -44,16 +51,9 @@ jobs:
         permissions:
           id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
         if: github.ref == 'refs/heads/main'
-        steps:
-          - name: Download packages built by build-and-inspect-python-package
-            uses: actions/download-artifact@v3
-            with:
-              name: Packages
-              path: dist
-          - name: Upload package to Test PyPI
-            uses: pypa/gh-action-pypi-publish@release/v1
-            with:
-              repository-url: https://test.pypi.org/legacy/
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
 
       # Upload to real PyPI on GitHub Releases.
       - name: Publish released package to pypi.org
@@ -65,26 +65,12 @@ jobs:
         permissions:
           id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
         if: github.ref == 'refs/heads/main'
-        steps:
-          - name: Download packages built by build-and-inspect-python-package
-            uses: actions/download-artifact@v3
-            with:
-              name: Packages
-              path: dist
-          - name: Upload package to PyPI
-            uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@release/v1
 
       # Upload to GitHub Releases.
       - name: Publish package distributions to GitHub Releases
         id: release-github
-        if: steps.release.outputs.released == 'true'
+        if: steps.semantic-release.outputs.released == 'true'
         # if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}
-        needs: [release, build-package]
-        steps:
-          - name: Download packages built by build-and-inspect-python-package
-            uses: actions/download-artifact@v3
-            with:
-              name: Packages
-              path: dist
-          - name: Upload the release to GitHub
-            uses: python-semantic-release/upload-to-gh-release@main
+        needs: [semantic-release, build-package]
+        uses: python-semantic-release/upload-to-gh-release@main
