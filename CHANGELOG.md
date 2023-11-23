@@ -2,6 +2,17 @@
 
 
 
+## v0.1.16 (2023-11-23)
+
+### Chore
+
+* chore: fixing GH actions ([`1517933`](https://github.com/mdtanker/invert4geom/commit/1517933c19f1cfe8b2b156409bdee25aca0c683c))
+
+### Fix
+
+* fix: force version bump: ([`f357da5`](https://github.com/mdtanker/invert4geom/commit/f357da57bab602c5d6ef2e7eb81ffe60d479265a))
+
+
 ## v0.1.15 (2023-11-23)
 
 ### Fix
