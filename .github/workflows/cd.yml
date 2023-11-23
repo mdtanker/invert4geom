@@ -45,7 +45,9 @@ jobs:
       url: https://pypi.org/p/invert4geom
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    if: github.ref == 'refs/heads/main'
+    if:
+      github.ref == 'refs/heads/main' && needs.semantic-release.released ==
+      'true'
     steps:
       - name: Upload package to Test PyPI
         with:
@@ -62,7 +64,9 @@ jobs:
       url: https://pypi.org/p/invert4geom
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    if: github.ref == 'refs/heads/main'
+    if:
+      github.ref == 'refs/heads/main' && needs.semantic-release.released ==
+      'true'
     steps:
       - name: Upload package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -74,7 +78,9 @@ jobs:
     permissions:
       id-token: write
       contents: write
-    if: needs.semantic-release.released == 'true'
+    if:
+      github.ref == 'refs/heads/main' && needs.semantic-release.released ==
+      'true'
     needs: [semantic-release]
     steps:
       - uses: python-semantic-release/upload-to-gh-release@main
