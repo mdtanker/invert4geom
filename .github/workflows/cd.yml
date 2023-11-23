@@ -17,6 +17,7 @@ jobs:
   semantic-release:
     name: Semantic Release
     runs-on: ubuntu-latest
+    concurrency: semantic-release
     permissions:
       id-token: write
       contents: write
@@ -31,7 +32,8 @@ jobs:
       # use semantic-release
       - id: semantic-release-job
         uses: python-semantic-release/python-semantic-release@master
-
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
   # # Always build & lint package. Need to re-checkout after semantic-release in case it
   # # made a commit
   # build-package:
