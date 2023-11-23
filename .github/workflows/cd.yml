@@ -21,7 +21,9 @@ jobs:
     permissions:
       id-token: write
       contents: write
-
+    environment:
+      name: testpypi
+      url: https://pypi.org/p/invert4geom
     steps:
       # checkout the repo and supply a PAT for the changelog update commit.
       - id: checkout
@@ -39,9 +41,6 @@ jobs:
       # Upload to Test PyPI.
       - id: release-test-pypi
         name: Publish in-dev package to test.pypi.org
-        environment:
-          name: testpypi
-          url: https://pypi.org/p/invert4geom
         permissions:
           id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
         if: steps.release.outputs.released == 'true'
@@ -52,9 +51,9 @@ jobs:
       # Upload to real PyPI on GitHub Releases.
       - id: release-pypi
         name: Publish released package to pypi.org
-        environment:
-          name: pypi
-          url: https://pypi.org/p/invert4geom
+        # environment:
+        #   name: pypi
+        #   url: https://pypi.org/p/invert4geom
         permissions:
           id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
         if: steps.release.outputs.released == 'true'
