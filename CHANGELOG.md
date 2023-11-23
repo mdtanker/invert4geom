@@ -2,6 +2,13 @@
 
 
 
+## v0.1.14 (2023-11-23)
+
+### Fix
+
+* fix: refine concurrency ([`a54541f`](https://github.com/mdtanker/invert4geom/commit/a54541f4b92b8fddccbb2ad4911ed2b6bc87dfae))
+
+
 ## v0.1.13 (2023-11-23)
 
 ### Fix
