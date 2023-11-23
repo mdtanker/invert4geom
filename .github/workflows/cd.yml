@@ -66,18 +66,27 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  # # Upload to real PyPI on GitHub Releases.
-  # release-pypi:
-  #   name: Publish released package to pypi.org
-  #   runs-on: ubuntu-latest
-  #   needs: [semantic-release, build-package]
-  #   environment:
-  #     name: pypi
-  #     url: https://pypi.org/p/invert4geom
-  #   permissions:
-  #     id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-  #   if: github.ref == 'refs/heads/main'
-  #   uses: pypa/gh-action-pypi-publish@release/v1
+  # Upload to real PyPI on GitHub Releases.
+  release-pypi:
+    name: Publish released package to pypi.org
+    runs-on: ubuntu-latest
+    needs: [semantic-release, build-package]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/invert4geom
+    permissions:
+      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+    if: github.ref == 'refs/heads/main'
+    steps:
+      # Download the build package files
+      - name: Download packages built by build-and-inspect-python-package
+        with:
+          name: Packages
+          path: dist
+        uses: actions/download-artifact@v3
+
+      - name: Upload package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   # # Upload to GitHub Releases.
   # release-github:
