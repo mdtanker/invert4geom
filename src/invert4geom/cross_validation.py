@@ -107,7 +107,7 @@ def inversion_damping_score(
     **kwargs: typing.Any,
 ) -> float:
     """
-    Find the score, represente by the root mean squared error (RMSE), between the
+    Find the score, represented by the root mean squared error (RMSE), between the
     testing gravity data, and the predict gravity data after and
     inversion. Follows methods of Uieda and Barbosa 2017.
 
@@ -138,8 +138,8 @@ def inversion_damping_score(
     train = training_data.copy()
     test = testing_data.copy()
 
-    zref = kwargs.get("zref")
-    density_contrast = kwargs.get("density_contrast")
+    zref: float = kwargs.get("zref")  # type: ignore[assignment]
+    density_contrast: float = kwargs.get("density_contrast")  # type: ignore[assignment]
 
     new_kwargs = {
         key: value
@@ -165,7 +165,9 @@ def inversion_damping_score(
     if results_fname is not None:
         # remove if exists
         pathlib.Path(f"{results_fname}.pickle").unlink(missing_ok=True)
-        with pathlib.Path.open(f"{results_fname}.pickle", "wb", encoding="utf-8") as f:
+        with pathlib.Path(f"{results_fname}.pickle").open(
+            mode="wb", encoding="utf-8"
+        ) as f:
             pickle.dump(results, f)
 
     # grid resulting prisms dataframe
@@ -224,12 +226,12 @@ def inversion_damping_score(
 def inversion_optimal_damping(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
-    damping_values: list | NDArray,
-    progressbar=False,
-    plot_grids=False,
-    plot_cv=False,
-    verbose=False,
-    **kwargs,
+    damping_values: list[float] | NDArray,
+    progressbar: bool = False,
+    plot_grids: bool = False,
+    plot_cv: bool = False,
+    verbose: bool = False,
+    **kwargs: typing.Any,
 ) -> tuple[float, float]:
     """
     Calculate the optimal damping parameter, defined as the value which gives the lowest
