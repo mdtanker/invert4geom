@@ -27,4 +27,3 @@ jobs:
         uses: python-semantic-release/python-semantic-release@master
         with:
           root_options: --noop
-
