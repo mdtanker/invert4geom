@@ -37,20 +37,32 @@ myst_enable_extensions = [
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
+    #
+    # Runtime deps
+    #
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "pandas": ("http://pandas.pydata.org/pandas-docs/stable/", None),
     "xarray": ("http://xarray.pydata.org/en/stable/", None),
     "verde": ("https://www.fatiando.org/verde/latest/", None),
     "rioxarray": ("https://corteva.github.io/rioxarray/stable/", None),
-    # pykdgree
+    # pykdtree
     "xrft": ("https://xrft.readthedocs.io/en/stable/", None),
     "harmonica": ("https://www.fatiando.org/harmonica/latest/", None),
     "antarctic_plots": ("https://antarctic-plots.readthedocs.io/en/latest/", None),
     "numba": ("https://numba.pydata.org/numba-doc/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference", None),
     # nptyping
-    # "matplotlib": ("https://matplotlib.org/", None),
+    # numba_progress
+    "tqdq": ("https://tqdm.github.io/", None),
     # "pygmt": ("https://www.pygmt.org/latest/", None),
+    #
+    # Viz deps
+    #
+    "pyvista": ("https://docs.pyvista.org/", None),
+    # trame
+    # ipywidgets
+    "matplotlib": ("https://matplotlib.org/", None),
+    "seaborn": ("https://seaborn.pydata.org/", None),
 }
 
 nitpick_ignore = [
