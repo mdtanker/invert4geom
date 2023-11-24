@@ -733,6 +733,8 @@ def run_inversion(
     input_grav: pd.DataFrame,
     input_grav_column: str,
     prism_layer: xr.Dataset,
+    density_contrast: float,
+    zref: float,
     max_iterations: int,
     l2_norm_tolerance: float = 0.2,
     delta_l2_norm_tolerance: float = 1.001,
@@ -765,6 +767,12 @@ def run_inversion(
         column name containing the gravity data *before* regional separation
     prism_layer : xr.Dataset
         starting prism layer
+    density_contrast : float
+        density contrast of the prisms layer, should be same value used to create the
+        starting model
+    zref : float
+        reference height of the prisms layer, should be same value used to create the
+        starting model
     max_iterations : int
         the maximum allowed iterations, inclusive and starting at 1
     l2_norm_tolerance : float, optional
@@ -812,15 +820,11 @@ def run_inversion(
     (
         prisms_df,
         prisms_ds,
-        density_contrast,
-        zref,
         prism_spacing,
         _,
     ) = utils.extract_prism_data(prism_layer)
 
-    logging.info("extracted zref is %s", zref)
     logging.info("extracted prism spacing is %s", prism_spacing)
-    logging.info("extracted density contrast is %s", density_contrast)
 
     # create empty jacobian matrix
     empty_jac: NDArray = np.empty(

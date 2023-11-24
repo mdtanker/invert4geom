@@ -507,9 +507,7 @@ def test_extract_prism_data():
     """
     prism_layer = dummy_prism_layer()
     results = utils.extract_prism_data(prism_layer)
-    prisms_df, prisms_ds, density_contrast, zref, spacing, topo_grid = results
-    assert density_contrast == 2670
-    assert zref == 0
+    prisms_df, prisms_ds, spacing, topo_grid = results
     assert spacing == 200
     expected = np.array([[0.0, 0.0, 0.0], [-30.0, -30.0, -30.0], [30.0, 30.0, 30.0]])
     npt.assert_array_equal(expected, topo_grid)

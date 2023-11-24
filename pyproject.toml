@@ -22,7 +22,6 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
@@ -214,3 +213,21 @@ build_command = """
     python -m pip install build
     python -m build .
 """
+commit_parser = "angular"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = [
+    "build",    # Changes that affect the build system or external dependencies
+    "chore",    # Changes to the build process or auxiliary tools and libraries such as documentation generation
+    "ci",       # CI related changes
+    "docs",     # Documentation only changes
+    "feat",     # A new feature
+    "fix",      # A bug fix
+    "perf",     # A code change that improves performance
+    "style",    # Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+    "refactor", # A code change that neither fixes a bug nor adds a feature
+    "test",     # Adding missing or correcting existing tests
+]
+# including BREAKING CHANGE: in the commit message will trigger a major release
+minor_tags = ["feat"] # tags which result in minor releases
+patch_tags = ["fix", "perf"] # tags which result in patch releases
