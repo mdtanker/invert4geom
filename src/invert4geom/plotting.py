@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pygmt
+import seaborn as sns
 
 try:
     import pyvista
@@ -16,6 +17,59 @@ import xarray as xr
 from antarctic_plots import utils as ap_utils
 
 from invert4geom import utils
+
+sns.set_theme()
+
+
+def plot_cv_scores(
+    scores: list[float],
+    parameters: list[float],
+    logx: bool = False,
+    logy: bool = False,
+    param_name: str = "Hyperparameter",
+    figsize: tuple[float, float] = (5, 3.5),
+) -> None:
+    """
+    plot a graph of cross-validation scores vs hyperparameter values
+
+    Parameters
+    ----------
+    scores : list[float]
+        score values
+    parameters : list[float]
+        parameter values
+    logx, logy : bool, optional
+        make the x or y axes log scale, by default False
+    param_name : str, optional
+        name to give for the parameters, by default "Hyperparameter"
+    figsize : tuple[float, float], optional
+        size of the figure, by default (5, 3.5)
+    """
+    df0 = pd.DataFrame({"scores": scores, "parameters": parameters})
+    df = df0.sort_values(by="parameters")
+
+    best = df.scores.argmin()
+
+    plt.figure(figsize=figsize)
+    plt.title(f"{param_name} Cross-validation")
+    plt.plot(df.parameters, df.scores, marker="o")
+    plt.plot(
+        df.parameters.iloc[best],
+        df.scores.iloc[best],
+        "s",
+        markersize=10,
+        color=sns.color_palette()[3],
+        label="Minimum",
+    )
+    plt.legend(loc="best")
+    if logx:
+        plt.xscale("log")
+    if logy:
+        plt.yscale("log")
+    plt.xlabel(f"{param_name} value")
+    plt.ylabel("Root Mean Square Error")
+
+    plt.tight_layout()
 
 
 def plot_convergence(
