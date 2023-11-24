@@ -438,8 +438,6 @@ def extract_prism_data(
     pd.DataFrame,
     xr.Dataset,
     float,
-    float,
-    float,
     xr.DataArray,
 ]:
     """
@@ -455,8 +453,8 @@ def extract_prism_data(
 
     Returns
     -------
-    tuple
-        prisms_df, prisms_ds, spacing, topo_grid)
+    tuple[pd.DataFrame, pd.Dataset, float, xr.DataArray]
+        prisms_df, prisms_ds, spacing, topo_grid
     """
 
     prisms_ds = copy.deepcopy(prism_layer.load())
