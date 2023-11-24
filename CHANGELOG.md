@@ -2,6 +2,39 @@
 
 
 
+## v0.1.19 (2023-11-24)
+
+### Chore
+
+* chore: remove scm version files ([`1f99c55`](https://github.com/mdtanker/invert4geom/commit/1f99c558617a85c050c56aaab0b6c799013f6fc8))
+
+### Fix
+
+* fix: add zref and density args to inversion (#24)
+
+* fix: add zref and density args to inversion
+
+* fix: removes references to density and zref
+
+* fix: remove python 3.12 support, add test for 3.10
+
+* chore: specify semantic release options
+
+* chore: remove pypy from testing versions ([`c62f189`](https://github.com/mdtanker/invert4geom/commit/c62f1891fbbf14b9d9f092758fbf73f7b542621a))
+
+### Unknown
+
+* Working on the docs (#23)
+
+* docs: update install instructions
+
+* chore: add test env make commands
+
+* chore: fixes issues pointed out in repo-review
+
+* docs: add codecov badge to readme ([`fb5f7b2`](https://github.com/mdtanker/invert4geom/commit/fb5f7b277d0b99fc901ca07b75bae4a9853ff008))
+
+
 ## v0.1.18 (2023-11-23)
 
 ### Fix
