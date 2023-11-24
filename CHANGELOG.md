@@ -2,6 +2,83 @@
 
 
 
+## v0.1.20 (2023-11-24)
+
+### Fix
+
+* fix: forcing a new patch ([`9a73194`](https://github.com/mdtanker/invert4geom/commit/9a73194ea5b0e22e4422ed04f2c180c15de29867))
+
+### Unknown
+
+* Hyperparameter cross validation  (#25)
+
+* fix: add zref and density args to inversion
+
+* fix: removes references to density and zref
+
+* fix: remove python 3.12 support, add test for 3.10
+
+* chore: specify semantic release options
+
+* chore: remove pypy from testing versions
+
+* feat: add cross validation module
+
+* feat: add cross validation plot function
+
+* build: add tqdm and seaborn deps
+
+* docs: update simple_inversion.ipynb
+
+Lower the grid resolution to run faster, add more detailed comments, use same zref as true topography, change choosen damping value
+
+* docs: add damping_cross_validation.ipynb
+
+new notebook to demonstrate how to perform a CV to find the optimal damping value.
+
+* docs: add damping_cross_validation.ipynb to guide
+
+* style: formatting cross_validation.py
+
+* fix: allow matplotlib and seaborn to be optional
+
+* chore: update deps in .yml and  mapping
+
+* chore: add github action workflow
+
+run a python-semantic-release in no operation mode to see what will be done. Runs one all commits to PR&#39;s
+
+* style: pre-commit fixes
+
+* style: format fix
+
+* chore: update release check
+
+* chore: updating release check
+
+* chore: remove semantic release check action
+
+* fix: restructure damping cross validation
+
+associated functions are termed &#34;gravity&#34; cross validation since they use the observed and predicted gravity data to determine the score.
+
+* feat: add constraints cv functions
+
+termed &#34;constraints&#34; since they use the difference between constraint point elevations and inverted topography to determine the score. Used for zref and density cross validations
+
+* docs: reorganized damping CV notebook
+
+* docs: restructured simple inversion notebook
+
+* docs: restructured starting model notebook
+
+* docs: add density and zref CV notebooks
+
+---------
+
+Co-authored-by: pre-commit-ci[bot] &lt;66853113+pre-commit-ci[bot]@users.noreply.github.com&gt; ([`2546ee4`](https://github.com/mdtanker/invert4geom/commit/2546ee401201509409c932cf8111370142911599))
+
+
 ## v0.1.19 (2023-11-24)
 
 ### Chore
