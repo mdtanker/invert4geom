@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-import pathlib
-import pickle
 import typing
 
 import numpy as np
@@ -10,7 +8,6 @@ import pandas as pd
 import verde as vd
 import xarray as xr
 from antarctic_plots import utils as ap_utils
-from nptyping import NDArray
 from tqdm.autonotebook import tqdm
 
 from invert4geom import inversion, plotting, utils
@@ -97,11 +94,9 @@ def resample_with_test_points(
     return df2
 
 
-def inversion_damping_score(
-    damping: float,
+def grav_cv_score(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
-    results_fname: str | None = None,
     progressbar: bool = False,
     plot: bool = False,
     **kwargs: typing.Any,
@@ -113,14 +108,10 @@ def inversion_damping_score(
 
     Parameters
     ----------
-    damping : float
-        damping parameter to use in inversion
     training_data : pd.DataFrame
        rows of the data frame which are just the training data
     testing_data : pd.DataFrame
         rows of the data frame which are just the testing data
-    results_fname : str | None, optional
-        file path and name if storing resulting pickle file, by default None
     progressbar : bool, optional
         choose to show the progress bar for the forward gravity calculation, by default
         False
@@ -154,21 +145,11 @@ def inversion_damping_score(
     # run inversion
     results = inversion.run_inversion(
         input_grav=train,
-        solver_damping=damping,
         zref=zref,
         density_contrast=density_contrast,
         **new_kwargs,
     )
     prism_results, _, _, _ = results
-
-    # save results to pickle
-    if results_fname is not None:
-        # remove if exists
-        pathlib.Path(f"{results_fname}.pickle").unlink(missing_ok=True)
-        with pathlib.Path(f"{results_fname}.pickle").open(
-            mode="wb", encoding="utf-8"
-        ) as f:
-            pickle.dump(results, f)
 
     # grid resulting prisms dataframe
     prism_ds = prism_results.set_index(["northing", "easting"]).to_xarray()
@@ -216,27 +197,26 @@ def inversion_damping_score(
             plot=True,
             plot_type="xarray",
             robust=True,
-            title=f"Damping={damping}, Score={score}",
+            title=f"Score={score}",
             rmse_in_title=False,
         )
 
     return score
 
 
-def inversion_optimal_damping(
+def grav_optimal_parameter(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
-    damping_values: list[float] | NDArray,
+    param_to_test: tuple[str, list[float]],
     progressbar: bool = False,
     plot_grids: bool = False,
     plot_cv: bool = False,
     verbose: bool = False,
     **kwargs: typing.Any,
-) -> tuple[float, float]:
+) -> tuple[float, float, list[float], list[float]]:
     """
-    Calculate the optimal damping parameter, defined as the value which gives the lowest
-    RMSE between the testing gravity data, and the predict gravity data after and
-    inversion. Follows method of Uieda and Barbosa 2017.
+    Calculate the cross validation scores for a set of parameter values and return the
+    best score and value.
 
     Parameters
     ----------
@@ -244,34 +224,42 @@ def inversion_optimal_damping(
         just the training data rows
     testing_data : pd.DataFrame
         just the testing data rows
-    damping_values : list | NDArray
-        damping values to run inversions and collect scores for
+    param_to_test : tuple[str, list[float]]
+        first value is a string of the parameter that is being tested, and the second
+        value is a list of the values to test
     progressbar : bool, optional
-        display a progress bar for the number of damping values, by default False
+        display a progress bar for the number of tested values, by default False
     plot_grids : bool, optional
-        plot all the grids of observed and predicted data for each damping value, by
+        plot all the grids of observed and predicted data for each parameter value, by
         default False
     plot_cv : bool, optional
-       plot a graph of scores vs damping values, by default False
+       plot a graph of scores vs parameter values, by default False
     verbose : bool, optional
        log the results, by default False
 
     Returns
     -------
-    tuple[float, float]
-        the optimal damping value and the score associated with it
+    tuple[float, float, list[float], list[float]]
+        the optimal parameter value, the score associated with it, the parameter values
+        and the scores for each parameter value
     """
 
     train = training_data.copy()
     test = testing_data.copy()
 
+    # pull parameter out of kwargs
+    param_name = param_to_test[0]
+    param_values = param_to_test[1]
+
     # run inversions and collect scores
     scores = []
-    for value in tqdm(damping_values, desc="Damping Values", disable=not progressbar):
-        score = inversion_damping_score(
-            value,
-            train,
-            test,
+    for value in tqdm(param_values, desc="Parameter values", disable=not progressbar):
+        # update parameter value in kwargs
+        kwargs[param_name] = value
+        # run cross validation
+        score = grav_cv_score(
+            training_data=train,
+            testing_data=test,
             plot=plot_grids,
             **kwargs,
         )
@@ -282,22 +270,25 @@ def inversion_optimal_damping(
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
 
-    # print damping and score pairs
-    for damp, score in zip(damping_values, scores):
-        logging.info("Damping: %s -> Score: %s", damp, score)
+    # print value and score pairs
+    for value, score in zip(param_values, scores):
+        logging.info("Parameter value: %s -> Score: %s", value, score)
 
-    best_score = np.argmin(scores)
-    best_damping = damping_values[best_score]
-    logging.info("Best score of %s with damping value=%s", best_score, best_damping)
+    best_idx = np.argmin(scores)
+    best_score = scores[best_idx]
+    best_param_value = param_values[best_idx]
+    logging.info(
+        "Best score of %s with parameter value=%s", best_score, best_param_value
+    )
 
     if plot_cv:
         # plot scores
         plotting.plot_cv_scores(
             scores,
-            damping_values,
-            param_name="Damping",
-            logx=True,
-            logy=True,
+            param_values,
+            param_name=param_name,
+            # logx=True,
+            # logy=True,
         )
 
-    return best_damping, best_score
+    return best_param_value, best_score, param_values, scores
