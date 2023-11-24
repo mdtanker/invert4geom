@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import typing
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pygmt
-import seaborn as sns
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+
+
+try:
+    import seaborn as sns
+except ImportError:
+    sns = None
 
 try:
     import pyvista
@@ -17,8 +26,6 @@ import xarray as xr
 from antarctic_plots import utils as ap_utils
 
 from invert4geom import utils
-
-sns.set_theme()
 
 
 def plot_cv_scores(
@@ -45,6 +52,16 @@ def plot_cv_scores(
     figsize : tuple[float, float], optional
         size of the figure, by default (5, 3.5)
     """
+    # Check if seaborn is installed
+    if sns is None:
+        msg = "Missing optional dependency 'seaborn' required for plotting."
+        raise ImportError(msg)
+    sns.set_theme()
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
     df0 = pd.DataFrame({"scores": scores, "parameters": parameters})
     df = df0.sort_values(by="parameters")
 
@@ -79,7 +96,7 @@ def plot_convergence(
     figsize: tuple[float, float] = (5, 3.5),
 ) -> None:
     """
-    _summary_
+    plot a graph of misfit and time vs iteration number.
 
     Parameters
     ----------
@@ -92,6 +109,17 @@ def plot_convergence(
     figsize : tuple[float, float], optional
         width and height of figure, by default (5, 3.5)
     """
+    # Check if seaborn is installed
+    if sns is None:
+        msg = "Missing optional dependency 'seaborn' required for plotting."
+        raise ImportError(msg)
+    sns.set_theme()
+
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
     # get misfit data at end of each iteration
     cols = [s for s in results.columns.to_list() if "_final_misfit" in s]
     iters = len(cols)
@@ -199,6 +227,11 @@ def plot_inversion_topo_results(
     topo_cmap_perc : float, optional
         value to multiple min and max values by for colorscale, by default 1
     """
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
     initial_topo = prisms_ds.starting_topo
 
     # list of variables ending in "_layer"
@@ -376,6 +409,11 @@ def plot_inversion_iteration_results(
     corrections_cmap_perc : float, optional
         value to multiply the max and min colorscale values by, by default 1
     """
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
     misfit_grids, topo_grids, corrections_grids = grids
 
     params = parameters.copy()
