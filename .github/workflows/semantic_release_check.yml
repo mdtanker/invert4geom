@@ -25,13 +25,18 @@ jobs:
 
       # use semantic-release in no operation mode
       - name: Semantic Release dry run
-        id: semantic-release
+        id: semantic
         uses: python-semantic-release/python-semantic-release@master
         with:
-          root_options: --noop --skip-build
+          root_options: --noop
 
-      # - name: Use the version
-      #   run: echo "The version is ${{ steps.semantic.outputs.version }}"
+      - name: Use the version
+        run: echo "The version is ${{ steps.semantic.outputs.version }}"
+
+      - name: New release?
+        run:
+          echo "Will a new version be release? ${{
+          steps.semantic.outputs.released }}"
 
       # - name: Semantic Release dry run
       #   id: semantic
