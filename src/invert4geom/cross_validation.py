@@ -292,3 +292,70 @@ def grav_optimal_parameter(
         )
 
     return best_param_value, best_score, param_values, scores
+
+
+def constraints_cv_score(
+    grav: pd.DataFrame,
+    constraints: pd.DataFrame,
+    **kwargs: typing.Any,
+) -> float:
+    """
+    Find the score, represented by the root mean squared error (RMSE), between the
+    constraint point elevation, and the inverted topography at the constraint points.
+    Follows methods of Uieda and Barbosa 2017.
+
+    Parameters
+    ----------
+    grav : pd.DataFrame
+       gravity dataframe with columns "res", "reg", and column set by kwarg
+       input_grav_column
+    constraints : pd.DataFrame
+        constraints dataframe with columns "easting", "northing", and "upward"
+
+    Returns
+    -------
+    float
+        a score, represented by the root mean squared error, between the testing gravity
+        data and the predicted gravity data.
+    """
+
+    zref: float = kwargs.get("zref")  # type: ignore[assignment]
+    density_contrast: float = kwargs.get("density_contrast")  # type: ignore[assignment]
+
+    new_kwargs = {
+        key: value
+        for key, value in kwargs.items()
+        if key
+        not in [
+            "zref",
+            "density_contrast",
+        ]
+    }
+
+    # run inversion
+    results = inversion.run_inversion(
+        input_grav=grav,
+        zref=zref,
+        density_contrast=density_contrast,
+        **new_kwargs,
+    )
+    prism_results, _, _, _ = results
+
+    # grid resulting prisms dataframe
+    prism_ds = prism_results.set_index(["northing", "easting"]).to_xarray()
+
+    # get last iteration's layer result
+    cols = [s for s in prism_results.columns.to_list() if "_layer" in s]
+    final_surface = prism_ds[cols[-1]]
+
+    # sample the inverted topography at the constraint points
+    constraints = utils.sample_grids(
+        constraints,
+        final_surface,
+        "inverted_topo",
+        coord_names=("easting", "northing"),
+    )
+
+    dif = constraints.upward - constraints.inverted_topo
+
+    return utils.rmse(dif)
