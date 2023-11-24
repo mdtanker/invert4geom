@@ -19,11 +19,13 @@ dependencies:
   - numba
   - scipy
   - nptyping
+  - tqdm
   # viz
   - pyvista
   - trame
   - ipywidgets
   - matplotlib
+  - seaborn
   # test
   - pytest >=6
   - pytest-cov >=3

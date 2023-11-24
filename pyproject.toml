@@ -42,10 +42,10 @@ dependencies = [
   "scipy",
   "nptyping",
   "numba_progress",
+  "tqdm",
 
 #  "pygmt>=0.9.0",
 #  "geopandas",
-#  "tqdm",
 #  "boule",
 #  "numba-progress",
 ]
@@ -56,6 +56,7 @@ viz = [
   "trame",
   "ipywidgets",
   "matplotlib",
+  "seaborn",
 ]
 test = [
   "pytest >=6",

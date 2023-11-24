@@ -2,10 +2,20 @@ from __future__ import annotations
 
 import typing
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pygmt
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+
+
+try:
+    import seaborn as sns
+except ImportError:
+    sns = None
 
 try:
     import pyvista
@@ -18,6 +28,67 @@ from antarctic_plots import utils as ap_utils
 from invert4geom import utils
 
 
+def plot_cv_scores(
+    scores: list[float],
+    parameters: list[float],
+    logx: bool = False,
+    logy: bool = False,
+    param_name: str = "Hyperparameter",
+    figsize: tuple[float, float] = (5, 3.5),
+) -> None:
+    """
+    plot a graph of cross-validation scores vs hyperparameter values
+
+    Parameters
+    ----------
+    scores : list[float]
+        score values
+    parameters : list[float]
+        parameter values
+    logx, logy : bool, optional
+        make the x or y axes log scale, by default False
+    param_name : str, optional
+        name to give for the parameters, by default "Hyperparameter"
+    figsize : tuple[float, float], optional
+        size of the figure, by default (5, 3.5)
+    """
+    # Check if seaborn is installed
+    if sns is None:
+        msg = "Missing optional dependency 'seaborn' required for plotting."
+        raise ImportError(msg)
+    sns.set_theme()
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
+    df0 = pd.DataFrame({"scores": scores, "parameters": parameters})
+    df = df0.sort_values(by="parameters")
+
+    best = df.scores.argmin()
+
+    plt.figure(figsize=figsize)
+    plt.title(f"{param_name} Cross-validation")
+    plt.plot(df.parameters, df.scores, marker="o")
+    plt.plot(
+        df.parameters.iloc[best],
+        df.scores.iloc[best],
+        "s",
+        markersize=10,
+        color=sns.color_palette()[3],
+        label="Minimum",
+    )
+    plt.legend(loc="best")
+    if logx:
+        plt.xscale("log")
+    if logy:
+        plt.yscale("log")
+    plt.xlabel(f"{param_name} value")
+    plt.ylabel("Root Mean Square Error")
+
+    plt.tight_layout()
+
+
 def plot_convergence(
     results: pd.DataFrame,
     iter_times: list[float] | None = None,
@@ -25,7 +96,7 @@ def plot_convergence(
     figsize: tuple[float, float] = (5, 3.5),
 ) -> None:
     """
-    _summary_
+    plot a graph of misfit and time vs iteration number.
 
     Parameters
     ----------
@@ -38,6 +109,17 @@ def plot_convergence(
     figsize : tuple[float, float], optional
         width and height of figure, by default (5, 3.5)
     """
+    # Check if seaborn is installed
+    if sns is None:
+        msg = "Missing optional dependency 'seaborn' required for plotting."
+        raise ImportError(msg)
+    sns.set_theme()
+
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
     # get misfit data at end of each iteration
     cols = [s for s in results.columns.to_list() if "_final_misfit" in s]
     iters = len(cols)
@@ -145,6 +227,11 @@ def plot_inversion_topo_results(
     topo_cmap_perc : float, optional
         value to multiple min and max values by for colorscale, by default 1
     """
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
     initial_topo = prisms_ds.starting_topo
 
     # list of variables ending in "_layer"
@@ -322,6 +409,11 @@ def plot_inversion_iteration_results(
     corrections_cmap_perc : float, optional
         value to multiply the max and min colorscale values by, by default 1
     """
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
     misfit_grids, topo_grids, corrections_grids = grids
 
     params = parameters.copy()
