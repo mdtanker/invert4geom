@@ -14,6 +14,7 @@ gallery/index
 :hidden:
 :caption: User guide
 user_guide/simple_inversion
+user_guide/damping_cross_validation
 user_guide/including_starting_model
 user_guide/adhering_to_constraints
 ```
