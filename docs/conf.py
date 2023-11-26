@@ -53,7 +53,7 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy/reference", None),
     # nptyping
     # numba_progress
-    "tqdq": ("https://tqdm.github.io/", None),
+    # "tqdm": ("https://tqdm.github.io/", None),
     # "pygmt": ("https://www.pygmt.org/latest/", None),
     #
     # Viz deps
