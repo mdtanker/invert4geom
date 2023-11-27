@@ -37,7 +37,7 @@ dependencies = [
   "pykdtree",
   "xrft",
   "harmonica>=0.6.0",
-  "antarctic_plots",
+  "antarctic_plots>=0.0.6",
   "numba",
   "scipy",
   "nptyping",
@@ -217,7 +217,7 @@ build_command = """
 commit_parser = "angular"
 
 [tool.semantic_release.changelog]
-template_dir = "docs/_templates"
+template_dir = "templates"
 
 [tool.semantic_release.commit_parser_options]
 allowed_tags = [
