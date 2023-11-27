@@ -1,5 +1,77 @@
-# CHANGELOG
+# Changelog
 
+
+
+## v0.2.0 (2023-11-27)
+
+### Chore
+
+* chore(deps): bump actions/checkout from 3 to 4 (#27)
+
+Bumps [actions/checkout](https://github.com/actions/checkout) from 3 to 4.
+- [Release notes](https://github.com/actions/checkout/releases)
+- [Changelog](https://github.com/actions/checkout/blob/main/CHANGELOG.md)
+- [Commits](https://github.com/actions/checkout/compare/v3...v4)
+
+---
+updated-dependencies:
+- dependency-name: actions/checkout
+  dependency-type: direct:production
+  update-type: version-update:semver-major
+...
+
+Signed-off-by: dependabot[bot] &lt;support@github.com&gt;
+Co-authored-by: dependabot[bot] &lt;49699333+dependabot[bot]@users.noreply.github.com&gt; ([`3f46f5b`](https://github.com/mdtanker/invert4geom/commit/3f46f5bfd6de675d95eb3abcf6ed26449a52bd8d))
+
+* chore: add ignore option for codespell ([`bc4f597`](https://github.com/mdtanker/invert4geom/commit/bc4f5973b89f4b27885b2037b8d861732cf6240f))
+
+* chore: add semantic-release changelog template ([`bc93159`](https://github.com/mdtanker/invert4geom/commit/bc93159f5cd3261d5049c9b1c12c228abec3ebd9))
+
+* chore: add semantic release check to makefile ([`d3bb077`](https://github.com/mdtanker/invert4geom/commit/d3bb077c038394a8c66e21d9916cf38ab9c48c96))
+
+### Documentation
+
+* docs: minor changes ([`c29c742`](https://github.com/mdtanker/invert4geom/commit/c29c74239237ed08013f6eaf1df2e90c874971c4))
+
+* docs:  new user guide notebook
+
+adds notebook which combines damping, density, and zref cross validations, as well as using a starting model and weighting grid. ([`1ad026a`](https://github.com/mdtanker/invert4geom/commit/1ad026a188413934c298aaff20f7eda306a3cf59))
+
+* docs: update user guide notebooks
+
+To run faster, this lowers the resolution of the user guide notebooks. It also adds synthetic noise to all the examples. ([`d63c410`](https://github.com/mdtanker/invert4geom/commit/d63c410c5083078c0d20e1e4f1f840a83b58bbdf))
+
+* docs: update some docstrings ([`0bf4d7b`](https://github.com/mdtanker/invert4geom/commit/0bf4d7bd35900285ea5c42c29d2c23fa451f8f68))
+
+* docs: add references to docstrings ([`d0357a8`](https://github.com/mdtanker/invert4geom/commit/d0357a819db975295302d6aada0ba14206258aaf))
+
+* docs: add emojis to homepage ([`eda2938`](https://github.com/mdtanker/invert4geom/commit/eda29385c90692600469a5d9a48c123c9b2c5842))
+
+* docs: set nb execute to never for docs ([`ef58202`](https://github.com/mdtanker/invert4geom/commit/ef58202e4ab1e853be4924ddda3355bc902ffd00))
+
+* docs: edit the user guide notebooks ([`aec1fe6`](https://github.com/mdtanker/invert4geom/commit/aec1fe67409dd2db0da602483bda98c3cc6e3df0))
+
+* docs: add cross validation api docs ([`03c38d6`](https://github.com/mdtanker/invert4geom/commit/03c38d6fd89d8b1d3506cc865596dbaf75afb108))
+
+* docs: remove tqdm mapping ([`088409e`](https://github.com/mdtanker/invert4geom/commit/088409e3ae897e213b6c51d4d59ba5c5a2300b8b))
+
+### Feature
+
+* feat: add 2 parameter cross validation plotting ([`2d1269e`](https://github.com/mdtanker/invert4geom/commit/2d1269ebacbe4149642c8cd3484b7ffa65554b83))
+
+* feat: add contaminate function for synthetic noise ([`3a1cf8d`](https://github.com/mdtanker/invert4geom/commit/3a1cf8d1b081057d0f8e19e611bab30f807fb4a5))
+
+### Fix
+
+* fix: add reference level to iteration plots ([`960eb44`](https://github.com/mdtanker/invert4geom/commit/960eb44cc5956b9795dbc9b18bcdd627eec7ea17))
+
+### Style
+
+* style: formatting ([`66b0a56`](https://github.com/mdtanker/invert4geom/commit/66b0a56aaba2b590e2594fd2bd31735823959128))
+
+### Unknown
+
+* Merge branch &#39;main&#39; of https://github.com/mdtanker/invert4geom ([`86c611b`](https://github.com/mdtanker/invert4geom/commit/86c611b322de101c79fa8072718418c8a0b1a56f))
 
 
 ## v0.1.20 (2023-11-24)
