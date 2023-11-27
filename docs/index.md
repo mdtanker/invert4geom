@@ -119,9 +119,3 @@ how you can contribute to the project.
 ```{note}
 *Many parts of this documentation was adapted from the* [Fatiando project](https://www.fatiando.org/).
 ```
-
-## Indices and tables
-
-- {ref}`genindex`
-- {ref}`modindex`
-- {ref}`search`
