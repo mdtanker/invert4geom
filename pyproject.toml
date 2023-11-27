@@ -216,6 +216,9 @@ build_command = """
 """
 commit_parser = "angular"
 
+[tool.semantic_release.changelog]
+template_dir = "docs/_templates"
+
 [tool.semantic_release.commit_parser_options]
 allowed_tags = [
     "build",    # Changes that affect the build system or external dependencies
