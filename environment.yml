@@ -31,11 +31,11 @@ dependencies:
   - pytest-cov >=3
   # docs
   - sphinx>=4.0
-  - myst_parser
-  - sphinx_copybutton
-  - sphinx_autodoc_typehints
+  - myst-parser
+  - sphinx-copybutton
+  - sphinx_autodoc-typehints
   - sphinx-book-theme>=0.3
-  - sphinx_design
+  - sphinx-design
   - nbsphinx
   - pip:
       - numba-progress
