@@ -27,13 +27,13 @@ dependencies:
   - matplotlib
   - seaborn
   # test
-  - pytest >=6
-  - pytest-cov >=3
+  - pytest>=6
+  - pytest-cov>=3
   # docs
   - sphinx>=4.0
   - myst-parser
   - sphinx-copybutton
-  - sphinx_autodoc-typehints
+  - sphinx-autodoc-typehints
   - sphinx-book-theme>=0.3
   - sphinx-design
   - nbsphinx
