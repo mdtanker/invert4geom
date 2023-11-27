@@ -16,7 +16,6 @@ def gaussian2d(
     angle: float = 0.0,
 ) -> NDArray:
     """
-    From Fatiando-Legacy
     Non-normalized 2D Gaussian function for creating synthetic topography.
 
     Parameters
@@ -35,6 +34,11 @@ def gaussian2d(
     -------
     NDArray
         Gaussian function evaluated at *x*, *y*
+
+    Notes
+    -----
+    This function was adapted from the Fatiando-Legacy function
+    gaussian2d: https://legacy.fatiando.org/api/utils.html?highlight=gaussian#fatiando.utils.gaussian2d
     """
 
     theta = -1 * angle * np.pi / 180.0
@@ -71,6 +75,19 @@ def synthetic_topography_simple(
     -------
     xr.Dataset
         synthetic topography dataset
+
+
+    Examples
+    --------
+
+    >>> import numpy as np
+    >>> data = np.ones(5)
+    >>> noisy, std = contaminate(data, 0.05, seed=0, percent=True)
+    >>> print(std)
+    0.05
+    >>> print(noisy)
+    array([1.00425372, 0.99136197, 1.02998834, 1.00321222, 0.97118374])
+
     """
     if registration == "g":
         pixel_register = False
