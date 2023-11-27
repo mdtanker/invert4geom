@@ -990,11 +990,12 @@ def run_inversion(
     params = {
         # first column
         "density_contrast": f"{density_contrast} kg/m3",
+        "reference level": f"{zref} m",
         "max_iterations": max_iterations,
         "l2_norm_tolerance": f"{l2_norm_tolerance}",
         "delta_l2_norm_tolerance": f"{delta_l2_norm_tolerance}",
-        "deriv_type": deriv_type,
         # second column
+        "deriv_type": deriv_type,
         "solver_type": solver_type,
         "solver_damping": solver_damping,
         "upper_confining_layer": "Not enabled"
