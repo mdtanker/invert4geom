@@ -37,3 +37,6 @@ pylint:
 	pylint invert4geom
 
 style: format check lint pylint
+
+release_check:
+	semantic-release --noop version
