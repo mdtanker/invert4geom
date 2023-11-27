@@ -124,6 +124,11 @@ def grav_cv_score(
     float
         a score, represented by the root mean squared error, between the testing gravity
         data and the predicted gravity data.
+
+    References
+    ----------
+    [Uieda2017]_
+
     """
 
     train = training_data.copy()
@@ -317,6 +322,11 @@ def constraints_cv_score(
     float
         a score, represented by the root mean squared error, between the testing gravity
         data and the predicted gravity data.
+
+    References
+    ----------
+    [Uieda2017]_
+
     """
 
     zref: float = kwargs.get("zref")  # type: ignore[assignment]

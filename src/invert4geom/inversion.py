@@ -50,6 +50,10 @@ def grav_column_der(
     NDArray
         array of vertical derivative of gravity at observation point for series of
         prisms
+
+    References
+    ----------
+    [McCubbine2016]_
     """
 
     r = np.sqrt(
@@ -117,6 +121,11 @@ def jacobian_annular(
     -------
     NDArray
         returns a jacobian matrix of shape (number of gravity points, number of prisms)
+
+    References
+    ----------
+    [McCubbine2016]_
+
     """
 
     for i in numba.prange(len(grav_easting)):  # pylint: disable=not-an-iterable
