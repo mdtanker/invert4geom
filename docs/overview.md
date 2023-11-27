@@ -1,4 +1,4 @@
-# Overview
+# 🔎 Overview
 
 Invert4geom provides a series of tools for conducting a specific style of
 gravity inversion. Many gravity inversions aim to model the density distribution

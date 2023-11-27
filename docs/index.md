@@ -3,16 +3,14 @@
 ```{toctree}
 :maxdepth: 1
 :hidden:
-:caption: Getting Started
 overview
 install
-gallery/index
 ```
 
 ```{toctree}
 :maxdepth: 1
 :hidden:
-:caption: User guide
+:caption: 🚶 User guide
 user_guide/simple_inversion
 user_guide/damping_cross_validation
 user_guide/density_cross_validation
@@ -22,18 +20,26 @@ user_guide/adhering_to_constraints
 ```
 
 ```{toctree}
+:maxdepth: 1
+:hidden:
+:caption: 📚 Gallery
+gallery/index.md
+```
+
+```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Reference documentation
+:caption: 📖 Reference documentation
 api/invert4geom
 citing.md
 changelog.md
+references.md
 ```
 
 ```{toctree}
 :maxdepth: 1
 :hidden:
-:caption: Other resources
+:caption: ℹ️ Other resources
 How to contribute <https://github.com/mdtanker/invert4geom/blob/main/.github/CONTRIBUTING.md>
 Source code on GitHub <https://github.com/mdtanker/invert4geom>
 ```

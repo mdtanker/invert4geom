@@ -1,4 +1,4 @@
-# Install
+# 🚀 Install
 
 There are 3 main ways to install `invert4geom`. We show them here in order of
 simplest to hardest.
