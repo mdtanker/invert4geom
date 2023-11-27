@@ -29,7 +29,7 @@ exclude_patterns = [
     ".venv",
 ]
 
-nbsphinx_execute = "auto"
+nbsphinx_execute = "never"
 
 myst_enable_extensions = [
     "colon_fence",
