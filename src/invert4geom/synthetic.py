@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import verde as vd
 import xarray as xr
@@ -188,3 +190,108 @@ def synthetic_topography_simple(
         data_names="upward",
         dims=("northing", "easting"),
     ).upward
+
+
+def contaminate(
+    data: NDArray | list[NDArray],
+    stddev: float | list[float],
+    percent: bool = False,
+    percent_as_max_abs: bool = True,
+    seed: float = 0,
+) -> tuple[NDArray | list[NDArray], float | list[float]]:
+    """
+    Add pseudorandom gaussian noise to an array.
+    Noise added is normally distributed with zero mean and a standard deviation from
+    *stddev*.
+
+    Parameters
+    ----------
+    data : NDArray | list[NDArray]
+        data to contaminate, can be a single array, or a list of arrays.
+    stddev : float | list[float]
+        standard deviation of the Gaussian noise that will be added to
+        *data*. Length must be the same as *data* if *data* is a list.
+    percent : bool, optional
+        If ``True``, will consider *stddev* as a decimal percentage of the **data** and
+        the standard deviation of the Gaussian noise will be calculated with this, by
+        default False
+    percent_as_max_abs : bool, optional
+        If ``True``, and **percent** is ``True``, the *stddev* used as the standard
+        deviation of the Gaussian noise will be the max absolute value of the **data**.
+        If ``False``, and **percent** is ``True``, the *stddev* will be calculated on a
+        point-by-point basis, so each **data** points' noise will be the same
+        percentage, by default True
+    seed : float, optional
+        seed to use for the random number generator, by default 0
+
+    Returns
+    -------
+    tuple[NDArray | list[NDArray], float | list[float]]
+        a tuple of (contaminated data, standard deviations).
+
+    Notes
+    -----
+    This function was adapted from the Fatiando-Legacy function
+    gaussian2d: https://legacy.fatiando.org/api/utils.html?highlight=gaussian#fatiando.utils.contaminate
+
+    Examples
+    --------
+
+    >>> import numpy as np
+    >>> data = np.ones(5)
+    >>> noisy, std = contaminate(data, 0.05, seed=0, percent=True)
+    >>> print(std)
+    0.05
+    >>> print(noisy)
+    array([1.00425372, 0.99136197, 1.02998834, 1.00321222, 0.97118374])
+    >>> data = [np.zeros(5), np.ones(3)]
+    >>> noisy = contaminate(data, [0.1, 0.2], seed=0)
+    >>> print(noisy[0])
+    array([ 0.00850745, -0.01727606,  0.05997669,  0.00642444, -0.05763251])
+    >>> print(noisy[1])
+    array([0.89814061, 1.0866216 , 1.01523779])
+
+    """
+    # initiate a random number generator
+    rng = np.random.default_rng(seed)
+
+    # Check if dealing with an array or list of arrays
+    if not isinstance(stddev, list):
+        stddev = [stddev]
+    if not isinstance(data, list):
+        data = [data]
+
+    # Check that length of stdevs and data are the same
+    assert len(stddev) == len(data), "Length of stddev and data must be the same"
+
+    # ensure all stddevs are floats
+    stddev = [float(i) for i in stddev]
+
+    # Contaminate each array
+    contam = []
+    for i, _ in enumerate(stddev):
+        # get list of standard deviations to use in Normal distribution
+        # if stdev is zero, just add the uncontaminated data
+        if stddev[i] == 0.0:
+            contam.append(np.array(data[i]))
+            continue
+        if percent:
+            if percent_as_max_abs:
+                stddev[i] = stddev[i] * max(abs(data[i]))
+            else:
+                stddev[i] = stddev[i] * abs(data[i])
+        if percent_as_max_abs is True:
+            logging.info("Standard deviation used for noise: %s", stddev)
+        # use stdevs to generate random noise
+        noise = rng.normal(scale=stddev[i], size=len(data[i]))
+        # Subtract the mean so that the noise doesn't introduce a systematic shift in
+        # the data
+        noise -= noise.mean()
+        # add the noise to the data
+        contam.append(np.array(data[i]) + noise)
+
+    if len(contam) == 1:
+        contam = contam[0]
+        stddev = stddev[0]
+
+    return contam, stddev
