@@ -80,6 +80,7 @@ repos:
         description: Checks for common misspellings in text files.
         entry:
           codespell --skip="*.js,*.html,*.css,*.svg,*.ipynb" -L ore
+          --ignore-regex=".*codespell-ignore$"
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: "v0.9.0.6"
