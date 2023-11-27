@@ -29,6 +29,14 @@ dependencies:
   # test
   - pytest >=6
   - pytest-cov >=3
+  # docs
+  - sphinx>=4.0
+  - myst_parser
+  - sphinx_copybutton
+  - sphinx_autodoc_typehints
+  - sphinx-book-theme>=0.3
+  - sphinx_design
+  - nbsphinx
   - pip:
       - numba-progress
       - .
