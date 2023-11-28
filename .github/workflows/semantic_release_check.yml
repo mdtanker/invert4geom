@@ -39,7 +39,7 @@ jobs:
       #     "${{steps.semantic-release.outputs.version}}"
 
       # output to comment in the PR
-      - id: comment if released
+      - name: comment if released
         uses: wow-actions/auto-comment@v1
         if: steps.semantic-release.outputs.released == 'true'
         with:
@@ -49,7 +49,7 @@ jobs:
             📦 If merged, this PR will release version ${{steps.semantic-release.outputs.version}}.
 
       # output to comment in the PR
-      - id: comment if not released
+      - name: comment if not released
         uses: wow-actions/auto-comment@v1
         if: steps.semantic-release.outputs.released == 'false'
         with:
