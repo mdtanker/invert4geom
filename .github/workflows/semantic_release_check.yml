@@ -35,9 +35,9 @@ jobs:
         #   script: return "Hello!"
         #   result-encoding: string
         run:
-          echo "${{steps.semantic-release.outputs.released}}"
-          echo "${{steps.semantic-release.outputs.version}}"
-          
+          echo "${{steps.semantic-release.outputs.released}}" echo
+          "${{steps.semantic-release.outputs.version}}"
+
       # # output to comment in the PR
       # - id: comment
       #   uses: wow-actions/auto-comment@v1
