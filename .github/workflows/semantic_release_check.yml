@@ -18,10 +18,11 @@ jobs:
     steps:
       # checkout the repo and supply a PAT for the changelog update commit.
       - id: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{secrets.PAT}}
 
       # use semantic-release in no operation mode
       - id: semantic-release
@@ -44,7 +45,6 @@ jobs:
         uses: wow-actions/auto-comment@v1
         if: steps.semantic-release.outputs.released == 'true'
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pullRequestSynchronize: |
             🔔 Thank you for raising your pull request.
             📦 If merged, this PR will release version ${{steps.semantic-release.outputs.version}}.
@@ -54,7 +54,6 @@ jobs:
         uses: wow-actions/auto-comment@v1
         if: steps.semantic-release.outputs.released == 'false'
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pullRequestSynchronize: |
             🔔 Thank you for raising your pull request.
             Version ${{steps.semantic-release.outputs.version}} is already released. No increase in version will be made when this PR is merged.
