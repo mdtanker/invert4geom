@@ -13,7 +13,7 @@ concurrency:
 jobs:
   # dry run of semantic release without changing anything
   release:
-    name: Semantic Release
+    name: Semantic Release Check
     runs-on: ubuntu-latest
     steps:
       # checkout the repo and supply a PAT for the changelog update commit.
@@ -24,7 +24,7 @@ jobs:
           ref: ${{ github.head_ref || github.ref_name }}
 
       # use semantic-release in no operation mode
-      - id: semantic-release
+      - id: semantic-release-check
         uses: python-semantic-release/python-semantic-release@master
         with:
           root_options: --noop
@@ -42,19 +42,19 @@ jobs:
       # output to comment in the PR
       - name: comment if released
         uses: wow-actions/auto-comment@v1
-        if: steps.semantic-release.outputs.released == 'true'
+        if: steps.semantic-release-check.outputs.released == 'true'
         with:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pullRequestSynchronize: |
             🔔 Thank you for raising your pull request.
-            📦 If merged, this PR will release version ${{steps.semantic-release.outputs.version}}.
+            📦 If merged, this PR will release version ${{steps.semantic-release-check.outputs.version}}.
 
       # output to comment in the PR
       - name: comment if not released
         uses: wow-actions/auto-comment@v1
-        if: steps.semantic-release.outputs.released == 'false'
+        if: steps.semantic-release-check.outputs.released == 'false'
         with:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pullRequestSynchronize: |
             🔔 Thank you for raising your pull request.
-            Version ${{steps.semantic-release.outputs.version}} is already released. No increase in version will be made when this PR is merged.
+            Version ${{steps.semantic-release-check.outputs.version}} is already released. No increase in version will be made when this PR is merged.
