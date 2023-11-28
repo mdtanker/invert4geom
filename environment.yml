@@ -15,7 +15,7 @@ dependencies:
   - pykdtree
   - xrft
   - harmonica>=0.6.0
-  - antarctic-plots
+  - antarctic-plots>=0.0.6
   - numba
   - scipy
   - nptyping
@@ -27,7 +27,16 @@ dependencies:
   - matplotlib
   - seaborn
   # test
-  - pytest >=6
-  - pytest-cov >=3
+  - pytest>=6
+  - pytest-cov>=3
+  # docs
+  - sphinx>=4.0
+  - myst-parser
+  - sphinx-copybutton
+  - sphinx-autodoc-typehints
+  - sphinx-book-theme>=0.3
+  - sphinx-design
+  - nbsphinx
   - pip:
       - numba-progress
+      - .
