@@ -29,21 +29,31 @@ jobs:
           root_options: --noop
         # outputs: released, version, tag
 
-      - id: comment
-        uses: actions/github-script@v7
-        # with:
-        #   script: return "Hello!"
-        #   result-encoding: string
-        run:
-          echo "${{steps.semantic-release.outputs.released}}" echo
-          "${{steps.semantic-release.outputs.version}}"
-
-      # # output to comment in the PR
       # - id: comment
-      #   uses: wow-actions/auto-comment@v1
-      #   with:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     pullRequestOpened: |
-      #       👋 @{{ author }}
-      #       Thank you for raising your pull request.
-      #       ![image](${{ steps.images.outputs.url }})
+      #   uses: actions/github-script@v7
+      #   # with:
+      #   #   script: return "Hello!"
+      #   #   result-encoding: string
+      #   run:
+      #     echo "${{steps.semantic-release.outputs.released}}" echo
+      #     "${{steps.semantic-release.outputs.version}}"
+
+      # output to comment in the PR
+      - id: comment if released
+        uses: wow-actions/auto-comment@v1
+        if: steps.semantic-release.outputs.released == 'true'
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          pullRequestSynchronize: |
+            🔔 Thank you for raising your pull request.
+            📦 If merged, this PR will release version ${{steps.semantic-release.outputs.version}}.
+
+      # output to comment in the PR
+      - id: comment if not released
+        uses: wow-actions/auto-comment@v1
+        if: steps.semantic-release.outputs.released == 'false'
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          pullRequestSynchronize: |
+            🔔 Thank you for raising your pull request.
+            Version ${{steps.semantic-release.outputs.version}} is already released. No increase in version will be made when this PR is merged.
