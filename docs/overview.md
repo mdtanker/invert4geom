@@ -31,3 +31,74 @@ chapter 3 and 4 of my thesis, available
 [here](https://doi.org/10.26686/wgtn.24408304). The code was originally included
 in [this GitHub repository](https://github.com/mdtanker/RIS_gravity_inversion),
 but much of it has been migrated here.
+
+## Modules
+
+**Invert4Geom** consists of 7 modules:
+
+### Inversion
+
+This contains the core tools for performing the inversion. These tools allow for
+creating the Jacobian matrix, performing the least squares solution, running the
+inversion, determining when to end the inversion, and updating the misfit and
+gravity values between each iteration.
+
+## Cross Validation
+
+This module contains the code necessary for performing the various
+cross-validation routines. These routines are split into 2 categories; _gravity_
+and _constraints_ cross validation.
+
+### Gravity cross validations
+
+The _gravity cross validations_ are those which split the gravity data into
+testing and training sets, perform the inversion with the training set, and
+compare the forward gravity of the inverted topography with the un-used testing
+data. This is a Generalized Cross Validation, specifically a hold-out
+cross-validation, as described in
+[Uieda & Barbosa (2017)](https://academic.oup.com/gji/article-lookup/doi/10.1093/gji/ggw390).
+This is used here for estimated the optimal regularization damping parameter
+during the inversion.
+
+### Constraint cross validations
+
+The _constraint cross validations_ are those which use _apriori_ points of known
+elevation of the surface of in interest to determine optimal inversion
+parameters. The inversion is performed without including these constraint
+points, and the inverted surface is compared with the elevations of these
+constraints points to give a score. This style of validation is used here for
+estimating the optimal reference level and density contrast of the surface of
+interest.
+
+## Regional
+
+This module contains tools for estimating the regional gravity field. In many
+styles of inversions, the regional component of the gravity misfit should be
+removed to help isolate the gravity effects of the layer of interest. This is
+common in inversions for topography, bathymetry, or sedimentary basins. We
+provide four methods of estimating the regional component. 1) Low pass filtering
+the data, 2) fitting a surface to the data with a user defined trend, 3) fitting
+a set of deep equivalent sources to the data and predicting the gravity effect
+of those sources, and 4) using _apriori_ constraints to determine the regional
+field, by assuming the residual component is low at the those points.
+
+## Optimization
+
+Functions for performing optimizations. This uses the package _Optuna_ which
+given a parameter space, an objective function, and a sampling routine, will
+perform optimization to minimize (or maximize) the object function. This is used
+in the **Regional** module for finding the optimal regional separation methods.
+
+## Plotting
+
+Various function for plotting maps and graphs used throughout the other modules
+
+## Utils
+
+Utilities used throughout the other modules
+
+## Synthetic
+
+This module has tools for creating synthetic topography and contaminating data
+with random Gaussian noise. This is mostly used in testing and in the User Guide
+notebooks.
