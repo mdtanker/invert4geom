@@ -86,6 +86,18 @@ Use pytest to run the unit checks and generate coverage reports:
 make test
 ```
 
+To test just one of the modules:
+
+```
+pytest tests/test_<MODULE>.py
+```
+
+To test just one function:
+
+```
+pytest tests/test_<MODULE>.py::<FUNCTION>
+```
+
 # Formatting
 
 Use the Makefile commands to locally format and check the code with `ruff` and
