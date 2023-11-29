@@ -54,7 +54,8 @@ intersphinx_mapping = {
     # nptyping
     # numba_progress
     # "tqdm": ("https://tqdm.github.io/", None),
-    # "pygmt": ("https://www.pygmt.org/latest/", None),
+    "pygmt": ("https://www.pygmt.org/latest/", None),
+    "optuna": ("https://optuna.readthedocs.io/en/stable/", None),
     #
     # Viz deps
     #

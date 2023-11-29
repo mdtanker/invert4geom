@@ -20,6 +20,10 @@ dependencies:
   - scipy
   - nptyping
   - tqdm
+  - pygmt>=0.9.0
+  - dask
+  - optuna
+  - botorch
   # viz
   - pyvista
   - trame
@@ -39,4 +43,7 @@ dependencies:
   - nbsphinx
   - pip:
       - numba-progress
+      - tqdm_joblib
+      - psutil
+      - joblib
       - .
