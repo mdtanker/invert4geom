@@ -77,19 +77,6 @@ def synthetic_topography_simple(
     -------
     xr.Dataset
         synthetic topography dataset
-
-
-    Examples
-    --------
-
-    >>> import numpy as np
-    >>> data = np.ones(5)
-    >>> noisy, std = contaminate(data, 0.05, seed=0, percent=True)
-    >>> print(std)
-    0.05
-    >>> print(noisy)
-    array([1.00425372, 0.99136197, 1.02998834, 1.00321222, 0.97118374])
-
     """
     if registration == "g":
         pixel_register = False

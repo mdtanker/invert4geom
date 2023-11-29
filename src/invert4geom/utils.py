@@ -111,18 +111,19 @@ def filter_grid(
     Parameters
     ----------
     grid : xr.DataArray
-        _description_
+        grid to filter the values of
     filter_width : float, optional
-        _description_, by default None
+        width of the filter in meters, by default None
     filt_type : str, optional
-        _description_, by default "lowpass"
+        type of filter to use, by default "lowpass"
     change_spacing : bool, optional
-        _description_, by default False
+        if True, will filter the grid and resample the grid to be at the same spacing
+        of the filter width, by default False
 
     Returns
     -------
-    _type_
-        _description_
+    xr.DataArray
+        a filtered grid
 
     """
     # get coordinate names
