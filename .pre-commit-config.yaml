@@ -11,6 +11,7 @@ exclude: |
       docs/api/invert4geom.synthetic.rst|
       docs/api/invert4geom.utils.rst|
       docs/api/invert4geom.cross_validation.rst|
+      docs/api/invert4geom.optimization.rst|
       CHANGELOG.md|
   )$
 
