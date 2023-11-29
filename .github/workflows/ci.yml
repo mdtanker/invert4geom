@@ -73,7 +73,7 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: invert4geom
-          environment-file: environment.yml
+          environment-file: env/test_env.yml
           python-version: ${{ matrix.python-version }}
           channels: conda-forge,nodefaults
           channel-priority: strict
