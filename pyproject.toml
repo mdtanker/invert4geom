@@ -233,6 +233,9 @@ prerelease = true
 [tool.semantic_release.changelog]
 template_dir = "templates"
 
+[tool.semantic_release.changelog.environment]
+trim_blocks = true
+
 [tool.semantic_release.commit_parser_options]
 allowed_tags = [
     "build",    # Changes that affect the build system or external dependencies
