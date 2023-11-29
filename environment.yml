@@ -20,10 +20,10 @@ dependencies:
   - scipy
   - nptyping
   - tqdm
-  - pygmt>=0.9.0
+  - pygmt
   - dask
-  - optuna
-  - botorch
+  - optuna>=3.1.0
+  - botorch>=0.4.0
   # viz
   - pyvista
   - trame

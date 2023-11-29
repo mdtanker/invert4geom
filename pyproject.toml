@@ -43,13 +43,13 @@ dependencies = [
   "nptyping",
   "numba_progress",
   "tqdm",
-  "pygmt>=0.9.0",
+  "pygmt",
   "dask",
   "tqdm_joblib",
   "psutil",
   "joblib",
-  "optuna",
-  "botorch",
+  "optuna>=3.1.0", # need JournalStorage
+  "botorch>=0.4.0",
 
 #  "geopandas",
 #  "boule",
