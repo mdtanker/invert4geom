@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import logging
 import math
+import multiprocessing
+import os
 import pathlib
+import re
+import subprocess
 import typing
 import warnings
 
@@ -31,6 +35,131 @@ def logging_callback(study: typing.Any, frozen_trial: optuna.trial.FrozenTrial) 
             frozen_trial.value,
             frozen_trial.params,
         )
+
+
+def available_cpu_count() -> typing.Any:
+    """
+    Number of available virtual or physical CPUs on this system, i.e.
+    user/real as output by time(1) when called with an optimally scaling
+    userspace-only program
+
+    Adapted from https://stackoverflow.com/a/1006301/18686384
+    """
+
+    # cpuset
+    # cpuset may restrict the number of *available* processors
+    try:
+        # m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", open("/proc/self/status").read())
+        with pathlib.Path("/proc/self/status").open() as f:  # pylint: disable=unspecified-encoding
+            m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", f.read())
+        if m:
+            res = bin(int(m.group(1).replace(",", ""), 16)).count("1")
+            if res > 0:
+                return res
+    except OSError:
+        pass
+
+    # Python 2.6+
+    try:
+        return multiprocessing.cpu_count()
+    except (ImportError, NotImplementedError):
+        pass
+
+    # https://github.com/giampaolo/psutil
+    try:
+        return psutil.cpu_count()  # psutil.NUM_CPUS on old versions
+    except (ImportError, AttributeError):
+        pass
+
+    # POSIX
+    try:
+        res = int(os.sysconf("SC_NPROCESSORS_ONLN"))
+
+        if res > 0:
+            return res
+    except (AttributeError, ValueError):
+        pass
+
+    # Windows
+    try:
+        res = int(os.environ["NUMBER_OF_PROCESSORS"])
+
+        if res > 0:
+            return res
+    except (KeyError, ValueError):
+        pass
+
+    # # jython
+    # try:
+    #     runtime = Runtime.getRuntime()
+    #     res = runtime.availableProcessors()
+    #     if res > 0:
+    #         return res
+    # except ImportError:
+    #     pass
+
+    # BSD
+    try:
+        with subprocess.Popen(
+            ["sysctl", "-n", "hw.ncpu"], stdout=subprocess.PIPE
+        ) as sysctl:
+            # sysctl = subprocess.Popen(["sysctl", "-n", "hw.ncpu"],
+            # stdout=subprocess.PIPE)
+            sc_std_out = sysctl.communicate()[0]
+            res = int(sc_std_out)
+
+        if res > 0:
+            return res
+    except (OSError, ValueError):
+        pass
+
+    # Linux
+    try:
+        # res = open("/proc/cpuinfo").read().count("processor\t:")
+        with pathlib.Path("/proc/cpuinfo").open() as f:  # pylint: disable=unspecified-encoding
+            res = f.read().count("processor\t:")
+
+        if res > 0:
+            return res
+    except OSError:
+        pass
+
+    # Solaris
+    try:
+        pseudo_devices = os.listdir("/devices/pseudo/")
+        res = 0
+        for pds in pseudo_devices:
+            if re.match(r"^cpuid@[0-9]+$", pds):
+                res += 1
+
+        if res > 0:
+            return res
+    except OSError:
+        pass
+
+    # Other UNIXes (heuristic)
+    try:
+        try:
+            # dmesg = open("/var/run/dmesg.boot").read()
+            with pathlib.Path("/var/run/dmesg.boot").open() as f:  # pylint: disable=unspecified-encoding
+                dmesg = f.read()
+            # dmesg = pathlib.Path("/var/run/dmesg.boot").open().read()
+        except OSError:
+            with subprocess.Popen(["dmesg"], stdout=subprocess.PIPE) as dmesg_process:
+                # dmesg_process = subprocess.Popen(["dmesg"], stdout=subprocess.PIPE)
+                dmesg = dmesg_process.communicate()[0]  # type: ignore[assignment]
+
+        res = 0
+        while "\ncpu" + str(res) + ":" in dmesg:
+            res += 1
+
+        if res > 0:
+            return res
+    except OSError:
+        pass
+
+    msg = "Can not determine number of CPUs on this system"
+    raise Exception(msg)  # pylint: disable=broad-exception-raised
 
 
 def optuna_parallel(
@@ -111,7 +240,8 @@ def optuna_max_cores(
     available cores.
     """
     # get available cores (UNIX and Windows)
-    num_cores = len(psutil.Process().cpu_affinity())
+    # num_cores = len(psutil.Process().cpu_affinity())
+    num_cores = available_cpu_count()
 
     # set trials per job
     trials_per_job = math.ceil(n_trials / num_cores)
