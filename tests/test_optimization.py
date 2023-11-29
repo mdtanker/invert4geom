@@ -17,7 +17,10 @@ def test_optuna_parallel():
     with tempfile.NamedTemporaryFile() as file:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="JournalStorage is experimental")
-            file_storage = optuna.storages.JournalFileStorage(file.name)
+            lock_obj = optuna.storages.JournalFileOpenLock(file.name)
+            file_storage = optuna.storages.JournalFileStorage(
+                file.name, lock_obj=lock_obj
+            )
             storage = optuna.storages.JournalStorage(file_storage)
         study_name = file.name
 
