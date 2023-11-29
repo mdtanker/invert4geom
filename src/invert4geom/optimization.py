@@ -409,6 +409,10 @@ def optimize_eq_source_params(
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="JournalStorage is experimental")
+        lock_obj = optuna.storages.JournalFileOpenLock(fname)
+        file_storage = optuna.storages.JournalFileStorage(fname, lock_obj=lock_obj)
+        storage = optuna.storages.JournalStorage(file_storage)
+
         storage = JournalStorage(JournalFileStorage(fname))
 
     # if sampler not provided, used BoTorch as default
