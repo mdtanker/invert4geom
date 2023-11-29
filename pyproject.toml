@@ -43,8 +43,14 @@ dependencies = [
   "nptyping",
   "numba_progress",
   "tqdm",
+  "pygmt>=0.9.0",
+  "dask",
+  "tqdm_joblib",
+  "psutil",
+  "joblib",
+  "optuna",
+  "botorch",
 
-#  "pygmt>=0.9.0",
 #  "geopandas",
 #  "boule",
 #  "numba-progress",
@@ -70,6 +76,7 @@ dev = [
   "pre-commit",
   "pylint",
   "python-semantic-release >=8",
+  "ipykernel",
 ]
 docs = [
   "sphinx>=4.0",
