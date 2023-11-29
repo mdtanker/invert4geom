@@ -5,13 +5,14 @@ import numpy as np
 import pandas as pd
 import pytest
 import verde as vd
+import xarray as xr
 
 from invert4geom import regional
 
 # %%
 
 
-def dummy_grid():
+def dummy_grid() -> xr.DataArray:
     (x, y, z) = vd.grid_coordinates(
         region=[0, 200, 200, 400],
         spacing=50,
@@ -29,7 +30,7 @@ def dummy_grid():
     )
 
 
-def dummy_df():
+def dummy_df() -> pd.DataFrame:
     df = dummy_grid().to_dataframe().reset_index()
     df["grav"] = 20000
     return df
@@ -146,7 +147,7 @@ def test_regional_constraints(test_input):
     test the regional_constraints function
     """
     anomalies = dummy_df()
-    region = [0, 200, 200, 400]
+    region = (0, 200, 200, 400)
     # points = pd.DataFrame(
     #     {
     #         # "easting": [-50, -40, -30, -20, 0, 5, 7, 9, 10, 30, 50],
@@ -155,7 +156,7 @@ def test_regional_constraints(test_input):
     #         "northing": np.linspace(210, 390, 10),
     #     }
     # )
-    # create 10 random point withing the region
+    # create 10 random point within the region
     num_constraints = 10
     coords = vd.scatter_points(region=region, size=num_constraints, random_state=0)
     points = pd.DataFrame(data={"easting": coords[0], "northing": coords[1]})

@@ -12,7 +12,7 @@ from invert4geom import optimization
 def test_optuna_parallel():
     """
     test that the optuna parallel optimization works
-    Just tests that functions runs, doesnt' test that it's properly running in parallel.
+    Just tests that functions runs, doesn't test that it's properly running in parallel.
     """
     with tempfile.NamedTemporaryFile() as file:
         with warnings.catch_warnings():
