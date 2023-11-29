@@ -40,6 +40,10 @@ jobs:
         run: |
           echo "::add-matcher::$GITHUB_WORKSPACE/.github/matchers/pylint.json"
           pipx run nox -s pylint
+      - name: Build API docs
+        run: |
+          pipx run nox -s build_api_docs
+
   # Run tests and upload to codecov
   test:
     name: Check Python ${{ matrix.python-version }} on ${{ matrix.runs-on }}
