@@ -869,3 +869,52 @@ def best_spline_cv(
         pass
 
     return spline
+
+
+def eq_sources_score(
+    params: dict[str, float],
+    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
+    data: pd.Series | NDArray,
+    delayed: bool = False,
+    **kwargs: typing.Any,
+) -> float:
+    """
+    _summary_
+
+    Parameters
+    ----------
+    params : dict[str, float]
+        dictionary with damping and depth parameters for the equivalent sources fit
+    coordinates : tuple[pd.Series  |  NDArray, pd.Series  |
+        NDArray, pd.Series  |  NDArray]
+        easting, northing, and upwards coordinates of the gravity data
+    data : pd.Series | NDArray
+        gravity data values
+    delayed : bool, optional
+        If True, will use dask.delayed to dispatch computations without actually
+        executing them. The returned scores will be a list of delayed objects, by
+        default False
+
+    Returns
+    -------
+    float
+        the mean score of the equivalent sources fit
+    """
+    eqs = hm.EquivalentSources(
+        damping=params.get("damping"),
+        depth=params.get("depth"),
+        **kwargs,
+    )
+    return float(
+        np.mean(
+            vd.cross_val_score(
+                eqs,
+                coordinates,
+                data,
+                delayed=delayed,
+                weights=kwargs.get("weights", None),
+            )
+        )
+    )
+    # eqs.fit(coordinates, data, weights=kwargs.get("weights", None))
+    # score = eqs.score(coordinates, data, weights=kwargs.get("weights", None))
