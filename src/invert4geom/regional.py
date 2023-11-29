@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import typing
+
 import harmonica as hm
 import numpy as np
 import pandas as pd
 import pygmt
 import verde as vd
 import xarray as xr
+from nptyping import NDArray
 
 from invert4geom import optimization, utils
 
@@ -17,7 +20,7 @@ def regional_filter(
     regional_col_name: str = "reg",
 ) -> pd.DataFrame:
     """
-    seperate the regional field with a low-pass filter
+    separate the regional field with a low-pass filter
     """
     # get coordinate names
     original_dims = grav_grid.dims
@@ -45,7 +48,7 @@ def regional_trend(
     regional_col_name: str = "reg",
 ) -> pd.DataFrame:
     """
-    seperate the regional field with a trend
+    separate the regional field with a trend
     """
     # get coordinate names
     original_dims = grav_grid.dims
@@ -53,11 +56,11 @@ def regional_trend(
     grav_filled = utils.nearest_grid_fill(grav_grid, method=fill_method)
 
     df = vd.grid_to_table(grav_filled).astype("float64")
-    trend = vd.Trend(degree=trend).fit(
+    vdtrend = vd.Trend(degree=trend).fit(
         (df[original_dims[1]], df[original_dims[0]].values),
         df[grav_filled.name],
     )
-    grav_df[regional_col_name] = trend.predict(
+    grav_df[regional_col_name] = vdtrend.predict(
         (grav_df[original_dims[1]], grav_df[original_dims[0]])
     )
 
@@ -75,7 +78,7 @@ def regional_eq_sources(
     regional_col_name: str = "reg",
 ) -> pd.DataFrame:
     """
-    seperate the regional field by estimating deep equivalent sources
+    separate the regional field by estimating deep equivalent sources
 
     eq_damping : float: smoothness to impose on estimated coefficients
     block_size : float: block reduce the data to speed up
@@ -112,17 +115,17 @@ def regional_constraints(
     registration: str = "g",
     constraint_block_size: float | None = None,
     grid_method: str = "pygmt",
-    dampings=None,
+    dampings: typing.Any | None = None,
     delayed: bool = False,
     constraint_weights_col: str | None = None,
     eqs_gridding_trials: int = 10,
     eqs_gridding_damping_lims: tuple[float, float] = (0.1, 100),
     eqs_gridding_depth_lims: tuple[float, float] = (1e3, 100e3),
-    force_coords=None,
+    force_coords: tuple[pd.Series | NDArray, pd.Series | NDArray] | None = None,
     regional_col_name: str = "reg",
 ) -> pd.DataFrame:
     """
-    seperate the regional field by sampling and regridding at the constraint points
+    separate the regional field by sampling and regridding at the constraint points
     """
     # get coordinate names
     original_dims = grav_grid.dims
@@ -172,7 +175,7 @@ def regional_constraints(
         else:
             data_cols = {"sampled_grav": data, constraint_weights_col: weights}
         # merge dicts and create dataframe
-        constraints_df = pd.DataFrame(data=coord_cols | data_cols)
+        constraints_df = pd.DataFrame(data=coord_cols | data_cols)  # type: ignore[operator]
 
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
