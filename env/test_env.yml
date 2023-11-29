@@ -46,4 +46,4 @@ dependencies:
       - tqdm_joblib
       - psutil
       - joblib
-      - .
+      - ../.
