@@ -18,7 +18,7 @@
 {% elif type_ == "build" %}
 ### 📦️ Build
 {% else %}
-### {{ type_ | capitalize }}
+### Other
 {% endif%}
 {% for commit in commits %}{% if type_ != "unknown" %}
 {% set msg = commit.message.rstrip() %}
@@ -47,7 +47,7 @@
 {% elif type_ == "build" %}
 ### 📦️ Build
 {% else %}
-### {{ type_ | capitalize }}
+### Other
 {% endif%}
 {% for commit in commits %}{% if type_ != "unknown" %}
 {% set msg = commit.message.rstrip() %}
