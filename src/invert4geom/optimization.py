@@ -13,7 +13,6 @@ import warnings
 import harmonica as hm
 import pandas as pd
 from nptyping import NDArray
-from optuna.storages import JournalFileStorage, JournalStorage
 
 from invert4geom import utils
 
@@ -464,7 +463,9 @@ def optimize_eq_source_params(
         file_storage = optuna.storages.JournalFileStorage(fname, lock_obj=lock_obj)
         storage = optuna.storages.JournalStorage(file_storage)
 
-        storage = JournalStorage(JournalFileStorage(fname))
+        storage = optuna.storages.JournalStorage(
+            optuna.storages.JournalFileStorage(fname)
+        )
 
     # if sampler not provided, used BoTorch as default
     if sampler is None:
