@@ -35,7 +35,7 @@ dependencies = [
   "verde>=1.8.0",
   "rioxarray",
   "pykdtree",
-  "xrft",
+  "xrft>=1.0",
   "harmonica>=0.6.0",
   "antarctic_plots>=0.0.6",
   "numba",
