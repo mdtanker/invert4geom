@@ -3,7 +3,11 @@ from __future__ import annotations
 import tempfile
 import warnings
 
-import optuna
+try:
+    import optuna
+except ImportError:
+    optuna = None
+
 import pandas as pd
 
 from invert4geom import optimization
@@ -14,6 +18,10 @@ def test_optuna_parallel():
     test that the optuna parallel optimization works
     Just tests that functions runs, doesn't test that it's properly running in parallel.
     """
+    if optuna is None:
+        msg = "Missing optional dependency 'optuna' required for optimization."
+        raise ImportError(msg)
+
     with tempfile.NamedTemporaryFile() as file:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="JournalStorage is experimental")

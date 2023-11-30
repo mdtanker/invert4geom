@@ -11,21 +11,41 @@ import typing
 import warnings
 
 import harmonica as hm
-import joblib
-import optuna
 import pandas as pd
-import psutil
 from nptyping import NDArray
 from optuna.storages import JournalFileStorage, JournalStorage
-from tqdm_joblib import tqdm_joblib
 
 from invert4geom import utils
+
+try:
+    import optuna
+except ImportError:
+    optuna = None
+
+try:
+    import joblib
+except ImportError:
+    joblib = None
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
+try:
+    from tqdm_joblib import tqdm_joblib
+except ImportError:
+    tqdm_joblib = None
 
 
 def logging_callback(study: typing.Any, frozen_trial: optuna.trial.FrozenTrial) -> None:
     """
     custom optuna callback, only print trial if it's the best value yet.
     """
+    if optuna is None:
+        msg = "Missing optional dependency 'optuna' required for optimization."
+        raise ImportError(msg)
+
     previous_best_value = study.user_attrs.get("previous_best_value", None)
     if previous_best_value != study.best_value:
         study.set_user_attr("previous_best_value", study.best_value)
@@ -67,6 +87,9 @@ def available_cpu_count() -> typing.Any:
 
     # https://github.com/giampaolo/psutil
     try:
+        if psutil is None:
+            msg = "Missing optional dependency 'psutil' required for optimization."
+            raise ImportError(msg)
         return psutil.cpu_count()  # psutil.NUM_CPUS on old versions
     except (ImportError, AttributeError):
         pass
@@ -174,6 +197,10 @@ def optuna_parallel(
     Run optuna optimization in parallel. Pre-define the study, storage, and objective
     function and input them here.
     """
+    if optuna is None:
+        msg = "Missing optional dependency 'optuna' required for optimization."
+        raise ImportError(msg)
+
     # load study metadata from storage
     study = optuna.load_study(storage=study_storage, study_name=study_name)
 
@@ -239,6 +266,14 @@ def optuna_max_cores(
     Set up optuna optimization in parallel splitting up the number of trials over all
     available cores.
     """
+    if joblib is None:
+        msg = "Missing optional dependency 'joblib' required for optimization."
+        raise ImportError(msg)
+
+    if tqdm_joblib is None:
+        msg = "Missing optional dependency 'tqdm_joblib' required for optimization."
+        raise ImportError(msg)
+
     # get available cores (UNIX and Windows)
     # num_cores = len(psutil.Process().cpu_affinity())
     num_cores = available_cpu_count()
@@ -271,6 +306,14 @@ def optuna_1job_per_core(
     """
     Set up optuna optimization in parallel giving each available core 1 trial.
     """
+    if joblib is None:
+        msg = "Missing optional dependency 'joblib' required for optimization."
+        raise ImportError(msg)
+
+    if tqdm_joblib is None:
+        msg = "Missing optional dependency 'tqdm_joblib' required for optimization."
+        raise ImportError(msg)
+
     trials_per_job = 1
     with tqdm_joblib(desc="Optimizing", total=n_trials) as _:
         joblib.Parallel(n_jobs=int(n_trials / trials_per_job))(
@@ -331,6 +374,10 @@ class OptimalEqSourceParams:
         float
             the score of the eq_sources fit
         """
+        if optuna is None:
+            msg = "Missing optional dependency 'optuna' required for optimization."
+            raise ImportError(msg)
+
         # define parameter space
         damping = trial.suggest_float(
             "damping",
@@ -396,6 +443,10 @@ def optimize_eq_source_params(
         gives a dataframe of the tested parameter sets and associated scores, and the
         best resulting fitted equivalent sources.
     """
+    if optuna is None:
+        msg = "Missing optional dependency 'optuna' required for optimization."
+        raise ImportError(msg)
+
     # set name and storage for the optimization
     study_name = fname
     fname = f"{study_name}.log"
