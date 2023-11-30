@@ -8,10 +8,10 @@ create_test_env:
 	mamba create --name test --yes python=3.11
 
 install:
-	pip install -e .[viz,test,dev,docs]
+	pip install -e .[all]
 
 install_test:
-	pip install invert4geom[viz,test,dev,docs]
+	pip install invert4geom[all]
 
 remove:
 	mamba remove --name $(PROJECT) --all
