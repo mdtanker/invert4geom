@@ -45,17 +45,16 @@ dependencies = [
   "tqdm",
   "pygmt",
   "dask",
-  "tqdm_joblib",
-  "psutil",
-  "joblib",
-  "optuna>=3.1.0", # need JournalStorage
-  "botorch>=0.4.0",
-
-#  "geopandas",
-#  "boule",
 ]
 
 [project.optional-dependencies]
+opti = [
+  "optuna>=3.1.0", # need JournalStorage
+  "botorch>=0.4.0",
+  "joblib",
+  "psutil",
+  "tqdm_joblib",
+]
 viz = [
   "pyvista",
   "trame",
