@@ -77,19 +77,6 @@ def synthetic_topography_simple(
     -------
     xr.Dataset
         synthetic topography dataset
-
-
-    Examples
-    --------
-
-    >>> import numpy as np
-    >>> data = np.ones(5)
-    >>> noisy, std = contaminate(data, 0.05, seed=0, percent=True)
-    >>> print(std)
-    0.05
-    >>> print(noisy)
-    array([1.00425372, 0.99136197, 1.02998834, 1.00321222, 0.97118374])
-
     """
     if registration == "g":
         pixel_register = False
@@ -184,6 +171,108 @@ def synthetic_topography_simple(
 
     topo = topo + 1200
 
+    return vd.make_xarray_grid(
+        (x, y),
+        topo,
+        data_names="upward",
+        dims=("northing", "easting"),
+    ).upward
+
+
+def synthetic_topography_regional(
+    spacing: float,
+    region: tuple[float, float, float, float],
+    registration: str = "g",
+    scale: float = 1,
+    yoffset: float = 0,
+) -> xr.Dataset:
+    """
+    Create a synthetic topography dataset with a few features which represent the
+    surface responsible for the regional component of gravity.
+
+    Parameters
+    ----------
+    spacing : float
+        grid spacing in meters
+    region : tuple[float, float, float, float]
+        bounding edges of the grid in meters in format (xmin, xmax, ymin, ymax)
+    registration : str, optional
+        grid registration type, either "g" for gridline or "p" for pixel, by default "g"
+    scale : float, optional
+        value to scale the topography by, by default 1
+    yoffset : float, optional
+        value to offset the topography by, by default 0
+
+    Returns
+    -------
+    xr.Dataset
+        synthetic topography dataset
+    """
+
+    if registration == "g":
+        pixel_register = False
+    elif registration == "p":
+        pixel_register = True
+
+    # create grid of coordinates
+    (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+        region=region,
+        spacing=spacing,
+        pixel_register=pixel_register,
+    )
+
+    # get x and y range
+    x_range = abs(region[1] - region[0])
+    y_range = abs(region[3] - region[2])
+
+    # create topographic features
+    feature1 = (
+        gaussian2d(
+            x,
+            y,
+            sigma_x=x_range * 2,
+            sigma_y=y_range * 2,
+            x0=region[0] + x_range,
+            y0=region[2] + y_range * 0.5,
+            angle=10,
+        )
+        * -150
+        * scale
+    ) - 3500
+    feature2 = (
+        gaussian2d(
+            x,
+            y,
+            sigma_x=x_range * 3,
+            sigma_y=y_range * 0.4,
+            x0=region[0] + x_range * 0.2,
+            y0=region[2] + y_range * 0.4,
+            angle=-10,
+        )
+        * -100
+        * scale
+    )
+    feature3 = (
+        gaussian2d(
+            x,
+            y,
+            sigma_x=x_range * 0.2,
+            sigma_y=y_range * 7,
+            x0=region[0] + x_range * 0.8,
+            y0=region[2] + y_range * 0.7,
+            angle=-80,
+        )
+        * 150
+        * scale
+    )
+
+    features = [feature1, feature2, feature3]
+
+    topo = sum(features)
+
+    topo -= topo.mean()
+
+    topo += yoffset
     return vd.make_xarray_grid(
         (x, y),
         topo,

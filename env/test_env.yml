@@ -13,13 +13,21 @@ dependencies:
   - verde>=1.8.0
   - rioxarray
   - pykdtree
-  - xrft
+  - xrft>=1.0
   - harmonica>=0.6.0
   - antarctic-plots>=0.0.6
   - numba
   - scipy
   - nptyping
+  - numba-progress
   - tqdm
+  - pygmt
+  - dask
+  # opti
+  - optuna>=3.1.0
+  - botorch>=0.4.0
+  - psutil
+  - joblib
   # viz
   - pyvista
   - trame
@@ -38,5 +46,5 @@ dependencies:
   - sphinx-design
   - nbsphinx
   - pip:
-      - numba-progress
-      - .
+      - tqdm_joblib
+      - ../.

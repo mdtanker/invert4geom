@@ -18,6 +18,7 @@ user_guide/reference_level_cross_validation
 user_guide/including_starting_model
 user_guide/adhering_to_constraints
 user_guide/combining_it_all
+user_guide/estimating_regional_field
 ```
 
 ```{toctree}
