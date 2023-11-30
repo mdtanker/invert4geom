@@ -8,10 +8,10 @@ create_test_env:
 	mamba create --name test --yes python=3.11
 
 install:
-	pip install -e .[all]
+	pip install -e .[viz,test,dev,docs]
 
 install_test:
-	pip install invert4geom[all]
+	pip install invert4geom[viz,test,dev,docs]
 
 remove:
 	mamba remove --name $(PROJECT) --all
@@ -40,6 +40,3 @@ style: format check lint pylint
 
 release_check:
 	semantic-release --noop version
-
-changelog:
-	semantic-release changelog

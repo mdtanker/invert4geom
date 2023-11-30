@@ -37,7 +37,7 @@ pip install invert4geom
 
 ```{note}
 to install the optional dependencies, use this instead:
-`pip install [all]`
+`pip install [viz,test,dev,docs]`
 ```
 
 ## Locally
@@ -68,5 +68,5 @@ same with the following:
 ```
 conda create --name invert4geom --yes --force antarctic-plots python=3.11
 conda activate invert4geom
-pip install -e .[all]
+pip install -e .[viz,test,dev,docs]
 ```

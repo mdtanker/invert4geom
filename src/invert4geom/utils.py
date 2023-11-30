@@ -1,11 +1,10 @@
-from __future__ import annotations  # pylint: disable=too-many-lines
+from __future__ import annotations
 
 import copy
 import logging
 import typing
 import warnings
 
-import dask
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -112,19 +111,18 @@ def filter_grid(
     Parameters
     ----------
     grid : xr.DataArray
-        grid to filter the values of
+        _description_
     filter_width : float, optional
-        width of the filter in meters, by default None
+        _description_, by default None
     filt_type : str, optional
-        type of filter to use, by default "lowpass"
+        _description_, by default "lowpass"
     change_spacing : bool, optional
-        if True, will filter the grid and resample the grid to be at the same spacing
-        of the filter width, by default False
+        _description_, by default False
 
     Returns
     -------
-    xr.DataArray
-        a filtered grid
+    _type_
+        _description_
 
     """
     # get coordinate names
@@ -787,134 +785,3 @@ def grids_to_prisms(
     prisms["thickness"] = prisms.top - prisms.bottom
 
     return prisms
-
-
-def best_spline_cv(
-    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray],
-    data: pd.Series | NDArray,
-    weights: pd.Series | NDArray | None = None,
-    dampings: typing.Any | None = None,
-    delayed: bool = False,
-    force_coords: tuple[pd.Series | NDArray, pd.Series | NDArray] | None = None,
-) -> vd.Spline:
-    """
-    find the best damping parameter for a verde.SplineCV() fit
-
-    Parameters
-    ----------
-    coordinates : tuple[pd.Series  |  NDArray, pd.Series  |  NDArray]
-        easting and northing coordinates of the data
-    data : pd.Series | NDArray
-        data for fitting the spline to
-    weights : pd.Series | NDArray | None, optional
-        if not None, then the weights assigned to each data point. Typically, this
-        should be 1 over the data uncertainty squared, by default None
-    dampings : typing.Any | None, optional
-        the positive damping regularization parameter. Controls how much smoothness is
-        imposed on the estimated forces. If None, no regularization is used, by default
-        None
-    delayed : bool, optional
-        if True, will use dask.delayed to dispatch computations and allow mod:dask to
-        execute the grid search in parallel, by default False
-    force_coords : tuple[pd.Series  |  NDArray, pd.Series  |  NDArray] | None, optional
-        the easting and northing coordinates of the point forces. Same as force_coords
-        if it is not None. Otherwise, same as the data locations used to fit the spline,
-        by default None
-
-    Returns
-    -------
-    vd.Spline
-        the spline which best fits the data
-    """
-    if isinstance(dampings, (float, int)):
-        dampings = [dampings]
-    assert isinstance(dampings, list)
-    # if dampings is None:
-    #     dampings = list(np.logspace(-10, -2, num=9))
-    #     dampings.append(None)
-    spline = vd.SplineCV(
-        dampings=dampings,
-        delayed=delayed,
-        force_coords=force_coords,
-    )
-    # with warnings.catch_warnings():
-    # warnings.simplefilter("ignore", sp.linalg.LinAlgWarning)
-    # with HiddenPrints():
-    spline.fit(
-        coordinates,
-        data,
-        weights=weights,
-    )
-
-    try:
-        logging.info("Highest score: %s", spline.scores_.max())
-    except AttributeError:
-        logging.info("Highest score: %s", max(dask.compute(spline.scores_)[0]))
-
-    logging.info("Best damping: %s", spline.damping_)
-
-    try:
-        if len(dampings) > 2 and spline.damping_ in [
-            np.min(dampings),
-            np.max(dampings),
-        ]:
-            warnings.warn(
-                f"Warning: best damping parameter ({spline.damping_}) for "
-                "verde.SplineCV() is at the limit of provided values "
-                f"({np.nanmin(dampings), np.nanmax(dampings)}) and thus is likely "
-                f"not a global minimum, expand the range of values with 'dampings'",
-                stacklevel=2,
-            )
-    except TypeError:
-        pass
-
-    return spline
-
-
-def eq_sources_score(
-    params: dict[str, float],
-    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
-    data: pd.Series | NDArray,
-    delayed: bool = False,
-    **kwargs: typing.Any,
-) -> float:
-    """
-    _summary_
-
-    Parameters
-    ----------
-    params : dict[str, float]
-        dictionary with damping and depth parameters for the equivalent sources fit
-    coordinates : tuple[pd.Series  |  NDArray, pd.Series  |
-        NDArray, pd.Series  |  NDArray]
-        easting, northing, and upwards coordinates of the gravity data
-    data : pd.Series | NDArray
-        gravity data values
-    delayed : bool, optional
-        If True, will use dask.delayed to dispatch computations without actually
-        executing them. The returned scores will be a list of delayed objects, by
-        default False
-
-    Returns
-    -------
-    float
-        the mean score of the equivalent sources fit
-    """
-    eqs = hm.EquivalentSources(
-        damping=params.get("damping"),
-        depth=params.get("depth"),
-        **kwargs,
-    )
-    return float(
-        np.mean(
-            vd.cross_val_score(
-                eqs,
-                coordinates,
-                data,
-                delayed=delayed,
-                weights=kwargs.get("weights", None),
-            )
-        )
-    )
-    # eqs.fit(coordinates, data, weights=kwargs.get("weights", None))
-    # score = eqs.score(coordinates, data, weights=kwargs.get("weights", None))
