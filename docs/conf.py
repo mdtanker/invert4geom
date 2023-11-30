@@ -55,7 +55,6 @@ intersphinx_mapping = {
     # numba_progress
     # "tqdm": ("https://tqdm.github.io/", None),
     "pygmt": ("https://www.pygmt.org/latest/", None),
-    "optuna": ("https://optuna.readthedocs.io/en/stable/", None),
     #
     # Viz deps
     #
@@ -64,6 +63,10 @@ intersphinx_mapping = {
     # ipywidgets
     "matplotlib": ("https://matplotlib.org/", None),
     "seaborn": ("https://seaborn.pydata.org/", None),
+    #
+    # Opti deps
+    #
+    "optuna": ("https://optuna.readthedocs.io/en/stable/", None),
 }
 
 nitpick_ignore = [
