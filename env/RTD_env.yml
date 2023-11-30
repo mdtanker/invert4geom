@@ -19,6 +19,7 @@ dependencies:
   - numba
   - scipy
   - nptyping
+  - numba-progress
   - tqdm
   - pygmt
   - dask
