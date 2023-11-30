@@ -40,3 +40,6 @@ style: format check lint pylint
 
 release_check:
 	semantic-release --noop version
+
+changelog:
+	semantic-release changelog
