@@ -1,4 +1,21 @@
 # Invert4geom
+3D geometric gravity inversions
+
+```{include} ../README.md
+:start-after: <!-- SPHINX-START1 -->
+:end-before: <!-- SPHINX-END1 -->
+```
+
+```{image} figures/cover_fig.png
+:alt: cover figure
+:width: 400px
+:align: center
+```
+
+```{include} ../README.md
+:start-after: <!-- SPHINX-START2 -->
+:end-before: <!-- SPHINX-END2 -->
+```
 
 ```{toctree}
 :maxdepth: 1
@@ -44,10 +61,6 @@ references.md
 :caption: ℹ️ Other resources
 How to contribute <https://github.com/mdtanker/invert4geom/blob/main/.github/CONTRIBUTING.md>
 Source code on GitHub <https://github.com/mdtanker/invert4geom>
-```
-
-```{include} ../README.md
-:start-after: <!-- SPHINX-START -->
 ```
 
 
