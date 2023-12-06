@@ -15,4 +15,4 @@ dependencies:
   - sphinx-design
   - nbsphinx
   - pip:
-      - ../.
+      - ../. --no-deps
