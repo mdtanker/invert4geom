@@ -28,6 +28,36 @@ exclude_patterns = [
     ".env",
     ".venv",
 ]
+autodoc_mock_imports = [
+    "numpy",
+    "pandas",
+    "xarray",
+    "verde>=1.8.0",
+    "rioxarray",
+    "pykdtree",
+    "xrft>=1.0",
+    "harmonica>=0.6.0",
+    "antarctic_plots>=0.0.6",
+    "numba",
+    "scipy",
+    "nptyping",
+    "numba_progress",
+    "tqdm",
+    "pygmt",
+    "dask",
+    # optimization
+    "optuna>=3.1.0",  # need JournalStorage
+    "botorch>=0.4.0",
+    "joblib",
+    "psutil",
+    "tqdm_joblib",
+    # viz
+    "pyvista",
+    "trame",
+    "ipywidgets",
+    "matplotlib",
+    "seaborn",
+]
 
 nbsphinx_execute = "never"
 
