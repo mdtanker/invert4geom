@@ -24,10 +24,10 @@ dependencies:
   - pygmt
   - dask
   # opti
-  - optuna>=3.1.0
-  - botorch>=0.4.0
-  - psutil
-  - joblib
+  # - optuna>=3.1.0
+  # - botorch>=0.4.0
+  # - psutil
+  # - joblib
   # docs
   - sphinx>=4.0
   - myst-parser
