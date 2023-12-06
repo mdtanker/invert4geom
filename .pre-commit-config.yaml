@@ -64,6 +64,7 @@ repos:
       - id: prettier
         types_or: [yaml, markdown, html, css, scss, javascript, json]
         args: [--prose-wrap=always]
+        entry: env PRETTIER_LEGACY_CLI=1 prettier
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: "v1.7.1"
