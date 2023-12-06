@@ -69,7 +69,7 @@ def available_cpu_count() -> typing.Any:
     # cpuset may restrict the number of *available* processors
     try:
         # m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", open("/proc/self/status").read())
-        with pathlib.Path("/proc/self/status").open() as f:  # pylint: disable=unspecified-encoding
+        with pathlib.Path("/proc/self/status").open(encoding="utf8") as f:
             m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", f.read())
         if m:
             res = bin(int(m.group(1).replace(",", ""), 16)).count("1")
@@ -138,7 +138,7 @@ def available_cpu_count() -> typing.Any:
     # Linux
     try:
         # res = open("/proc/cpuinfo").read().count("processor\t:")
-        with pathlib.Path("/proc/cpuinfo").open() as f:  # pylint: disable=unspecified-encoding
+        with pathlib.Path("/proc/cpuinfo").open(encoding="utf8") as f:
             res = f.read().count("processor\t:")
 
         if res > 0:
@@ -163,7 +163,7 @@ def available_cpu_count() -> typing.Any:
     try:
         try:
             # dmesg = open("/var/run/dmesg.boot").read()
-            with pathlib.Path("/var/run/dmesg.boot").open() as f:  # pylint: disable=unspecified-encoding
+            with pathlib.Path("/var/run/dmesg.boot").open(encoding="utf8") as f:
                 dmesg = f.read()
             # dmesg = pathlib.Path("/var/run/dmesg.boot").open().read()
         except OSError:
