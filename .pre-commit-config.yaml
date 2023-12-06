@@ -14,6 +14,9 @@ exclude: |
       docs/api/invert4geom.regional.rst|
       docs/api/invert4geom.optimization.rst|
       CHANGELOG.md|
+      .github/ISSUE_TEMPLATE/bug_report.md|
+      .github/ISSUE_TEMPLATE/feature_request.md|
+      .github/config.yml|
   )$
 
 repos:
@@ -90,6 +93,7 @@ repos:
     hooks:
       - id: shellcheck
 
+  # check for commonly miss-capitalized words
   - repo: local
     hooks:
       - id: disallow-caps
