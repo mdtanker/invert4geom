@@ -46,7 +46,7 @@ autodoc_mock_imports = [
     "pygmt",
     "dask",
     # optimization
-    "optuna>=3.1.0", # need JournalStorage
+    "optuna>=3.1.0",  # need JournalStorage
     "botorch>=0.4.0",
     "joblib",
     "psutil",

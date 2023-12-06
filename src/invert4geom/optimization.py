@@ -163,7 +163,7 @@ def available_cpu_count() -> typing.Any:
     try:
         try:
             # dmesg = open("/var/run/dmesg.boot").read()
-            with pathlib.Path("/var/run/dmesg.boot").open(encoding="utf8") as f: 
+            with pathlib.Path("/var/run/dmesg.boot").open(encoding="utf8") as f:
                 dmesg = f.read()
             # dmesg = pathlib.Path("/var/run/dmesg.boot").open().read()
         except OSError:
