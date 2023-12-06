@@ -29,7 +29,6 @@ exclude_patterns = [
     ".venv",
 ]
 autodoc_mock_imports = [
-    "invert4geom",
     "numpy",
     "pandas",
     "xarray",
