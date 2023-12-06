@@ -97,17 +97,17 @@ def jacobian_annular(
     jac: NDArray,
 ) -> NDArray:
     """
-        Function to calculate the Jacobian matrix using the annular cylinder
-        approximation. The resulting Jacobian is a matrix (numpy array) with a row per
-        gravity observation and a column per prism. This approximates the prisms as an
-        annulus, and calculates it's vertical gravity derivative. Takes arrays from
-        `jacobian`, feeds them into `grav_column_der`, and returns the jacobian.
+    Function to calculate the Jacobian matrix using the annular cylinder
+    approximation. The resulting Jacobian is a matrix (numpy array) with a row per
+    gravity observation and a column per prism. This approximates the prisms as an
+    annulus, and calculates it's vertical gravity derivative. Takes arrays from
+    `jacobian`, feeds them into `grav_column_der`, and returns the jacobian.
 
     Parameters
     ----------
     grav_easting, grav_northing, grav_upward : NDArray
-        coordinates of gravity observation points.
-    prism_easting, prism_northing, prism_top, : NDArray
+        coordinates of gravity observation points
+    prism_easting, prism_northing, prism_top : NDArray
         coordinates of prism's center in northing, easting, and upward directions,
         respectively
     prism_density : NDArray
