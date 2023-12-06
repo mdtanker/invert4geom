@@ -40,9 +40,9 @@ intersphinx_mapping = {
     #
     # Runtime deps
     #
-    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("http://pandas.pydata.org/pandas-docs/stable/", None),
-    "xarray": ("http://xarray.pydata.org/en/stable/", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
     "verde": ("https://www.fatiando.org/verde/latest/", None),
     "rioxarray": ("https://corteva.github.io/rioxarray/stable/", None),
     # pykdtree
@@ -50,7 +50,7 @@ intersphinx_mapping = {
     "harmonica": ("https://www.fatiando.org/harmonica/latest/", None),
     "antarctic_plots": ("https://antarctic-plots.readthedocs.io/en/latest/", None),
     "numba": ("https://numba.pydata.org/numba-doc/latest/", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy/reference", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     # nptyping
     # numba_progress
     # "tqdm": ("https://tqdm.github.io/", None),
@@ -61,7 +61,7 @@ intersphinx_mapping = {
     "pyvista": ("https://docs.pyvista.org/", None),
     # trame
     # ipywidgets
-    "matplotlib": ("https://matplotlib.org/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
     "seaborn": ("https://seaborn.pydata.org/", None),
     #
     # Opti deps
