@@ -78,7 +78,7 @@ intersphinx_mapping = {
     # pykdtree
     "xrft": ("https://xrft.readthedocs.io/en/stable/", None),
     "harmonica": ("https://www.fatiando.org/harmonica/latest/", None),
-    "antarctic_plots": ("https://antarctic-plots.readthedocs.io/en/latest/", None),
+    "antarctic_plots": ("https://antarctic-plots.readthedocs.io/latest/", None),
     "numba": ("https://numba.pydata.org/numba-doc/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference", None),
     # nptyping
