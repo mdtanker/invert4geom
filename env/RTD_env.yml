@@ -1,4 +1,4 @@
-# Requirements for running the github action: test only need run-time dependencies
+# Requirements for building the documentation
 name: invert4geom
 channels:
   - conda-forge
@@ -6,28 +6,6 @@ channels:
 dependencies:
   - python>=3.8
   - pip
-  # Run-time
-  - numpy
-  - pandas
-  - xarray
-  - verde>=1.8.0
-  - rioxarray
-  - pykdtree
-  - xrft>=1.0
-  - harmonica>=0.6.0
-  - antarctic-plots>=0.0.6
-  - numba
-  - scipy
-  - nptyping
-  - numba-progress
-  - tqdm
-  - pygmt
-  - dask
-  # opti
-  - optuna>=3.1.0
-  - botorch>=0.4.0
-  - psutil
-  - joblib
   # docs
   - sphinx>=4.0
   - myst-parser
@@ -37,5 +15,4 @@ dependencies:
   - sphinx-design
   - nbsphinx
   - pip:
-      - tqdm_joblib
       - ../.
