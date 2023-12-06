@@ -52,14 +52,14 @@ gallery/index.md
 api/invert4geom
 citing.md
 changelog.md
-references.md
+references.rst
 ```
 
 ```{toctree}
 :maxdepth: 1
 :hidden:
 :caption: ℹ️ Other resources
-How to contribute <https://github.com/mdtanker/invert4geom/blob/main/.github/CONTRIBUTING.md>
+contributing.md
 Source code on GitHub <https://github.com/mdtanker/invert4geom>
 ```
 
@@ -120,7 +120,7 @@ make changes to the ones we already have while we try to improve the
 software based on users' experience, test new ideas, take better design
 decisions, etc.
 Some of these changes could be **backwards incompatible**. Keep that in
-mind before you update Harmonica to a newer version.
+mind before you update Invert4Geom to a newer version.
 ```
 
 ```{admonition} How to contribute

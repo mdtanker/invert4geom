@@ -91,11 +91,11 @@ in the **Regional** module for finding the optimal regional separation methods.
 
 ## Plotting
 
-Various function for plotting maps and graphs used throughout the other modules
+Various function for plotting maps and graphs used throughout the other modules.
 
 ## Utils
 
-Utilities used throughout the other modules
+Utilities used throughout the other modules.
 
 ## Synthetic
 
