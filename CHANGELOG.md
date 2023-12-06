@@ -2,6 +2,40 @@
 
 
 
+## v0.3.1 (2023-12-06)
+
+### 📦️ Build
+* only install doc optional deps for nox ([`da69dcb`](https://github.com/mdtanker/invert4geom/commit/da69dcbc46c0e8895e380dc6b1696761789b4ad7))
+### 🧰 Chores / Maintenance
+* adds license file to pyproject.toml ([`ed882d8`](https://github.com/mdtanker/invert4geom/commit/ed882d85b8bdf790126d5a638d14b4bcdd511716))
+* adds github issue templates amd comments ([`721b391`](https://github.com/mdtanker/invert4geom/commit/721b391d94f9adbdeb28aa65dbea5615231cc0ce))
+* bump conda-incubator/setup-miniconda from 2 to 3
+
+Bumps [conda-incubator/setup-miniconda](https://github.com/conda-incubator/setup-miniconda) from 2 to 3.
+- [Release notes](https://github.com/conda-incubator/setup-miniconda/releases)
+- [Changelog](https://github.com/conda-incubator/setup-miniconda/blob/main/CHANGELOG.md)
+- [Commits](https://github.com/conda-incubator/setup-miniconda/compare/v2...v3)
+
+---
+updated-dependencies:
+- dependency-name: conda-incubator/setup-miniconda
+  dependency-type: direct:production
+  update-type: version-update:semver-major
+...
+
+Signed-off-by: dependabot[bot] &lt;support@github.com&gt; ([`93e8abc`](https://github.com/mdtanker/invert4geom/commit/93e8abcda4ce8c8882c68154945dcfa5aa504874))
+### 📖 Documentation
+* remove optimization deps from RTD env ([`dad0330`](https://github.com/mdtanker/invert4geom/commit/dad033019a0d78421bdc94fe928e51500624d41d))
+* fix docstring for jacobian_annular ([`7b7be72`](https://github.com/mdtanker/invert4geom/commit/7b7be7286476795fbf882dcee74ba9ef98eef97d))
+* fix intersphinx mapping links ([`1ca89af`](https://github.com/mdtanker/invert4geom/commit/1ca89affd93f93b365727bb014620c2fd4c4bd4a))
+* add docs link to contributing file ([`9d7f830`](https://github.com/mdtanker/invert4geom/commit/9d7f830d92fc05f514766fc964c85eabe17f76dd))
+* fixes minor issues in docs ([`0bca578`](https://github.com/mdtanker/invert4geom/commit/0bca578550b1bf3d3cbefa25784692032d12aac6))
+* add cover figure ([`5c0d029`](https://github.com/mdtanker/invert4geom/commit/5c0d029d44c257c51856711b3823a011a6db6c25))
+### 🐛 Bug Fixes
+* adds encoding to open calls ([`110ff36`](https://github.com/mdtanker/invert4geom/commit/110ff368f91cc1138a48922798f42982cd352b82))
+### ✏️ Formatting
+* formatting ([`3ab7fb3`](https://github.com/mdtanker/invert4geom/commit/3ab7fb3bd9691816e4bc18d2205d46a37053d383))
+
 ## v0.3.0 (2023-11-30)
 
 ### 📦️ Build
