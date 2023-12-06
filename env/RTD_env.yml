@@ -1,4 +1,4 @@
-# Requirements for running the github action: test only need run-time dependencies
+# Requirements for building the documentation
 name: invert4geom
 channels:
   - conda-forge
