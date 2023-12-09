@@ -1,4 +1,5 @@
 # Invert4geom
+
 3D geometric gravity inversions
 
 ```{include} ../README.md
@@ -22,9 +23,11 @@
 :hidden:
 overview
 install
+gallery/index.md
+user_guide/index.md
 ```
 
-```{toctree}
+<!-- ```{toctree}
 :maxdepth: 1
 :hidden:
 :caption: 🚶 User guide
@@ -36,14 +39,14 @@ user_guide/including_starting_model
 user_guide/adhering_to_constraints
 user_guide/combining_it_all
 user_guide/estimating_regional_field
-```
+``` -->
 
-```{toctree}
+<!-- ```{toctree}
 :maxdepth: 1
 :hidden:
 :caption: 📚 Gallery
 gallery/index.md
-```
+``` -->
 
 ```{toctree}
 :maxdepth: 2
