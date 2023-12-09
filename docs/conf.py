@@ -103,11 +103,11 @@ html_theme = "sphinx_book_theme"
 html_theme_options = {
     "repository_url": "https://github.com/mdtanker/invert4geom",
     "repository_branch": "main",
-    "path_to_docs": "doc",
-    # "launch_buttons": {
-    #     "binderhub_url": "https://mybinder.org",
-    #     "notebook_interface": "jupyterlab",
-    # },
+    "path_to_docs": "docs",
+    "launch_buttons": {
+        "binderhub_url": "https://mybinder.org",
+        "notebook_interface": "jupyterlab",
+    },
     "use_edit_page_button": True,
     "use_issues_button": True,
     "use_repository_button": True,
