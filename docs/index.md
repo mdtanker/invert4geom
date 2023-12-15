@@ -129,7 +129,7 @@ mind before you update Invert4Geom to a newer version.
 ```{admonition} How to contribute
 :class: seealso
 
-Please, read our [Contributor Guide](https://github.com/mdtanker/invert4geom/blob/main/.github/CONTRIBUTING.md) to learn
+Please, read our [Contributor Guide](contributing.md) to learn
 how you can contribute to the project.
 ```
 
