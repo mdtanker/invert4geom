@@ -5,13 +5,13 @@
 
 # Comment to be posted to on first time issues
 newIssueWelcomeComment: >
-  👋 Thanks for opening your first issue here! Please make sure you filled out the template with as much detail as possible. You might also want to take a look at our [contributing guidelines](https://github.com/mdtanker/invert4geom/blob/main/docs/contribute.md).
+  👋 Thanks for opening your first issue here! Please make sure you filled out the template with as much detail as possible. You might also want to take a look at our [contributing guidelines](https://invert4geom.readthedocs.io/en/latest/contributing.html).
 # Configuration for new-pr-welcome - https://github.com/behaviorbot/new-pr-welcome
 
 # Comment to be posted to on PRs from first time contributors in your repository
 newPRWelcomeComment: >
   💖 Thanks for opening this pull request! 💖
-  Please make sure you read our [contributing guidelines](https://github.com/mdtanker/invert4geom/blob/main/.github/CONTRIBUTING.md).
+  Please make sure you read our [contributing guidelines](https://invert4geom.readthedocs.io/en/latest/contributing.html).
   A few things to keep in mind:
   * If you need help writing tests, take a look at the existing ones for inspiration. If you don't know where to start, let us know and we'll walk you through it.
   * All new features should be documented. It helps to write the docstrings for your functions/classes before writing the code. This will help you think about your code design and results in better code.
