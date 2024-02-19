@@ -15,7 +15,7 @@ dependencies:
   - pykdtree
   - xrft>=1.0
   - harmonica>=0.6.0
-  - antarctic-plots>=0.0.6
+  - polartoolkit
   - numba
   - scipy
   - nptyping

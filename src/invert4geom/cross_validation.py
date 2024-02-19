@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import verde as vd
 import xarray as xr
-from antarctic_plots import utils as ap_utils
+from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
 from invert4geom import inversion, plotting, utils
@@ -194,7 +194,7 @@ def grav_cv_score(
         obs = test_grid[kwargs.get("input_grav_column")] - test_grid.reg
         pred = test_grid.test_point_grav.rename("")
 
-        ap_utils.grd_compare(
+        polar_utils.grd_compare(
             pred,
             obs,
             grid1_name="Predicted gravity",

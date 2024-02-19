@@ -23,7 +23,7 @@ except ImportError:
     pyvista = None
 import verde as vd
 import xarray as xr
-from antarctic_plots import utils as ap_utils
+from polartoolkit import utils as polar_utils
 
 from invert4geom import utils
 
@@ -342,7 +342,7 @@ def plot_inversion_topo_results(
 
     topo_lims = []
     for g in [initial_topo, final_topo]:
-        topo_lims.append(ap_utils.get_min_max(g))
+        topo_lims.append(polar_utils.get_min_max(g))
 
     topo_min = min([i[0] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
     topo_max = max([i[1] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
@@ -455,7 +455,7 @@ def plot_inversion_grav_results(
     initial_rmse = utils.rmse(grav_results["iter_1_initial_misfit"])
     final_rmse = utils.rmse(grav_results[f"iter_{max(iterations)}_final_misfit"])
 
-    _ = ap_utils.grd_compare(
+    _ = polar_utils.grd_compare(
         initial_misfit,
         final_misfit,
         plot=True,
@@ -530,11 +530,11 @@ def plot_inversion_iteration_results(
     corrections_lims = []
 
     for g in misfit_grids:
-        misfit_lims.append(ap_utils.get_min_max(g))
+        misfit_lims.append(polar_utils.get_min_max(g))
     for g in topo_grids:
-        topo_lims.append(ap_utils.get_min_max(g))
+        topo_lims.append(polar_utils.get_min_max(g))
     for g in corrections_grids:
-        corrections_lims.append(ap_utils.get_min_max(g))
+        corrections_lims.append(polar_utils.get_min_max(g))
 
     misfit_min = min([i[0] for i in misfit_lims])  # pylint: disable=consider-using-generator
     misfit_max = max([i[1] for i in misfit_lims])  # pylint: disable=consider-using-generator

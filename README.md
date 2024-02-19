@@ -9,7 +9,7 @@
 <!-- SPHINX-START1 -->
 
 <!-- <p align="center">
-<a href="https://mybinder.org/v2/gh/mdtanker/antarctic_plots/main">
+<a href="https://mybinder.org/v2/gh/mdtanker/polartoolkit/main">
  <img src="https://mybinder.org/badge_logo.svg" alt="Binder link"></a>
  </p> -->
 

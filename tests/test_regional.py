@@ -54,7 +54,7 @@ def test_regional_trend(fill_method, trend):
     )
 
     # grid = df.set_index(["northing", "easting"]).to_xarray()
-    # ap_utils.grd_compare(grid.reg, grid.misfit, plot=True, plot_type="xarray")
+    # polar_utils.grd_compare(grid.reg, grid.misfit, plot=True, plot_type="xarray")
 
     assert len(df.misfit) == len(df.reg)
 
@@ -96,7 +96,7 @@ def test_regional_filter():
     )
 
     # grid = df.set_index(["northing", "easting"]).to_xarray()
-    # ap_utils.grd_compare(grid.reg, grid.misfit, plot=True, plot_type="xarray")
+    # polar_utils.grd_compare(grid.reg, grid.misfit, plot=True, plot_type="xarray")
 
     assert len(df.misfit) == len(df.reg)
 
@@ -172,7 +172,7 @@ def test_regional_constraints(test_input):
     )
 
     # grid = df.set_index(["northing", "easting"]).to_xarray()
-    # ap_utils.grd_compare(
+    # polar_utils.grd_compare(
     #     grid.reg, grid.misfit, plot=True, plot_type="xarray",
     #     points=points.rename(columns={"easting":"x", "northing":"y"}),
     #     )
