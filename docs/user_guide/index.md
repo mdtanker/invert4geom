@@ -4,6 +4,7 @@
 ---
 name: user guide
 ---
+discretization
 simple_inversion
 damping_cross_validation
 density_cross_validation
