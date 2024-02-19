@@ -894,6 +894,7 @@ def show_prism_layers(
                 style=kwargs.get("style", "surface"),
                 show_edges=kwargs.get("show_edges", False),
                 opacity=trans,
+                scalar_bar_args=kwargs.get("scalar_bar_args", None),
             )
         else:
             plotter.add_mesh(
@@ -906,6 +907,7 @@ def show_prism_layers(
                 show_edges=kwargs.get("show_edges", False),
                 log_scale=kwargs.get("log_scale", True),
                 opacity=trans,
+                scalar_bar_args=kwargs.get("scalar_bar_args", None),
             )
         plotter.set_scale(
             zscale=kwargs.get("zscale", 75)
@@ -918,6 +920,7 @@ def show_prism_layers(
     # Add a ceiling light
     add_light(plotter, prisms[i])  # pylint: disable=undefined-loop-variable
 
-    plotter.show_axes()
+    if kwargs.get("show_axes", True):
+        plotter.show_axes()
 
     plotter.show(jupyter_backend=kwargs.get("backend", "client"))
