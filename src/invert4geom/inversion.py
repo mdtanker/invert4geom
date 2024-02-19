@@ -850,7 +850,7 @@ def run_inversion(
     )
 
     # set starting delta L2 norm to positive infinity
-    delta_l2_norm = np.Inf
+    delta_l2_norm = np.inf
 
     # iteration times
     iter_times = []
