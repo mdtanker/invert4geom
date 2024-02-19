@@ -21,11 +21,11 @@ First create a `conda` environment and install the necessary packages into that:
 ```
 
 ```
-mamba create --name invert4geom antarctic-plots python=3.11
+mamba create --name invert4geom polartoolkit python=3.11
 ```
 
-The package `antarctic-plots` provides several useful functions used in
-`invert4geom`. Since `antarctic-plots` has several dependencies that can't be
+The package `polartoolkit` provides several useful functions used in
+`invert4geom`. Since `polartoolkit` has several dependencies that can't be
 install with `pip` (mostly `pygmt`), it is easiest to install with `conda`.
 
 activate the environment and use `pip` to install `invert4geom`:
@@ -66,7 +66,7 @@ If you don't have or want `make` or `mamba` installed, you can accomplish the
 same with the following:
 
 ```
-conda create --name invert4geom --yes --force antarctic-plots python=3.11
+conda create --name invert4geom --yes --force polartoolkit python=3.11
 conda activate invert4geom
 pip install -e .[all]
 ```

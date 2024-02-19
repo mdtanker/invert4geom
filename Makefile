@@ -2,7 +2,7 @@ PROJECT=invert4geom
 STYLE_CHECK_FILES=.
 
 create:
-	mamba create --name $(PROJECT) --yes --force antarctic-plots python=3.11
+	mamba create --name $(PROJECT) --yes --force polartoolkit python=3.11
 
 create_test_env:
 	mamba create --name test --yes python=3.11

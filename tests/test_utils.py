@@ -209,8 +209,8 @@ def test_filter_grid_nans():
 #     # filter the grid
 #     filtered = utils.filter_grid(grid, filter_width=500, change_spacing=True)
 #     # get grid spacings
-#     original_spacing = float(ap_utils.get_grid_info(grid)[0])
-#     new_spacing = float(ap_utils.get_grid_info(filtered)[0])
+#     original_spacing = float(polar_utils.get_grid_info(grid)[0])
+#     new_spacing = float(polar_utils.get_grid_info(filtered)[0])
 #     print(original_spacing)
 #     print(new_spacing)
 #     # check that the gridspacing has been changed

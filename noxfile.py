@@ -42,7 +42,7 @@ def tests(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
     """
-    session.conda_install("antarctic-plots")
+    session.conda_install("polartoolkit")
     session.install(".[test]")
 
     # run tests with numba jit disabled to get real coverage
