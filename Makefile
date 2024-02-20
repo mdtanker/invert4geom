@@ -72,3 +72,13 @@ RTD_env:
 	sed -i '$$d' env/RTD_env.yml
 	# add pip and install local package
 	sed -i '$$a\  - pip\n  - pip:\n    - ../.[docs]' env/RTD_env.yml
+
+# create testing yml
+testing_env:
+	mamba remove --name testing_env --all --yes
+	mamba create --name testing_env --yes --force polartoolkit
+	mamba env export --name testing_env --no-builds --from-history > env/testing_env.yml
+	# delete last line
+	sed -i '$$d' env/testing_env.yml
+	# add pip and install local package
+	sed -i '$$a\  - pip\n  - pip:\n    - ../.[test]' env/testing_env.yml
