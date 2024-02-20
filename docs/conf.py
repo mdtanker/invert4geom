@@ -8,16 +8,15 @@ author = "Matt Tankersley"
 version = release = invert4geom.__version__
 extensions = [
     "sphinx.ext.napoleon",
-    "sphinx.ext.autodoc",
+    "autoapi.extension",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
-    "sphinx_autodoc_typehints",
+    "sphinx.ext.autodoc",
     "sphinx_copybutton",
     "myst_parser",
     "sphinx_design",
     "nbsphinx",
     "sphinx.ext.viewcode",
-    # "sphinx.ext.autosummary",
 ]
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
@@ -88,6 +87,10 @@ add_function_parentheses = False
 # apidoc_module_dir = '../src/invert4geom'
 # apidoc_excluded_paths = ['tests']
 # apidoc_separate_modules = False
+autoapi_dirs = ["../src/invert4geom"]
+autoapi_type = "python"
+autoapi_add_toctree_entry = False
+autodoc_typehints = "description"
 
 # HTML output configuration
 # -----------------------------------------------------------------------------
