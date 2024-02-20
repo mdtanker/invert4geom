@@ -80,14 +80,14 @@ docs = [
 ]
 dev = [
   "invert4geom[opti,viz,test,docs]",
-  "pytest >=6",
-  "pytest-cov >=3",
   "ruff",
   "nox",
   "pre-commit",
   "pylint",
   "python-semantic-release >=8",
   "ipykernel",
+  "jupyterlab",
+  "mypy",
 ]
 all = [
   "invert4geom[opti,viz,test,dev,docs]",
