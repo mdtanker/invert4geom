@@ -1,16 +1,20 @@
 # Changelog
-
+Automatically updated by
+[python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
+with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 {% if context.history.unreleased | length > 0 %}
 {# UNRELEASED #}
-## Unreleased
 
+## Unreleased
 {% for type_, commits in context.history.unreleased | dictsort %}
-{% if type_ == "fix" %}
+{% if type_ == "feature" %}
+### 🚀 Features
+{% elif type_ == "fix" %}
 ### 🐛 Bug Fixes
 {% elif type_ == "chore" %}
 ### 🧰 Chores / Maintenance
-{% elif type_ == "feature" %}
-### 🚀 Features
+{% elif type_ == "refactor" %}
+###  🎨 Refactor
 {% elif type_ == "documentation" %}
 ### 📖 Documentation
 {% elif type_ == "style" %}
@@ -20,7 +24,10 @@
 {% else %}
 ### Other
 {% endif%}
-{% for commit in commits %}{% if type_ != "unknown" %}
+{% for commit in commits %}
+{% if "dependabot" in commit.message.rstrip() %}
+{% elif "automatically updating changelog" in commit.message.rstrip() %}
+{% elif type_ != "unknown" %}
 {% set msg = commit.message.rstrip() %}
 {% set msg_no_ID = msg[msg.index(':')+2:] %}
 * {{ msg_no_ID }} ([`{{ commit.short_hash }}`]({{ commit.hexsha | commit_hash_url }}))
@@ -32,14 +39,15 @@
 {# RELEASED #}
 
 ## {{ version.as_semver_tag() }} ({{ release.tagged_date.strftime("%Y-%m-%d") }})
-
 {% for type_, commits in release["elements"] | dictsort %}
-{% if type_ == "fix" %}
+{% if type_ == "feature" %}
+### 🚀 Features
+{% elif type_ == "fix" %}
 ### 🐛 Bug Fixes
 {% elif type_ == "chore" %}
 ### 🧰 Chores / Maintenance
-{% elif type_ == "feature" %}
-### 🚀 Features
+{% elif type_ == "refactor" %}
+###  🎨 Refactor
 {% elif type_ == "documentation" %}
 ### 📖 Documentation
 {% elif type_ == "style" %}
@@ -49,10 +57,16 @@
 {% else %}
 ### Other
 {% endif%}
-{% for commit in commits %}{% if type_ != "unknown" %}
+{% for commit in commits %}
+{% if "dependabot" in commit.message.rstrip() %}
+{% elif "automatically updating changelog" in commit.message.rstrip() %}
+{% elif type_ != "unknown" %}
 {% set msg = commit.message.rstrip() %}
 {% set msg_no_ID = msg[msg.index(':')+2:] %}
 * {{ msg_no_ID }} ([`{{ commit.short_hash }}`]({{ commit.hexsha | commit_hash_url }}))
 {% else %}
 * {{ msg }} ([`{{ commit.short_hash }}`]({{ commit.hexsha | commit_hash_url }}))
-{% endif %}{% endfor %}{% endfor %}{% endfor %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
