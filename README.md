@@ -8,10 +8,10 @@
 
 <!-- SPHINX-START1 -->
 
-<!-- <p align="center">
-<a href="https://mybinder.org/v2/gh/mdtanker/polartoolkit/main">
+<p align="center">
+<a href="https://mybinder.org/v2/gh/mdtanker/invert4geom/main">
  <img src="https://mybinder.org/badge_logo.svg" alt="Binder link"></a>
- </p> -->
+ </p>
 
 <p align="center">
 <a href=https://pypi.org/project/invert4geom/>
