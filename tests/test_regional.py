@@ -1,6 +1,8 @@
 # %%
 from __future__ import annotations
 
+import pathlib
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -176,6 +178,10 @@ def test_regional_constraints(test_input):
     #     grid.reg, grid.misfit, plot=True, plot_type="xarray",
     #     points=points.rename(columns={"easting":"x", "northing":"y"}),
     #     )
+
+    # delete the temp files created by optuna
+    pathlib.Path("tmp.log").unlink(missing_ok=True)
+    pathlib.Path("tmp.log.lock").unlink(missing_ok=True)
 
     assert len(df.misfit) == len(df.reg)
 
