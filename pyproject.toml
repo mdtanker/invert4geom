@@ -67,6 +67,7 @@ viz = [
 test = [
   "pytest >=6",
   "pytest-cov >=3",
+  "optuna",
 ]
 docs = [
   "sphinx>=4.0",
