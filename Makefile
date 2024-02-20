@@ -43,3 +43,12 @@ release_check:
 
 changelog:
 	semantic-release changelog
+# create ReadTheDocs yml
+RTD_env:
+	mamba remove --name RTD_env --all --yes
+	mamba create --name RTD_env --yes --force python==3.11 polartoolkit
+	mamba env export --name RTD_env --no-builds --from-history > env/RTD_env.yml
+	# delete last line
+	sed -i '$$d' env/RTD_env.yml
+	# add pip and install local package
+	sed -i '$$a\  - pip\n  - pip:\n    - ../.[docs]' env/RTD_env.yml
