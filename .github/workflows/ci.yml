@@ -30,10 +30,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - uses: pre-commit/action@v3.0.0
+      - uses: pre-commit/action@v3.0.1
         with:
           extra_args: --hook-stage manual --all-files
       - name: Run PyLint
@@ -68,32 +68,17 @@ jobs:
       - name: Switch to Current Branch
         run: git checkout ${{ env.BRANCH }}
 
-      # Install Mambaforge with conda-forge dependencies
-      - name: Setup Mambaforge
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          activate-environment: invert4geom
-          environment-file: env/test_env.yml
-          python-version: ${{ matrix.python-version }}
-          channels: conda-forge,nodefaults
-          channel-priority: strict
-          miniforge-version: latest
-          miniforge-variant: Mambaforge
-          mamba-version: "*"
-          use-mamba: true
-          auto-activate-base: false
+      # Install package and deps with pip
+      - name: Install package
+        run: python -m pip install -e .[test]
 
       # Show installed pkg information for postmortem diagnostic
       - name: List installed packages
-        run: mamba list
-
-      # Install the package in editable mode
-      - name: Install local package
-        run: pip install -e .
+        run: pip list
 
       - name: Run the tests
         run: >-
           pytest -ra --cov --cov-report=xml --cov-report=term --durations=20
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v3.1.4
+        uses: codecov/codecov-action@v4.0.1
