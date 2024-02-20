@@ -38,11 +38,31 @@ pylint:
 
 style: format check lint pylint
 
+mypy:
+	mypy src/invert4geom
+
 release_check:
 	semantic-release --noop version
 
 changelog:
 	semantic-release changelog
+
+run_gallery:
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/gallery/*.ipynb
+
+run_user_guide:
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/user_guide/*.ipynb
+
+run_all_doc_files: run_gallery run_user_guide
+
+# install with conda
+conda_install:
+	mamba create --name invert4geom --yes --force invert4geom
+
+# create binder yml
+binder_env:
+	mamba env export --name invert4geom --no-builds > binder/environment.yml
+
 # create ReadTheDocs yml
 RTD_env:
 	mamba remove --name RTD_env --all --yes
