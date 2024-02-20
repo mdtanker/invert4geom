@@ -75,6 +75,8 @@ docs = [
   "sphinx-book-theme>=0.3",
   "sphinx_design",
   "nbsphinx",
+  "nbconvert",
+  "sphinxcontrib-bibtex",
 ]
 dev = [
   "invert4geom[opti,viz,test,docs]",
