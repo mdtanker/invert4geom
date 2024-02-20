@@ -175,7 +175,7 @@ def regional_constraints(
         else:
             data_cols = {"sampled_grav": data, constraint_weights_col: weights}
         # merge dicts and create dataframe
-        constraints_df = pd.DataFrame(data=coord_cols | data_cols)  # type: ignore[operator]
+        constraints_df = pd.DataFrame(data=coord_cols | data_cols)
 
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
