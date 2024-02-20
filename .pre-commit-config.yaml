@@ -19,6 +19,7 @@ exclude: |
       .github/config.yml|
       CONTRIBUTING.md|
       binder/environment.yml|
+      templates/CHANGELOG.md.j2|
   )$
 
 repos:
