@@ -17,6 +17,7 @@ extensions = [
     "sphinx_design",
     "nbsphinx",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.bibtex",
 ]
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
@@ -27,6 +28,8 @@ exclude_patterns = [
     ".env",
     ".venv",
 ]
+
+bibtex_bibfiles = ["_invert4geom_refs.bib"]
 
 nbsphinx_execute = "never"
 
