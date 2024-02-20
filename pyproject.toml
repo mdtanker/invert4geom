@@ -29,6 +29,8 @@ readme = "README.md"
 version = "0.3.1"
 license = {file = "LICENSE"}
 
+keywords = ["inversion", "gravity", "geometry", "density", "Moho", "sediment", "geophysics", "geology", "geoscience"]
+
 dependencies = [
   "numpy",
   "pandas",
@@ -100,6 +102,14 @@ Documentation = "https://invert4geom.readthedocs.io/"
 Discussions = "https://github.com/mdtanker/invert4geom/discussions"
 Changelog = "https://invert4geom.readthedocs.io/en/latest/changelog.html"
 
+[tool.coverage]
+run.source = ["invert4geom"]
+port.exclude_lines = [
+  'pragma: no cover',
+  '\.\.\.',
+  'if typing.TYPE_CHECKING:',
+]
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = [
@@ -122,14 +132,6 @@ testpaths = [
 ]
 markers = [
     "use_numba: mark test functions that call Numba jitted functions",
-]
-
-[tool.coverage]
-run.source = ["invert4geom"]
-port.exclude_lines = [
-  'pragma: no cover',
-  '\.\.\.',
-  'if typing.TYPE_CHECKING:',
 ]
 
 [tool.mypy]
@@ -210,6 +212,7 @@ py-version = "3.8"
 ignore-paths = ["CHANGELOG.md"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
+similarities.min-similarity-lines = 5
 messages_control.disable = [
   "design",
   "fixme",
