@@ -17,6 +17,8 @@ exclude: |
       .github/ISSUE_TEMPLATE/bug_report.md|
       .github/ISSUE_TEMPLATE/feature_request.md|
       .github/config.yml|
+      CONTRIBUTING.md|
+      binder/environment.yml|
   )$
 
 repos:
@@ -76,6 +78,7 @@ repos:
         args: []
         additional_dependencies:
           - pytest
+          - type-requests
           # - data-science-types
 
   - repo: https://github.com/codespell-project/codespell
