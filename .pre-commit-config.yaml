@@ -80,7 +80,7 @@ repos:
         args: []
         additional_dependencies:
           - pytest
-          - type-requests
+          - types-requests
           # - data-science-types
 
   - repo: https://github.com/codespell-project/codespell
