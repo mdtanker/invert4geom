@@ -27,7 +27,8 @@ gallery/index.md
 user_guide/index.md
 ```
 
-<!-- ```{toctree}
+<!--
+```{toctree}
 :maxdepth: 1
 :hidden:
 :caption: 🚶 User guide
@@ -39,20 +40,23 @@ user_guide/including_starting_model
 user_guide/adhering_to_constraints
 user_guide/combining_it_all
 user_guide/estimating_regional_field
-``` -->
+```
+-->
 
-<!-- ```{toctree}
+<!--
+```{toctree}
 :maxdepth: 1
 :hidden:
 :caption: 📚 Gallery
 gallery/index.md
-``` -->
+```
+-->
 
 ```{toctree}
 :maxdepth: 2
 :hidden:
 :caption: 📖 Reference documentation
-api/invert4geom
+api.md
 citing.md
 changelog.md
 references.rst
@@ -94,7 +98,7 @@ Start a discussion on GitHub!
 :::{grid-item-card} {octicon}`file-badge` Reference documentation
 :text-align: center
 A list of modules and functions
-```{button-ref} api/invert4geom
+```{button-ref} api
     :click-parent:
     :color: primary
     :outline:
