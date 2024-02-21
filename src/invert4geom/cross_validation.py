@@ -104,7 +104,7 @@ def grav_cv_score(
     """
     Find the score, represented by the root mean squared error (RMSE), between the
     testing gravity data, and the predict gravity data after and
-    inversion. Follows methods of Uieda and Barbosa 2017.
+    inversion. Follows methods of :footcite:t:`uiedafast2017`.
 
     Parameters
     ----------
@@ -127,8 +127,7 @@ def grav_cv_score(
 
     References
     ----------
-    [Uieda2017]_
-
+    :footcite:t:`uiedafast2017`
     """
 
     train = training_data.copy()
@@ -307,7 +306,7 @@ def constraints_cv_score(
     """
     Find the score, represented by the root mean squared error (RMSE), between the
     constraint point elevation, and the inverted topography at the constraint points.
-    Follows methods of Uieda and Barbosa 2017.
+    Follows methods of :footcite:t:`uiedafast2017`.
 
     Parameters
     ----------
@@ -325,8 +324,7 @@ def constraints_cv_score(
 
     References
     ----------
-    [Uieda2017]_
-
+    .. footbibliography::
     """
 
     zref: float = kwargs.get("zref")  # type: ignore[assignment]

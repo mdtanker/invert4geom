@@ -31,7 +31,7 @@ def grav_column_der(
     """
         Function to calculate the vertical derivate of the gravitational acceleration at
         an observation point caused by a right, rectangular prism. Approximated with
-        Hammer's annulus approximation.
+        Hammer's annulus approximation :footcite:p:`mccubbineairborne2016`.
 
     Parameters
     ----------
@@ -53,7 +53,7 @@ def grav_column_der(
 
     References
     ----------
-    [McCubbine2016]_
+    .. footbibliography::
     """
 
     r = np.sqrt(
@@ -100,8 +100,9 @@ def jacobian_annular(
     Function to calculate the Jacobian matrix using the annular cylinder
     approximation. The resulting Jacobian is a matrix (numpy array) with a row per
     gravity observation and a column per prism. This approximates the prisms as an
-    annulus, and calculates it's vertical gravity derivative. Takes arrays from
-    `jacobian`, feeds them into `grav_column_der`, and returns the jacobian.
+    annulus :footcite:p:`mccubbineairborne2016`, and calculates it's vertical gravity
+    derivative. Takes arrays from `jacobian`, feeds them into `grav_column_der`, and
+    returns the jacobian.
 
     Parameters
     ----------
@@ -124,8 +125,7 @@ def jacobian_annular(
 
     References
     ----------
-    [McCubbine2016]_
-
+    .. footbibliography::
     """
 
     for i in numba.prange(len(grav_easting)):  # pylint: disable=not-an-iterable
