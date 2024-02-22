@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
+
+## v0.4.0 (2024-02-22)
 ### 💥 Breaking Changes
 * drop python 3.8 support
 
@@ -66,7 +67,6 @@ BREAKING CHANGE: ([`77cc15d`](https://github.com/mdtanker/invert4geom/commit/77c
 * remove unused type ignore ([`6313e7b`](https://github.com/mdtanker/invert4geom/commit/6313e7b1bdb56cca8c5490aa0ab0c1235bf68796))
 * fix styling ([`15d96c7`](https://github.com/mdtanker/invert4geom/commit/15d96c7cc8299ea1536f77fa9ea0d92fc9353ed3))
 * formatting ([`ccb890c`](https://github.com/mdtanker/invert4geom/commit/ccb890c0154186fdd11e45ed1c2ee49c9ae4daac))
-
 
 ## v0.3.1 (2023-12-06)
 ### 📦️ Build
