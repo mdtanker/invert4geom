@@ -46,6 +46,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{secrets.PAT}}
+        run: git pull origin main --rebase
 
       # use semantic-release
       - id: semantic-release
