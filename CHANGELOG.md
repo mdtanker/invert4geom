@@ -1,29 +1,79 @@
 # Changelog
+Automatically updated by
+[python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
+with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
+## Unreleased
+### 💥 Breaking Changes
+* drop python 3.8 support
+
+BREAKING CHANGE: ([`77cc15d`](https://github.com/mdtanker/invert4geom/commit/77cc15df813bde60a638b517d6c4d41ead76a7e0))
+### 📦️ Build
+* add support for Python 3.12 ([`b0b058a`](https://github.com/mdtanker/invert4geom/commit/b0b058a83cb54b1b2bc8a179842fd4dc02e55eb9))
+* add binder env ([`60f15b7`](https://github.com/mdtanker/invert4geom/commit/60f15b7c84339bcf754b681257fbbfe599a02cbe))
+* update pyproj specs ([`e70c4bc`](https://github.com/mdtanker/invert4geom/commit/e70c4bc1128575358603d711ca254ee041543ae2))
+* add/remove dev dependencies ([`ec831f3`](https://github.com/mdtanker/invert4geom/commit/ec831f34146c611510c864bd2009da4b4ea617c5))
+* add doc dependencies ([`d62d855`](https://github.com/mdtanker/invert4geom/commit/d62d8557e1c20e7a34c2d1df7204a08b9d5dc852))
+### 🧰 Chores / Maintenance
+* fixing semantic release action ([`cfcfdf1`](https://github.com/mdtanker/invert4geom/commit/cfcfdf1fd2e440128afd1312172d755feac672b1))
+* trying to fix semantic-release action ([`75cadc3`](https://github.com/mdtanker/invert4geom/commit/75cadc332044e985bfcdc5dfbbbf3f02d7cff200))
+* manually update GH action and pre-commit versions ([`46d9357`](https://github.com/mdtanker/invert4geom/commit/46d9357dc3c35f04f7c7854b0dcdcfa933892e69))
+* update changelog template ([`d20c603`](https://github.com/mdtanker/invert4geom/commit/d20c603c7154e8df03a37cd130598caf2024c302))
+* delete tmp optuna  file in test ([`9b266aa`](https://github.com/mdtanker/invert4geom/commit/9b266aac6b13a4c0fc771873666f45f4a08035b0))
+* gitignore vscode settings ([`ad5ab8e`](https://github.com/mdtanker/invert4geom/commit/ad5ab8e9fd21e25c991192b40d3aa70868ce5e9a))
+* remove unnecessary files ([`74b63ae`](https://github.com/mdtanker/invert4geom/commit/74b63ae61fe00f878c568137417646d5cf6ed96f))
+* list packages after install in test GHA ([`35f05e5`](https://github.com/mdtanker/invert4geom/commit/35f05e5499abd2685ee590dee89a66fbe4b0aa22))
+* include all optimization deps in testing env ([`cb2f091`](https://github.com/mdtanker/invert4geom/commit/cb2f091ce4de1e226b67e5efad91d1449ecf0294))
+* add optuna to test deps ([`89e2447`](https://github.com/mdtanker/invert4geom/commit/89e2447d24934eafeb1d603d71c037cfdf7b9e90))
+* update GHA test env ([`70fcbf7`](https://github.com/mdtanker/invert4geom/commit/70fcbf7ad1d08b2329b07f098eabd20e7f8dc5fd))
+* revert to mamba for GHA test env ([`45c9b7b`](https://github.com/mdtanker/invert4geom/commit/45c9b7b6d7d6b7f0de4715977da9bc4a0995b846))
+* add make command for GHA test env ([`9f598bd`](https://github.com/mdtanker/invert4geom/commit/9f598bd85a56684316d70bb5d8f108e82aa64f5e))
+* upgrade pip for GHA test env ([`e89ba32`](https://github.com/mdtanker/invert4geom/commit/e89ba325e43db92ae66deb0a293e307478128431))
+* include setuptools in GHA test env ([`aa9e569`](https://github.com/mdtanker/invert4geom/commit/aa9e569a1e7ceda842794759f2006a61e3f0b4e2))
+* fix typo in pre-commit ([`b05bab5`](https://github.com/mdtanker/invert4geom/commit/b05bab5337ccf46ced49ad6c9904df860e64cb06))
+* ignore bib in pre-commit ([`ecd6d93`](https://github.com/mdtanker/invert4geom/commit/ecd6d9398378e2f4c6f0e1432e6c9f0d0d22b76e))
+* ignore changelog template in pre-commit ([`23ed7d4`](https://github.com/mdtanker/invert4geom/commit/23ed7d4b584db7df709d93ad9cb320e8615d6d9a))
+* update changelog template ([`f3a3c9c`](https://github.com/mdtanker/invert4geom/commit/f3a3c9cc48d1698bf9e50802f58ba53d7e6bb5c5))
+* remove old push GHA ([`9e2088d`](https://github.com/mdtanker/invert4geom/commit/9e2088de1f29500a412bfb9ab50ba62824461f93))
+* replace mamba with pip for GHA test env install ([`421cffe`](https://github.com/mdtanker/invert4geom/commit/421cffe087d6e1a5c1b41f9d0a6cd32e7cd078f6))
+* rename release GHA ([`32b6c3a`](https://github.com/mdtanker/invert4geom/commit/32b6c3a5ce7f372e0425eedb5e8fcc7735870efe))
+* add semantic release GHA ([`204c7a7`](https://github.com/mdtanker/invert4geom/commit/204c7a785617a48a5aaaebf94ab38ffe6477a20b))
+* update pre-commit config ([`e2dbcdd`](https://github.com/mdtanker/invert4geom/commit/e2dbcddfbc19ad3ee3d6d2cb8ba927e44db88fe8))
+* add make commands ([`98d6069`](https://github.com/mdtanker/invert4geom/commit/98d60695ea85dafba46448d6fcc8e88d05f3090c))
+* update RTD env and add make command ([`83d4199`](https://github.com/mdtanker/invert4geom/commit/83d419999f832efef1eb172656ecc81ffdcbaf8d))
+* change dependa-bot updates to monthly ([`3284324`](https://github.com/mdtanker/invert4geom/commit/3284324bd778579871c9cbaf36db5e47991e7d43))
+* update from antarctic-plots to polartoolkit ([`16bf313`](https://github.com/mdtanker/invert4geom/commit/16bf313d1b1b859750552e7b44bd2e2c031f1b92))
+### 📖 Documentation
+* rerun all user guide notebooks ([`d8688f2`](https://github.com/mdtanker/invert4geom/commit/d8688f2251510037c8068eb04f6a896707317078))
+* fix incorrect reference styles ([`93b6cfc`](https://github.com/mdtanker/invert4geom/commit/93b6cfc7cc3dff1f79f2705eb0ebf873a8d4b3e9))
+* fix bibliography references ([`606c936`](https://github.com/mdtanker/invert4geom/commit/606c936aa2a5835e1d0f5242041d0c1b21f542c2))
+* fix rtd.yml ([`36376d7`](https://github.com/mdtanker/invert4geom/commit/36376d7788bde28647e4f2c392299bfab4709160))
+* use pip to install RTD env ([`27c063a`](https://github.com/mdtanker/invert4geom/commit/27c063a46680910641579b7abe765ce25e131048))
+* switch from autodoc to autoapi ([`e182bac`](https://github.com/mdtanker/invert4geom/commit/e182bacc09f4630b8aaa594ff3576c44c0ccb4ec))
+* add binder link to docs ([`ddb80d3`](https://github.com/mdtanker/invert4geom/commit/ddb80d3a35eecba21a52186224893950ec128bfd))
+* add reference .bib and md file ([`048933e`](https://github.com/mdtanker/invert4geom/commit/048933e640d0cf6ee699c15694d8db85097e76f1))
+* update install instructions ([`5c051a4`](https://github.com/mdtanker/invert4geom/commit/5c051a4d1af117a0fb5c510c6cf962e3fe691f6b))
+* add a discretization user guide ([`8562c06`](https://github.com/mdtanker/invert4geom/commit/8562c0663e2f8d11433073904869beca8720f0b2))
+* move contributing guide ([`8d30cda`](https://github.com/mdtanker/invert4geom/commit/8d30cda624eeebd56d7297d60270d90587e83591))
+* enable nbgallery for user guide ([`2bcc0aa`](https://github.com/mdtanker/invert4geom/commit/2bcc0aaadbb0a3e915f453d04388570191d6fe76))
+* enable binder links ([`e134b4a`](https://github.com/mdtanker/invert4geom/commit/e134b4aa8c495ae7d77b3fbd1b46756fcd1cb583))
+### 🚀 Features
+* add plotting options to show_prism_layers ([`8c1874e`](https://github.com/mdtanker/invert4geom/commit/8c1874e746a19a07f4cf5815316a88ddab6c034e))
+### 🐛 Bug Fixes
+* resolve permission denied windows error in optuna test ([`1084b56`](https://github.com/mdtanker/invert4geom/commit/1084b569e13f8ac8cb5660be4dbd56e66af2e093))
+### ✏️ Formatting
+* pre-commit fixes ([`ed6fed9`](https://github.com/mdtanker/invert4geom/commit/ed6fed98b1e302546e31a6fffb0ecb420a13e164))
+* remove unused type ignore ([`6313e7b`](https://github.com/mdtanker/invert4geom/commit/6313e7b1bdb56cca8c5490aa0ab0c1235bf68796))
+* fix styling ([`15d96c7`](https://github.com/mdtanker/invert4geom/commit/15d96c7cc8299ea1536f77fa9ea0d92fc9353ed3))
+* formatting ([`ccb890c`](https://github.com/mdtanker/invert4geom/commit/ccb890c0154186fdd11e45ed1c2ee49c9ae4daac))
 
 
 ## v0.3.1 (2023-12-06)
-
 ### 📦️ Build
 * only install doc optional deps for nox ([`da69dcb`](https://github.com/mdtanker/invert4geom/commit/da69dcbc46c0e8895e380dc6b1696761789b4ad7))
 ### 🧰 Chores / Maintenance
 * adds license file to pyproject.toml ([`ed882d8`](https://github.com/mdtanker/invert4geom/commit/ed882d85b8bdf790126d5a638d14b4bcdd511716))
 * adds github issue templates amd comments ([`721b391`](https://github.com/mdtanker/invert4geom/commit/721b391d94f9adbdeb28aa65dbea5615231cc0ce))
-* bump conda-incubator/setup-miniconda from 2 to 3
-
-Bumps [conda-incubator/setup-miniconda](https://github.com/conda-incubator/setup-miniconda) from 2 to 3.
-- [Release notes](https://github.com/conda-incubator/setup-miniconda/releases)
-- [Changelog](https://github.com/conda-incubator/setup-miniconda/blob/main/CHANGELOG.md)
-- [Commits](https://github.com/conda-incubator/setup-miniconda/compare/v2...v3)
-
----
-updated-dependencies:
-- dependency-name: conda-incubator/setup-miniconda
-  dependency-type: direct:production
-  update-type: version-update:semver-major
-...
-
-Signed-off-by: dependabot[bot] &lt;support@github.com&gt; ([`93e8abc`](https://github.com/mdtanker/invert4geom/commit/93e8abcda4ce8c8882c68154945dcfa5aa504874))
 ### 📖 Documentation
 * remove optimization deps from RTD env ([`dad0330`](https://github.com/mdtanker/invert4geom/commit/dad033019a0d78421bdc94fe928e51500624d41d))
 * fix docstring for jacobian_annular ([`7b7be72`](https://github.com/mdtanker/invert4geom/commit/7b7be7286476795fbf882dcee74ba9ef98eef97d))
@@ -37,7 +87,6 @@ Signed-off-by: dependabot[bot] &lt;support@github.com&gt; ([`93e8abc`](https://g
 * formatting ([`3ab7fb3`](https://github.com/mdtanker/invert4geom/commit/3ab7fb3bd9691816e4bc18d2205d46a37053d383))
 
 ## v0.3.0 (2023-11-30)
-
 ### 📦️ Build
 * restrict xrft version
 
@@ -92,24 +141,7 @@ used a function from a stack overlow answer which is able to get cpu core number
 *  ([`cade158`](https://github.com/mdtanker/invert4geom/commit/cade1589062388546c6dd79b0471f04758d37111))
 
 ## v0.2.0 (2023-11-27)
-
 ### 🧰 Chores / Maintenance
-* bump actions/checkout from 3 to 4 (#27)
-
-Bumps [actions/checkout](https://github.com/actions/checkout) from 3 to 4.
-- [Release notes](https://github.com/actions/checkout/releases)
-- [Changelog](https://github.com/actions/checkout/blob/main/CHANGELOG.md)
-- [Commits](https://github.com/actions/checkout/compare/v3...v4)
-
----
-updated-dependencies:
-- dependency-name: actions/checkout
-  dependency-type: direct:production
-  update-type: version-update:semver-major
-...
-
-Signed-off-by: dependabot[bot] &lt;support@github.com&gt;
-Co-authored-by: dependabot[bot] &lt;49699333+dependabot[bot]@users.noreply.github.com&gt; ([`3f46f5b`](https://github.com/mdtanker/invert4geom/commit/3f46f5bfd6de675d95eb3abcf6ed26449a52bd8d))
 * add ignore option for codespell ([`bc4f597`](https://github.com/mdtanker/invert4geom/commit/bc4f5973b89f4b27885b2037b8d861732cf6240f))
 * add semantic-release changelog template ([`bc93159`](https://github.com/mdtanker/invert4geom/commit/bc93159f5cd3261d5049c9b1c12c228abec3ebd9))
 * add semantic release check to makefile ([`d3bb077`](https://github.com/mdtanker/invert4geom/commit/d3bb077c038394a8c66e21d9916cf38ab9c48c96))
@@ -139,14 +171,12 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 *  ([`86c611b`](https://github.com/mdtanker/invert4geom/commit/86c611b322de101c79fa8072718418c8a0b1a56f))
 
 ## v0.1.20 (2023-11-24)
-
 ### 🐛 Bug Fixes
 * forcing a new patch ([`9a73194`](https://github.com/mdtanker/invert4geom/commit/9a73194ea5b0e22e4422ed04f2c180c15de29867))
 ### Other
 *  ([`2546ee4`](https://github.com/mdtanker/invert4geom/commit/2546ee401201509409c932cf8111370142911599))
 
 ## v0.1.19 (2023-11-24)
-
 ### 🧰 Chores / Maintenance
 * remove scm version files ([`1f99c55`](https://github.com/mdtanker/invert4geom/commit/1f99c558617a85c050c56aaab0b6c799013f6fc8))
 ### 🐛 Bug Fixes
@@ -165,12 +195,10 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 *  ([`fb5f7b2`](https://github.com/mdtanker/invert4geom/commit/fb5f7b277d0b99fc901ca07b75bae4a9853ff008))
 
 ## v0.1.18 (2023-11-23)
-
 ### 🐛 Bug Fixes
 * use PAT instead of GH tocken ([`f2cb0d1`](https://github.com/mdtanker/invert4geom/commit/f2cb0d16e23535d56a9378113639814f2140a640))
 
 ## v0.1.17 (2023-11-23)
-
 ### 🧰 Chores / Maintenance
 * finally have release.yml fixed?! ([`6654e98`](https://github.com/mdtanker/invert4geom/commit/6654e98181e57a433f55870a0470dfa9ea56caf0))
 * fixing release.yml ([`2a381b3`](https://github.com/mdtanker/invert4geom/commit/2a381b33087fcb5d74550231fd2d57816c1bb105))
@@ -178,42 +206,35 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 * force version bump: ([`7c46909`](https://github.com/mdtanker/invert4geom/commit/7c469091dd542ce6ef5eee319f4005c1ca01d5d5))
 
 ## v0.1.16 (2023-11-23)
-
 ### 🧰 Chores / Maintenance
 * fixing GH actions ([`1517933`](https://github.com/mdtanker/invert4geom/commit/1517933c19f1cfe8b2b156409bdee25aca0c683c))
 ### 🐛 Bug Fixes
 * force version bump: ([`f357da5`](https://github.com/mdtanker/invert4geom/commit/f357da57bab602c5d6ef2e7eb81ffe60d479265a))
 
 ## v0.1.15 (2023-11-23)
-
 ### 🐛 Bug Fixes
 * seperate push and release jobs ([`2f0284a`](https://github.com/mdtanker/invert4geom/commit/2f0284a1b25c831212c17ad32d45a5ba6a00217b))
 
 ## v0.1.14 (2023-11-23)
-
 ### 🐛 Bug Fixes
 * refine concurrency ([`a54541f`](https://github.com/mdtanker/invert4geom/commit/a54541f4b92b8fddccbb2ad4911ed2b6bc87dfae))
 
 ## v0.1.13 (2023-11-23)
-
 ### 🐛 Bug Fixes
 * remove permission from inside steps ([`42cadef`](https://github.com/mdtanker/invert4geom/commit/42cadef257b43a891566bc19fa4b4eb33a4eb3c8))
 * move environment outside of steps ([`9773658`](https://github.com/mdtanker/invert4geom/commit/9773658adc392c6a90f93bb36e5a6a261a7d4b21))
 * reconfigure cd.yml ([`5fa82ed`](https://github.com/mdtanker/invert4geom/commit/5fa82ed7285fbfbeb29431001b050f8fc64c322b))
 
 ## v0.1.12 (2023-11-23)
-
 ### 🐛 Bug Fixes
 * fixing cd.yml ([`ee7efde`](https://github.com/mdtanker/invert4geom/commit/ee7efdefad907bf9eab1904ef0a18a08be12df74))
 * fixing publish action ([`182d8a9`](https://github.com/mdtanker/invert4geom/commit/182d8a9e6481db4294f216f211d41c68091742a1))
 
 ## v0.1.11 (2023-11-23)
-
 ### 🐛 Bug Fixes
 * publish pypi only if tag ([`1186e3e`](https://github.com/mdtanker/invert4geom/commit/1186e3ee650dfcc705789dc3c2cbf603d0a5cd24))
 
 ## v0.1.10 (2023-11-23)
-
 ### 🧰 Chores / Maintenance
 * fixing cd.yml ([`6fcf6d9`](https://github.com/mdtanker/invert4geom/commit/6fcf6d99e69cb6d34aa79396e2401e205b5e5bee))
 * fixing cd.yml ([`d63dd4c`](https://github.com/mdtanker/invert4geom/commit/d63dd4cf18ec743ee76c1f9cf8ff20082de351a2))
@@ -221,17 +242,14 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 * force a version increment ([`8dfd424`](https://github.com/mdtanker/invert4geom/commit/8dfd424ce38f8eb417582130ddf87ce910933f93))
 
 ## v0.1.9 (2023-11-23)
-
 ### 🐛 Bug Fixes
 * trying to fix PSR making github release ([`b777890`](https://github.com/mdtanker/invert4geom/commit/b77789046db794a21eaa09d97c8079f15f371199))
 
 ## v0.1.8 (2023-11-23)
-
 ### 🐛 Bug Fixes
 * replace hynek build with PSR build ([`f40cfe9`](https://github.com/mdtanker/invert4geom/commit/f40cfe9cce1fef2ee27d88c67862937b13b6bbc5))
 
 ## v0.1.7 (2023-11-23)
-
 ### 🧰 Chores / Maintenance
 * create github release in cd.yml ([`7b717e7`](https://github.com/mdtanker/invert4geom/commit/7b717e7dfa1d82eb8d7bb3d98a4ab898f5f61461))
 * create github release in cd.yml ([`4212fdc`](https://github.com/mdtanker/invert4geom/commit/4212fdc2b5a9f510b49e34aa6849bc5d5ea96e5d))
@@ -265,7 +283,6 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 *  ([`8ad6482`](https://github.com/mdtanker/invert4geom/commit/8ad648201fd41c395852716c8f938250c4839fb7))
 
 ## v0.1.6 (2023-11-22)
-
 ### 🧰 Chores / Maintenance
 * publish to pypi on all commits to main (#18) ([`5b0b9f3`](https://github.com/mdtanker/invert4geom/commit/5b0b9f3cac9453b7c5aeeb45ba0ac3be0d4fca6e))
 ### 🐛 Bug Fixes
@@ -273,22 +290,18 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 * enable semantic release (#19) ([`b318687`](https://github.com/mdtanker/invert4geom/commit/b318687220afa97e19f7b50d969000de9e367a1b))
 
 ## v0.1.5 (2023-11-22)
-
 ### 🧰 Chores / Maintenance
 * only publish to pypi on tags (#17) ([`ae9cbac`](https://github.com/mdtanker/invert4geom/commit/ae9cbaca2b0b7c81a13669ea58eb6b6dfcf0d1ad))
 
 ## v0.1.4 (2023-11-22)
-
 ### 🧰 Chores / Maintenance
 * manually increment version to test GA (#16) ([`dc18fdb`](https://github.com/mdtanker/invert4geom/commit/dc18fdb0fb6dd7f2148392fc637e929d3c156bbb))
 
 ## v0.1.3 (2023-11-22)
-
 ### 🧰 Chores / Maintenance
 * enable publish to pypi without testpypi (#15) ([`c0d2969`](https://github.com/mdtanker/invert4geom/commit/c0d29695c826ac99c06e7c41ca121a6a76c35f25))
 
 ## v0.1.2 (2023-11-22)
-
 ### 🧰 Chores / Maintenance
 * fixing release github action (#14)
 
@@ -307,7 +320,6 @@ makes release.yml run on all pushes to main instead of just published pushes. ([
 *  ([`9afcbfd`](https://github.com/mdtanker/invert4geom/commit/9afcbfd2f55511e95fff478b304766363287614b))
 
 ## v0.1.1 (2023-11-22)
-
 ### 🧰 Chores / Maintenance
 * trying to fix release.yml issues (#8)
 
