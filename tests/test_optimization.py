@@ -22,7 +22,7 @@ def test_optuna_parallel():
         msg = "Missing optional dependency 'optuna' required for optimization."
         raise ImportError(msg)
 
-    with tempfile.NamedTemporaryFile() as file:
+    with tempfile.NamedTemporaryFile(delete=False) as file:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="JournalStorage is experimental")
             lock_obj = optuna.storages.JournalFileOpenLock(file.name)
