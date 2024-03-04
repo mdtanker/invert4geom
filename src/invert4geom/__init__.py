@@ -5,7 +5,6 @@ invert4geom: Constrained gravity inversion to recover the geometry of a density
 contrast.
 """
 
-
 from __future__ import annotations
 
 __version__ = "0.4.0"
