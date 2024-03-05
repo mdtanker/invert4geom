@@ -5,6 +5,12 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 
 ## Unreleased
 ### 🧰 Chores / Maintenance
+* update pre-commit hooks
+
+updates:
+- [github.com/astral-sh/ruff-pre-commit: v0.2.2 → v0.3.0](https://github.com/astral-sh/ruff-pre-commit/compare/v0.2.2...v0.3.0) ([`cb7409b`](https://github.com/mdtanker/invert4geom/commit/cb7409b33082f907025cadd22ecf6c0044b2be58))
+### ✏️ Formatting
+* pre-commit fixes ([`9fe3777`](https://github.com/mdtanker/invert4geom/commit/9fe377749e1918b587e630343d9e3d1baf8472ea))
 
 
 ## v0.4.0 (2024-02-22)
