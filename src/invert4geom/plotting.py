@@ -463,11 +463,12 @@ def plot_inversion_grav_results(
         grid2_name=f"Final misfit: RMSE={round(final_rmse, 2)} mGal",
         plot_type="xarray",
         cmap="RdBu_r",
-        robust=False,
+        robust=True,
         hist=True,
         inset=False,
         verbose="q",
         title="difference",
+        diff_maxabs=True,
     )
 
 
