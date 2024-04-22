@@ -10,6 +10,13 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 * update pre-commit hooks
 
 updates:
+- [github.com/astral-sh/ruff-pre-commit: v0.3.0 → v0.3.7](https://github.com/astral-sh/ruff-pre-commit/compare/v0.3.0...v0.3.7)
+- [github.com/pre-commit/pre-commit-hooks: v4.5.0 → v4.6.0](https://github.com/pre-commit/pre-commit-hooks/compare/v4.5.0...v4.6.0)
+- [github.com/pre-commit/mirrors-mypy: v1.8.0 → v1.9.0](https://github.com/pre-commit/mirrors-mypy/compare/v1.8.0...v1.9.0)
+- [github.com/shellcheck-py/shellcheck-py: v0.9.0.6 → v0.10.0.1](https://github.com/shellcheck-py/shellcheck-py/compare/v0.9.0.6...v0.10.0.1) ([`3623095`](https://github.com/mdtanker/invert4geom/commit/362309505ceb8ff8f593eb9e061072fa7439a6b2))
+* update pre-commit hooks
+
+updates:
 - [github.com/astral-sh/ruff-pre-commit: v0.2.2 → v0.3.0](https://github.com/astral-sh/ruff-pre-commit/compare/v0.2.2...v0.3.0) ([`cb7409b`](https://github.com/mdtanker/invert4geom/commit/cb7409b33082f907025cadd22ecf6c0044b2be58))
 ### 📖 Documentation
 * fix pinning issue ([`a8f0ea1`](https://github.com/mdtanker/invert4geom/commit/a8f0ea1a86de678733db806f2c499ab193c68dfb))
