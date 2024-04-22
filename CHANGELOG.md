@@ -4,11 +4,16 @@ Automatically updated by
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
 ## Unreleased
+### 📦️ Build
+* add optuna-integration package ([`fa648d5`](https://github.com/mdtanker/invert4geom/commit/fa648d56e243edc934d746b8b77ac103ed0c7e10))
 ### 🧰 Chores / Maintenance
 * update pre-commit hooks
 
 updates:
 - [github.com/astral-sh/ruff-pre-commit: v0.2.2 → v0.3.0](https://github.com/astral-sh/ruff-pre-commit/compare/v0.2.2...v0.3.0) ([`cb7409b`](https://github.com/mdtanker/invert4geom/commit/cb7409b33082f907025cadd22ecf6c0044b2be58))
+### 📖 Documentation
+* fix pinning issue ([`a8f0ea1`](https://github.com/mdtanker/invert4geom/commit/a8f0ea1a86de678733db806f2c499ab193c68dfb))
+* pin python-semantic-release in GHA ([`c5b18da`](https://github.com/mdtanker/invert4geom/commit/c5b18da86d199c198ea5523c6b7f6a40de47b61e))
 ### ✏️ Formatting
 * pre-commit fixes ([`9fe3777`](https://github.com/mdtanker/invert4geom/commit/9fe377749e1918b587e630343d9e3d1baf8472ea))
 
@@ -298,19 +303,19 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 * add personal access token to github action (#20) ([`cc0f1ed`](https://github.com/mdtanker/invert4geom/commit/cc0f1ed4983103195b342c27cf85b1ea9245317e))
 * enable semantic release (#19) ([`b318687`](https://github.com/mdtanker/invert4geom/commit/b318687220afa97e19f7b50d969000de9e367a1b))
 
-## v0.1.5 (2023-11-22)
+## v0.1.5 (2023-11-23)
 ### 🧰 Chores / Maintenance
 * only publish to pypi on tags (#17) ([`ae9cbac`](https://github.com/mdtanker/invert4geom/commit/ae9cbaca2b0b7c81a13669ea58eb6b6dfcf0d1ad))
 
-## v0.1.4 (2023-11-22)
+## v0.1.4 (2023-11-23)
 ### 🧰 Chores / Maintenance
 * manually increment version to test GA (#16) ([`dc18fdb`](https://github.com/mdtanker/invert4geom/commit/dc18fdb0fb6dd7f2148392fc637e929d3c156bbb))
 
-## v0.1.3 (2023-11-22)
+## v0.1.3 (2023-11-23)
 ### 🧰 Chores / Maintenance
 * enable publish to pypi without testpypi (#15) ([`c0d2969`](https://github.com/mdtanker/invert4geom/commit/c0d29695c826ac99c06e7c41ca121a6a76c35f25))
 
-## v0.1.2 (2023-11-22)
+## v0.1.2 (2023-11-23)
 ### 🧰 Chores / Maintenance
 * fixing release github action (#14)
 
@@ -328,7 +333,7 @@ makes release.yml run on all pushes to main instead of just published pushes. ([
 *  ([`debe987`](https://github.com/mdtanker/invert4geom/commit/debe9879a55ed08509a3a901e0297d1c356fbacc))
 *  ([`9afcbfd`](https://github.com/mdtanker/invert4geom/commit/9afcbfd2f55511e95fff478b304766363287614b))
 
-## v0.1.1 (2023-11-22)
+## v0.1.1 (2023-11-23)
 ### 🧰 Chores / Maintenance
 * trying to fix release.yml issues (#8)
 
