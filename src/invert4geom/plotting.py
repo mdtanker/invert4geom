@@ -130,6 +130,7 @@ def plot_cv_scores(
     logy: bool = False,
     param_name: str = "Hyperparameter",
     figsize: tuple[float, float] = (5, 3.5),
+    plot_title: str | None = None,
 ) -> None:
     """
     plot a graph of cross-validation scores vs hyperparameter values
@@ -146,6 +147,8 @@ def plot_cv_scores(
         name to give for the parameters, by default "Hyperparameter"
     figsize : tuple[float, float], optional
         size of the figure, by default (5, 3.5)
+    plot_title : str | None, optional
+        title of figure, by default None
     """
     # Check if seaborn is installed
     if sns is None:
@@ -163,7 +166,10 @@ def plot_cv_scores(
     best = df.scores.argmin()
 
     plt.figure(figsize=figsize)
-    plt.title(f"{param_name} Cross-validation")
+    if plot_title is not None:
+        plt.title(plot_title)
+    else:
+        plt.title(f"{param_name} Cross-validation")
     plt.plot(df.parameters, df.scores, marker="o")
     plt.plot(
         df.parameters.iloc[best],
