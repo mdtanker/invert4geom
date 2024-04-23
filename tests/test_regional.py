@@ -9,7 +9,7 @@ import pytest
 import verde as vd
 import xarray as xr
 
-from invert4geom import regional
+from invert4geom import regional, synthetic
 
 # %%
 
@@ -121,6 +121,14 @@ def test_regional_eq_sources():
     # grav_df["Gobs"] = np.random.normal(100, 100, len(grav_df))
 
     grav_df = dummy_grid().to_dataframe().reset_index()
+
+    # add noise
+    grav_df["misfit"], _ = synthetic.contaminate(
+        grav_df["misfit"],
+        stddev=0.2,
+        percent=True,
+        seed=0,
+    )
 
     df = regional.regional_eq_sources(
         source_depth=100e3,
