@@ -775,7 +775,8 @@ def run_inversion(
     ----------
     input_grav : pd.DataFrame
         dataframe with gravity data and coordinates, must have columns "res" and "reg"
-        for residual and regional gravity.
+        for residual and regional gravity, and coordinate columns "easting", "northing",
+        and "upward".
     input_grav_column : str
         column name containing the gravity data *before* regional separation
     prism_layer : xr.Dataset
