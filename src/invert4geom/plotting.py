@@ -4,7 +4,6 @@ import typing
 
 import numpy as np
 import pandas as pd
-import pygmt
 
 try:
     import matplotlib.pyplot as plt
