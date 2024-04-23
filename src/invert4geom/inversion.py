@@ -756,6 +756,7 @@ def run_inversion(
     lower_confining_layer: xr.DataArray | None = None,
     weights_after_solving: bool = False,
     plot_convergence: bool = False,
+    plot_dynamic_convergence: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]:
     """
     perform a geometric inversion, where the topography is updated to minimize the
@@ -809,6 +810,8 @@ def run_inversion(
         default False, by default False
     plot_convergence : bool, optional
         plot the misfit convergence, by default False
+    plot_dynamic_convergence : bool, optional
+        plot the misfit convergence dynamically, by default False
 
     Returns
     -------
@@ -978,6 +981,15 @@ def run_inversion(
             delta_l2_norm_tolerance,
             perc_increase_limit=perc_increase_limit,
         )
+
+        if plot_dynamic_convergence is True:
+            plotting.plot_dynamic_convergence(
+                gravity,
+                l2_norm_tolerance,
+                starting_misfit,
+                inversion_region=inversion_region,
+            )
+
         if end is True:
             break
         # end of inversion loop
