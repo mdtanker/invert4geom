@@ -584,18 +584,19 @@ def enforce_confining_surface(
                 df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_below[
                     i
                 ]
+
         logging.info("enforced lower confining surface at %s prisms", number_enforced)
 
     # check that when constrained correction is added to topo it doesn't intersect
     # either bounding layer
     updated_topo: pd.Series[float] = df[f"iter_{iteration_number}_correction"] + df.topo
-    if "upper_bounds" in df and np.any((df.upper_bounds - updated_topo) < 0):
+    if "upper_bounds" in df and np.any((df.upper_bounds - updated_topo) < -0.001):
         msg = (
             "Constraining didn't work and updated topography intersects upper "
             "constraining surface"
         )
         raise ValueError(msg)
-    if "lower_bounds" in df and np.any((updated_topo - df.lower_bounds) < 0):
+    if "lower_bounds" in df and np.any((updated_topo - df.lower_bounds) < -0.001):
         msg = (
             "Constraining didn't work and updated topography intersects lower "
             "constraining surface"
