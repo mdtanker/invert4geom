@@ -60,6 +60,8 @@ def synthetic_topography_simple(
     spacing: float,
     region: tuple[float, float, float, float],
     registration: str = "g",
+    scale: float = 1,
+    yoffset: float = 0,
 ) -> xr.Dataset:
     """
     Create a synthetic topography dataset with a few features.
@@ -72,6 +74,10 @@ def synthetic_topography_simple(
         bounding edges of the grid in meters in format (xmin, xmax, ymin, ymax)
     registration : str, optional
         grid registration type, either "g" for gridline or "p" for pixel, by default "g"
+    scale : float, optional
+        value to scale the topography by, by default 1
+    yoffset : float, optional
+        value to offset the topography by, by default 0
 
     Returns
     -------
@@ -169,7 +175,11 @@ def synthetic_topography_simple(
 
     topo = sum(features)
 
-    topo = topo + 1200
+    topo += 1200
+
+    topo = topo * scale
+
+    topo += yoffset
 
     return vd.make_xarray_grid(
         (x, y),
