@@ -4,7 +4,11 @@ import typing
 
 import numpy as np
 import pandas as pd
-from IPython.display import clear_output
+
+try:
+    from IPython.display import clear_output
+except ImportError:
+    clear_output = None
 
 try:
     import matplotlib.pyplot as plt
@@ -291,6 +295,10 @@ def plot_dynamic_convergence(
         msg = "Missing optional dependency 'matplotlib' required for plotting."
         raise ImportError(msg)
 
+    # Check if Ipython is installed
+    if clear_output is None:
+        msg = "Missing optional dependency 'IPython' required for plotting."
+        raise ImportError(msg)
     clear_output(wait=True)
 
     # get misfit data at end of each iteration
