@@ -14,6 +14,7 @@ import scipy as sp
 import verde as vd
 import xarray as xr
 from nptyping import NDArray
+from tqdm.autonotebook import tqdm
 
 from invert4geom import plotting, utils
 
@@ -870,7 +871,9 @@ def run_inversion(
     # iteration times
     iter_times = []
 
-    for iteration, _ in enumerate(range(max_iterations), start=1):
+    for iteration, _ in enumerate(
+        tqdm(range(max_iterations), desc="Iteration"), start=1
+    ):
         logging.info(
             "\n #################################### \n iteration %s", iteration
         )
