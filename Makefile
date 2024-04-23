@@ -62,6 +62,22 @@ conda_install:
 # create binder yml
 binder_env:
 	mamba env export --name invert4geom --no-builds > binder/environment.yml
+	# delete last line
+	sed -i '$$d' binder/environment.yml
+	# add pip and optional packages
+	sed -i '$$a\  - pip\n  - pip:' binder/environment.yml
+	sed -i '$$a\    - optuna>=3.1.0' binder/environment.yml
+	sed -i '$$a\    - botorch>=0.4.0' binder/environment.yml
+	sed -i '$$a\    - joblib' binder/environment.yml
+	sed -i '$$a\    - psutil' binder/environment.yml
+	sed -i '$$a\    - tqdm_joblib' binder/environment.yml
+	sed -i '$$a\    - pyvista' binder/environment.yml
+	sed -i '$$a\    - trame' binder/environment.yml
+	sed -i '$$a\    - ipywidgets' binder/environment.yml
+	sed -i '$$a\    - matplotlib' binder/environment.yml
+	sed -i '$$a\    - seaborn' binder/environment.yml
+	sed -i '$$a\    - ipython' binder/environment.yml
+	# sed -i '$$a\    - ' binder/environment.yml
 
 # create ReadTheDocs yml
 RTD_env:
