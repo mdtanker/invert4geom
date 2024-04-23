@@ -180,7 +180,7 @@ def grav_cv_score(
         progressbar=progressbar,
     )
 
-    # compare new layer1 forward with observed
+    # compare forward of inverted layer with observed
     observed = test[kwargs.get("input_grav_column")] - test.reg
     predicted = test.test_point_grav
 
