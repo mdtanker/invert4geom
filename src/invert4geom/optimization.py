@@ -200,6 +200,8 @@ def optuna_parallel(
         msg = "Missing optional dependency 'optuna' required for optimization."
         raise ImportError(msg)
 
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+
     # load study metadata from storage
     study = optuna.load_study(storage=study_storage, study_name=study_name)
 
