@@ -11,6 +11,7 @@ import numba
 import numpy as np
 import pandas as pd
 import scipy as sp
+import verde as vd
 import xarray as xr
 from nptyping import NDArray
 
@@ -755,6 +756,7 @@ def run_inversion(
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
     weights_after_solving: bool = False,
+    inversion_region: tuple[float, float, float, float] | None = None,
     plot_convergence: bool = False,
     plot_dynamic_convergence: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]:
@@ -808,6 +810,9 @@ def run_inversion(
     weights_after_solving : bool, optional
         use "weights" variable of prisms dataset to scale surface corrections grid, by
         default False, by default False
+    inversion_region : tuple[float, float, float, float]
+        inside region to calculated residual RMSE within, in the form (min_easting,
+        max_easting, min_northing, max_northing)
     plot_convergence : bool, optional
         plot the misfit convergence, by default False
     plot_dynamic_convergence : bool, optional
@@ -827,6 +832,13 @@ def run_inversion(
     time_start = time.perf_counter()
 
     gravity = copy.deepcopy(input_grav)
+
+    # if inversion region provided, create column of booleans defining inside/outside
+    if inversion_region is not None:
+        gravity["inside"] = vd.inside(
+            (gravity.easting, gravity.northing),
+            region=inversion_region,
+        )
 
     # extract variables from starting prism layer
     (
@@ -876,10 +888,17 @@ def run_inversion(
         gravity[f"iter_{iteration}_initial_misfit"] = gravity.res
 
         # set iteration stats
-        initial_rmse = utils.rmse(gravity[f"iter_{iteration}_initial_misfit"])
+        if inversion_region is not None:
+            # if inversion region is supplied, calculate RMSE only within that region
+            initial_rmse = utils.rmse(
+                gravity[gravity.inside][f"iter_{iteration}_initial_misfit"]
+            )
+        else:
+            initial_rmse = utils.rmse(gravity[f"iter_{iteration}_initial_misfit"])
         l2_norm = np.sqrt(initial_rmse)
 
         if iteration == 1:
+            starting_misfit = initial_rmse
             starting_l2_norm = l2_norm
 
         # calculate jacobian sensitivity matrix
@@ -948,7 +967,13 @@ def run_inversion(
         )
 
         # update the misfit RMSE
-        updated_rmse = utils.rmse(gravity[f"iter_{iteration}_final_misfit"])
+        if inversion_region is not None:
+            # if inversion region is supplied, calculate RMSE only within that region
+            updated_rmse = utils.rmse(
+                gravity[gravity.inside][f"iter_{iteration}_final_misfit"]
+            )
+        else:
+            updated_rmse = utils.rmse(gravity[f"iter_{iteration}_final_misfit"])
         logging.info("updated misfit RMSE: %s", round(updated_rmse, 4))
         final_rmse = updated_rmse
 
@@ -1027,6 +1052,10 @@ def run_inversion(
     }
 
     if plot_convergence is True:
-        plotting.plot_convergence(gravity, iter_times=iter_times)
+        plotting.plot_convergence(
+            gravity,
+            iter_times=iter_times,
+            inversion_region=inversion_region,
+        )
 
     return prisms_df, gravity, params, elapsed_time
