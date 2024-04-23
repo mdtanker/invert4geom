@@ -328,6 +328,16 @@ def jacobian(
         prism_top = df.top.to_numpy()
         prism_density = df.density.to_numpy()
 
+        if np.all((prism_top - grav_upward.mean()) == 0):
+            msg = (
+                "All prism tops coincides exactly with the elevation of the gravity "
+                "observation points, leading to issues with calculating the vertical "
+                "derivative of gravity with the annulus technique. Either slightly "
+                "change the prism tops or gravity elevations, or use the small-prisms "
+                "vertical derivative technique."
+            )
+            logging.warning(msg)
+
         jac = jacobian_annular(
             grav_easting,
             grav_northing,
