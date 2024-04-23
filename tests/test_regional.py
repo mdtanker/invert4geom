@@ -39,6 +39,52 @@ def dummy_df() -> pd.DataFrame:
 
 
 # %%
+def test_regional_dc_shift_constraints():
+    """
+    test the regional_dc_shift function with a supplied constraints
+    """
+    grav_df = dummy_df()
+    region = (0, 200, 200, 400)
+
+    # create 10 random point within the region
+    num_constraints = 10
+    coords = vd.scatter_points(region=region, size=num_constraints, random_state=0)
+    points = pd.DataFrame(data={"easting": coords[0], "northing": coords[1]})
+
+    # print(grav_df.describe())
+
+    df = regional.regional_dc_shift(
+        grav_df=grav_df,
+        grav_grid=dummy_grid().misfit,
+        constraint_points=points,
+        regional_col_name="reg",
+    )
+
+    # print(df.describe())
+
+    # test whether regional field has been removed correctly
+    # by whether the means of the reg and misfit are similar
+    # print(np.mean(df.reg), np.mean(df.misfit))
+    print(np.mean(df.reg), np.mean(df.misfit))
+    assert np.mean(df.reg) == pytest.approx(np.mean(df.misfit), rel=1000)
+
+
+def test_regional_dc_shift():
+    """
+    test the regional_dc_shift function with a supplied DC shift
+    """
+
+    grav_df = dummy_grid().to_dataframe().reset_index()
+
+    df = regional.regional_dc_shift(
+        grav_df=grav_df,
+        dc_shift=-200,
+        regional_col_name="reg",
+    )
+
+    assert df.reg.mean() == -200
+
+
 @pytest.mark.parametrize("fill_method", ["rioxarray", "verde"])
 @pytest.mark.parametrize("trend", [0, 2])
 def test_regional_trend(fill_method, trend):
