@@ -64,6 +64,7 @@ viz = [
   "ipywidgets",
   "matplotlib",
   "seaborn",
+  "ipython",
 ]
 test = [
   "pytest >=6",
