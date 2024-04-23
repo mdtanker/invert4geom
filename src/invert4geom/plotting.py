@@ -1,12 +1,14 @@
-from __future__ import annotations
+from __future__ import annotations  # pylint: disable=too-many-lines
 
 import typing
 
 import numpy as np
 import pandas as pd
+from IPython.display import clear_output
 
 try:
     import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator
 except ImportError:
     plt = None
 
@@ -253,6 +255,86 @@ def plot_convergence(
         ax2.grid(False)
 
     plt.tight_layout()
+
+
+def plot_dynamic_convergence(
+    results: pd.DataFrame,
+    l2_norm_tolerance: float,
+    starting_misfit: float,
+    inversion_region: tuple[float, float, float, float] | None = None,
+    figsize: tuple[float, float] = (5, 3.5),
+) -> None:
+    """
+    plot a graph of misfit and time vs iteration number.
+
+    Parameters
+    ----------
+    results : pd.DataFrame
+        gravity result dataframe
+    l2_norm_tolerance : float
+        l2 norm tolerance
+    starting_misfit : float
+        starting misfit rmse
+    inversion_region : tuple[float, float, float, float] | None, optional
+        inside region of inversion, by default None
+    figsize : tuple[float, float], optional
+        width and height of figure, by default (5, 3.5)
+    """
+    # Check if seaborn is installed
+    if sns is None:
+        msg = "Missing optional dependency 'seaborn' required for plotting."
+        raise ImportError(msg)
+    sns.set_theme()
+
+    # Check if matplotlib is installed
+    if plt is None:
+        msg = "Missing optional dependency 'matplotlib' required for plotting."
+        raise ImportError(msg)
+
+    clear_output(wait=True)
+
+    # get misfit data at end of each iteration
+    cols = [s for s in results.columns.to_list() if "_final_misfit" in s]
+    iters = len(cols)
+    if inversion_region is not None:
+        misfits = [np.sqrt(utils.rmse(results[results.inside][i])) for i in cols]
+    else:
+        misfits = [np.sqrt(utils.rmse(results[i])) for i in cols]
+    # add starting misfit to the beginning of the list
+    misfits.insert(0, np.sqrt(starting_misfit))
+
+    _fig, ax1 = plt.subplots(figsize=figsize)
+    plt.title("Inversion convergence")
+    ax1.plot(range(iters + 1), misfits, "b-")
+    ax1.set_xlabel("Iteration")
+    ax1.set_ylabel("L2-norm", color="b")
+    ax1.tick_params(axis="y", colors="b", which="both")
+
+    # plot horizontal line of misfit tolerance
+    plt.axhline(
+        y=l2_norm_tolerance,
+        linewidth=1,
+        color="r",
+        linestyle="--",
+        label="L2-norm tolerance",
+    )
+    ax1.set_ylim(0.9 * (l2_norm_tolerance), np.sqrt(starting_misfit))
+
+    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    plt.plot(
+        iters,
+        misfits[-1],
+        "s",
+        markersize=10,
+        color=sns.color_palette()[3],
+        label="current L2-norm",
+    )
+    plt.legend(
+        loc="upper right",
+    )
+    plt.tight_layout()
+    plt.show()
 
 
 def grid_inversion_results(
