@@ -507,7 +507,7 @@ def solver(
     #     )[0]
 
     # elif solver_type == "steepest descent":
-    #     """Jacobian transppose algorithm"""
+    #     """Jacobian transpose algorithm"""
     #     residuals = residuals
     #     step = jac.T @ residuals
 
@@ -734,7 +734,7 @@ def update_gravity_and_misfit(
         field="g_z",
     )
 
-    # each iteration updates the topography of the layer to minizime the residual
+    # each iteration updates the topography of the layer to minimize the residual
     # portion of the misfit. We then want to recalculate the forward gravity of the
     # new layer, use the same original regional misfit, and re-calculate the residual
     # Gmisfit  = Gobs_corr - Gforward
@@ -882,9 +882,8 @@ def run_inversion(
     # iteration times
     iter_times = []
 
-    for iteration, _ in enumerate(
-        tqdm(range(max_iterations), desc="Iteration"), start=1
-    ):
+    pbar = tqdm(range(max_iterations), desc="Iteration")
+    for iteration, _ in enumerate(pbar, start=1):
         logging.info(
             "\n #################################### \n iteration %s", iteration
         )
@@ -1030,6 +1029,7 @@ def run_inversion(
             )
 
         if end is True:
+            pbar.set_description(f"Inversion ended due to {termination_reason}")
             break
         # end of inversion loop
 
