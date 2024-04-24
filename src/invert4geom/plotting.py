@@ -406,6 +406,7 @@ def grid_inversion_results(
 def plot_inversion_topo_results(
     prisms_ds: xr.Dataset,
     topo_cmap_perc: float = 1,
+    region: tuple[float, float, float, float] | None = None,
 ) -> None:
     """
     plot the initial and final topography grids from the inversion and their difference
@@ -416,6 +417,8 @@ def plot_inversion_topo_results(
         dataset resulting from inversion
     topo_cmap_perc : float, optional
         value to multiple min and max values by for colorscale, by default 1
+    region : tuple[float, float, float, float], optional
+        clip grids to this region before plotting
     """
     # Check if matplotlib is installed
     if plt is None:
@@ -430,6 +433,16 @@ def plot_inversion_topo_results(
     its = [int(s[5:][:-6]) for s in topos]
 
     final_topo = prisms_ds[f"iter_{max(its)}_layer"]
+
+    if region is not None:
+        initial_topo = initial_topo.sel(
+            easting=slice(region[0], region[1]),
+            northing=slice(region[2], region[3]),
+        )
+        final_topo = final_topo.sel(
+            easting=slice(region[0], region[1]),
+            northing=slice(region[2], region[3]),
+        )
 
     dif = initial_topo - final_topo
 
@@ -864,6 +877,7 @@ def plot_inversion_results(
         plot_inversion_topo_results(
             prisms_ds,
             topo_cmap_perc=kwargs.get("topo_cmap_perc", 1),
+            region=grav_region,
         )
 
     if plot_grav_results is True:
