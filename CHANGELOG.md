@@ -10,6 +10,11 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 * update pre-commit hooks
 
 updates:
+- [github.com/astral-sh/ruff-pre-commit: v0.4.1 → v0.4.2](https://github.com/astral-sh/ruff-pre-commit/compare/v0.4.1...v0.4.2)
+- [github.com/pre-commit/mirrors-mypy: v1.9.0 → v1.10.0](https://github.com/pre-commit/mirrors-mypy/compare/v1.9.0...v1.10.0) ([`2504dfe`](https://github.com/mdtanker/invert4geom/commit/2504dfe379e6ecf4889acd4d1feca34fdd8e80c2))
+* update pre-commit hooks
+
+updates:
 - [github.com/astral-sh/ruff-pre-commit: v0.3.7 → v0.4.1](https://github.com/astral-sh/ruff-pre-commit/compare/v0.3.7...v0.4.1) ([`398e222`](https://github.com/mdtanker/invert4geom/commit/398e222c44359761e111acb69d79b3bed928ff46))
 * update pre-commit hooks
 
