@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import invert4geom
+
+sys.path.insert(0, Path.resolve("../src"))
 
 project = "invert4geom"
 copyright = "2023, Matt Tankersley"
@@ -11,7 +16,7 @@ extensions = [
     "autoapi.extension",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
-    "sphinx.ext.autodoc",
+    "sphinx.ext.autodoc",  # needed for typehints
     "sphinx_copybutton",
     "myst_parser",
     "sphinx_design",
