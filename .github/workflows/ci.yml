@@ -46,9 +46,7 @@ jobs:
     name: Check Python ${{ matrix.python-version }} on ${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
     # don't run tests if any commits in push contain "docs:" or "style:"
-    if:
-      ${{ (!contains(github.push.commits.message, 'docs:') ) &&
-      (!contains(github.push.commits.message, 'style:') ) }}
+    if: ${{ !contains(github.push.commits.message, 'docs:') && !contains(github.push.commits.message, 'style:')  }}
     needs: [pre-commit]
     strategy:
       # Otherwise, the workflow would stop if a single job fails. We want to
