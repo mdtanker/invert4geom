@@ -1,13 +1,6 @@
 from __future__ import annotations
 
-import importlib
-import inspect
-import os
-import sys
-
 import invert4geom
-
-sys.path.insert(0, os.path.abspath("../src"))  # noqa: PTH100
 
 project = "invert4geom"
 copyright = "2023, Matt Tankersley"
@@ -15,8 +8,7 @@ author = "Matt Tankersley"
 version = release = invert4geom.__version__
 extensions = [
     "sphinx.ext.autodoc",  # needed for typehints
-    # "sphinx.ext.viewcode",
-    "sphinx.ext.linkcode",
+    "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "autoapi.extension",
@@ -128,41 +120,3 @@ html_theme_options = {
     "use_download_button": True,
     "home_page_in_toc": False,
 }
-# Configure viewcode extension.
-# based on https://github.com/readthedocs/sphinx-autoapi/issues/202
-code_url = "https://github.com/mdtanker/invert4geom/blob/main"
-
-
-def linkcode_resolve(domain, info):
-    # Non-linkable objects from the starter kit in the tutorial.
-    if domain == "js" or info["module"] == "connect4":
-        return None
-
-    assert domain == "py", "expected only Python objects"
-
-    mod = importlib.import_module(info["module"])
-    if "." in info["fullname"]:
-        objname, attrname = info["fullname"].split(".")
-        obj = getattr(mod, objname)
-        try:
-            # object is a method of a class
-            obj = getattr(obj, attrname)
-        except AttributeError:
-            # object is an attribute of a class
-            return None
-    else:
-        obj = getattr(mod, info["fullname"])
-
-    obj = inspect.unwrap(obj)
-
-    try:
-        file = inspect.getsourcefile(obj)
-        lines = inspect.getsourcelines(obj)
-    except TypeError:
-        # e.g. object is a typing.Union
-        return None
-    file = os.path.relpath(file, os.path.abspath(".."))  # noqa: PTH100
-
-    start, end = lines[1], lines[1] + len(lines[0]) - 1
-
-    return f"{code_url}/{file}#L{start}-L{end}"
