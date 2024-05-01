@@ -257,6 +257,8 @@ The Docs are build with `Sphinx` and `Read the Docs`. Due to the above mentioned
 
     make run_doc_files
 
+If your edits haven't changed any part of the core package, then there is no need to re-run the notebooks. If you changed a notebook, just clear it's contents and re-run that one notebook.
+
 #### Check the build manually (optional)
 
 You can build the docs using, but this will require pandoc to be install on your machine:
@@ -275,14 +277,9 @@ You can see a preview with:
 
 Add, commit, and push all changes to GitHub in a Pull Request, and `RTD` should automatically build the docs.
 
-In each PR, you will see section of the checks for RTD. Click on this to preview the docs for the PR.
+In each PR, you will see section of the checks for `RTD`. Click on this to preview the docs for the PR.
 
 RTD uses the conda environment specified in `env/RTD_env.yml` when it's building.
-To create or update this file based on the necessary dependencies in [docs] of `pyproject.toml`, run the following command:
-
-```
-    make RTD_env
-```
 
 ### Code Review
 
@@ -315,37 +312,13 @@ If you have any trouble, leave a comment in the PR or
 
 This will almost always be done by the developers, but as a guide for them, here are instructions on how to release a new version of the package.
 
-Follow all the above instructions for formating and building the docs
+Follow all the above instructions for formatting. Push your changes to a new or existing Pull Request. Once the automated GitHub Actions run (and pass), merge the PR into the main branch.
 
 ### PyPI (pip)
 PyPI release are made automatically via GitHub actions whenever a pull request is merged.
 
 ### Conda-Forge
-Once the new version is on PyPI, we can update the conda-forge feedstock.
-
-Fork the [conda-forge invert4geom feedstock](https://github.com/conda-forge/invert4geom-feedstock) on github:
-
-Clone the fork and checkout a new branch
-
-    git clone https://github.com/mdtanker/invert4geom-feedstock
-
-    git checkout -b update
-
-Update the `meta.yaml` with the new PyPI version with `grayskull`
-
-  grayskull pypi invert4geom
-
-Copy the new contents into the old `meta.yaml` file.
-
-Push the changes to GitHub
-
-    git add .
-
-    git commit -m "updating invertgeom"
-
-    git push origin update
-
-Open a PR on GitHub with the new branch.
+Once the new version is on PyPI, within a few hours a bot will automatically open a new PR in the [Invert4Geom conda-forge feedstock](https://github.com/conda-forge/invert4geom-feedstock). Go through the checklist on the PR. Most of the time the only actions needs are updated any changes made to the dependencies since the last release. Merge the PR and the new version will be available on conda-forge shortly.
 
 Once the new version is on conda, update the binder .yml file, as below.
 
@@ -353,18 +326,10 @@ Once the new version is on conda, update the binder .yml file, as below.
 
 To add or update a dependencies, add it to `pyproject.toml` either under `dependencies` or `optional-dependencies`. This will be included in the next build uploaded to PyPI.
 
-After release a new version on PyPI, we will create a new release on conda-forge, and the new dependencies should automatically be included there.
-
 If you add a dependency necessary for using the package, make sure to add it to the Binder config file. See below.
 
 ## Set up the binder configuration
 
-To run this package online, Read the Docs will automatically create a Binder instance based on the configuration file `/binder/environment.yml`. This file reflects the latest release on Conda-Forge. To allow all optional features in Binder, we need to manually add optional dependencies to the `make binder_env` command. Update it with the following commands.
-
-    make conda_install
-
-    conda activate invert4geom
-
-    make binder_env
+To run this package online, Read the Docs will automatically create a Binder instance based on the configuration file `binder/environment.yml`. This file should reflect the latest release on Conda-Forge. To allow all optional features in Binder, we need to manually add optional dependencies to the `binder/environment.yml` file.
 
 Now, when submitting a PR, RTD will automatically build the docs and update the Binder environment.
