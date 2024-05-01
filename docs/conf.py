@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import os
 import sys
-from pathlib import Path
 
 import invert4geom
 
-sys.path.insert(0, Path.resolve("../src"))
+sys.path.insert(0, os.path.abspath("../src"))  # noqa: PTH100
 
 project = "invert4geom"
 copyright = "2023, Matt Tankersley"
