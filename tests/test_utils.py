@@ -414,7 +414,12 @@ def test_sample_grids_on_nodes():
     df = pd.DataFrame({"x": [0, 100, 200], "y": [200, 300, 400]})
     result_df = utils.sample_grids(df, grid, sampled_name=name)
     expected = pd.DataFrame(
-        {"x": [0, 100, 200], "y": [200, 300, 400], name: [40000, 100000, 200000]}
+        {
+            "x": [0, 100, 200],
+            "y": [200, 300, 400],
+            name: [40000, 100000, 200000],
+        },
+        dtype="int",
     )
     pdt.assert_frame_equal(result_df, expected)
 
@@ -448,7 +453,8 @@ def test_sample_grids_custom_coordinate_names():
         df, grid, sampled_name=name, coord_names=("lon", "lat")
     )
     expected = pd.DataFrame(
-        {"lon": [0, 100, 200], "lat": [200, 300, 400], name: [40000, 100000, 200000]}
+        {"lon": [0, 100, 200], "lat": [200, 300, 400], name: [40000, 100000, 200000]},
+        dtype="int",
     )
     pdt.assert_frame_equal(result_df, expected)
 
