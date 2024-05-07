@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
+
+## v0.5.0 (2024-05-07)
 ### 📦️ Build
 * make semantic release GHA need changelog success ([`7b7d1c4`](https://github.com/mdtanker/invert4geom/commit/7b7d1c40805617db9cf42fea3065eb32585bf035))
 * add make command for binder env ([`3b5d44e`](https://github.com/mdtanker/invert4geom/commit/3b5d44e926a9925e70220344bba04c464cdbfb3d))
@@ -62,7 +63,6 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 * pre-commit fixes ([`116a612`](https://github.com/mdtanker/invert4geom/commit/116a612b0ff613375715e320444f85906984483e))
 * pre-commit fixes ([`b110f23`](https://github.com/mdtanker/invert4geom/commit/b110f236277b60c6ed82035b5b58316885366997))
 * pre-commit fixes ([`9fe3777`](https://github.com/mdtanker/invert4geom/commit/9fe377749e1918b587e630343d9e3d1baf8472ea))
-
 
 ## v0.4.0 (2024-02-22)
 ### 💥 Breaking Changes
