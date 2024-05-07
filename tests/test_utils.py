@@ -419,7 +419,7 @@ def test_sample_grids_on_nodes():
             "y": [200, 300, 400],
             name: [40000, 100000, 200000],
         },
-        dtype="int",
+        dtype="int64",
     )
     pdt.assert_frame_equal(result_df, expected)
 
@@ -454,7 +454,7 @@ def test_sample_grids_custom_coordinate_names():
     )
     expected = pd.DataFrame(
         {"lon": [0, 100, 200], "lat": [200, 300, 400], name: [40000, 100000, 200000]},
-        dtype="int",
+        dtype="int64",
     )
     pdt.assert_frame_equal(result_df, expected)
 
