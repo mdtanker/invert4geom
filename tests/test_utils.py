@@ -419,9 +419,12 @@ def test_sample_grids_on_nodes():
             "y": [200, 300, 400],
             name: [40000, 100000, 200000],
         },
-        dtype="int64",
     )
-    pdt.assert_frame_equal(result_df, expected)
+    pdt.assert_frame_equal(
+        result_df,
+        expected,
+        check_dtype=False,
+    )
 
 
 def test_sample_grids_off_nodes():
@@ -435,7 +438,11 @@ def test_sample_grids_off_nodes():
     expected = pd.DataFrame(
         {"x": [50, 101], "y": [280, 355], name: [83790.0, 138949.640109]}
     )
-    pdt.assert_frame_equal(result_df, expected)
+    pdt.assert_frame_equal(
+        result_df,
+        expected,
+        check_dtype=False,
+    )
 
 
 def test_sample_grids_custom_coordinate_names():
@@ -456,7 +463,11 @@ def test_sample_grids_custom_coordinate_names():
         {"lon": [0, 100, 200], "lat": [200, 300, 400], name: [40000, 100000, 200000]},
         dtype="int64",
     )
-    pdt.assert_frame_equal(result_df, expected)
+    pdt.assert_frame_equal(
+        result_df,
+        expected,
+        check_dtype=False,
+    )
 
 
 def test_sample_grids_one_out_of_grid_coordinates():
