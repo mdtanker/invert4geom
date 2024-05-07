@@ -5,36 +5,62 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 
 ## Unreleased
 ### 📦️ Build
+* make semantic release GHA need changelog success ([`7b7d1c4`](https://github.com/mdtanker/invert4geom/commit/7b7d1c40805617db9cf42fea3065eb32585bf035))
+* add make command for binder env ([`3b5d44e`](https://github.com/mdtanker/invert4geom/commit/3b5d44e926a9925e70220344bba04c464cdbfb3d))
 * add optuna-integration package ([`fa648d5`](https://github.com/mdtanker/invert4geom/commit/fa648d56e243edc934d746b8b77ac103ed0c7e10))
 ### 🧰 Chores / Maintenance
-* update pre-commit hooks
-
-updates:
-- [github.com/astral-sh/ruff-pre-commit: v0.4.2 → v0.4.3](https://github.com/astral-sh/ruff-pre-commit/compare/v0.4.2...v0.4.3) ([`3d243bf`](https://github.com/mdtanker/invert4geom/commit/3d243bff0293b1fee7c53251d01127205b5056e1))
-* update pre-commit hooks
-
-updates:
-- [github.com/astral-sh/ruff-pre-commit: v0.4.1 → v0.4.2](https://github.com/astral-sh/ruff-pre-commit/compare/v0.4.1...v0.4.2)
-- [github.com/pre-commit/mirrors-mypy: v1.9.0 → v1.10.0](https://github.com/pre-commit/mirrors-mypy/compare/v1.9.0...v1.10.0) ([`2504dfe`](https://github.com/mdtanker/invert4geom/commit/2504dfe379e6ecf4889acd4d1feca34fdd8e80c2))
-* update pre-commit hooks
-
-updates:
-- [github.com/astral-sh/ruff-pre-commit: v0.3.7 → v0.4.1](https://github.com/astral-sh/ruff-pre-commit/compare/v0.3.7...v0.4.1) ([`398e222`](https://github.com/mdtanker/invert4geom/commit/398e222c44359761e111acb69d79b3bed928ff46))
-* update pre-commit hooks
-
-updates:
-- [github.com/astral-sh/ruff-pre-commit: v0.3.0 → v0.3.7](https://github.com/astral-sh/ruff-pre-commit/compare/v0.3.0...v0.3.7)
-- [github.com/pre-commit/pre-commit-hooks: v4.5.0 → v4.6.0](https://github.com/pre-commit/pre-commit-hooks/compare/v4.5.0...v4.6.0)
-- [github.com/pre-commit/mirrors-mypy: v1.8.0 → v1.9.0](https://github.com/pre-commit/mirrors-mypy/compare/v1.8.0...v1.9.0)
-- [github.com/shellcheck-py/shellcheck-py: v0.9.0.6 → v0.10.0.1](https://github.com/shellcheck-py/shellcheck-py/compare/v0.9.0.6...v0.10.0.1) ([`3623095`](https://github.com/mdtanker/invert4geom/commit/362309505ceb8ff8f593eb9e061072fa7439a6b2))
-* update pre-commit hooks
-
-updates:
-- [github.com/astral-sh/ruff-pre-commit: v0.2.2 → v0.3.0](https://github.com/astral-sh/ruff-pre-commit/compare/v0.2.2...v0.3.0) ([`cb7409b`](https://github.com/mdtanker/invert4geom/commit/cb7409b33082f907025cadd22ecf6c0044b2be58))
+* ignore dtype in test utils sampling ([`f18e356`](https://github.com/mdtanker/invert4geom/commit/f18e356057a9d8b3889d3a275b273effa8993018))
+* more specific dtypes in tests ([`1c587fd`](https://github.com/mdtanker/invert4geom/commit/1c587fda8de5f7cd7b2a51bda1615377de073439))
+* fix test dtype issue ([`f16f955`](https://github.com/mdtanker/invert4geom/commit/f16f95541695a0ec0afdd6e4e7f70fcc68c0c284))
+* use head commit for skip tests on docs ([`7f4c863`](https://github.com/mdtanker/invert4geom/commit/7f4c863560d69751a2bd09f3a18d102500666648))
+* don&#39;t run test on docs commits [skip ci] ([`fedf871`](https://github.com/mdtanker/invert4geom/commit/fedf87102cb825a6054ff4e2d3d1c49a17a3e995))
+* try stopping tests only for docs (not style) ([`f1cf974`](https://github.com/mdtanker/invert4geom/commit/f1cf9748c7f58cfba44f84166bfb69649ae24914))
+* stop tests on docs/style [skip ci] ([`49de955`](https://github.com/mdtanker/invert4geom/commit/49de9550c07a77cefe5c40811090a87cbf07dc4c))
+* still trying to stop GHA running on docs / style [skip ci] ([`7306b35`](https://github.com/mdtanker/invert4geom/commit/7306b352993af242e5c95f9566d178e29dc6390f))
+* add missing &#34;)&#34; [skip-ci] ([`49918e9`](https://github.com/mdtanker/invert4geom/commit/49918e9169cf8f79779b7e53370426db50369492))
+* fixing skip test on certain commits [skip ci] ([`4dfe4cf`](https://github.com/mdtanker/invert4geom/commit/4dfe4cf3bcd5dc9b212c3c75b239d414b4ea3d0c))
+* stop tests running on doc / style commits ([`1a9e308`](https://github.com/mdtanker/invert4geom/commit/1a9e308ddbdfa78795b3055c466325b0c153629d))
+* unpin binder env ([`e865ddc`](https://github.com/mdtanker/invert4geom/commit/e865ddc86d69b73da40fdb55fb042df792ce50ac))
+* cleanup Make commands ([`482d95a`](https://github.com/mdtanker/invert4geom/commit/482d95af9f93ee79abd9e9ee51eee88ff93fb659))
+* don&#39;t run tests on docs or style commits ([`30abcdf`](https://github.com/mdtanker/invert4geom/commit/30abcdf322ffb2c5bb8a29b9dfa8dfde26fb0641))
+* remove pre-commit updates from changelog ([`f7ea9c8`](https://github.com/mdtanker/invert4geom/commit/f7ea9c8af19be4e432c70442482b3b692fb71618))
 ### 📖 Documentation
+* remove duplicate thumbnail [skip ci] ([`507bd06`](https://github.com/mdtanker/invert4geom/commit/507bd06dad7479eba3266d428455c7ca96e70d4e))
+* specify thumbnails ([`18fcac1`](https://github.com/mdtanker/invert4geom/commit/18fcac15d82fb1bf368de2b3d4fba7fb9db12a7e))
+* remove linkcode for API ([`2d2eeff`](https://github.com/mdtanker/invert4geom/commit/2d2eeffee32173505c5e4cc66a48e2b075d38e20))
+* add links to github code for API ([`883c706`](https://github.com/mdtanker/invert4geom/commit/883c706ebf83fe0265ea608cb76ee5d8e2190331))
+* fix error in conf.py ([`2a7824d`](https://github.com/mdtanker/invert4geom/commit/2a7824de5c826b9e47204c12b468eea94783d490))
+* fix links to code in API docs ([`7d1fa5f`](https://github.com/mdtanker/invert4geom/commit/7d1fa5fed5e0c6d6c986510ba1f4ff00e38e533c))
+* update notebooks ([`a74dbee`](https://github.com/mdtanker/invert4geom/commit/a74dbeeff70660fe26c9b21f638abed18a266fb2))
+* add bishop gallery example ([`7e55c7e`](https://github.com/mdtanker/invert4geom/commit/7e55c7e0874294b3d4809e3cdabeb4a494b18f4a))
+* update contrib guide ([`36baf37`](https://github.com/mdtanker/invert4geom/commit/36baf37605f484c83b981c201b495bc9ea035a3e))
+* update and rerun user guide notebooks ([`b1c572a`](https://github.com/mdtanker/invert4geom/commit/b1c572abbd5e69db74c0d2776eb27e32cd69566c))
+* update contributing guide ([`761814c`](https://github.com/mdtanker/invert4geom/commit/761814c4eb7c0d7e4a5d9f79a18bf9c07628ba1f))
+* clarify code comment ([`ef34f57`](https://github.com/mdtanker/invert4geom/commit/ef34f577fff6b38bc28b3ac68ef1d6ebed908a09))
+* improve inversion docstrings ([`471a76f`](https://github.com/mdtanker/invert4geom/commit/471a76f62bbc12b7386b998cc8515dff7c29ae24))
 * fix pinning issue ([`a8f0ea1`](https://github.com/mdtanker/invert4geom/commit/a8f0ea1a86de678733db806f2c499ab193c68dfb))
 * pin python-semantic-release in GHA ([`c5b18da`](https://github.com/mdtanker/invert4geom/commit/c5b18da86d199c198ea5523c6b7f6a40de47b61e))
+### 🚀 Features
+* add termination reason to inversion progress bar ([`0274d7b`](https://github.com/mdtanker/invert4geom/commit/0274d7bc63ad24e1a83bbe10bdcee09496dd8fdc))
+* add region arg to plot_inversion_topo_results ([`694b778`](https://github.com/mdtanker/invert4geom/commit/694b77898816ae7901bb3a59f4dde51ced0c1467))
+* add DC-shift regional estimation method ([`2e91771`](https://github.com/mdtanker/invert4geom/commit/2e9177123a8018dcea16ddc3f2dd8be949b44e31))
+* add scale and yoffset args to synthetic topography function ([`4801f33`](https://github.com/mdtanker/invert4geom/commit/4801f3358cbbcc83637aa5e7df6f5bc9aab2f750))
+* add iteration progress bar to inversion ([`25a4e92`](https://github.com/mdtanker/invert4geom/commit/25a4e926e3150898eb66643b0af25881b6403edc))
+* limit misfit rmse to within optional inversion region ([`b66d3c4`](https://github.com/mdtanker/invert4geom/commit/b66d3c4a66e77b79295fafd17c72083a42c4ac27))
+* add dynamic convergence plot to inversion ([`7a5d5b2`](https://github.com/mdtanker/invert4geom/commit/7a5d5b2aa28c4821e610785171aaa7855879347c))
+* add inversion_region to plot convergence ([`52eebdd`](https://github.com/mdtanker/invert4geom/commit/52eebddfe3871c624814e720ecd0b7ea495a8b20))
+* add plot_title kwarg for plot_cv_scores ([`3cda4e0`](https://github.com/mdtanker/invert4geom/commit/3cda4e070671c10c17b3834279f3458a4c0dd283))
+* fix colorscales for inversion grav results ([`9218e68`](https://github.com/mdtanker/invert4geom/commit/9218e68ded9c1e22c4945d8e948462e957755ab8))
+### 🐛 Bug Fixes
+* set optuna logging level to warning ([`0796fef`](https://github.com/mdtanker/invert4geom/commit/0796fef8340bc47d361e13d87dce794686283622))
+* make ipython optional import ([`ce88f1a`](https://github.com/mdtanker/invert4geom/commit/ce88f1a61d09124cd8df52287e6099323644f0a3))
+* allow wiggle room for enforcing confining surfaces ([`7e4e0b0`](https://github.com/mdtanker/invert4geom/commit/7e4e0b03cb0799fe5d810cc0cd7f1f37a98973ee))
+* add warning message to annulus derivative calculation ([`99a7ade`](https://github.com/mdtanker/invert4geom/commit/99a7ade218a24a2e595961c1d4b5206a52520fcf))
+* add noise to test regional eq sources ([`350baca`](https://github.com/mdtanker/invert4geom/commit/350baca5961beaa3dc95a6854e07e59bbd6196ac))
+* replace pygmt gridding with simple set_index for plotting ([`ebf6732`](https://github.com/mdtanker/invert4geom/commit/ebf6732dbb1da0a770e3b446486336fde56b6606))
 ### ✏️ Formatting
+* pre-commit fixes ([`116a612`](https://github.com/mdtanker/invert4geom/commit/116a612b0ff613375715e320444f85906984483e))
+* pre-commit fixes ([`b110f23`](https://github.com/mdtanker/invert4geom/commit/b110f236277b60c6ed82035b5b58316885366997))
 * pre-commit fixes ([`9fe3777`](https://github.com/mdtanker/invert4geom/commit/9fe377749e1918b587e630343d9e3d1baf8472ea))
 
 
@@ -137,14 +163,6 @@ Seems to be cause issues in conda-forge feedstock, harmonica requires &gt;= 1.0,
 * seperate RTD env and testing env ([`0d1621d`](https://github.com/mdtanker/invert4geom/commit/0d1621df983e3c6eedb36afdb7395974dd3f5012))
 * remove build api docs to ci.yml ([`0bf7f87`](https://github.com/mdtanker/invert4geom/commit/0bf7f8780819a9376615a027c8c6924e2cc6e372))
 * add sphinx-apidoc call to ci.yml ([`9d0ff3a`](https://github.com/mdtanker/invert4geom/commit/9d0ff3a231d199a30943f8b05b065693d9c1ba76))
-* update pre-commit hooks (#28)
-
-updates:
-- [github.com/astral-sh/ruff-pre-commit: v0.1.3 → v0.1.6](https://github.com/astral-sh/ruff-pre-commit/compare/v0.1.3...v0.1.6)
-- [github.com/pre-commit/mirrors-prettier: v3.0.3 → v3.1.0](https://github.com/pre-commit/mirrors-prettier/compare/v3.0.3...v3.1.0)
-- [github.com/pre-commit/mirrors-mypy: v1.6.1 → v1.7.1](https://github.com/pre-commit/mirrors-mypy/compare/v1.6.1...v1.7.1)
-
-Co-authored-by: pre-commit-ci[bot] &lt;66853113+pre-commit-ci[bot]@users.noreply.github.com&gt; ([`161cc9d`](https://github.com/mdtanker/invert4geom/commit/161cc9db85347c4b8f5fc7da42e908dce24b8c86))
 ### 📖 Documentation
 * replace `Unknown` with `Other` in changelog ([`e7f274a`](https://github.com/mdtanker/invert4geom/commit/e7f274a8975b7a3ab577af0be1665fd769318389))
 * customize jinja changelog template ([`203c1c8`](https://github.com/mdtanker/invert4geom/commit/203c1c8775f7ec8754f4a2b137a50c0da499c16f))
