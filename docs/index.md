@@ -122,19 +122,14 @@ Citations help support our work
 ```{admonition} Early-stages of development
 :class: seealso
 
-This package is at the very beginning of it's development! This means that we are still adding a lot of new features and sometimes we
-make changes to the ones we already have while we try to improve the
-software based on users' experience, test new ideas, take better design
-decisions, etc.
-Some of these changes could be **backwards incompatible**. Keep that in
-mind before you update Invert4Geom to a newer version.
+This package is at the very beginning of it's development! This means that we are still adding a lot of new features and sometimes we make changes to the ones we already have while we try to improve the software based on users' experience, test new ideas, take better design decisions, etc.
+Some of these changes could be **backwards incompatible**. Keep that in mind before you update Invert4Geom to a newer version.
 ```
 
 ```{admonition} How to contribute
 :class: seealso
 
-Please, read our [Contributor Guide](contributing.md) to learn
-how you can contribute to the project.
+Please, read our [Contributor Guide](contributing.md) to learn how you can contribute to the project.
 ```
 
 ```{note}
