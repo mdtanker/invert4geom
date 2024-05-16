@@ -4,7 +4,6 @@ ci:
 
 exclude: |
   (?x)^(
-      docs/index.md|
       docs/api/invert4geom.inversion.rst|
       docs/api/invert4geom.plotting.rst|
       docs/api/invert4geom.rst|
@@ -15,11 +14,8 @@ exclude: |
       docs/api/invert4geom.optimization.rst|
       docs/_invert4geom_refs.bib|
       CHANGELOG.md|
-      .github/ISSUE_TEMPLATE/bug_report.md|
-      .github/ISSUE_TEMPLATE/feature_request.md|
       .github/config.yml|
       .github/workflows/ci.yml|
-      CONTRIBUTING.md|
       binder/environment.yml|
       templates/CHANGELOG.md.j2|
   )$
