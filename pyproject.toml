@@ -182,13 +182,14 @@ lint.select = [
   "NPY",         # NumPy specific rules
   "PD",          # pandas-vet
 ]
-lint.extend-ignore = [
+lint.ignore = [
   "PLR",    # Design related pylint codes
   "G004",   # Logging with f-strings
   "PD901",  # Bad variable name warning
   "PD003", # Changes .isna to .isnull
   "PD004", # Changes .notna to .notnull
   "PD011", # Changes .values() to .to_numpy()
+  "ISC001", # Implicit string concatenation
 ]
 src = ["src"]
 lint.unfixable = [
