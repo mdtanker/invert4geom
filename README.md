@@ -79,6 +79,25 @@ For large-scale applications, such as continental studies, it would be better to
 
 See the [overview](overview.md) for further description of this package and what it can be used for.
 
+#### What _Invert4Geom_ is for:
+
+- invert **gravity** data to recover the topography of a density contrast
+- use with **gridded** gravity data
+- discretization using _vertical right-rectangular prisms_
+- performing regional-residual separation
+- stochastic uncertainty analysis of inversion results
+- basic visualization tools
+
+#### What _Invert4Geom_ is **NOT** for:
+
+- performing parameter-estimation inversions (i.e. recovering density values) -> see [SimPEG](https://simpeg.xyz/) or [pyGIMLi](https://www.pygimli.org/index.html)
+- a point-and-click GUI -> see [Geosoft/Seequent Oasis Montaj](https://www.seequent.com/products-solutions/ geosoft-oasis-montaj/) or [MiraGeoscience VPmg](https://www.mirageoscience.com/mining-industry-software/geoscience-analyst-pro-geophysics/)
+- a ready-to-use inversion with minimal user input
+- use with discrete (un-gridded) gravity data -> see [Harmonica](https://www.fatiando.org/harmonica/latest/index.html) for gridding your data
+- for processing gravity data -> see [Harmonica](https://www.fatiando.org/harmonica/latest/index.html) for gravity processing tools
+- for use with tesseroids, or non-regular grids (raise an issue request if you want this implemented!)
+- publication-quality visualization -> see [PyGMT](https://www.pygmt.org/dev/index.html) for plotting tools
+
 <!-- prettier-ignore-start -->
 [actions-badge]:            https://github.com/mdtanker/invert4geom/workflows/CI/badge.svg
 [actions-link]:             https://github.com/mdtanker/invert4geom/actions
