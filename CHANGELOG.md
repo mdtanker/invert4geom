@@ -4,6 +4,7 @@ Automatically updated by
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
 ## Unreleased
+### 🧰 Chores / Maintenance
 ### 📖 Documentation
 * update binder env ([`a6d9690`](https://github.com/mdtanker/invert4geom/commit/a6d96900a6703727bf649dcbbfb7d85579e5c502))
 
