@@ -55,9 +55,9 @@ def test_regional_dc_shift_constraints():
 
     df = regional.regional_dc_shift(
         grav_df=grav_df,
-        grav_grid=dummy_grid().misfit,
+        grav_data_column="grav",
         constraints_df=points,
-        regional_col_name="reg",
+        regional_column="reg",
     )
 
     # print(df.describe())
@@ -78,16 +78,16 @@ def test_regional_dc_shift():
 
     df = regional.regional_dc_shift(
         grav_df=grav_df,
+        grav_data_column="grav",
         dc_shift=-200,
-        regional_col_name="reg",
+        regional_column="reg",
     )
 
     assert df.reg.mean() == -200
 
 
-@pytest.mark.parametrize("fill_method", ["rioxarray", "verde"])
 @pytest.mark.parametrize("trend", [0, 2])
-def test_regional_trend(fill_method, trend):
+def test_regional_trend(trend):
     """
     test the regional_trend function
     """
@@ -96,9 +96,8 @@ def test_regional_trend(fill_method, trend):
 
     df = regional.regional_trend(
         trend=trend,
-        grav_grid=dummy_grid().misfit,
         grav_df=anomalies,
-        fill_method=fill_method,
+        grav_data_column="grav",
     )
 
     # grid = df.set_index(["northing", "easting"]).to_xarray()
@@ -138,8 +137,8 @@ def test_regional_filter():
 
     df = regional.regional_filter(
         filter_width=300e3,
-        grav_grid=dummy_grid().misfit,
         grav_df=grav_df,
+        grav_data_column="grav",
         # registration="g",
     )
 
@@ -179,7 +178,7 @@ def test_regional_eq_sources():
     df = regional.regional_eq_sources(
         source_depth=100e3,
         grav_df=grav_df,
-        input_grav_name="misfit",
+        grav_data_column="misfit",
     )
     # print(df)
     reg_range = np.max(df.reg) - np.min(df.reg)
@@ -219,10 +218,8 @@ def test_regional_constraints(test_input):
 
     df = regional.regional_constraints(
         constraints_df=points,
-        grav_grid=dummy_grid().misfit,
         grav_df=anomalies,
-        region=region,
-        spacing=50,
+        grav_data_column="grav",
         grid_method=test_input,
         eqs_gridding_trials=2,
     )
