@@ -71,8 +71,8 @@ def regional_dc_shift(
             coord_names=("easting", "northing"),
         )
 
-        # use RMS of sampled value for DC shift
-        dc_shift = utils.rmse(constraints_df.sampled_grav)
+        # use median of sampled value for DC shift
+        dc_shift = np.nanmedian(constraints_df.sampled_grav)
 
     grav_df[regional_column] = dc_shift
 
