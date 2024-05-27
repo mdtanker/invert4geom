@@ -186,7 +186,7 @@ def grav_cv_score(
     )
 
     # compare forward of inverted layer with observed
-    observed = test[kwargs.get("input_grav_column")] - test.reg
+    observed = test[kwargs.get("grav_data_column")] - test.reg
     predicted = test.test_point_grav
 
     dif = predicted - observed
@@ -195,7 +195,7 @@ def grav_cv_score(
 
     if plot:
         test_grid = test.set_index(["northing", "easting"]).to_xarray()
-        obs = test_grid[kwargs.get("input_grav_column")] - test_grid.reg
+        obs = test_grid[kwargs.get("grav_data_column")] - test_grid.reg
         pred = test_grid.test_point_grav.rename("")
 
         polar_utils.grd_compare(
@@ -323,7 +323,7 @@ def constraints_cv_score(
     ----------
     grav_df : pd.DataFrame
        gravity dataframe with columns "res", "reg", and column set by kwarg
-       input_grav_column
+       grav_data_column
     constraints : pd.DataFrame
         constraints dataframe with columns "easting", "northing", and "upward"
     rmse_as_median : bool, optional

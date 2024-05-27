@@ -698,7 +698,7 @@ def end_inversion(
 def update_gravity_and_misfit(
     gravity_df: pd.DataFrame,
     prisms_ds: xr.Dataset,
-    input_grav_column: str,
+    grav_data_column: str,
     iteration_number: int,
 ) -> pd.DataFrame:
     """
@@ -710,12 +710,12 @@ def update_gravity_and_misfit(
     ----------
     gravity_df : pd.DataFrame
         gravity dataframe with gravity observation coordinate columns ('easting',
-        'northing', 'upwards'), a gravity data column, set by `input_grav_column`,
+        'northing', 'upwards'), a gravity data column, set by `grav_data_column`,
         and a regional gravity column ('reg').
 
     prisms_ds : xr.Dataset
         harmonica prism layer
-    input_grav_column : str
+    grav_data_column : str
         name of gravity data column
     iteration_number : int
         iteration number to use in updated column names
@@ -742,7 +742,7 @@ def update_gravity_and_misfit(
     # Gres = Gobs_corr_shift - Gforward - Greg
     # update the residual misfit with the new forward gravity and the same regional
     gravity[f"iter_{iteration_number}_final_misfit"] = (
-        gravity[input_grav_column]
+        gravity[grav_data_column]
         - gravity[f"iter_{iteration_number}_forward_grav"]
         - gravity.reg
     )
@@ -752,7 +752,7 @@ def update_gravity_and_misfit(
 
 def run_inversion(
     grav_df: pd.DataFrame,
-    input_grav_column: str,
+    grav_data_column: str,
     prism_layer: xr.Dataset,
     density_contrast: float,
     zref: float,
@@ -787,8 +787,9 @@ def run_inversion(
         dataframe with gravity data and coordinates, must have columns "res" and "reg"
         for residual and regional gravity, and coordinate columns "easting", "northing",
         and "upward".
-    input_grav_column : str
-        column name containing the gravity data *before* regional separation
+    grav_data_column : str
+        Column name containing the gravity anomaly data used to calculate the misfit.
+        This is typically a Topo-Free Disturbance (Complete Bouguer Anomaly).
     prism_layer : xr.Dataset
         starting prism layer
     density_contrast : float
@@ -864,7 +865,7 @@ def run_inversion(
 
     # create empty jacobian matrix
     empty_jac: NDArray = np.empty(
-        (len(gravity[input_grav_column]), prisms_ds.top.size),
+        (len(gravity[grav_data_column]), prisms_ds.top.size),
         dtype=np.float64,
     )
 
@@ -975,7 +976,7 @@ def run_inversion(
         gravity = update_gravity_and_misfit(
             gravity,
             prisms_ds,
-            input_grav_column,
+            grav_data_column,
             iteration,
         )
 

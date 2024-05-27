@@ -695,7 +695,7 @@ def test_update_gravity_and_misfit_forward_gravity():
     updated_gravity_df = inversion.update_gravity_and_misfit(
         gravity_df=gravity_df_copy,
         prisms_ds=dummy_prism_layer(),
-        input_grav_column="observed_grav",
+        grav_data_column="observed_grav",
         iteration_number=1,
     )
     # Check that 'iter_1_forward_grav' column is created
@@ -729,7 +729,7 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
     updated_gravity_df = inversion.update_gravity_and_misfit(
         gravity_df=gravity_df_copy,
         prisms_ds=dummy_prism_layer(),
-        input_grav_column="observed_grav",
+        grav_data_column="observed_grav",
         iteration_number=1,
     )
     # expected_forward_grav = [7.18, 7.18, 7.70, 7.70]
@@ -751,8 +751,8 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
 #     print(gravity_df)
 #     print(prisms_ds)
 #     results = inversion.run_inversion(
-#         input_grav=gravity_df,
-#         input_grav_column="observed_grav",
+#         grav_df=gravity_df,
+#         grav_data_column="observed_grav",
 #         prism_layer=prisms_ds,
 #         max_iterations=3,
 #     )
@@ -786,7 +786,7 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
 #     updated_gravity_df = inversion.update_gravity_and_misfit(
 #         gravity_df=gravity_df_copy,
 #         prisms_ds=dummy_prism_layer(),
-#         input_grav_column="observed_grav",
+#         grav_data_column="observed_grav",
 #         iteration_number=5,
 #     )
 #     # Check that 'iter_5_forward_grav' column is created
