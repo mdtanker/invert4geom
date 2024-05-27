@@ -765,8 +765,8 @@ def run_inversion(
     solver_damping: float | None = None,
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
-    weights_after_solving: bool = False,
-    inversion_region: tuple[float, float, float, float] | None = None,
+    apply_weighting_grid: bool = False,
+    weighting_grid: xr.DataArray | None = None,
     plot_convergence: bool = False,
     plot_dynamic_convergence: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]:
@@ -776,7 +776,7 @@ def run_inversion(
     To aid in regularizing an ill-posed problem choose any of the following options:
     * add damping to the solver, with `solver_damping`
     * weight the surface correction values with a weighting grid with
-    `weights_after_solving` and the `weights` variable of the prisms dataset
+    `apply_weighting_grid` and the `weighting_grid` argument
     * bound the topography of the layer, with `upper_confining_layer` and
     `lower_confining_layer`
 
@@ -819,12 +819,9 @@ def run_inversion(
         topographic layer to use as upper limit for inverted topography, by default None
     lower_confining_layer : xr.DataArray | None, optional
         topographic layer to use as lower limit for inverted topography, by default None
-    weights_after_solving : bool, optional
-        use "weights" variable of prisms dataset to scale surface corrections grid, by
+    apply_weighting_grid : bool, optional
+        use "weighting_grid" to scale surface corrections grid, by
         default False, by default False
-    inversion_region : tuple[float, float, float, float]
-        inside region to calculated residual RMSE within, in the form (min_easting,
-        max_easting, min_northing, max_northing)
     plot_convergence : bool, optional
         plot the misfit convergence, by default False
     plot_dynamic_convergence : bool, optional
@@ -954,10 +951,12 @@ def run_inversion(
             prisms_df, iteration
         )
 
-        # instead of applying weights to the Jacobian, apply them to the topo
-        # correction grid
-        if weights_after_solving is True:
-            correction_grid = correction_grid * prisms_ds.weights
+        # apply weights to the topo correction grid
+        if apply_weighting_grid is True:
+            if weighting_grid is None:
+                msg = "must supply weighting grid if apply_weighting_grid is True"
+                raise ValueError(msg)
+            correction_grid = correction_grid * weighting_grid
 
         # add the corrections to the topo and update the prisms dataset
         prisms_ds = utils.update_prisms_ds(prisms_ds, correction_grid, zref)
@@ -1057,6 +1056,8 @@ def run_inversion(
         else "Enabled",
         "lower_confining_layer": "Not enabled"
         if lower_confining_layer is None
+        "Regularization weighting grid": "Not enabled"
+        if apply_weighting_grid is False
         else "Enabled",
         # third column
         "time_elapsed": f"{int(elapsed_time)} seconds",
