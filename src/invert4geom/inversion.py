@@ -1070,3 +1070,333 @@ def run_inversion(
         logging.info("results saved to %s.pickle", results_fname)
 
     return results
+
+
+def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
+    grav_df: pd.DataFrame,
+    create_starting_topography: bool = False,
+    create_starting_prisms: bool = False,
+    calculate_starting_gravity: bool = False,
+    calculate_gravity_misfit: bool = False,
+    calculate_regional_misfit: bool = False,
+    run_damping_cv: bool = False,
+    run_zref_or_density_cv: bool = False,
+    plot_cv: bool = False,
+    **kwargs: typing.Any,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]:
+    """
+    This function runs the full inversion workflow. Depending on the input parameters,
+    it will:
+    1) create a starting topography model
+    2) create a starting prism model
+    3) calculate the starting gravity of the prism model
+    4) calculate the gravity misfit
+    5) calculate the regional and residual components of the misfit
+    6) run the inversion
+        - you can choose to run cross validations for damping, density, and zref
+
+    Parameters
+    ----------
+    create_starting_topography : bool, optional
+        _description_, by default False
+    create_starting_prisms : bool, optional
+        _description_, by default False
+    calculate_starting_gravity : bool, optional
+        _description_, by default False
+    calculate_gravity_misfit : bool, optional
+        _description_, by default False
+    calculate_regional_misfit : bool, optional
+        _description_, by default False
+    run_damping_cv : bool, optional
+        _description_, by default False
+    run_zref_or_density_cv : bool, optional
+        _description_, by default False
+    plot_cv : bool, optional
+        _description_, by default False
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
+        prisms_df: pd.DataFrame, prism properties for each iteration,
+        gravity: pd.DataFrame, gravity anomalies for each iteration,
+        params: dict, Properties of the inversion such as kwarg values,
+        elapsed_time: float, time in seconds for the inversion to run
+
+
+    """
+
+    kwargs = kwargs.copy()
+
+    # get kwargs
+    starting_topography = kwargs.get("starting_topography", None)
+    starting_prisms = kwargs.get("starting_prisms", None)
+
+    # get gravity data
+    grav_df = grav_df.copy()
+
+    if run_damping_cv is True:
+        # resample to half spacing
+        grav_df = cross_validation.resample_with_test_points(
+            data_spacing=kwargs.get("grav_spacing", None),
+            data=grav_df,
+            region=kwargs.get("inversion_region", None),
+        )
+
+    # Starting Topography
+    if create_starting_topography is False:
+        if (
+            (starting_topography is None)
+            & (starting_prisms is None)
+            & (create_starting_prisms is False)
+        ):
+            msg = (
+                "starting_topography must be provided since create_starting_topography "
+                "is False create_starting_prisms is False, and starting_prisms is not "
+                "provided"
+            )
+            raise ValueError(msg)
+    elif create_starting_topography is True:
+        # if creating starting topo, must also create starting prisms
+        create_starting_prisms = True
+        if starting_topography is not None:
+            msg = (
+                "starting_topography provided but unused since "
+                "create_starting_topography is True"
+            )
+            logging.warning(msg)
+        starting_topography_kwargs = kwargs.get("starting_topography_kwargs", None)
+        if starting_topography_kwargs is None:
+            msg = (
+                "starting_topography_kwargs must be provided if "
+                "create_starting_topography is True"
+            )
+            raise ValueError(msg)
+        constraints_df = starting_topography_kwargs.get("constraints_df", None)
+        # create the starting topography
+        starting_topography = utils.create_topography(
+            method=starting_topography_kwargs.get("method", None),
+            region=starting_topography_kwargs.get("region", None),
+            spacing=starting_topography_kwargs.get("spacing", None),
+            upwards=starting_topography_kwargs.get("upwards", None),
+            constraints_df=constraints_df,
+            dampings=starting_topography_kwargs.get(
+                "dampings", np.logspace(-10, 0, 100)
+            ),
+        )
+
+    # Starting Prism Model
+    if create_starting_prisms is False:
+        if starting_prisms is None:
+            msg = "starting_prisms must be provided if create_starting_prisms is False"
+            raise ValueError(msg)
+    elif create_starting_prisms is True:
+        # if creating starting prisms, must also calculate starting gravity
+        calculate_starting_gravity = True
+        if starting_prisms is not None:
+            msg = (
+                "starting_prisms provided but unused since create_starting_prisms is "
+                "True"
+            )
+            logging.warning(msg)
+        if starting_topography is None:
+            msg = (
+                "starting_topography must be provided if create_starting_prisms is True"
+                " and create_starting_topography is False"
+            )
+            raise ValueError(msg)
+        if kwargs.get("density_contrast", None) is None:
+            msg = "density must be provided if create_starting_prisms is True"
+            raise ValueError(msg)
+        if kwargs.get("zref", None) is None:
+            msg = "zref must be provided if create_starting_prisms is True"
+            raise ValueError(msg)
+
+        zref = kwargs.get("zref", None)
+        density_contrast = kwargs.get("density_contrast", None)
+        density_grid = xr.where(
+            starting_topography >= zref,
+            density_contrast,
+            -density_contrast,
+        )
+        starting_prisms = utils.grids_to_prisms(
+            starting_topography,
+            reference=zref,
+            density=density_grid,
+        )
+
+    # Starting Gravity of Prism Model
+    if calculate_starting_gravity is False:
+        if "starting_grav" not in grav_df:
+            msg = (
+                "'starting_gravity' must be a column of `grav_df` if "
+                "calculate_starting_gravity is False"
+            )
+            raise ValueError(msg)
+    elif calculate_starting_gravity is True:
+        # if calculating starting gravity, must also calculate gravity misfit
+        calculate_gravity_misfit = True
+        if "starting_grav" in grav_df:
+            msg = (
+                "'starting_gravity' already a column of `grav_df`, but is being "
+                "overwritten since calculate_starting_gravity is True"
+            )
+            logging.warning(msg)
+        starting_grav_kwargs = kwargs.get("starting_grav_kwargs", None)
+        if starting_grav_kwargs is None:
+            starting_grav_kwargs = {
+                "field": "g_z",
+                "coordinates": (
+                    grav_df.easting,
+                    grav_df.northing,
+                    grav_df.upward,
+                ),
+                "progressbar": False,
+            }
+        grav_df["starting_grav"] = starting_prisms.prism_layer.gravity(
+            **starting_grav_kwargs,
+        )
+
+    # Gravity Misfit
+    if calculate_gravity_misfit is False:
+        if "misfit" not in grav_df:
+            msg = (
+                "'misfit' must be a column of `grav_df` if calculate_starting_misfit"
+                " is False"
+            )
+            raise ValueError(msg)
+    elif calculate_gravity_misfit is True:
+        if "misfit" in grav_df:
+            msg = (
+                "'misfit' already a column of `grav_df`, but is being overwritten "
+                "since calculate_gravity_misfit is True"
+            )
+            logging.warning(msg)
+        grav_df["misfit"] = (
+            grav_df[kwargs.get("grav_data_column")] - grav_df["starting_grav"]
+        )
+
+    # Regional Component of Misfit
+    if calculate_regional_misfit is False:
+        if "reg" not in grav_df:
+            msg = (
+                "'reg' must be a column of `grav_df` if calculate_regional_misfit is"
+                " False"
+            )
+            raise ValueError(msg)
+    elif calculate_regional_misfit is True:
+        # if calculating regional misfit, must also calculate residual misfit
+        # calculate_residual_misfit = True
+        if "reg" in grav_df:
+            msg = (
+                "'reg' already a column of `grav_df`, but is being overwritten since"
+                " calculate_regional_misfit is True"
+            )
+            logging.warning(msg)
+        regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None).copy()
+        if regional_grav_kwargs is None:
+            msg = (
+                "regional_grav_kwargs must be provided if calculate_regional_misfit"
+                " is True"
+            )
+            raise ValueError(msg)
+        grav_df = regional.regional_separation(
+            method=regional_grav_kwargs.pop("regional_method"),
+            grav_df=grav_df,
+            regional_column="reg",
+            grav_data_column="misfit",
+            **regional_grav_kwargs,
+        )
+
+    grav_df["res"] = grav_df["misfit"] - grav_df["reg"]
+
+    inversion_kwargs = {
+        key: value
+        for key, value in kwargs.items()
+        if key
+        not in [
+            "starting_topography",
+            "starting_topography_kwargs",
+            "starting_prisms",
+            "starting_grav_kwargs",
+            "regional_grav_kwargs",
+            "run",
+            "grav_spacing",
+            "damping_values",
+            "zref_values",
+            "density_contrast_values",
+            "constraints_df",
+            "inversion_region",
+        ]
+    }
+
+    # run only the inversion with specified damping, density, and zref values
+    if (run_damping_cv is False) & (run_zref_or_density_cv is False):
+        return run_inversion(
+            grav_df=grav_df,
+            prism_layer=starting_prisms,
+            **inversion_kwargs,
+        )
+    if run_damping_cv is True:
+        # set logging level
+        logger = logging.getLogger()
+        logger.setLevel(logging.WARNING)
+
+        # set which damping parameters to include
+        damping_values = kwargs.get("damping_values", None)
+
+        inv_results, best_damping, _, _, scores = (
+            cross_validation.grav_optimal_parameter(
+                training_data=grav_df[grav_df.test == False],  # noqa: E712 pylint: disable=singleton-comparison
+                testing_data=grav_df[grav_df.test == True],  # noqa: E712 pylint: disable=singleton-comparison
+                param_to_test=("solver_damping", damping_values),
+                progressbar=True,
+                plot_grids=False,
+                plot_cv=False,
+                verbose=True,
+                prism_layer=starting_prisms,
+                **inversion_kwargs,
+            )
+        )
+
+        # use the best damping parameter
+        inversion_kwargs["solver_damping"] = best_damping
+
+        if plot_cv is True:
+            plotting.plot_cv_scores(
+                scores,
+                damping_values,
+                param_name="Damping",
+                logx=True,
+                logy=True,
+            )
+
+        if run_zref_or_density_cv is False:
+            return inv_results
+
+    # drop the testing data
+    if "test" in grav_df.columns:
+        grav_df = grav_df[grav_df.test == False].copy()  # noqa: E712 pylint: disable=singleton-comparison
+        grav_df = grav_df.drop(columns=["test"])
+
+    # get regional separation kwargs
+    regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None)
+    if regional_grav_kwargs is None:
+        msg = "regional_grav_kwargs must be provided if performing zref or density CV"
+        raise ValueError(msg)
+    inv_results, _, _, _, _, _ = cross_validation.zref_density_optimal_parameter(
+        grav_df=grav_df,
+        grav_data_column=kwargs.get("grav_data_column"),
+        constraints_df=kwargs.get("constraints_df"),
+        zref_values=kwargs.get("zref_values"),
+        density_contrast_values=kwargs.get("density_contrast_values", None),
+        starting_topography=starting_topography,
+        regional_grav_kwargs={
+            "regional_method": regional_grav_kwargs.get("regional_method", None),
+            **regional_grav_kwargs.get("kwargs", None),
+        },
+        plot_cv=plot_cv,
+        progressbar=True,
+        **inversion_kwargs,
+    )
+
+    return inv_results
