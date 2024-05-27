@@ -601,7 +601,7 @@ def end_inversion(
     delta_l2_norm: float,
     previous_delta_l2_norm: float,
     delta_l2_norm_tolerance: float,
-    perc_increase_limit: float = 0.20,
+    perc_increase_limit: float,
 ) -> tuple[bool, list[str]]:
     """
     check if the inversion should be terminated
@@ -624,9 +624,9 @@ def end_inversion(
         the delta l2 norm of the previous iteration
     delta_l2_norm_tolerance : float
         the delta l2 norm value to end the inversion at
-    perc_increase_limit : float, optional
+    perc_increase_limit : float
         the set tolerance for decimal percentage increase relative to the starting l2
-        norm, by default 0.20
+        norm
 
     Returns
     -------
@@ -759,7 +759,7 @@ def run_inversion(
     max_iterations: int,
     l2_norm_tolerance: float = 0.2,
     delta_l2_norm_tolerance: float = 1.001,
-    perc_increase_limit: float = 0.10,
+    perc_increase_limit: float = 0.20,
     deriv_type: str = "annulus",
     jacobian_prism_size: float = 1,
     solver_type: str = "scipy least squares",
@@ -1018,7 +1018,7 @@ def run_inversion(
             delta_l2_norm,
             previous_delta_l2_norm,
             delta_l2_norm_tolerance,
-            perc_increase_limit=perc_increase_limit,
+            perc_increase_limit,
         )
 
         if plot_dynamic_convergence is True:
