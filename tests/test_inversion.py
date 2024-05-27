@@ -549,13 +549,13 @@ def test_update_l2_norms_updated_delta_l2_norm():
 
 def test_end_inversion_first_iteration():
     """
-    Test that the inversion is not terminated in the first iteration.
+    Test that the inversion is not terminated in the first iteration even if the L2 norm
+    is below the tolerance.
     """
     iteration_number = 1
     max_iterations = 100
-    l2_norm = 1.0
-    starting_l2_norm = 1.0
-    l2_norm_tolerance = 0.1
+    l2_norms = [1.0]
+    l2_norm_tolerance = 2.0
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
@@ -563,8 +563,7 @@ def test_end_inversion_first_iteration():
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
@@ -579,10 +578,9 @@ def test_end_inversion_l2_norm_increasing():
     """
     Test that the inversion is terminated when L2 norm increases beyond a limit.
     """
-    iteration_number = 2
+    iteration_number = 3
     max_iterations = 100
-    l2_norm = 1.3
-    starting_l2_norm = 1.0
+    l2_norms = [1.0, 1.15, 1.21]
     l2_norm_tolerance = 0.1
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
@@ -591,8 +589,7 @@ def test_end_inversion_l2_norm_increasing():
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
@@ -609,8 +606,7 @@ def test_end_inversion_delta_l2_norm_tolerance():
     """
     iteration_number = 2
     max_iterations = 100
-    l2_norm = 1.0
-    starting_l2_norm = 1.0
+    l2_norms = [1.0, 1.0]
     l2_norm_tolerance = 0.1
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
@@ -619,8 +615,7 @@ def test_end_inversion_delta_l2_norm_tolerance():
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
@@ -637,8 +632,7 @@ def test_end_inversion_l2_norm_tolerance():
     """
     iteration_number = 2
     max_iterations = 100
-    l2_norm = 0.05
-    starting_l2_norm = 1.0
+    l2_norms = [1.0, 0.05]
     l2_norm_tolerance = 0.1
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
@@ -647,8 +641,7 @@ def test_end_inversion_l2_norm_tolerance():
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
@@ -666,8 +659,7 @@ def test_end_inversion_max_iterations():
     """
     iteration_number = 101
     max_iterations = 100
-    l2_norm = 0.5
-    starting_l2_norm = 1.0
+    l2_norms = [1.0, 0.5]
     l2_norm_tolerance = 0.1
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
@@ -676,8 +668,7 @@ def test_end_inversion_max_iterations():
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
