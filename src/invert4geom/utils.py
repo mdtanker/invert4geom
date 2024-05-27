@@ -832,7 +832,7 @@ def best_spline_cv(
     """
     if isinstance(dampings, (float, int)):
         dampings = [dampings]
-    assert isinstance(dampings, list)
+
     # if dampings is None:
     #     dampings = list(np.logspace(-10, -2, num=9))
     #     dampings.append(None)
@@ -858,17 +858,20 @@ def best_spline_cv(
     logging.info("Best damping: %s", spline.damping_)
 
     try:
-        if len(dampings) > 2 and spline.damping_ in [
+        if len(dampings) > 2 and spline.damping_ in [  # type: ignore [arg-type]
             np.min(dampings),
             np.max(dampings),
         ]:
-            warnings.warn(
-                f"Warning: best damping parameter ({spline.damping_}) for "
-                "verde.SplineCV() is at the limit of provided values "
-                f"({np.nanmin(dampings), np.nanmax(dampings)}) and thus is likely "
-                f"not a global minimum, expand the range of values with 'dampings'",
-                stacklevel=2,
+            logging.warning(
+                "Warning: best damping parameter (%s) for verde.SplineCV() is at the "
+                "limit of provided values (%s, %s) and thus is likely not a global "
+                "minimum, expand the range of values with 'dampings' to ensure the best"
+                " damping value is found.",
+                spline.damping_,
+                np.nanmin(dampings),
+                np.nanmax(dampings),
             )
+
     except TypeError:
         pass
 
