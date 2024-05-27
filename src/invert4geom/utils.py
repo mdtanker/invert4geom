@@ -334,10 +334,10 @@ def normalized_mindist(
     # get coordinate names
     original_dims = list(grid.sizes.keys())
 
-    constraint_points = points.copy()
+    constraints_df = points.copy()
 
     min_dist: xr.DataArray = dist_nearest_points(
-        targets=constraint_points,
+        targets=constraints_df,
         data=grid,
         coord_names=(str(original_dims[1]), str(original_dims[0])),
     ).min_dist
