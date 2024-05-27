@@ -161,11 +161,17 @@ def grav_cv_score(
     # get last iteration's layer result
     final_topography = prism_results.set_index(["northing", "easting"]).to_xarray().topo
 
+    density_grid = xr.where(
+        final_topography >= zref,
+        density_contrast,
+        -density_contrast,
+    )
+
     # create new prism layer
     prism_layer = utils.grids_to_prisms(
         final_topography,
         reference=zref,
-        density=xr.where(final_surface >= zref, density_contrast, -density_contrast),
+        density=density_grid,
     )
 
     # calculate forward gravity of starting prism layer
