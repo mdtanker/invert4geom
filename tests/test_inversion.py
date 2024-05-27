@@ -559,6 +559,7 @@ def test_end_inversion_first_iteration():
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
+    perc_increase_limit = 0.20
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
@@ -568,6 +569,7 @@ def test_end_inversion_first_iteration():
         delta_l2_norm,
         previous_delta_l2_norm,
         delta_l2_norm_tolerance,
+        perc_increase_limit,
     )
     assert not end
     assert termination_reason == []
@@ -613,6 +615,7 @@ def test_end_inversion_delta_l2_norm_tolerance():
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
+    perc_increase_limit = 0.20
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
@@ -622,6 +625,7 @@ def test_end_inversion_delta_l2_norm_tolerance():
         delta_l2_norm,
         previous_delta_l2_norm,
         delta_l2_norm_tolerance,
+        perc_increase_limit,
     )
     assert end
     assert "delta l2-norm tolerance" in termination_reason
@@ -639,6 +643,7 @@ def test_end_inversion_l2_norm_tolerance():
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
+    perc_increase_limit = 0.20
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
@@ -648,6 +653,7 @@ def test_end_inversion_l2_norm_tolerance():
         delta_l2_norm,
         previous_delta_l2_norm,
         delta_l2_norm_tolerance,
+        perc_increase_limit,
     )
     assert end
     assert "l2-norm tolerance" in termination_reason
@@ -666,6 +672,7 @@ def test_end_inversion_max_iterations():
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
+    perc_increase_limit = 0.20
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
@@ -675,6 +682,7 @@ def test_end_inversion_max_iterations():
         delta_l2_norm,
         previous_delta_l2_norm,
         delta_l2_norm_tolerance,
+        perc_increase_limit,
     )
     assert end
     assert "max iterations" in termination_reason
