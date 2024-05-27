@@ -265,7 +265,12 @@ def grav_optimal_parameter(
 
     # run inversions and collect scores
     scores = []
-    for value in tqdm(param_values, desc="Parameter values", disable=not progressbar):
+    pbar = tqdm(
+        param_values,
+        desc=f"{param_name} values",
+        disable=not progressbar,
+    )
+    for i, value in enumerate(pbar):
         # update parameter value in kwargs
         kwargs[param_name] = value
         # run cross validation
