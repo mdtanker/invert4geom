@@ -89,6 +89,9 @@ def nearest_grid_fill(
         )
     # elif method == "pygmt":
     #     filled = pygmt.grdfill(grid, mode="n", verbose="q").rename(original_name)
+    else:
+        msg = "method must be 'rioxarray', or 'verde'"
+        raise ValueError(msg)
 
     # reset coordinate names if changed
     with warnings.catch_warnings():
