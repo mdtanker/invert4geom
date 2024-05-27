@@ -15,19 +15,22 @@ from invert4geom import optimization, utils
 
 def regional_dc_shift(
     grav_df: pd.DataFrame,
+    grav_data_column: str,
     dc_shift: float | None = None,
     constraints_df: pd.DataFrame | None = None,
     regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field by applying a constant shift (DC-shift) to the gravity
-    data. If constraint points of the layer of interested are supplied, the DC shift
-    will minimize the residual misfit at these constraint points.
+    data. If constraint points of the layer of interested are supplied, the DC
+    shift will minimize the residual gravity at these constraint points.
 
     Parameters
     ----------
     grav_df : pd.DataFrame
-        gravity data with columns defined by coord_names and input_grav_name.
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
     dc_shift : float
         shift to apply to the data
     constraints_df : pd.DataFrame
@@ -40,7 +43,12 @@ def regional_dc_shift(
     pd.DataFrame
         grav_df with new regional column
     """
-    if constraint_points is not None:
+
+    grav_df = grav_df.copy()
+
+    # grid the grav_df data
+    grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()[grav_data_column]
+
         # get the gravity values at the constraint points
         constraints_df = constraints_df.copy()
 
@@ -62,14 +70,18 @@ def regional_dc_shift(
 
 
 def regional_filter(
-    filter_width: float,
-    grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
+    grav_data_column: str,
     regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field with a low-pass filter
-    """
+
+    grav_df = grav_df.copy()
+
+    # grid the grav_df data
+    grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()[grav_data_column]
+
     # get coordinate names
     original_dims = grav_grid.dims
 
@@ -89,20 +101,15 @@ def regional_filter(
 
 
 def regional_trend(
-    trend: int,
-    grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
+    grav_data_column: str,
     regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field with a trend
-    """
-    # get coordinate names
-    original_dims = grav_grid.dims
 
-    grav_filled = utils.nearest_grid_fill(grav_grid, method=fill_method)
+    grav_df = grav_df.copy()
 
-    df = vd.grid_to_table(grav_filled).astype("float64")
     vdtrend = vd.Trend(degree=trend).fit(
         (df[original_dims[1]], df[original_dims[0]].values),
         df[grav_filled.name],
@@ -117,7 +124,7 @@ def regional_trend(
 def regional_eq_sources(
     source_depth: float,
     grav_df: pd.DataFrame,
-    input_grav_name: str,
+    grav_data_column: str,
     eq_damping: float | None = None,
     block_size: float | None = None,
     depth_type: str = "relative",
@@ -131,7 +138,7 @@ def regional_eq_sources(
     depth_type : str: constant depths, not relative to observation heights
     """
 
-    df = grav_df[grav_df[input_grav_name].notna()]
+    grav_df = grav_df[grav_df[grav_data_column].notna()].copy()
 
     # create set of deep sources
     equivalent_sources = hm.EquivalentSources(
@@ -152,10 +159,8 @@ def regional_eq_sources(
 
 
 def regional_constraints(
-    constraint_points: pd.DataFrame,
-    grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
-    region: tuple[float, float, float, float],
+    grav_data_column: str,
     constraints_df: pd.DataFrame,
     tension_factor: float = 1,
     registration: str = "g",
@@ -175,11 +180,10 @@ def regional_constraints(
 ) -> pd.DataFrame:
     """
     separate the regional field by sampling and regridding at the constraint points
-    """
-    # get coordinate names
-    original_dims = grav_grid.dims
-
-    constraints_df = constraint_points.copy()
+    grav_df = grav_df.copy()
+    constraints_df = constraints_df.copy()
+    # grid the grav_df data
+    grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()[grav_data_column]
 
     # sample gravity at constraint points
     constraints_df = utils.sample_grids(
