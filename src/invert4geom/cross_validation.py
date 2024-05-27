@@ -97,7 +97,7 @@ def resample_with_test_points(
 def grav_cv_score(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
-    progressbar: bool = False,
+    progressbar: bool = True,
     rmse_as_median: bool = False,
     plot: bool = False,
     **kwargs: typing.Any,
@@ -117,7 +117,7 @@ def grav_cv_score(
         calculate the RMSE as the median as opposed to the mean, by default False
     progressbar : bool, optional
         choose to show the progress bar for the forward gravity calculation, by default
-        False
+        True
     plot : bool, optional
         choose to plot the observed and predicted data grids, and their difference,
         located at the testing points, by default False
@@ -216,7 +216,7 @@ def grav_optimal_parameter(
     testing_data: pd.DataFrame,
     param_to_test: tuple[str, list[float]],
     rmse_as_median: bool = False,
-    progressbar: bool = False,
+    progressbar: bool = True,
     plot_grids: bool = False,
     plot_cv: bool = False,
     verbose: bool = False,
@@ -238,7 +238,7 @@ def grav_optimal_parameter(
     rmse_as_median : bool, optional
         calculate the RMSE as the median as opposed to the mean, by default False
     progressbar : bool, optional
-        display a progress bar for the number of tested values, by default False
+        display a progress bar for the number of tested values, by default True
     plot_grids : bool, optional
         plot all the grids of observed and predicted data for each parameter value, by
         default False
@@ -272,6 +272,7 @@ def grav_optimal_parameter(
             testing_data=test,
             rmse_as_median=rmse_as_median,
             plot=plot_grids,
+            progressbar=False,
             **kwargs,
         )
         scores.append(score)
