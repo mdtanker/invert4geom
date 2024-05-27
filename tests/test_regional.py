@@ -56,7 +56,7 @@ def test_regional_dc_shift_constraints():
     df = regional.regional_dc_shift(
         grav_df=grav_df,
         grav_grid=dummy_grid().misfit,
-        constraint_points=points,
+        constraints_df=points,
         regional_col_name="reg",
     )
 
@@ -218,7 +218,7 @@ def test_regional_constraints(test_input):
     points = pd.DataFrame(data={"easting": coords[0], "northing": coords[1]})
 
     df = regional.regional_constraints(
-        constraint_points=points,
+        constraints_df=points,
         grav_grid=dummy_grid().misfit,
         grav_df=anomalies,
         region=region,

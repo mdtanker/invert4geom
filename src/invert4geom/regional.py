@@ -16,10 +16,7 @@ from invert4geom import optimization, utils
 def regional_dc_shift(
     grav_df: pd.DataFrame,
     dc_shift: float | None = None,
-    grav_grid: xr.DataArray | None = None,
-    constraint_points: pd.DataFrame | None = None,
-    coord_names: tuple[str, str] = ("easting", "northing"),
-    regional_col_name: str = "reg",
+    constraints_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
     separate the regional field by applying a constant shift (DC-shift) to the gravity
@@ -32,14 +29,8 @@ def regional_dc_shift(
         gravity data with columns defined by coord_names and input_grav_name.
     dc_shift : float
         shift to apply to the data
-    grav_grid : xr.DataArray
-        gridded gravity misfit data
-    constraint_points : pd.DataFrame
-        a dataframe of constraint points with columns X and Y columns defined by the
-        coord_names parameter.
-    coord_names : tuple
-        names of the X and Y column names in constraint points dataframe
-    regional_col_name : str
+    constraints_df : pd.DataFrame
+        a dataframe of constraint points with columns easting and northing.
         name for the new column in grav_df for the regional field.
 
     Returns
@@ -49,7 +40,7 @@ def regional_dc_shift(
     """
     if constraint_points is not None:
         # get the gravity values at the constraint points
-        constraints_df = constraint_points.copy()
+        constraints_df = constraints_df.copy()
 
         # sample gravity at constraint points
         constraints_df = utils.sample_grids(
@@ -165,7 +156,7 @@ def regional_constraints(
     grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
     region: tuple[float, float, float, float],
-    spacing: float,
+    constraints_df: pd.DataFrame,
     tension_factor: float = 1,
     registration: str = "g",
     constraint_block_size: float | None = None,

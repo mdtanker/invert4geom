@@ -315,7 +315,7 @@ def grav_optimal_parameter(
 
 def constraints_cv_score(
     grav_df: pd.DataFrame,
-    constraints: pd.DataFrame,
+    constraints_df: pd.DataFrame,
     rmse_as_median: bool = False,
     **kwargs: typing.Any,
 ) -> float:
@@ -329,7 +329,7 @@ def constraints_cv_score(
     grav_df : pd.DataFrame
        gravity dataframe with columns "res", "reg", and column set by kwarg
        grav_data_column
-    constraints : pd.DataFrame
+    constraints_df : pd.DataFrame
         constraints dataframe with columns "easting", "northing", and "upward"
     rmse_as_median : bool, optional
         calculate the RMSE as the median of the , as opposed to the mean, by default
@@ -344,6 +344,8 @@ def constraints_cv_score(
     ----------
     .. footbibliography::
     """
+
+    constraints_df = constraints_df.copy()
 
     zref: float = kwargs.get("zref")  # type: ignore[assignment]
     density_contrast: float = kwargs.get("density_contrast")  # type: ignore[assignment]
@@ -371,13 +373,13 @@ def constraints_cv_score(
     final_topography = prism_results.set_index(["northing", "easting"]).to_xarray().topo
 
     # sample the inverted topography at the constraint points
-    constraints = utils.sample_grids(
-        constraints,
+    constraints_df = utils.sample_grids(
+        constraints_df,
         final_topography,
         "inverted_topo",
         coord_names=("easting", "northing"),
     )
 
-    dif = constraints.upward - constraints.inverted_topo
+    dif = constraints_df.upward - constraints_df.inverted_topo
 
     return utils.rmse(dif, as_median=rmse_as_median)
