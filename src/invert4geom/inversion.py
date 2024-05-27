@@ -3,6 +3,8 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 import copy
 import itertools
 import logging
+import pathlib
+import pickle
 import time
 import typing
 
@@ -769,6 +771,7 @@ def run_inversion(
     weighting_grid: xr.DataArray | None = None,
     plot_convergence: bool = False,
     plot_dynamic_convergence: bool = False,
+    results_fname: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]:
     """
     perform a geometric inversion, where the topography is updated to minimize the
@@ -826,6 +829,8 @@ def run_inversion(
         plot the misfit convergence, by default False
     plot_dynamic_convergence : bool, optional
         plot the misfit convergence dynamically, by default False
+    results_fname : str, optional
+        filename to save results to, by default None
 
     Returns
     -------
@@ -1074,7 +1079,14 @@ def run_inversion(
         plotting.plot_convergence(
             gravity,
             iter_times=iter_times,
-            inversion_region=inversion_region,
         )
 
-    return prisms_df, gravity, params, elapsed_time
+    results = prisms_df, gravity, params, elapsed_time
+    if results_fname is not None:
+        # remove if exists
+        pathlib.Path(f"{results_fname}.pickle").unlink(missing_ok=True)
+        with pathlib.Path(f"{results_fname}.pickle").open("wb") as f:
+            pickle.dump(results, f)
+        logging.info("results saved to %s.pickle", results_fname)
+
+    return results
