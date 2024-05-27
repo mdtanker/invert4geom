@@ -168,7 +168,7 @@ def regional_constraints(
     eqs_gridding_damping_lims: tuple[float, float] = (0.1, 100),
     eqs_gridding_depth_lims: tuple[float, float] = (1e3, 100e3),
     force_coords: tuple[pd.Series | NDArray, pd.Series | NDArray] | None = None,
-    regional_col_name: str = "reg",
+    grav_obs_height: float | None = None,
 ) -> pd.DataFrame:
     """
     separate the regional field by sampling and regridding at the constraint points
@@ -263,7 +263,7 @@ def regional_constraints(
         coords = (
             constraints_df[original_dims[1]],
             constraints_df[original_dims[0]],
-            np.ones_like(constraints_df[original_dims[1]]) * 1e3,  # grav obs height
+            np.ones_like(constraints_df.easting) * grav_obs_height,
         )
         if constraint_weights_col is None:
             weights = None
