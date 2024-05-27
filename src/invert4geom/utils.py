@@ -408,7 +408,7 @@ def sample_grids(
     # reset the index
     df3 = df2.reset_index()
 
-    x, y = kwargs.get("coord_names", ("x", "y"))
+    x, y = kwargs.get("coord_names", ("easting", "northing"))
     # get points to sample at
     points = df3[[x, y]].copy()
 

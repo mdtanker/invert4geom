@@ -49,6 +49,17 @@ def regional_dc_shift(
     # grid the grav_df data
     grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()[grav_data_column]
 
+    if (constraints_df is None) and (dc_shift is None):
+        msg = "need to provide either constraints_df of dc_shift"
+        raise ValueError(msg)
+
+    if constraints_df is not None:
+        if dc_shift is not None:
+            msg = (
+                "`dc_shift` parameter provide but not used since `constraints_df`"
+                "were provided."
+            )
+            logging.warning(msg)
         # get the gravity values at the constraint points
         constraints_df = constraints_df.copy()
 
@@ -57,7 +68,7 @@ def regional_dc_shift(
             df=constraints_df,
             grid=grav_grid,
             sampled_name="sampled_grav",
-            coord_names=coord_names,
+            coord_names=("easting", "northing"),
         )
 
         # use RMS of sampled value for DC shift
@@ -76,6 +87,7 @@ def regional_filter(
 ) -> pd.DataFrame:
     """
     separate the regional field with a low-pass filter
+    """
 
     grav_df = grav_df.copy()
 
@@ -107,15 +119,16 @@ def regional_trend(
 ) -> pd.DataFrame:
     """
     separate the regional field with a trend
+    """
 
     grav_df = grav_df.copy()
 
     vdtrend = vd.Trend(degree=trend).fit(
-        (df[original_dims[1]], df[original_dims[0]].values),
-        df[grav_filled.name],
+        (grav_df.easting, grav_df.northing),
+        grav_df[grav_data_column],
     )
     grav_df[regional_column] = vdtrend.predict(
-        (grav_df[original_dims[1]], grav_df[original_dims[0]])
+        (grav_df.easting, grav_df.northing),
     )
 
     return grav_df
@@ -149,13 +162,13 @@ def regional_eq_sources(
     )
 
     # fit the source coefficients to the data
-    coordinates = (df[input_coord_names[0]], df[input_coord_names[1]], df.upward)
-    equivalent_sources.fit(coordinates, df[input_grav_name])
+    coordinates = (grav_df.easting, grav_df.northing, grav_df.upward)
+    equivalent_sources.fit(coordinates, grav_df[grav_data_column])
 
     # use sources to predict the regional field at the observation points
-    df[regional_column] = equivalent_sources.predict(coordinates)
+    grav_df[regional_column] = equivalent_sources.predict(coordinates)
 
-    return df
+    return grav_df
 
 
 def regional_constraints(
@@ -180,6 +193,7 @@ def regional_constraints(
 ) -> pd.DataFrame:
     """
     separate the regional field by sampling and regridding at the constraint points
+    """
     grav_df = grav_df.copy()
     constraints_df = constraints_df.copy()
     # grid the grav_df data
@@ -190,7 +204,7 @@ def regional_constraints(
         df=constraints_df,
         grid=grav_grid,
         sampled_name="sampled_grav",
-        coord_names=(original_dims[1], original_dims[0]),
+        coord_names=("easting", "northing"),
         no_skip=True,
         verbose="q",
     )
@@ -213,14 +227,14 @@ def regional_constraints(
 
         coordinates, data, weights = blockmean.filter(
             coordinates=(
-                constraints_df[original_dims[1]],
-                constraints_df[original_dims[0]],
+                constraints_df["easting"],
+                constraints_df["northing"],
             ),
             data=constraints_df.sampled_grav,
             weights=weights,
         )
         # add reduced coordinates to a dictionary
-        coord_cols = dict(zip([original_dims[1], original_dims[0]], coordinates))
+        coord_cols = dict(zip(["easting", "northing"], coordinates))
 
         # add reduced data to a dictionary
         if constraint_weights_col is None:
@@ -233,7 +247,7 @@ def regional_constraints(
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
         regional_grav = pygmt.surface(
-            data=constraints_df[[original_dims[1], original_dims[0], "sampled_grav"]],
+            data=constraints_df[["easting", "northing", "sampled_grav"]],
             region=region,
             spacing=spacing,
             registration=registration,
@@ -253,8 +267,8 @@ def regional_constraints(
 
         spline = utils.best_spline_cv(
             coordinates=(
-                constraints_df[original_dims[1]],
-                constraints_df[original_dims[0]],
+                constraints_df.easting,
+                constraints_df.northing,
             ),
             data=constraints_df.sampled_grav,
             weights=weights,
@@ -266,10 +280,9 @@ def regional_constraints(
         regional_grav = spline.grid(region=region, spacing=spacing).scalars
 
     elif grid_method == "eq_sources":
-        # pass
         coords = (
-            constraints_df[original_dims[1]],
-            constraints_df[original_dims[0]],
+            constraints_df.easting,
+            constraints_df.northing,
             np.ones_like(constraints_df.easting) * grav_obs_height,
         )
         if constraint_weights_col is None:
@@ -309,6 +322,6 @@ def regional_constraints(
         df=grav_df,
         grid=regional_grav,
         sampled_name=regional_column,
-        coord_names=(original_dims[1], original_dims[0]),
+        coord_names=("easting", "northing"),
         verbose="q",
     )
