@@ -847,12 +847,6 @@ def run_inversion(
 
     gravity = copy.deepcopy(grav_df)
 
-    # if inversion region provided, create column of booleans defining inside/outside
-    if inversion_region is not None:
-        gravity["inside"] = vd.inside(
-            (gravity.easting, gravity.northing),
-            region=inversion_region,
-        )
 
     # extract variables from starting prism layer
     (
@@ -905,18 +899,11 @@ def run_inversion(
         gravity[f"iter_{iteration}_initial_misfit"] = gravity.res
 
         # set iteration stats
-        if inversion_region is not None:
-            # if inversion region is supplied, calculate RMSE only within that region
-            initial_rmse = utils.rmse(
-                gravity[gravity.inside][f"iter_{iteration}_initial_misfit"]
-            )
-        else:
-            initial_rmse = utils.rmse(gravity[f"iter_{iteration}_initial_misfit"])
+        initial_rmse = utils.rmse(gravity[f"iter_{iteration}_initial_misfit"])
         l2_norm = np.sqrt(initial_rmse)
 
         if iteration == 1:
             starting_misfit = initial_rmse
-            starting_l2_norm = l2_norm
 
         # calculate jacobian sensitivity matrix
         jac = jacobian(
@@ -986,13 +973,7 @@ def run_inversion(
         )
 
         # update the misfit RMSE
-        if inversion_region is not None:
-            # if inversion region is supplied, calculate RMSE only within that region
-            updated_rmse = utils.rmse(
-                gravity[gravity.inside][f"iter_{iteration}_final_misfit"]
-            )
-        else:
-            updated_rmse = utils.rmse(gravity[f"iter_{iteration}_final_misfit"])
+        updated_rmse = utils.rmse(gravity[f"iter_{iteration}_final_misfit"])
         logging.info("updated misfit RMSE: %s", round(updated_rmse, 4))
         final_rmse = updated_rmse
 
@@ -1032,8 +1013,7 @@ def run_inversion(
             plotting.plot_dynamic_convergence(
                 gravity,
                 l2_norm_tolerance,
-                starting_misfit,
-                inversion_region=inversion_region,
+                starting_misfit,  # pylint: disable=possibly-used-before-assignment
             )
 
         if end is True:
