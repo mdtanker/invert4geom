@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import pathlib
+import pickle
+import random
 import typing
 
 import numpy as np
@@ -222,6 +225,7 @@ def grav_optimal_parameter(
     plot_grids: bool = False,
     plot_cv: bool = False,
     verbose: bool = False,
+    results_fname: str | None = None,
     **kwargs: typing.Any,
 ) -> tuple[float, float, list[float], list[float]]:
     """
@@ -248,6 +252,8 @@ def grav_optimal_parameter(
        plot a graph of scores vs parameter values, by default False
     verbose : bool, optional
        log the results, by default False
+    results_fname : str, optional
+        file name to save results to, by default "tmp" with an attached random number
 
     Returns
     -------
@@ -262,6 +268,10 @@ def grav_optimal_parameter(
     # pull parameter out of kwargs
     param_name = param_to_test[0]
     param_values = param_to_test[1]
+
+    # set file name for saving results with random number between 0 and 999
+    if results_fname is None:
+        results_fname = f"tmp_{random.randint(0,999)}"
 
     # run inversions and collect scores
     scores = []
@@ -279,6 +289,7 @@ def grav_optimal_parameter(
             testing_data=test,
             rmse_as_median=rmse_as_median,
             plot=plot_grids,
+            results_fname=f"{results_fname}_trial_{i}",
             progressbar=False,
             **kwargs,
         )
@@ -297,8 +308,43 @@ def grav_optimal_parameter(
     best_score = scores[best_idx]
     best_param_value = param_values[best_idx]
     logging.info(
-        "Best score of %s with parameter value=%s", best_score, best_param_value
+        "Best score of %s with %s=%s", best_score, param_name, best_param_value
     )
+
+    # get best inversion result of each set
+    with pathlib.Path(f"{results_fname}_trial_{best_idx}.pickle").open("rb") as f:
+        inv_results = pickle.load(f)
+
+    # delete other inversion results
+    for i in range(len(scores)):
+        if i == best_idx:
+            pass
+        else:
+            pathlib.Path(f"{results_fname}_trial_{i}.pickle").unlink(missing_ok=True)
+
+    # put scores and parameter values into dict
+    results = {
+        "scores": scores,
+        "param_values": param_values,
+    }
+
+    if best_param_value in [np.min(param_values), np.max(param_values)]:
+        logging.warning(
+            "Best parameter value (%s) for %s CV is at the limit of provided "
+            "values (%s, %s) and thus is likely not a global minimum, expand the range "
+            "of values tested to ensure the best parameter value is found.",
+            best_param_value,
+            param_name,
+            np.nanmin(param_values),
+            np.nanmax(param_values),
+        )
+
+    # remove if exists
+    pathlib.Path(results_fname).unlink(missing_ok=True)
+
+    # save scores and dampings to pickle
+    with pathlib.Path(f"{results_fname}.pickle").open("wb") as f:
+        pickle.dump(results, f)
 
     if plot_cv:
         # plot scores
