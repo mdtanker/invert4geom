@@ -595,8 +595,7 @@ def update_l2_norms(
 def end_inversion(
     iteration_number: int,
     max_iterations: int,
-    l2_norm: float,
-    starting_l2_norm: float,
+    l2_norms: list[float],
     l2_norm_tolerance: float,
     delta_l2_norm: float,
     previous_delta_l2_norm: float,
@@ -612,10 +611,8 @@ def end_inversion(
         the iteration number, starting at 1 not 0
     max_iterations : int
         the maximum allowed iterations, inclusive and starting at 1
-    l2_norm : float
-        the current iteration's l2 norm
-    starting_l2_norm : float
-        the l2 norm of iteration 1
+    l2_norms : float
+        a list of each iteration's l2 norm
     l2_norm_tolerance : float
         the l2 norm value to end the inversion at
     delta_l2_norm : float
@@ -637,19 +634,21 @@ def end_inversion(
     end = False
     termination_reason = []
 
+    l2_norm = l2_norms[-1]
+
     # ignore for first iteration
     if iteration_number == 1:
         pass
     else:
-        if l2_norm > starting_l2_norm * (1 + perc_increase_limit):
+        if l2_norm > np.min(l2_norms) * (1 + perc_increase_limit):
             logging.info(
                 "\nInversion terminated after %s iterations because L2 norm (%s) \n"
-                "was over %s%% greater than starting L2 norm (%s) \n"
+                "was over %s times greater than minimum L2 norm (%s) \n"
                 "Change parameter 'perc_increase_limit' if desired.",
                 iteration_number,
                 l2_norm,
-                perc_increase_limit * 100,
-                starting_l2_norm,
+                1 + perc_increase_limit,
+                np.min(l2_norms),
             )
             end = True
             termination_reason.append("l2-norm increasing")
@@ -883,6 +882,7 @@ def run_inversion(
     # iteration times
     iter_times = []
 
+    l2_norms = []
     pbar = tqdm(range(max_iterations), desc="Iteration")
     for iteration, _ in enumerate(pbar, start=1):
         logging.info(
@@ -995,6 +995,9 @@ def run_inversion(
         previous_delta_l2_norm = copy.copy(delta_l2_norm)
         l2_norm, delta_l2_norm = update_l2_norms(updated_rmse, l2_norm)
         final_l2_norm = l2_norm
+
+        l2_norms.append(l2_norm)
+
         logging.info(
             "updated L2-norm: %s, tolerance: %s", round(l2_norm, 4), l2_norm_tolerance
         )
@@ -1012,8 +1015,7 @@ def run_inversion(
         end, termination_reason = end_inversion(
             iteration,
             max_iterations,
-            l2_norm,
-            starting_l2_norm,
+            l2_norms,
             l2_norm_tolerance,
             delta_l2_norm,
             previous_delta_l2_norm,
