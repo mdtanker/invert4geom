@@ -98,6 +98,7 @@ def grav_cv_score(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
     progressbar: bool = False,
+    rmse_as_median: bool = False,
     plot: bool = False,
     **kwargs: typing.Any,
 ) -> float:
@@ -112,6 +113,8 @@ def grav_cv_score(
        rows of the data frame which are just the training data
     testing_data : pd.DataFrame
         rows of the data frame which are just the testing data
+    rmse_as_median : bool, optional
+        calculate the RMSE as the median as opposed to the mean, by default False
     progressbar : bool, optional
         choose to show the progress bar for the forward gravity calculation, by default
         False
@@ -186,7 +189,7 @@ def grav_cv_score(
 
     dif = predicted - observed
 
-    score = utils.rmse(dif)
+    score = utils.rmse(dif, as_median=rmse_as_median)
 
     if plot:
         test_grid = test.set_index(["northing", "easting"]).to_xarray()
@@ -212,6 +215,7 @@ def grav_optimal_parameter(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
     param_to_test: tuple[str, list[float]],
+    rmse_as_median: bool = False,
     progressbar: bool = False,
     plot_grids: bool = False,
     plot_cv: bool = False,
@@ -231,6 +235,8 @@ def grav_optimal_parameter(
     param_to_test : tuple[str, list[float]]
         first value is a string of the parameter that is being tested, and the second
         value is a list of the values to test
+    rmse_as_median : bool, optional
+        calculate the RMSE as the median as opposed to the mean, by default False
     progressbar : bool, optional
         display a progress bar for the number of tested values, by default False
     plot_grids : bool, optional
@@ -264,6 +270,7 @@ def grav_optimal_parameter(
         score = grav_cv_score(
             training_data=train,
             testing_data=test,
+            rmse_as_median=rmse_as_median,
             plot=plot_grids,
             **kwargs,
         )
@@ -301,6 +308,7 @@ def grav_optimal_parameter(
 def constraints_cv_score(
     grav: pd.DataFrame,
     constraints: pd.DataFrame,
+    rmse_as_median: bool = False,
     **kwargs: typing.Any,
 ) -> float:
     """
@@ -315,7 +323,9 @@ def constraints_cv_score(
        input_grav_column
     constraints : pd.DataFrame
         constraints dataframe with columns "easting", "northing", and "upward"
-
+    rmse_as_median : bool, optional
+        calculate the RMSE as the median of the , as opposed to the mean, by default
+        False
     Returns
     -------
     float
@@ -366,4 +376,4 @@ def constraints_cv_score(
 
     dif = constraints.upward - constraints.inverted_topo
 
-    return utils.rmse(dif)
+    return utils.rmse(dif, as_median=rmse_as_median)
