@@ -155,3 +155,8 @@ Thumbs.db
 # Common editor files
 *~
 *.swp
+
+# Saved pickle files
+*.pickle
+*.log
+*.lock
