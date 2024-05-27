@@ -427,3 +427,84 @@ def regional_constraints(
         coord_names=("easting", "northing"),
         verbose="q",
     )
+
+
+def regional_separation(
+    method: str,
+    grav_df: pd.DataFrame,
+    grav_data_column: str,
+    regional_column: str = "reg",
+    **kwargs: typing.Any,
+) -> pd.DataFrame:
+    """
+    Separate the regional field from the gravity data using the specified method
+    and return the dataframe with a new column for the regional field.
+
+    Parameters
+    ----------
+    method : str
+        choose method to apply; one of "constant", "dc_shift", "filter", "trend",
+        "eq_sources", "constraints".
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    regional_column : str, optional
+        name to use for new regional gravity column, by default "reg"
+    **kwargs : typing.Any
+        additional keyword arguments for the specified method.
+
+    Returns
+    -------
+    pd.DataFrame
+        updated dataframe with new regional gravity column
+    """
+    grav_df = grav_df.copy()
+
+    kwargs = kwargs.copy()
+
+    if method == "constant":
+        constant = kwargs.get("constant", None)
+        if constant is None:
+            msg = "constant value not provided"
+            raise ValueError(msg)
+
+        grav_df[regional_column] = constant
+        return grav_df
+    if method == "dc_shift":
+        return regional_dc_shift(
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    if method == "filter":
+        return regional_filter(
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    if method == "trend":
+        return regional_trend(
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    if method == "eq_sources":
+        return regional_eq_sources(
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    if method == "constraints":
+        return regional_constraints(
+            grav_data_column=grav_data_column,
+            grav_df=grav_df,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    msg = "invalid string for regional method"
+    raise ValueError(msg)
