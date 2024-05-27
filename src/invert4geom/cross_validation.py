@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import logging
 import pathlib
 import pickle
@@ -13,7 +14,7 @@ import xarray as xr
 from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
-from invert4geom import inversion, plotting, utils
+from invert4geom import inversion, plotting, regional, utils
 
 
 def resample_with_test_points(
@@ -441,3 +442,282 @@ def constraints_cv_score(
     dif = constraints_df.upward - constraints_df.inverted_topo
 
     return utils.rmse(dif, as_median=rmse_as_median)
+
+
+def zref_density_optimal_parameter(
+    grav_df: pd.DataFrame,
+    constraints_df: pd.DataFrame,
+    starting_topography: xr.DataArray | None = None,
+    zref_values: list[float] | None = None,
+    density_contrast_values: list[float] | None = None,
+    starting_topography_kwargs: dict[str, typing.Any] | None = None,
+    regional_grav_kwargs: dict[str, typing.Any] | None = None,
+    rmse_as_median: bool = False,
+    progressbar: bool = True,
+    plot_cv: bool = False,
+    verbose: bool = False,
+    results_fname: str | None = None,
+    **kwargs: typing.Any,
+) -> tuple[
+    tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float],
+    float,
+    float,
+    float,
+    list[typing.Any],
+    list[float],
+]:
+    """
+    Calculate the cross validation scores for a set of zref and density values and
+    return the best score and values. If only 1 parameter is needed to be test, can pass
+    a single value of the other parameter. This uses constraint points, where the target
+    topography is known. The inverted topography at each of these points is compared to
+    the known value and used to calculate the score.
+
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        _description_
+    constraints_df : pd.DataFrame
+        _description_
+    starting_topography : xr.DataArray,optional
+        _description_
+    zref_values : list[float] | None, optional
+        _description_, by default None
+    density_contrast_values : list[float] | None, optional
+        _description_, by default None
+    starting_topography_kwargs : dict[str, typing.Any] | None, optional
+        _description_, by default None
+    regional_grav_kwargs : dict[str, typing.Any] | None, optional
+        _description_, by default None
+    rmse_as_median : bool, optional
+        _description_, by default False
+    progressbar : bool, optional
+        display a progress bar for the number of tested values, by default True
+    plot_cv : bool, optional
+        plot a graph of scores vs parameter values, by default False
+    verbose : bool, optional
+        log the results, by default False
+    results_fname : str, optional
+        file name to save results to, by default "tmp" with an attached random number
+
+    Returns
+    -------
+    tuple[ tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float],
+        float, float, float, list[typing.Any], list[float], ]
+        the inversion results, the optimal parameter value, the score associated with
+        it, the parameter values and the scores for each parameter value
+    """
+
+    if verbose:
+        # set Python's logging level to get information about the inversion\s progress
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+    else:
+        logger = logging.getLogger()
+        logger.setLevel(logging.WARNING)
+
+    # set file name for saving results with random number between 0 and 999
+    if results_fname is None:
+        results_fname = f"tmp_{random.randint(0,999)}"
+
+    if constraints_df is None:
+        msg = "must provide constraints_df"
+        raise ValueError(msg)
+
+    if (zref_values is None) & (density_contrast_values is None):
+        msg = "must provide either or both zref_values and density_contrast_values"
+        raise ValueError(msg)
+
+    if zref_values is None:
+        zref = kwargs.get("zref", None)
+        if zref is None:
+            msg = "must provide zref_values or zref in kwargs"
+            raise ValueError(msg)
+        zref_values = [zref]
+    elif density_contrast_values is None:
+        density_contrast = kwargs.get("density_contrast", None)
+        if density_contrast is None:
+            msg = "must provide density_contrast_values or density_contrast in kwargs"
+            raise ValueError(msg)
+        density_contrast_values = [density_contrast]
+
+    # create all possible combinations of zref and density contrast
+    parameter_pairs = list(itertools.product(zref_values, density_contrast_values))  # type: ignore[arg-type]
+
+    if "test" in grav_df.columns:
+        assert (
+            grav_df.test.any()
+        ), "test column contains True value, not needed except for during damping CV"
+
+    # run inversions and collect scores
+    scores = []
+    pbar = tqdm(
+        parameter_pairs,
+        desc="Zref/Density pairs",
+        disable=not progressbar,
+    )
+
+    for i, (zref, density_contrast) in enumerate(pbar):
+        # create starting topography
+        if starting_topography is None:
+            if starting_topography_kwargs is None:
+                msg = (
+                    "starting_topography_kwargs must be provided if "
+                    "starting_topography is not provided"
+                )
+                raise ValueError(msg)
+            method = starting_topography_kwargs.get("method")
+            upwards = starting_topography_kwargs.get("upwards", None)
+            if (method == "flat") & (upwards is None):
+                upwards = zref
+
+            created_starting_topography = utils.create_topography(
+                method=method,  # type: ignore [arg-type]
+                region=starting_topography_kwargs.get("region", None),
+                spacing=starting_topography_kwargs.get("spacing", None),
+                upwards=upwards,
+                constraints_df=constraints_df,
+                dampings=starting_topography_kwargs.get(
+                    "dampings", np.logspace(-10, 0, 100)
+                ),
+            )
+        else:
+            created_starting_topography = starting_topography.copy()
+
+        # re-calculate density grid with new density contrast
+        density_grid = xr.where(
+            created_starting_topography >= zref, density_contrast, -density_contrast
+        )
+
+        # create layer of prisms
+        starting_prisms = utils.grids_to_prisms(
+            created_starting_topography,
+            reference=zref,
+            density=density_grid,
+        )
+
+        # calculate forward gravity of starting prism layer
+        grav_df["starting_grav"] = starting_prisms.prism_layer.gravity(
+            coordinates=(
+                grav_df.easting,
+                grav_df.northing,
+                grav_df.upward,
+            ),
+            field="g_z",
+            progressbar=False,
+        )
+
+        # calculate misfit as observed - starting
+        grav_data_column = kwargs.get("grav_data_column")
+        grav_df["misfit"] = grav_df[grav_data_column] - grav_df.starting_grav
+
+        # calculate regional field
+        reg_kwargs = regional_grav_kwargs.copy()  # type: ignore[union-attr]
+
+        grav_df = regional.regional_separation(
+            method=reg_kwargs.pop("regional_method", None),
+            grav_df=grav_df,
+            regional_column="reg",
+            grav_data_column="misfit",
+            **reg_kwargs,
+        )
+
+        # remove the regional from the misfit to get the residual
+        grav_df["res"] = grav_df.misfit - grav_df.reg
+
+        # update zref value in kwargs
+        kwargs["zref"] = zref
+
+        # update density contrast value in kwargs
+        kwargs["density_contrast"] = density_contrast
+
+        # update starting model in kwargs
+        kwargs["prism_layer"] = starting_prisms
+
+        # run cross validation
+        score = constraints_cv_score(
+            grav_df=grav_df,
+            constraints_df=constraints_df,
+            results_fname=f"{results_fname}_trial_{i}",
+            rmse_as_median=rmse_as_median,
+            **kwargs,
+        )
+        scores.append(score)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # print parameter and score pairs
+    for (zref, density_contrast), score in zip(parameter_pairs, scores):
+        logging.info(
+            "Reference level: %s, Density contrast: %s -> Score: %s",
+            zref,
+            density_contrast,
+            score,
+        )
+
+    best_idx = np.argmin(scores)
+    best_score = scores[best_idx]
+    best_zref = parameter_pairs[best_idx][0]
+    best_density = parameter_pairs[best_idx][1]
+    logging.info(
+        "Best score of %s with reference level=%s and density contrast=%s",
+        best_score,
+        best_zref,
+        best_density,
+    )
+
+    # get best inversion result of each set
+    with pathlib.Path(f"{results_fname}_trial_{best_idx}.pickle").open("rb") as f:
+        inv_results = pickle.load(f)
+
+    # delete other inversion results
+    for i in range(len(scores)):
+        if i == best_idx:
+            pass
+        else:
+            pathlib.Path(f"{results_fname}_trial_{i}.pickle").unlink(missing_ok=True)
+
+    # put scores and parameter pairs into dict
+    results = {
+        "scores": scores,
+        "zref_values": parameter_pairs[0],
+        "density_contrast_values": parameter_pairs[1],
+    }
+
+    # remove if exists
+    pathlib.Path(results_fname).unlink(missing_ok=True)
+
+    # save scores and parameter pairs to pickle
+    with pathlib.Path(f"{results_fname}.pickle").open("wb") as f:
+        pickle.dump(results, f)
+
+    if plot_cv:
+        if len(zref_values) == 1:
+            plotting.plot_cv_scores(
+                scores,
+                density_contrast_values,  # type: ignore[arg-type]
+                param_name="Density contrast (kg/m$^3$)",
+                plot_title="Density contrast Cross-validation",
+                # logx=True,
+                # logy=True,
+            )
+        elif len(density_contrast_values) == 1:  # type: ignore[arg-type]
+            plotting.plot_cv_scores(
+                scores,
+                zref_values,
+                param_name="Reference level (m)",
+                plot_title="Reference level Cross-validation",
+                # logx=True,
+                # logy=True,
+            )
+        else:
+            plotting.plot_2_parameter_cv_scores(
+                scores,
+                parameter_pairs,
+                param_names=("Reference level (m)", "Density contrast (kg/m$^3$)"),
+                # logx=True,
+                # logy=True,
+            )
+
+    return inv_results, best_zref, best_density, best_score, parameter_pairs, scores
