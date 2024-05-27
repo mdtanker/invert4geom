@@ -214,7 +214,7 @@ extend-include = ["*.ipynb"]
 
 [tool.pylint]
 py-version = "3.9"
-ignore-paths = ["CHANGELOG.md"]
+# ignore-patterns = [".*.md",]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
 similarities.min-similarity-lines = 5
