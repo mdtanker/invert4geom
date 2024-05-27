@@ -13,12 +13,11 @@ import numba
 import numpy as np
 import pandas as pd
 import scipy as sp
-import verde as vd
 import xarray as xr
 from nptyping import NDArray
 from tqdm.autonotebook import tqdm
 
-from invert4geom import plotting, utils
+from invert4geom import cross_validation, plotting, regional, utils
 
 
 @numba.jit(cache=True, nopython=True)  # type: ignore[misc]
