@@ -88,6 +88,9 @@ def synthetic_topography_simple(
         pixel_register = False
     elif registration == "p":
         pixel_register = True
+    else:
+        msg = "registration must be either 'g' or 'p'"
+        raise ValueError(msg)
 
     # create grid of coordinates
     (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
@@ -223,6 +226,9 @@ def synthetic_topography_regional(
         pixel_register = False
     elif registration == "p":
         pixel_register = True
+    else:
+        msg = "registration must be either 'g' or 'p'"
+        raise ValueError(msg)
 
     # create grid of coordinates
     (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
