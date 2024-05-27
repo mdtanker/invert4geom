@@ -167,6 +167,8 @@ def regional_constraints(
     eqs_gridding_trials: int = 10,
     eqs_gridding_damping_lims: tuple[float, float] = (0.1, 100),
     eqs_gridding_depth_lims: tuple[float, float] = (1e3, 100e3),
+    eqs_gridding_parallel: bool = False,
+    eqs_gridding_plot: bool = False,
     force_coords: tuple[pd.Series | NDArray, pd.Series | NDArray] | None = None,
     grav_obs_height: float | None = None,
 ) -> pd.DataFrame:
@@ -279,8 +281,8 @@ def regional_constraints(
             n_trials=eqs_gridding_trials,
             damping_limits=eqs_gridding_damping_lims,
             depth_limits=eqs_gridding_depth_lims,
-            plot=False,
-            parallel=True,
+            plot=eqs_gridding_plot,
+            parallel=eqs_gridding_parallel,
             weights=weights,
         )
 
