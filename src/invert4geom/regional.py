@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing
 
 import harmonica as hm
@@ -7,7 +8,6 @@ import numpy as np
 import pandas as pd
 import pygmt
 import verde as vd
-import xarray as xr
 from nptyping import NDArray
 
 from invert4geom import optimization, utils
@@ -83,10 +83,27 @@ def regional_dc_shift(
 def regional_filter(
     grav_df: pd.DataFrame,
     grav_data_column: str,
+    filter_width: float,
     regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field with a low-pass filter
+
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    filter_width : float
+        width in meters to use for the low-pass filter
+    regional_column : str
+        name for the new column in grav_df for the regional field.
+
+    Returns
+    -------
+    pd.DataFrame
+        grav_df with new regional column
     """
 
     grav_df = grav_df.copy()
@@ -115,10 +132,27 @@ def regional_filter(
 def regional_trend(
     grav_df: pd.DataFrame,
     grav_data_column: str,
+    trend: int,
     regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field with a trend
+
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    trend : int
+        order of the polynomial trend to fit to the data
+    regional_column : str
+        name for the new column in grav_df for the regional field.
+
+    Returns
+    -------
+    pd.DataFrame
+        grav_df with new regional column
     """
 
     grav_df = grav_df.copy()
@@ -135,9 +169,9 @@ def regional_trend(
 
 
 def regional_eq_sources(
-    source_depth: float,
     grav_df: pd.DataFrame,
     grav_data_column: str,
+    source_depth: float,
     eq_damping: float | None = None,
     block_size: float | None = None,
     depth_type: str = "relative",
@@ -146,9 +180,28 @@ def regional_eq_sources(
     """
     separate the regional field by estimating deep equivalent sources
 
-    eq_damping : float: smoothness to impose on estimated coefficients
-    block_size : float: block reduce the data to speed up
-    depth_type : str: constant depths, not relative to observation heights
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    source_depth : float
+        _description_
+    eq_damping : float | None, optional
+        smoothness to impose on estimated coefficients, by default None
+    block_size : float | None, optional
+        block reduce the data to speed up, by default None
+    depth_type : str, optional
+        sources depths are "relative" to observation heights or at a "constant" depth,
+        by default "relative"
+    regional_column : str
+        name for the new column in grav_df for the regional field.
+
+    Returns
+    -------
+    pd.DataFrame
+        grav_df with new regional column
     """
 
     grav_df = grav_df[grav_df[grav_data_column].notna()].copy()
@@ -193,9 +246,58 @@ def regional_constraints(
 ) -> pd.DataFrame:
     """
     separate the regional field by sampling and regridding at the constraint points
+
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    constraints_df : pd.DataFrame
+        dataframe of constraints with columns "easting", "northing", and "upward".
+    tension_factor : float, optional
+        _description_, by default 1
+    registration : str, optional
+        _description_, by default "g"
+    constraint_block_size : float | None, optional
+        _description_, by default None
+    grid_method : str, optional
+        _description_, by default "verde"
+    dampings : typing.Any | None, optional
+        _description_, by default None
+    delayed : bool, optional
+        _description_, by default False
+    constraint_weights_col : str | None, optional
+        _description_, by default None
+    eqs_gridding_trials : int, optional
+        _description_, by default 10
+    eqs_gridding_damping_lims : tuple[float, float], optional
+        _description_, by default (0.1, 100)
+    eqs_gridding_depth_lims : tuple[float, float], optional
+        _description_, by default (1e3, 100e3)
+    grav_obs_height : float, optional
+        _description_, by default None
+    force_coords : tuple[pd.Series  |  NDArray, pd.Series  |  NDArray] | None, optional
+        _description_, by default None
+    regional_column : str
+        name for the new column in grav_df for the regional field.
+
+    Returns
+    -------
+    pd.DataFrame
+        grav_df with new regional column
     """
+
+    if constraints_df is None:
+        msg = "need to provide constraints_df"
+        raise ValueError(msg)
+
     grav_df = grav_df.copy()
     constraints_df = constraints_df.copy()
+
+    region = vd.get_region((grav_df.easting, grav_df.northing))
+    spacing = utils.get_spacing(grav_df)
+
     # grid the grav_df data
     grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()[grav_data_column]
 
