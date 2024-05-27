@@ -151,7 +151,7 @@ def grav_cv_score(
 
     # run inversion
     results = inversion.run_inversion(
-        input_grav=train,
+        grav_df=train,
         zref=zref,
         density_contrast=density_contrast,
         **new_kwargs,
@@ -307,7 +307,7 @@ def grav_optimal_parameter(
 
 
 def constraints_cv_score(
-    grav: pd.DataFrame,
+    grav_df: pd.DataFrame,
     constraints: pd.DataFrame,
     rmse_as_median: bool = False,
     **kwargs: typing.Any,
@@ -319,7 +319,7 @@ def constraints_cv_score(
 
     Parameters
     ----------
-    grav : pd.DataFrame
+    grav_df : pd.DataFrame
        gravity dataframe with columns "res", "reg", and column set by kwarg
        input_grav_column
     constraints : pd.DataFrame
@@ -353,7 +353,7 @@ def constraints_cv_score(
 
     # run inversion
     results = inversion.run_inversion(
-        input_grav=grav,
+        grav_df=grav_df,
         zref=zref,
         density_contrast=density_contrast,
         **new_kwargs,
