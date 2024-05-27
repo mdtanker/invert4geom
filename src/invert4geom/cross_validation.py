@@ -294,7 +294,12 @@ def grav_optimal_parameter(
             **kwargs,
         )
         scores.append(score)
-
+        if (i == 1) and (score > scores[0]):
+            msg = (
+                "first score was lower than second, consider changing the lower"
+                " parameter value range"
+            )
+            logging.warning(msg)
     if verbose:
         # set Python's logging level to get information about the inversion\s progress
         logger = logging.getLogger()
@@ -302,7 +307,7 @@ def grav_optimal_parameter(
 
     # print value and score pairs
     for value, score in zip(param_values, scores):
-        logging.info("Parameter value: %s -> Score: %s", value, score)
+        logging.info("%s value: %s -> Score: %s", param_name, value, score)
 
     best_idx = np.argmin(scores)
     best_score = scores[best_idx]
