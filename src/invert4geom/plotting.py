@@ -710,7 +710,7 @@ def plot_inversion_iteration_results(
 
     # add text with inversion parameter info
     text1, text2, text3 = [], [], []
-    params.pop("iter_times")
+    params.pop("Iteration times")
     for i, (k, v) in enumerate(params.items(), start=1):
         if i <= 5:
             text1.append(f"{k}: {v}\n")
