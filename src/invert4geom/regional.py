@@ -160,7 +160,7 @@ def regional_constraints(
     tension_factor: float = 1,
     registration: str = "g",
     constraint_block_size: float | None = None,
-    grid_method: str = "pygmt",
+    grid_method: str = "verde",
     dampings: typing.Any | None = None,
     delayed: bool = False,
     constraint_weights_col: str | None = None,
