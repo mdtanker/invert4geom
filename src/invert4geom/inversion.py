@@ -880,7 +880,8 @@ def run_inversion(
     iter_times = []
 
     l2_norms = []
-    pbar = tqdm(range(max_iterations), desc="Iteration")
+
+    pbar = tqdm(range(max_iterations), initial=1, desc="Iteration")
     for iteration, _ in enumerate(pbar, start=1):
         logging.info(
             "\n #################################### \n iteration %s", iteration
