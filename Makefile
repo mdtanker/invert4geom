@@ -71,6 +71,10 @@ release_check:
 changelog:
 	semantic-release changelog
 
+clean:
+	find . -name '*.pickle' -delete
+	find . -name '*.log' -delete
+	find . -name '*.lock' -delete
 
 ####
 ####
