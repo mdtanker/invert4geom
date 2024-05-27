@@ -227,7 +227,13 @@ def grav_optimal_parameter(
     verbose: bool = False,
     results_fname: str | None = None,
     **kwargs: typing.Any,
-) -> tuple[float, float, list[float], list[float]]:
+) -> tuple[
+    tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float],
+    float,
+    float,
+    list[float],
+    list[float],
+]:
     """
     Calculate the cross validation scores for a set of parameter values and return the
     best score and value.
@@ -257,9 +263,10 @@ def grav_optimal_parameter(
 
     Returns
     -------
-    tuple[float, float, list[float], list[float]]
-        the optimal parameter value, the score associated with it, the parameter values
-        and the scores for each parameter value
+    tuple[ tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float],
+        float, float, list[float], list[float], ]
+        the inversion results, the optimal parameter value, the score associated with
+        it, the parameter values and the scores for each parameter value
     """
 
     train = training_data.copy()
@@ -361,7 +368,7 @@ def grav_optimal_parameter(
             # logy=True,
         )
 
-    return best_param_value, best_score, param_values, scores
+    return inv_results, best_param_value, best_score, param_values, scores
 
 
 def constraints_cv_score(
