@@ -94,6 +94,7 @@ repos:
         entry:
           codespell --skip="*.js,*.html,*.css,*.svg,*.ipynb" -L ore
           --ignore-regex=".*codespell-ignore$"
+        args: [--ignore-words-list, montaj]
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: "v0.10.0.1"
