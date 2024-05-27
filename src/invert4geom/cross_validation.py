@@ -158,16 +158,12 @@ def grav_cv_score(
     )
     prism_results, _, _, _ = results
 
-    # grid resulting prisms dataframe
-    prism_ds = prism_results.set_index(["northing", "easting"]).to_xarray()
-
     # get last iteration's layer result
-    cols = [s for s in prism_results.columns.to_list() if "_layer" in s]
-    final_surface = prism_ds[cols[-1]]
+    final_topography = prism_results.set_index(["northing", "easting"]).to_xarray().topo
 
     # create new prism layer
     prism_layer = utils.grids_to_prisms(
-        surface=final_surface,
+        final_topography,
         reference=zref,
         density=xr.where(final_surface >= zref, density_contrast, -density_contrast),
     )
@@ -360,17 +356,13 @@ def constraints_cv_score(
     )
     prism_results, _, _, _ = results
 
-    # grid resulting prisms dataframe
-    prism_ds = prism_results.set_index(["northing", "easting"]).to_xarray()
-
     # get last iteration's layer result
-    cols = [s for s in prism_results.columns.to_list() if "_layer" in s]
-    final_surface = prism_ds[cols[-1]]
+    final_topography = prism_results.set_index(["northing", "easting"]).to_xarray().topo
 
     # sample the inverted topography at the constraint points
     constraints = utils.sample_grids(
         constraints,
-        final_surface,
+        final_topography,
         "inverted_topo",
         coord_names=("easting", "northing"),
     )
