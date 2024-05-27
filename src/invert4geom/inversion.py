@@ -751,7 +751,7 @@ def update_gravity_and_misfit(
 
 
 def run_inversion(
-    input_grav: pd.DataFrame,
+    grav_df: pd.DataFrame,
     input_grav_column: str,
     prism_layer: xr.Dataset,
     density_contrast: float,
@@ -783,7 +783,7 @@ def run_inversion(
 
     Parameters
     ----------
-    input_grav : pd.DataFrame
+    grav_df : pd.DataFrame
         dataframe with gravity data and coordinates, must have columns "res" and "reg"
         for residual and regional gravity, and coordinate columns "easting", "northing",
         and "upward".
@@ -843,7 +843,7 @@ def run_inversion(
 
     time_start = time.perf_counter()
 
-    gravity = copy.deepcopy(input_grav)
+    gravity = copy.deepcopy(grav_df)
 
     # if inversion region provided, create column of booleans defining inside/outside
     if inversion_region is not None:
