@@ -407,7 +407,7 @@ def optimize_eq_source_params(
     depth_limits: tuple[float, float] = (0, 10e6),
     sampler: optuna.samplers.BaseSampler | None = None,
     parallel: bool = False,
-    fname: str = "tmp",
+    fname: str | None = None,
     use_existing: bool = False,
     # plot:bool=False,
     **eq_kwargs: typing.Any,
@@ -434,7 +434,8 @@ def optimize_eq_source_params(
     parallel : bool, optional
         if True, will run the trials in parallel, by default False
     fname : str, optional
-        path and filename to save the study results, by default "tmp"
+        path and filename to save the study results, by default "tmp" with a random
+        number attached
     use_existing : bool, optional
         if True, will continue a previously starting optimization, by default False
 
@@ -447,6 +448,10 @@ def optimize_eq_source_params(
     if optuna is None:
         msg = "Missing optional dependency 'optuna' required for optimization."
         raise ImportError(msg)
+
+    # set file name for saving results with random number between 0 and 999
+    if fname is None:
+        fname = f"tmp_{random.randint(0,999)}"
 
     # set name and storage for the optimization
     study_name = fname
