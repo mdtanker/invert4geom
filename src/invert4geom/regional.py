@@ -17,6 +17,7 @@ def regional_dc_shift(
     grav_df: pd.DataFrame,
     dc_shift: float | None = None,
     constraints_df: pd.DataFrame | None = None,
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field by applying a constant shift (DC-shift) to the gravity
@@ -31,6 +32,7 @@ def regional_dc_shift(
         shift to apply to the data
     constraints_df : pd.DataFrame
         a dataframe of constraint points with columns easting and northing.
+    regional_column : str
         name for the new column in grav_df for the regional field.
 
     Returns
@@ -53,7 +55,7 @@ def regional_dc_shift(
         # use RMS of sampled value for DC shift
         dc_shift = utils.rmse(constraints_df.sampled_grav)
 
-    grav_df[regional_col_name] = dc_shift
+    grav_df[regional_column] = dc_shift
 
     # return the new dataframe
     return grav_df
@@ -63,7 +65,7 @@ def regional_filter(
     filter_width: float,
     grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
-    regional_col_name: str = "reg",
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field with a low-pass filter
@@ -81,7 +83,7 @@ def regional_filter(
     return utils.sample_grids(
         grav_df,
         regional_grid,
-        sampled_name=regional_col_name,
+        sampled_name=regional_column,
         coord_names=(original_dims[1], original_dims[0]),
     )
 
@@ -90,8 +92,7 @@ def regional_trend(
     trend: int,
     grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
-    fill_method: str = "verde",
-    regional_col_name: str = "reg",
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field with a trend
@@ -106,7 +107,7 @@ def regional_trend(
         (df[original_dims[1]], df[original_dims[0]].values),
         df[grav_filled.name],
     )
-    grav_df[regional_col_name] = vdtrend.predict(
+    grav_df[regional_column] = vdtrend.predict(
         (grav_df[original_dims[1]], grav_df[original_dims[0]])
     )
 
@@ -120,8 +121,7 @@ def regional_eq_sources(
     eq_damping: float | None = None,
     block_size: float | None = None,
     depth_type: str = "relative",
-    input_coord_names: tuple[str, str] = ("easting", "northing"),
-    regional_col_name: str = "reg",
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field by estimating deep equivalent sources
@@ -146,7 +146,7 @@ def regional_eq_sources(
     equivalent_sources.fit(coordinates, df[input_grav_name])
 
     # use sources to predict the regional field at the observation points
-    df[regional_col_name] = equivalent_sources.predict(coordinates)
+    df[regional_column] = equivalent_sources.predict(coordinates)
 
     return df
 
@@ -171,6 +171,7 @@ def regional_constraints(
     eqs_gridding_plot: bool = False,
     force_coords: tuple[pd.Series | NDArray, pd.Series | NDArray] | None = None,
     grav_obs_height: float | None = None,
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field by sampling and regridding at the constraint points
@@ -303,7 +304,7 @@ def regional_constraints(
     return utils.sample_grids(
         df=grav_df,
         grid=regional_grav,
-        sampled_name=regional_col_name,
+        sampled_name=regional_column,
         coord_names=(original_dims[1], original_dims[0]),
         verbose="q",
     )
