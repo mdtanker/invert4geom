@@ -1028,31 +1028,32 @@ def run_inversion(
     # collect input parameters into a dictionary
     params = {
         # first column
-        "density_contrast": f"{density_contrast} kg/m3",
-        "reference level": f"{zref} m",
-        "max_iterations": max_iterations,
-        "l2_norm_tolerance": f"{l2_norm_tolerance}",
-        "delta_l2_norm_tolerance": f"{delta_l2_norm_tolerance}",
+        "Density contrast": f"{density_contrast} kg/m3",
+        "Reference level": f"{zref} m",
+        "Max iterations": max_iterations,
+        "L2 norm tolerance": f"{l2_norm_tolerance}",
+        "Delta L2 norm tolerance": f"{delta_l2_norm_tolerance}",
         # second column
-        "deriv_type": deriv_type,
-        "solver_type": solver_type,
-        "solver_damping": solver_damping,
-        "upper_confining_layer": "Not enabled"
+        "Deriv type": deriv_type,
+        "Solver type": solver_type,
+        "Solver damping": solver_damping,
+        "Upper confining layer": "Not enabled"
         if upper_confining_layer is None
         else "Enabled",
-        "lower_confining_layer": "Not enabled"
+        "Lower confining layer": "Not enabled"
         if lower_confining_layer is None
+        else "Enabled",
         "Regularization weighting grid": "Not enabled"
         if apply_weighting_grid is False
         else "Enabled",
         # third column
-        "time_elapsed": f"{int(elapsed_time)} seconds",
-        "average_iteration_time": f"{round(np.mean(iter_times), 2)} seconds",
+        "Time elapsed": f"{int(elapsed_time)} seconds",
+        "Avg. iteration time": f"{round(np.mean(iter_times), 2)} seconds",
         "Final misfit RMSE / L2-norm": (
             f"{round(final_rmse,4)} /{round(final_l2_norm,4)} mGal"
         ),
         "Termination reason": termination_reason,
-        "iter_times": iter_times,
+        "Iteration times": iter_times,
     }
 
     if plot_convergence is True:
