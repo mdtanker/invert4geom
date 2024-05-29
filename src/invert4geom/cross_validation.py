@@ -547,6 +547,18 @@ def zref_density_optimal_parameter(
             raise ValueError(msg)
         density_contrast_values = [density_contrast]
 
+    # raise warning about using constraint point minimization for regional estimation
+    if (regional_grav_kwargs is not None) and (
+        regional_grav_kwargs.get("regional_method") == "constraints"
+    ):
+        msg = (
+            "Using constraint points for regional field estimation. This is not "
+            "recommended as the constraint points are used for the cross-validation, "
+            "making the scoring metric meaningless. Consider using a different method "
+            "for regional field estimation."
+        )
+        logging.warning(msg)
+
     # create all possible combinations of zref and density contrast
     parameter_pairs = list(itertools.product(zref_values, density_contrast_values))  # type: ignore[arg-type]
 
