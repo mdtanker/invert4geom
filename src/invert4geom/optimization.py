@@ -536,7 +536,7 @@ def optimize_eq_source_params(
             "of values tested to ensure the best parameter value is found.",
             study.best_params.get("damping"),
             damping_limits[0],
-            damping_limits[1]
+            damping_limits[1],
         )
 
     eqs = hm.EquivalentSources(

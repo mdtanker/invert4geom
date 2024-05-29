@@ -846,7 +846,6 @@ def run_inversion(
 
     gravity = copy.deepcopy(grav_df)
 
-
     # extract variables from starting prism layer
     (
         prisms_df,
