@@ -38,11 +38,9 @@ from invert4geom import utils
 def plot_2_parameter_cv_scores(
     scores: list[float],
     parameter_pairs: list[tuple[float, float]],
-    logx: bool = False,
-    logy: bool = False,
     param_names: tuple[str, str] = ("Hyperparameter 1", "Hyperparameter 2"),
     figsize: tuple[float, float] = (5, 3.5),
-    cmap: str = "viridis",
+    cmap: str | None = None,
 ) -> None:
     """
     plot a scatter plot graph with x axis equal to parameter 1, y axis equal to
@@ -54,8 +52,6 @@ def plot_2_parameter_cv_scores(
         score values
     parameter_pairs : list[float]
         parameter values
-    logx, logy : bool, optional
-        make the x or y axes log scale, by default False
     param_names : tuple[str, str], optional
         name to give for the parameters, by default "Hyperparameter"
     figsize : tuple[float, float], optional
@@ -72,6 +68,9 @@ def plot_2_parameter_cv_scores(
     if plt is None:
         msg = "Missing optional dependency 'matplotlib' required for plotting."
         raise ImportError(msg)
+
+    if cmap is None:
+        cmap = sns.color_palette("mako", as_cmap=True)
 
     df = pd.DataFrame(
         {
@@ -92,7 +91,10 @@ def plot_2_parameter_cv_scores(
     plt.title("Two parameter cross-validation")
 
     grid = df.set_index([param_names[1], param_names[0]]).to_xarray().scores
-    grid.plot(cmap=cmap)
+    grid.plot(
+        cmap=cmap,
+        # norm=plt.Normalize(df.scores.min(), df.scores.max()),
+    )
     # plt.contourf(
     #     df[param_names[0]],
     #     df[param_names[1]],
@@ -120,10 +122,6 @@ def plot_2_parameter_cv_scores(
         loc="upper right",
     )
 
-    if logx:
-        plt.xscale("log")
-    if logy:
-        plt.yscale("log")
     plt.xlabel(param_names[0])
     plt.ylabel(param_names[1])
     # plt.colorbar()
