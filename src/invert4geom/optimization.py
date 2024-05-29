@@ -5,6 +5,7 @@ import math
 import multiprocessing
 import os
 import pathlib
+import random
 import re
 import subprocess
 import typing
@@ -14,7 +15,7 @@ import harmonica as hm
 import pandas as pd
 from nptyping import NDArray
 
-from invert4geom import utils
+from invert4geom import plotting, utils
 
 try:
     import optuna
