@@ -678,11 +678,11 @@ def plot_inversion_iteration_results(
             # plot grids
             j[row].plot(
                 ax=axes,
-                cmap=cmap,
-                norm=norm,
-                robust=robust,
-                vmin=lims[0],
-                vmax=lims[1],
+                cmap=cmap,  # pylint: disable=possibly-used-before-assignment
+                norm=norm,  # pylint: disable=possibly-used-before-assignment
+                robust=robust,  # pylint: disable=possibly-used-before-assignment
+                vmin=lims[0],  # pylint: disable=possibly-used-before-assignment
+                vmax=lims[1],  # pylint: disable=possibly-used-before-assignment
                 cbar_kwargs={
                     "orientation": "horizontal",
                     "anchor": (1, 1),
@@ -716,7 +716,7 @@ def plot_inversion_iteration_results(
     for i, (k, v) in enumerate(params.items(), start=1):
         if i <= 5:
             text1.append(f"{k}: {v}\n")
-        elif i <= 9:
+        elif i <= 11:
             text2.append(f"{k}: {v}\n")
         else:
             text3.append(f"{k}: {v}\n")
