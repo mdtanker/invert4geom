@@ -66,6 +66,7 @@ viz = [
   "matplotlib",
   "seaborn",
   "ipython",
+  "plotly",
 ]
 test = [
   "pytest >=6",
