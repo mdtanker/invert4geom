@@ -3,9 +3,17 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 import typing
 
 import numpy as np
-import optuna
 import pandas as pd
-import plotly
+
+try:
+    import optuna
+except ImportError:
+    optuna = None
+
+try:
+    import plotly
+except ImportError:
+    plotly = None
 
 try:
     from IPython.display import clear_output
@@ -1014,10 +1022,20 @@ def combined_history(
     study: typing.Any,
     target_names: list[str],
     include_duration: bool = False,
-) -> plotly.graph_objs.Figure:
+) -> typing.Any:
     """
     plot combined optimization history for multiobjective optimizations.
     """
+    # Check if optuna is installed
+    if optuna is None:
+        msg = "Missing optional dependency 'optuna' required for optimization."
+        raise ImportError(msg)
+
+    # Check if plotly is installed
+    if plotly is None:
+        msg = "Missing optional dependency 'plotly' required for plotting."
+        raise ImportError(msg)
+
     target_names = target_names.copy()
     figs = []
     for i, j in enumerate(target_names):
@@ -1116,6 +1134,11 @@ def plot_optuna_inversion_figures(
         choose to plot the parameter values vs. score for each parameter, by default
         True
     """
+    # Check if optuna is installed
+    if optuna is None:
+        msg = "Missing optional dependency 'optuna' required for optimization."
+        raise ImportError(msg)
+
     if plot_history:
         combined_history(
             study,
