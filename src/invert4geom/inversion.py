@@ -207,7 +207,7 @@ def prism_properties(
     return prisms_properties
 
 
-@numba.jit(forceobj=True, parallel=True)  # type: ignore[misc]
+# @numba.jit(forceobj=True, parallel=True)
 def jacobian_prism(
     prisms_properties: NDArray,
     grav_easting: NDArray,
