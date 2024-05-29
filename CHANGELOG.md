@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
+
+## v0.6.0 (2024-05-29)
 ### 💥 Breaking Changes
 * make gravity CV return inversion results
 
@@ -88,7 +89,6 @@ BREAKING CHANGE: make sure to switch all mentions of `input_grav` to `grav_df` i
 * enable CV progressbars by default ([`dc6646e`](https://github.com/mdtanker/invert4geom/commit/dc6646e121af29355c1ffa04308a0045bb67645f))
 ### ✏️ Formatting
 * automatic style fixes ([`4a83bdd`](https://github.com/mdtanker/invert4geom/commit/4a83bddd2a27dd96b396989834a30f869b3c7934))
-
 
 ## v0.5.0 (2024-05-07)
 ### 📦️ Build
