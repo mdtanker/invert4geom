@@ -253,9 +253,10 @@ def plot_convergence(
     ax1.tick_params(axis="y", colors="b", which="both")
 
     if iter_times is not None:
-        iter_times.insert(0, 0)
+        iteration_times = iter_times.copy()
+        iteration_times.insert(0, 0)
         ax2 = ax1.twinx()
-        ax2.plot(range(iters + 1), np.cumsum(iter_times), "g-")
+        ax2.plot(range(iters + 1), np.cumsum(iteration_times), "g-")
         ax2.set_ylabel("Cumulative time (s)", color="g")
         ax2.tick_params(axis="y", colors="g")
         ax2.grid(False)
