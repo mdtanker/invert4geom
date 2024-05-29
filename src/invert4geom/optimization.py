@@ -409,7 +409,7 @@ def optimize_eq_source_params(
     parallel: bool = False,
     fname: str | None = None,
     use_existing: bool = False,
-    # plot:bool=False,
+    plot: bool = False,
     **eq_kwargs: typing.Any,
 ) -> tuple[pd.DataFrame, hm.EquivalentSources]:
     """
@@ -533,11 +533,13 @@ def optimize_eq_source_params(
         **eq_kwargs,
     ).fit(coordinates, data, weights=eq_kwargs.get("weights"))
 
-    # if plot is True:
-    #     plotting.plot_optuna_inversion_figures(
-    #         study,
-    #         target_names=["score"],
-    #         # include_duration=True,
-    #     )
+    if plot is True:
+        plotting.plot_optuna_inversion_figures(
+            study,
+            target_names=["score"],
+            plot_history=False,
+            plot_slice=True,
+            # include_duration=True,
+        )
 
     return study_df.sort_values("value", ascending=False), eqs
