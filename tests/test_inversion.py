@@ -549,25 +549,26 @@ def test_update_l2_norms_updated_delta_l2_norm():
 
 def test_end_inversion_first_iteration():
     """
-    Test that the inversion is not terminated in the first iteration.
+    Test that the inversion is not terminated in the first iteration even if the L2 norm
+    is below the tolerance.
     """
     iteration_number = 1
     max_iterations = 100
-    l2_norm = 1.0
-    starting_l2_norm = 1.0
-    l2_norm_tolerance = 0.1
+    l2_norms = [1.0]
+    l2_norm_tolerance = 2.0
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
+    perc_increase_limit = 0.20
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
         delta_l2_norm_tolerance,
+        perc_increase_limit,
     )
     assert not end
     assert termination_reason == []
@@ -577,10 +578,9 @@ def test_end_inversion_l2_norm_increasing():
     """
     Test that the inversion is terminated when L2 norm increases beyond a limit.
     """
-    iteration_number = 2
+    iteration_number = 3
     max_iterations = 100
-    l2_norm = 1.3
-    starting_l2_norm = 1.0
+    l2_norms = [1.0, 1.15, 1.21]
     l2_norm_tolerance = 0.1
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
@@ -589,8 +589,7 @@ def test_end_inversion_l2_norm_increasing():
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
@@ -607,21 +606,21 @@ def test_end_inversion_delta_l2_norm_tolerance():
     """
     iteration_number = 2
     max_iterations = 100
-    l2_norm = 1.0
-    starting_l2_norm = 1.0
+    l2_norms = [1.0, 1.0]
     l2_norm_tolerance = 0.1
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
+    perc_increase_limit = 0.20
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
         delta_l2_norm_tolerance,
+        perc_increase_limit,
     )
     assert end
     assert "delta l2-norm tolerance" in termination_reason
@@ -633,21 +632,21 @@ def test_end_inversion_l2_norm_tolerance():
     """
     iteration_number = 2
     max_iterations = 100
-    l2_norm = 0.05
-    starting_l2_norm = 1.0
+    l2_norms = [1.0, 0.05]
     l2_norm_tolerance = 0.1
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
+    perc_increase_limit = 0.20
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
         delta_l2_norm_tolerance,
+        perc_increase_limit,
     )
     assert end
     assert "l2-norm tolerance" in termination_reason
@@ -660,21 +659,21 @@ def test_end_inversion_max_iterations():
     """
     iteration_number = 101
     max_iterations = 100
-    l2_norm = 0.5
-    starting_l2_norm = 1.0
+    l2_norms = [1.0, 0.5]
     l2_norm_tolerance = 0.1
     delta_l2_norm = 0.01
     previous_delta_l2_norm = 0.01
     delta_l2_norm_tolerance = 0.01
+    perc_increase_limit = 0.20
     end, termination_reason = inversion.end_inversion(
         iteration_number,
         max_iterations,
-        l2_norm,
-        starting_l2_norm,
+        l2_norms,
         l2_norm_tolerance,
         delta_l2_norm,
         previous_delta_l2_norm,
         delta_l2_norm_tolerance,
+        perc_increase_limit,
     )
     assert end
     assert "max iterations" in termination_reason
@@ -695,7 +694,7 @@ def test_update_gravity_and_misfit_forward_gravity():
     updated_gravity_df = inversion.update_gravity_and_misfit(
         gravity_df=gravity_df_copy,
         prisms_ds=dummy_prism_layer(),
-        input_grav_column="observed_grav",
+        grav_data_column="observed_grav",
         iteration_number=1,
     )
     # Check that 'iter_1_forward_grav' column is created
@@ -729,7 +728,7 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
     updated_gravity_df = inversion.update_gravity_and_misfit(
         gravity_df=gravity_df_copy,
         prisms_ds=dummy_prism_layer(),
-        input_grav_column="observed_grav",
+        grav_data_column="observed_grav",
         iteration_number=1,
     )
     # expected_forward_grav = [7.18, 7.18, 7.70, 7.70]
@@ -751,8 +750,8 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
 #     print(gravity_df)
 #     print(prisms_ds)
 #     results = inversion.run_inversion(
-#         input_grav=gravity_df,
-#         input_grav_column="observed_grav",
+#         grav_df=gravity_df,
+#         grav_data_column="observed_grav",
 #         prism_layer=prisms_ds,
 #         max_iterations=3,
 #     )
@@ -786,7 +785,7 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
 #     updated_gravity_df = inversion.update_gravity_and_misfit(
 #         gravity_df=gravity_df_copy,
 #         prisms_ds=dummy_prism_layer(),
-#         input_grav_column="observed_grav",
+#         grav_data_column="observed_grav",
 #         iteration_number=5,
 #     )
 #     # Check that 'iter_5_forward_grav' column is created

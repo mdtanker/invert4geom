@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing
 
 import harmonica as hm
@@ -7,7 +8,6 @@ import numpy as np
 import pandas as pd
 import pygmt
 import verde as vd
-import xarray as xr
 from nptyping import NDArray
 
 from invert4geom import optimization, utils
@@ -15,31 +15,27 @@ from invert4geom import optimization, utils
 
 def regional_dc_shift(
     grav_df: pd.DataFrame,
+    grav_data_column: str,
     dc_shift: float | None = None,
-    grav_grid: xr.DataArray | None = None,
-    constraint_points: pd.DataFrame | None = None,
-    coord_names: tuple[str, str] = ("easting", "northing"),
-    regional_col_name: str = "reg",
+    constraints_df: pd.DataFrame | None = None,
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field by applying a constant shift (DC-shift) to the gravity
-    data. If constraint points of the layer of interested are supplied, the DC shift
-    will minimize the residual misfit at these constraint points.
+    data. If constraint points of the layer of interested are supplied, the DC
+    shift will minimize the residual gravity at these constraint points.
 
     Parameters
     ----------
     grav_df : pd.DataFrame
-        gravity data with columns defined by coord_names and input_grav_name.
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
     dc_shift : float
         shift to apply to the data
-    grav_grid : xr.DataArray
-        gridded gravity misfit data
-    constraint_points : pd.DataFrame
-        a dataframe of constraint points with columns X and Y columns defined by the
-        coord_names parameter.
-    coord_names : tuple
-        names of the X and Y column names in constraint points dataframe
-    regional_col_name : str
+    constraints_df : pd.DataFrame
+        a dataframe of constraint points with columns easting and northing.
+    regional_column : str
         name for the new column in grav_df for the regional field.
 
     Returns
@@ -47,36 +43,74 @@ def regional_dc_shift(
     pd.DataFrame
         grav_df with new regional column
     """
-    if constraint_points is not None:
+
+    grav_df = grav_df.copy()
+
+    # grid the grav_df data
+    grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()[grav_data_column]
+
+    if (constraints_df is None) and (dc_shift is None):
+        msg = "need to provide either constraints_df of dc_shift"
+        raise ValueError(msg)
+
+    if constraints_df is not None:
+        if dc_shift is not None:
+            msg = (
+                "`dc_shift` parameter provide but not used since `constraints_df`"
+                "were provided."
+            )
+            logging.warning(msg)
         # get the gravity values at the constraint points
-        constraints_df = constraint_points.copy()
+        constraints_df = constraints_df.copy()
 
         # sample gravity at constraint points
         constraints_df = utils.sample_grids(
             df=constraints_df,
             grid=grav_grid,
             sampled_name="sampled_grav",
-            coord_names=coord_names,
+            coord_names=("easting", "northing"),
         )
 
-        # use RMS of sampled value for DC shift
-        dc_shift = utils.rmse(constraints_df.sampled_grav)
+        # use median of sampled value for DC shift
+        dc_shift = np.nanmedian(constraints_df.sampled_grav)
 
-    grav_df[regional_col_name] = dc_shift
+    grav_df[regional_column] = dc_shift
 
     # return the new dataframe
     return grav_df
 
 
 def regional_filter(
-    filter_width: float,
-    grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
-    regional_col_name: str = "reg",
+    grav_data_column: str,
+    filter_width: float,
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field with a low-pass filter
+
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    filter_width : float
+        width in meters to use for the low-pass filter
+    regional_column : str
+        name for the new column in grav_df for the regional field.
+
+    Returns
+    -------
+    pd.DataFrame
+        grav_df with new regional column
     """
+
+    grav_df = grav_df.copy()
+
+    # grid the grav_df data
+    grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()[grav_data_column]
+
     # get coordinate names
     original_dims = grav_grid.dims
 
@@ -90,57 +124,87 @@ def regional_filter(
     return utils.sample_grids(
         grav_df,
         regional_grid,
-        sampled_name=regional_col_name,
+        sampled_name=regional_column,
         coord_names=(original_dims[1], original_dims[0]),
     )
 
 
 def regional_trend(
-    trend: int,
-    grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
-    fill_method: str = "verde",
-    regional_col_name: str = "reg",
+    grav_data_column: str,
+    trend: int,
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field with a trend
+
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    trend : int
+        order of the polynomial trend to fit to the data
+    regional_column : str
+        name for the new column in grav_df for the regional field.
+
+    Returns
+    -------
+    pd.DataFrame
+        grav_df with new regional column
     """
-    # get coordinate names
-    original_dims = grav_grid.dims
 
-    grav_filled = utils.nearest_grid_fill(grav_grid, method=fill_method)
+    grav_df = grav_df.copy()
 
-    df = vd.grid_to_table(grav_filled).astype("float64")
     vdtrend = vd.Trend(degree=trend).fit(
-        (df[original_dims[1]], df[original_dims[0]].values),
-        df[grav_filled.name],
+        (grav_df.easting, grav_df.northing),
+        grav_df[grav_data_column],
     )
-    grav_df[regional_col_name] = vdtrend.predict(
-        (grav_df[original_dims[1]], grav_df[original_dims[0]])
+    grav_df[regional_column] = vdtrend.predict(
+        (grav_df.easting, grav_df.northing),
     )
 
     return grav_df
 
 
 def regional_eq_sources(
-    source_depth: float,
     grav_df: pd.DataFrame,
-    input_grav_name: str,
+    grav_data_column: str,
+    source_depth: float,
     eq_damping: float | None = None,
     block_size: float | None = None,
     depth_type: str = "relative",
-    input_coord_names: tuple[str, str] = ("easting", "northing"),
-    regional_col_name: str = "reg",
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field by estimating deep equivalent sources
 
-    eq_damping : float: smoothness to impose on estimated coefficients
-    block_size : float: block reduce the data to speed up
-    depth_type : str: constant depths, not relative to observation heights
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    source_depth : float
+        _description_
+    eq_damping : float | None, optional
+        smoothness to impose on estimated coefficients, by default None
+    block_size : float | None, optional
+        block reduce the data to speed up, by default None
+    depth_type : str, optional
+        sources depths are "relative" to observation heights or at a "constant" depth,
+        by default "relative"
+    regional_column : str
+        name for the new column in grav_df for the regional field.
+
+    Returns
+    -------
+    pd.DataFrame
+        grav_df with new regional column
     """
 
-    df = grav_df[grav_df[input_grav_name].notna()]
+    grav_df = grav_df[grav_df[grav_data_column].notna()].copy()
 
     # create set of deep sources
     equivalent_sources = hm.EquivalentSources(
@@ -151,48 +215,106 @@ def regional_eq_sources(
     )
 
     # fit the source coefficients to the data
-    coordinates = (df[input_coord_names[0]], df[input_coord_names[1]], df.upward)
-    equivalent_sources.fit(coordinates, df[input_grav_name])
+    coordinates = (grav_df.easting, grav_df.northing, grav_df.upward)
+    equivalent_sources.fit(coordinates, grav_df[grav_data_column])
 
     # use sources to predict the regional field at the observation points
-    df[regional_col_name] = equivalent_sources.predict(coordinates)
+    grav_df[regional_column] = equivalent_sources.predict(coordinates)
 
-    return df
+    return grav_df
 
 
 def regional_constraints(
-    constraint_points: pd.DataFrame,
-    grav_grid: xr.DataArray,
     grav_df: pd.DataFrame,
-    region: tuple[float, float, float, float],
-    spacing: float,
+    grav_data_column: str,
+    constraints_df: pd.DataFrame,
     tension_factor: float = 1,
     registration: str = "g",
     constraint_block_size: float | None = None,
-    grid_method: str = "pygmt",
+    grid_method: str = "verde",
     dampings: typing.Any | None = None,
     delayed: bool = False,
     constraint_weights_col: str | None = None,
     eqs_gridding_trials: int = 10,
     eqs_gridding_damping_lims: tuple[float, float] = (0.1, 100),
     eqs_gridding_depth_lims: tuple[float, float] = (1e3, 100e3),
+    eqs_gridding_parallel: bool = False,
+    eqs_gridding_plot: bool = False,
     force_coords: tuple[pd.Series | NDArray, pd.Series | NDArray] | None = None,
-    regional_col_name: str = "reg",
+    grav_obs_height: float | None = None,
+    regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
     separate the regional field by sampling and regridding at the constraint points
-    """
-    # get coordinate names
-    original_dims = grav_grid.dims
 
-    constraints_df = constraint_points.copy()
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data with coordinate columns "easting" and "northing" and gravity data
+        column set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    constraints_df : pd.DataFrame
+        dataframe of constraints with columns "easting", "northing", and "upward".
+    tension_factor : float, optional
+        Tension factor used if `grid_method` is "pygmt", by default 1
+    registration : str, optional
+       grid registration used if `grid_method` is "pygmt",, by default "g"
+    constraint_block_size : float | None, optional
+        size of block used in a block-mean reduction of the constraints points, by
+        default None
+    grid_method : str, optional
+        method used to grid the sampled gravity data at the constraint points. Choose
+        between "verde", "pygmt", or "eq_sources", by default "verde"
+    dampings : typing.Any | None, optional
+        damping values used if `grid_method` is "verde", by default None
+    delayed : bool, optional
+        whether to parallelize the gridding if `grid_method` is "verde", by default
+        False
+    constraint_weights_col : str | None, optional
+       column name for weighting values of each constraint point. Used if
+       `constraint_block_size` is not None or if `grid_method` is "verde", by default
+       None
+    eqs_gridding_trials : int, optional
+        Number of trials to be performed if `grid_method` is "eq_sources", by default 10
+    eqs_gridding_damping_lims : tuple[float, float], optional
+        Damping limits to be used if `grid_method` is "eq_sources", by default
+        (0.1, 100)
+    eqs_gridding_depth_lims : tuple[float, float], optional
+       Depth limits to be used if `grid_method` is "eq_sources", by default (1e3, 100e3)
+    grav_obs_height : float, optional
+        Observation height to use if `grid_method` is "eq_sources", by default None
+    force_coords : tuple[pd.Series  |  NDArray, pd.Series  |  NDArray] | None, optional
+        Optionally forced coordinates to use if `grid_method` is "eq_sources", by
+        default None
+    regional_column : str
+        name for the new column in grav_df for the regional field, by default "reg"
+
+    Returns
+    -------
+    pd.DataFrame
+        grav_df with new regional column
+    """
+
+    if constraints_df is None:
+        msg = "need to provide constraints_df"
+        raise ValueError(msg)
+
+    grav_df = grav_df.copy()
+    constraints_df = constraints_df.copy()
+
+    region = vd.get_region((grav_df.easting, grav_df.northing))
+    spacing = utils.get_spacing(grav_df)
+
+    # grid the grav_df data
+    grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()[grav_data_column]
 
     # sample gravity at constraint points
     constraints_df = utils.sample_grids(
         df=constraints_df,
         grid=grav_grid,
         sampled_name="sampled_grav",
-        coord_names=(original_dims[1], original_dims[0]),
+        coord_names=("easting", "northing"),
         no_skip=True,
         verbose="q",
     )
@@ -215,14 +337,14 @@ def regional_constraints(
 
         coordinates, data, weights = blockmean.filter(
             coordinates=(
-                constraints_df[original_dims[1]],
-                constraints_df[original_dims[0]],
+                constraints_df["easting"],
+                constraints_df["northing"],
             ),
             data=constraints_df.sampled_grav,
             weights=weights,
         )
         # add reduced coordinates to a dictionary
-        coord_cols = dict(zip([original_dims[1], original_dims[0]], coordinates))
+        coord_cols = dict(zip(["easting", "northing"], coordinates))
 
         # add reduced data to a dictionary
         if constraint_weights_col is None:
@@ -235,7 +357,7 @@ def regional_constraints(
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
         regional_grav = pygmt.surface(
-            data=constraints_df[[original_dims[1], original_dims[0], "sampled_grav"]],
+            data=constraints_df[["easting", "northing", "sampled_grav"]],
             region=region,
             spacing=spacing,
             registration=registration,
@@ -255,8 +377,8 @@ def regional_constraints(
 
         spline = utils.best_spline_cv(
             coordinates=(
-                constraints_df[original_dims[1]],
-                constraints_df[original_dims[0]],
+                constraints_df.easting,
+                constraints_df.northing,
             ),
             data=constraints_df.sampled_grav,
             weights=weights,
@@ -268,11 +390,10 @@ def regional_constraints(
         regional_grav = spline.grid(region=region, spacing=spacing).scalars
 
     elif grid_method == "eq_sources":
-        # pass
         coords = (
-            constraints_df[original_dims[1]],
-            constraints_df[original_dims[0]],
-            np.ones_like(constraints_df[original_dims[1]]) * 1e3,  # grav obs height
+            constraints_df.easting,
+            constraints_df.northing,
+            np.ones_like(constraints_df.easting) * grav_obs_height,
         )
         if constraint_weights_col is None:
             weights = None
@@ -288,8 +409,8 @@ def regional_constraints(
             n_trials=eqs_gridding_trials,
             damping_limits=eqs_gridding_damping_lims,
             depth_limits=eqs_gridding_depth_lims,
-            plot=False,
-            parallel=True,
+            plot=eqs_gridding_plot,
+            parallel=eqs_gridding_parallel,
             weights=weights,
         )
 
@@ -310,7 +431,88 @@ def regional_constraints(
     return utils.sample_grids(
         df=grav_df,
         grid=regional_grav,
-        sampled_name=regional_col_name,
-        coord_names=(original_dims[1], original_dims[0]),
+        sampled_name=regional_column,
+        coord_names=("easting", "northing"),
         verbose="q",
     )
+
+
+def regional_separation(
+    method: str,
+    grav_df: pd.DataFrame,
+    grav_data_column: str,
+    regional_column: str = "reg",
+    **kwargs: typing.Any,
+) -> pd.DataFrame:
+    """
+    Separate the regional field from the gravity data using the specified method
+    and return the dataframe with a new column for the regional field.
+
+    Parameters
+    ----------
+    method : str
+        choose method to apply; one of "constant", "dc_shift", "filter", "trend",
+        "eq_sources", "constraints".
+    grav_df : pd.DataFrame
+        gravity data with columns "easting", "northing" and set by grav_data_column.
+    grav_data_column: str,
+        column name for the gravity data
+    regional_column : str, optional
+        name to use for new regional gravity column, by default "reg"
+    **kwargs : typing.Any
+        additional keyword arguments for the specified method.
+
+    Returns
+    -------
+    pd.DataFrame
+        updated dataframe with new regional gravity column
+    """
+    grav_df = grav_df.copy()
+
+    kwargs = kwargs.copy()
+
+    if method == "constant":
+        constant = kwargs.get("constant", None)
+        if constant is None:
+            msg = "constant value not provided"
+            raise ValueError(msg)
+
+        grav_df[regional_column] = constant
+        return grav_df
+    if method == "dc_shift":
+        return regional_dc_shift(
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    if method == "filter":
+        return regional_filter(
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    if method == "trend":
+        return regional_trend(
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    if method == "eq_sources":
+        return regional_eq_sources(
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    if method == "constraints":
+        return regional_constraints(
+            grav_data_column=grav_data_column,
+            grav_df=grav_df,
+            regional_column=regional_column,
+            **kwargs,
+        )
+    msg = "invalid string for regional method"
+    raise ValueError(msg)

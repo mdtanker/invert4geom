@@ -5,6 +5,7 @@ import math
 import multiprocessing
 import os
 import pathlib
+import random
 import re
 import subprocess
 import typing
@@ -14,7 +15,7 @@ import harmonica as hm
 import pandas as pd
 from nptyping import NDArray
 
-from invert4geom import utils
+from invert4geom import plotting, utils
 
 try:
     import optuna
@@ -407,9 +408,9 @@ def optimize_eq_source_params(
     depth_limits: tuple[float, float] = (0, 10e6),
     sampler: optuna.samplers.BaseSampler | None = None,
     parallel: bool = False,
-    fname: str = "tmp",
+    fname: str | None = None,
     use_existing: bool = False,
-    # plot:bool=False,
+    plot: bool = False,
     **eq_kwargs: typing.Any,
 ) -> tuple[pd.DataFrame, hm.EquivalentSources]:
     """
@@ -434,7 +435,8 @@ def optimize_eq_source_params(
     parallel : bool, optional
         if True, will run the trials in parallel, by default False
     fname : str, optional
-        path and filename to save the study results, by default "tmp"
+        path and filename to save the study results, by default "tmp" with a random
+        number attached
     use_existing : bool, optional
         if True, will continue a previously starting optimization, by default False
 
@@ -447,6 +449,10 @@ def optimize_eq_source_params(
     if optuna is None:
         msg = "Missing optional dependency 'optuna' required for optimization."
         raise ImportError(msg)
+
+    # set file name for saving results with random number between 0 and 999
+    if fname is None:
+        fname = f"tmp_{random.randint(0,999)}"
 
     # set name and storage for the optimization
     study_name = fname
@@ -522,17 +528,30 @@ def optimize_eq_source_params(
     logging.info("Best trial: %s", study.best_trial.number)
     logging.info("Best score: %s", study.best_trial.value)
 
+    if study.best_params.get("damping") in [damping_limits[0], damping_limits[1]]:
+        logging.warning(
+            "Best damping value (%s) is at the limit of provided "
+            "values (%s, %s) and thus is likely not a global minimum, expand the "
+            "range "
+            "of values tested to ensure the best parameter value is found.",
+            study.best_params.get("damping"),
+            damping_limits[0],
+            damping_limits[1],
+        )
+
     eqs = hm.EquivalentSources(
         damping=study.best_params.get("damping"),
         depth=study.best_params.get("depth"),
         **eq_kwargs,
     ).fit(coordinates, data, weights=eq_kwargs.get("weights"))
 
-    # if plot is True:
-    #     plotting.plot_optuna_inversion_figures(
-    #         study,
-    #         target_names=["score"],
-    #         # include_duration=True,
-    #     )
+    if plot is True:
+        plotting.plot_optuna_inversion_figures(
+            study,
+            target_names=["score"],
+            plot_history=False,
+            plot_slice=True,
+            # include_duration=True,
+        )
 
     return study_df.sort_values("value", ascending=False), eqs

@@ -263,7 +263,7 @@ def test_normalize_xarray_range():
     Ensure the output is within the [low, high] range.
     """
     data = np.array([1, 2, 3, 4, 5])
-    da = xr.DataArray(data, dims="x")
+    da = xr.DataArray(data, dims="easting")
     da_normalized = utils.normalize_xarray(da, low=2, high=5)
     assert da_normalized.min() >= 2
     assert da_normalized.max() <= 5
@@ -274,7 +274,7 @@ def test_normalize_xarray_values():
     Ensure the normalized data matches the expected values.
     """
     data = np.array([1, 2, 3, 4, 5])
-    da = xr.DataArray(data, dims="x")
+    da = xr.DataArray(data, dims="easting")
     da_normalized = utils.normalize_xarray(da, low=0, high=1)
     expected_values = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
     npt.assert_array_almost_equal(da_normalized.values, expected_values, decimal=6)
@@ -285,7 +285,7 @@ def test_normalize_xarray_negative_values():
     Ensure the function handles negative values correctly.
     """
     data = np.array([-5, 0, 5])
-    da = xr.DataArray(data, dims="x")
+    da = xr.DataArray(data, dims="easting")
     da_normalized = utils.normalize_xarray(da, low=0, high=1)
     expected_values = np.array([0.0, 0.5, 1.0])
     npt.assert_array_almost_equal(da_normalized.values, expected_values, decimal=6)
@@ -296,7 +296,7 @@ def test_normalize_xarray_custom_range():
     Ensure the function handles a custom low and high range correctly.
     """
     data = np.array([10, 20, 30])
-    da = xr.DataArray(data, dims="x")
+    da = xr.DataArray(data, dims="easting")
     da_normalized = utils.normalize_xarray(da, low=-1, high=1)
     expected_values = np.array([-1.0, 0.0, 1.0])
     npt.assert_array_almost_equal(da_normalized.values, expected_values, decimal=6)
@@ -307,12 +307,16 @@ def test_normalized_mindist_defaults():
     test the normalized_mindist function
     """
     # create 2 constraint points
-    points = pd.DataFrame({"x": [0, 2], "y": [0, -1]})
+    points = pd.DataFrame({"easting": [0, 2], "northing": [0, -1]})
     # create dataarray
     df = pd.DataFrame(
-        {"x": [-4, 4, 0, 4, -4], "y": [-4, 4, 0, -4, 4], "z": [0, 1, 2, 3, 4]}
+        {
+            "easting": [-4, 4, 0, 4, -4],
+            "northing": [-4, 4, 0, -4, 4],
+            "z": [0, 1, 2, 3, 4],
+        }
     )
-    da = df.set_index(["y", "x"]).to_xarray().z
+    da = df.set_index(["northing", "easting"]).to_xarray().z
     # calculate the min distance with defaults
     min_dist = utils.normalized_mindist(
         points=points,
@@ -335,12 +339,16 @@ def test_normalized_mindist_mindist():
     parameter `mindist`.
     """
     # create 2 constraint points
-    points = pd.DataFrame({"x": [0, 2], "y": [0, -1]})
+    points = pd.DataFrame({"easting": [0, 2], "northing": [0, -1]})
     # create dataarray
     df = pd.DataFrame(
-        {"x": [-4, 4, 0, 4, -4], "y": [-4, 4, 0, -4, 4], "z": [0, 1, 2, 3, 4]}
+        {
+            "easting": [-4, 4, 0, 4, -4],
+            "northing": [-4, 4, 0, -4, 4],
+            "z": [0, 1, 2, 3, 4],
+        }
     )
-    da = df.set_index(["y", "x"]).to_xarray().z
+    da = df.set_index(["northing", "easting"]).to_xarray().z
 
     # calculate the min distance with mindist value of 4
     min_dist = utils.normalized_mindist(
@@ -363,12 +371,16 @@ def test_normalized_mindist_region():
     test the normalized_mindist function with region parameter
     """
     # create 2 constraint points
-    points = pd.DataFrame({"x": [0, 2], "y": [0, -1]})
+    points = pd.DataFrame({"easting": [0, 2], "northing": [0, -1]})
     # create dataarray
     df = pd.DataFrame(
-        {"x": [-4, 4, 0, 4, -4], "y": [-4, 4, 0, -4, 4], "z": [0, 1, 2, 3, 4]}
+        {
+            "easting": [-4, 4, 0, 4, -4],
+            "northing": [-4, 4, 0, -4, 4],
+            "z": [0, 1, 2, 3, 4],
+        }
     )
-    da = df.set_index(["y", "x"]).to_xarray().z
+    da = df.set_index(["northing", "easting"]).to_xarray().z
     # calculate the min distance and points outside region set to 0
     min_dist = utils.normalized_mindist(
         points=points,
@@ -387,12 +399,16 @@ def test_normalized_mindist_high_low():
     test the normalized_mindist function with set high and low values
     """
     # create 2 constraint points
-    points = pd.DataFrame({"x": [0, 2], "y": [0, -1]})
+    points = pd.DataFrame({"easting": [0, 2], "northing": [0, -1]})
     # create dataarray
     df = pd.DataFrame(
-        {"x": [-4, 4, 0, 4, -4], "y": [-4, 4, 0, -4, 4], "z": [0, 1, 2, 3, 4]}
+        {
+            "easting": [-4, 4, 0, 4, -4],
+            "northing": [-4, 4, 0, -4, 4],
+            "z": [0, 1, 2, 3, 4],
+        }
     )
-    da = df.set_index(["y", "x"]).to_xarray().z
+    da = df.set_index(["northing", "easting"]).to_xarray().z
     # calculate the min distance with normalizing limits
     min_dist = utils.normalized_mindist(
         points=points,
@@ -411,12 +427,12 @@ def test_sample_grids_on_nodes():
     """
     grid = dummy_grid().scalars
     name = "sampled_data"
-    df = pd.DataFrame({"x": [0, 100, 200], "y": [200, 300, 400]})
+    df = pd.DataFrame({"easting": [0, 100, 200], "northing": [200, 300, 400]})
     result_df = utils.sample_grids(df, grid, sampled_name=name)
     expected = pd.DataFrame(
         {
-            "x": [0, 100, 200],
-            "y": [200, 300, 400],
+            "easting": [0, 100, 200],
+            "northing": [200, 300, 400],
             name: [40000, 100000, 200000],
         },
     )
@@ -433,10 +449,10 @@ def test_sample_grids_off_nodes():
     """
     grid = dummy_grid().scalars
     name = "sampled_data"
-    df = pd.DataFrame({"x": [50, 101], "y": [280, 355]})
+    df = pd.DataFrame({"easting": [50, 101], "northing": [280, 355]})
     result_df = utils.sample_grids(df, grid, sampled_name=name)
     expected = pd.DataFrame(
-        {"x": [50, 101], "y": [280, 355], name: [83790.0, 138949.640109]}
+        {"easting": [50, 101], "northing": [280, 355], name: [83790.0, 138949.640109]}
     )
     pdt.assert_frame_equal(
         result_df,
@@ -477,7 +493,7 @@ def test_sample_grids_one_out_of_grid_coordinates():
     """
     grid = dummy_grid().scalars
     name = "sampled_data"
-    df = pd.DataFrame({"x": [0, -1000, 200], "y": [200, -1000, 400]})
+    df = pd.DataFrame({"easting": [0, -1000, 200], "northing": [200, -1000, 400]})
     result_df = utils.sample_grids(df, grid, sampled_name=name)
     assert np.isnan(result_df[name].iloc[1])
 
@@ -489,7 +505,7 @@ def test_sample_grids_first_out_of_grid_coordinates():
     """
     grid = dummy_grid().scalars
     name = "sampled_data"
-    df = pd.DataFrame({"x": [-50, 150, 200], "y": [500, 350, 400]})
+    df = pd.DataFrame({"easting": [-50, 150, 200], "northing": [500, 350, 400]})
     result_df = utils.sample_grids(df, grid, sampled_name=name)
     assert np.isnan(result_df[name].iloc[0])
 
@@ -501,7 +517,7 @@ def test_sample_grids_last_out_of_grid_coordinates():
     """
     grid = dummy_grid().scalars
     name = "sampled_data"
-    df = pd.DataFrame({"x": [200, 150, 0], "y": [200, 350, 0]})
+    df = pd.DataFrame({"easting": [200, 150, 0], "northing": [200, 350, 0]})
     result_df = utils.sample_grids(df, grid, sampled_name=name)
     assert np.isnan(result_df[name].iloc[2])
 
@@ -513,7 +529,7 @@ def test_sample_grids_all_out_of_grid_coordinates_all():
     """
     grid = dummy_grid().scalars
     name = "sampled_data"
-    points = pd.DataFrame({"x": [-100, -200, -300], "y": [500, 1000, 600]})
+    points = pd.DataFrame({"easting": [-100, -200, -300], "northing": [500, 1000, 600]})
     result_df = utils.sample_grids(points, grid, sampled_name=name)
     assert result_df[name].isnull().all()  # All values should be NaN
 
@@ -545,14 +561,18 @@ def test_sample_bounding_surfaces_valid_values():
     Ensure that correct values are sampled, including a NaN
     """
     lower_confining_layer = dummy_grid().scalars
-    points = pd.DataFrame({"x": [0, -100, 200], "y": [200, -300, 400]})
+    points = pd.DataFrame({"easting": [0, -100, 200], "northing": [200, -300, 400]})
     result_df = utils.sample_grids(
         points,
         lower_confining_layer,
         sampled_name="sampled",
     )
     expected = pd.DataFrame(
-        {"x": [0, -100, 200], "y": [200, -300, 400], "sampled": [40000, np.nan, 200000]}
+        {
+            "easting": [0, -100, 200],
+            "northing": [200, -300, 400],
+            "sampled": [40000, np.nan, 200000],
+        }
     )
     pdt.assert_frame_equal(result_df, expected)
 

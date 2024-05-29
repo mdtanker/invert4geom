@@ -89,6 +89,9 @@ def nearest_grid_fill(
         )
     # elif method == "pygmt":
     #     filled = pygmt.grdfill(grid, mode="n", verbose="q").rename(original_name)
+    else:
+        msg = "method must be 'rioxarray', or 'verde'"
+        raise ValueError(msg)
 
     # reset coordinate names if changed
     with warnings.catch_warnings():
@@ -331,10 +334,10 @@ def normalized_mindist(
     # get coordinate names
     original_dims = list(grid.sizes.keys())
 
-    constraint_points = points.copy()
+    constraints_df = points.copy()
 
     min_dist: xr.DataArray = dist_nearest_points(
-        targets=constraint_points,
+        targets=constraints_df,
         data=grid,
         coord_names=(str(original_dims[1]), str(original_dims[0])),
     ).min_dist
@@ -405,7 +408,7 @@ def sample_grids(
     # reset the index
     df3 = df2.reset_index()
 
-    x, y = kwargs.get("coord_names", ("x", "y"))
+    x, y = kwargs.get("coord_names", ("easting", "northing"))
     # get points to sample at
     points = df3[[x, y]].copy()
 
@@ -735,6 +738,124 @@ def add_updated_prism_properties(
     return df
 
 
+def create_topography(
+    method: str,
+    region: tuple[float, float, float, float],
+    spacing: float,
+    registration: str = "g",
+    upwards: float | None = None,
+    constraints_df: pd.DataFrame | None = None,
+    dampings: list[float] | None = None,
+) -> xr.DataArray:
+    """
+    Create a grid of topography data from either the interpolation of point data or
+    creating a grid of constant value.
+
+    Parameters
+    ----------
+    method : str
+        method to use, either 'flat' or 'splines'
+    region : tuple[float, float, float, float]
+        region of the grid
+    spacing : float
+        spacing of the grid
+    registration : str, optional
+        choose between gridline "g" or pixel "p" registration, by default "g"
+    upwards : float | None, optional
+        constant value to use for method "flat", by default None
+    constraints_df : pd.DataFrame | None, optional
+        dataframe with column 'upwards' to use for method "splines", by default None
+    dampings : list[float] | None, optional
+        damping values to use in spline cross validation for method "spline", by
+        default None
+
+    Returns
+    -------
+    xr.DataArray
+        a topography grid
+    """
+    if dampings is None:
+        dampings = np.logspace(-10, 0, 20)
+
+    if method == "flat":
+        if registration == "g":
+            pixel_register = False
+        elif registration == "p":
+            pixel_register = True
+        else:
+            msg = "registration must be 'g' or 'p'"
+            raise ValueError(msg)
+
+        if upwards is None:
+            msg = "upwards must be provided if method is `flat`"
+            raise ValueError(msg)
+
+        # create grid of coordinates
+        (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+            region=region,
+            spacing=spacing,
+            pixel_register=pixel_register,
+        )
+        # make flat topography of value = upwards
+        return vd.make_xarray_grid(
+            (x, y),
+            np.ones_like(x) * upwards,
+            data_names="upward",
+            dims=("northing", "easting"),
+        ).upward
+
+    if method == "splines":
+        # get coordinates of the constraint points
+        if constraints_df is None:
+            msg = "constraints_df must be provided if method is `splines`"
+            raise ValueError(msg)
+        coords = (constraints_df.easting, constraints_df.northing)
+
+        # create a cross validated spline with default values
+        spline = vd.SplineCV(dampings=dampings)
+
+        # fit the spline to the constraint points
+        try:
+            spline.fit(
+                coordinates=coords,
+                data=constraints_df.upward,
+            )
+        except ValueError as e:
+            logging.warning(e)
+            spline = vd.Spline()
+            spline.fit(
+                coordinates=coords,
+                data=constraints_df.upward,
+            )
+            return spline.grid(
+                region=region,
+                spacing=spacing,
+            ).scalars
+
+        try:
+            if spline.damping_ in [np.min(dampings), np.max(dampings)]:
+                logging.warning(
+                    "Warning: best damping parameter (%s) for verde.SplineCV() is at "
+                    "the limit of provided values (%s, %s) and thus is likely not a "
+                    "global minimum, expand the range of values with 'dampings' to "
+                    "ensure the best damping value is found.",
+                    spline.damping_,
+                    np.nanmin(dampings),
+                    np.nanmax(dampings),
+                )
+        except TypeError:
+            pass
+
+        # grid the fitted spline at desired spacing and region
+        return spline.grid(
+            region=region,
+            spacing=spacing,
+        ).scalars
+
+    msg = "method must be 'flat' or 'splines'"
+    raise ValueError(msg)
+
+
 def grids_to_prisms(
     surface: xr.DataArray,
     reference: float | xr.DataArray,
@@ -829,7 +950,7 @@ def best_spline_cv(
     """
     if isinstance(dampings, (float, int)):
         dampings = [dampings]
-    assert isinstance(dampings, list)
+
     # if dampings is None:
     #     dampings = list(np.logspace(-10, -2, num=9))
     #     dampings.append(None)
@@ -855,17 +976,20 @@ def best_spline_cv(
     logging.info("Best damping: %s", spline.damping_)
 
     try:
-        if len(dampings) > 2 and spline.damping_ in [
+        if len(dampings) > 2 and spline.damping_ in [  # type: ignore [arg-type]
             np.min(dampings),
             np.max(dampings),
         ]:
-            warnings.warn(
-                f"Warning: best damping parameter ({spline.damping_}) for "
-                "verde.SplineCV() is at the limit of provided values "
-                f"({np.nanmin(dampings), np.nanmax(dampings)}) and thus is likely "
-                f"not a global minimum, expand the range of values with 'dampings'",
-                stacklevel=2,
+            logging.warning(
+                "Warning: best damping parameter (%s) for verde.SplineCV() is at the "
+                "limit of provided values (%s, %s) and thus is likely not a global "
+                "minimum, expand the range of values with 'dampings' to ensure the best"
+                " damping value is found.",
+                spline.damping_,
+                np.nanmin(dampings),
+                np.nanmax(dampings),
             )
+
     except TypeError:
         pass
 
