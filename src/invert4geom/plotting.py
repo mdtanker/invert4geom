@@ -1025,6 +1025,20 @@ def combined_history(
 ) -> typing.Any:
     """
     plot combined optimization history for multiobjective optimizations.
+
+    Parameters
+    ----------
+    study : typing.Any
+        the optuna study object
+    target_names : list[str]
+        list of names for parameters in the study
+    include_duration : bool, optional
+        whether to add the duration to the plot, by default False
+
+    Returns
+    -------
+    typing.Any
+        a plotly figure
     """
     # Check if optuna is installed
     if optuna is None:

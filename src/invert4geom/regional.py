@@ -250,37 +250,45 @@ def regional_constraints(
     Parameters
     ----------
     grav_df : pd.DataFrame
-        gravity data with columns "easting", "northing" and set by grav_data_column.
+        gravity data with coordinate columns "easting" and "northing" and gravity data
+        column set by grav_data_column.
     grav_data_column: str,
         column name for the gravity data
     constraints_df : pd.DataFrame
         dataframe of constraints with columns "easting", "northing", and "upward".
     tension_factor : float, optional
-        _description_, by default 1
+        Tension factor used if `grid_method` is "pygmt", by default 1
     registration : str, optional
-        _description_, by default "g"
+       grid registration used if `grid_method` is "pygmt",, by default "g"
     constraint_block_size : float | None, optional
-        _description_, by default None
+        size of block used in a block-mean reduction of the constraints points, by
+        default None
     grid_method : str, optional
-        _description_, by default "verde"
+        method used to grid the sampled gravity data at the constraint points. Choose
+        between "verde", "pygmt", or "eq_sources", by default "verde"
     dampings : typing.Any | None, optional
-        _description_, by default None
+        damping values used if `grid_method` is "verde", by default None
     delayed : bool, optional
-        _description_, by default False
+        whether to parallelize the gridding if `grid_method` is "verde", by default
+        False
     constraint_weights_col : str | None, optional
-        _description_, by default None
+       column name for weighting values of each constraint point. Used if
+       `constraint_block_size` is not None or if `grid_method` is "verde", by default
+       None
     eqs_gridding_trials : int, optional
-        _description_, by default 10
+        Number of trials to be performed if `grid_method` is "eq_sources", by default 10
     eqs_gridding_damping_lims : tuple[float, float], optional
-        _description_, by default (0.1, 100)
+        Damping limits to be used if `grid_method` is "eq_sources", by default
+        (0.1, 100)
     eqs_gridding_depth_lims : tuple[float, float], optional
-        _description_, by default (1e3, 100e3)
+       Depth limits to be used if `grid_method` is "eq_sources", by default (1e3, 100e3)
     grav_obs_height : float, optional
-        _description_, by default None
+        Observation height to use if `grid_method` is "eq_sources", by default None
     force_coords : tuple[pd.Series  |  NDArray, pd.Series  |  NDArray] | None, optional
-        _description_, by default None
+        Optionally forced coordinates to use if `grid_method` is "eq_sources", by
+        default None
     regional_column : str
-        name for the new column in grav_df for the regional field.
+        name for the new column in grav_df for the regional field, by default "reg"
 
     Returns
     -------

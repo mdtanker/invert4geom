@@ -400,14 +400,7 @@ def solver(
         array of gravity residuals
     damping : float | None, optional
         positive damping (Tikhonov 0th order) regularization
-    solver_type : {
-        'verde least squares',
-        'scipy least squares',
-        'scipy conjugate',
-        'numpy least squares',
-        'steepest descent',
-        'gauss newton',
-        } optional
+    solver_type : {'scipy least squares'} optional
         choose which solving method to use, by default "scipy least squares"
 
     Returns
@@ -710,9 +703,8 @@ def update_gravity_and_misfit(
     ----------
     gravity_df : pd.DataFrame
         gravity dataframe with gravity observation coordinate columns ('easting',
-        'northing', 'upwards'), a gravity data column, set by `grav_data_column`,
+        'northing'), a gravity data column, set by `grav_data_column`,
         and a regional gravity column ('reg').
-
     prisms_ds : xr.Dataset
         harmonica prism layer
     grav_data_column : str
@@ -786,8 +778,8 @@ def run_inversion(
     ----------
     grav_df : pd.DataFrame
         dataframe with gravity data and coordinates, must have columns "res" and "reg"
-        for residual and regional gravity, and coordinate columns "easting", "northing",
-        and "upward".
+        for residual and regional gravity, and coordinate columns "easting" and
+        "northing".
     grav_data_column : str
         Column name containing the gravity anomaly data used to calculate the misfit.
         This is typically a Topo-Free Disturbance (Complete Bouguer Anomaly).
@@ -1096,22 +1088,40 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
     Parameters
     ----------
+    grav_df : pd.DataFrame
+        gravity dataframe with gravity data, must have coordinate columns "easting", and
+        "northing". It must also have a gravity data column specified by kwarg
+        `grav_data_column`. Optionally should have columns "starting_grav", "misfit",
+        "reg", "res".
     create_starting_topography : bool, optional
-        _description_, by default False
+        Choose whether to create starting topography model. If True, must provide
+        `starting_topography_kwargs`, if False must provide `starting_topography by
+        default False
     create_starting_prisms : bool, optional
-        _description_, by default False
+        Choose whether to create starting prisms model. If False, must provide prisms
+        model, by default False
     calculate_starting_gravity : bool, optional
-        _description_, by default False
+        Choose whether to calculate starting gravity from prisms model. If False, must
+        provide column "starting_gravity" in grav_df , by default False
     calculate_gravity_misfit : bool, optional
-        _description_, by default False
+        Choose whether to calculate gravity misfit. If False, must provide column
+        "misfit" in grav_df, by default False
     calculate_regional_misfit : bool, optional
-        _description_, by default False
+        Choose whether to calculate regional misfit. If False, must provide column "reg"
+        in grav_df, if True, must provide`regional_grav_kwargs`, by default False
     run_damping_cv : bool, optional
-        _description_, by default False
+        Choose whether to run cross validation for damping, if True, must supplied
+        damping values with kwarg `damping_values`, by default False
     run_zref_or_density_cv : bool, optional
-        _description_, by default False
+        Choose whether to run cross validation for zref or density, if True, must
+        provide zref values, density values, or both  with kwargs `zref_values` or `
+        density_values`, by default False
     plot_cv : bool, optional
-        _description_, by default False
+        Choose whether to plot the cross validation results, by default False
+    kwargs : typing.Any
+        keyword arguments for the workflow and inversion, such as
+        `starting_topography_kwargs`, `regional_grav_kwargs`, and all the other kwargs
+        supplied to `run_inversion`.
 
     Returns
     -------
@@ -1120,8 +1130,6 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         gravity: pd.DataFrame, gravity anomalies for each iteration,
         params: dict, Properties of the inversion such as kwarg values,
         elapsed_time: float, time in seconds for the inversion to run
-
-
     """
 
     kwargs = kwargs.copy()

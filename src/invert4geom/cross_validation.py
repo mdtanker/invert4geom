@@ -476,21 +476,27 @@ def zref_density_optimal_parameter(
     Parameters
     ----------
     grav_df : pd.DataFrame
-        _description_
+        dataframe with gravity data and coordinates, must have coordinate columns
+        "easting", "northing", and "upward", and gravity data column defined by kwarg
+        "grav_data_column".
     constraints_df : pd.DataFrame
-        _description_
+        dataframe with points where the topography of interest has been previously
+        measured, must have coordinate columns "easting", "northing", and "upward".
     starting_topography : xr.DataArray,optional
-        _description_
+        starting topography to use to create the starting prism model. If not supplied,
+        starting_topography_kwargs must be provided to create the starting topography.
+        By default None.
     zref_values : list[float] | None, optional
-        _description_, by default None
+        Reference level values to test, by default None
     density_contrast_values : list[float] | None, optional
-        _description_, by default None
+        Density contrast values to test, by default None
     starting_topography_kwargs : dict[str, typing.Any] | None, optional
-        _description_, by default None
+        Keywords used to create the starting topography, by default None
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
-        _description_, by default None
+        Keywords used to calculate the regional field, by default None
     rmse_as_median : bool, optional
-        _description_, by default False
+        Use the median instead of the root mean square as the scoring metric, by default
+        False
     progressbar : bool, optional
         display a progress bar for the number of tested values, by default True
     plot_cv : bool, optional
