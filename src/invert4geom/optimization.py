@@ -527,6 +527,17 @@ def optimize_eq_source_params(
     logging.info("Best trial: %s", study.best_trial.number)
     logging.info("Best score: %s", study.best_trial.value)
 
+    if study.best_params.get("damping") in [damping_limits[0], damping_limits[1]]:
+        logging.warning(
+            "Best damping value (%s) is at the limit of provided "
+            "values (%s, %s) and thus is likely not a global minimum, expand the "
+            "range "
+            "of values tested to ensure the best parameter value is found.",
+            study.best_params.get("damping"),
+            damping_limits[0],
+            damping_limits[1]
+        )
+
     eqs = hm.EquivalentSources(
         damping=study.best_params.get("damping"),
         depth=study.best_params.get("depth"),
