@@ -55,7 +55,7 @@ def test_regional_dc_shift_constraints():
 
     df = regional.regional_dc_shift(
         grav_df=grav_df,
-        grav_data_column="grav",
+        grav_data_column="misfit",
         constraints_df=points,
         regional_column="reg",
     )
@@ -78,7 +78,7 @@ def test_regional_dc_shift():
 
     df = regional.regional_dc_shift(
         grav_df=grav_df,
-        grav_data_column="grav",
+        grav_data_column="misfit",
         dc_shift=-200,
         regional_column="reg",
     )
@@ -97,7 +97,7 @@ def test_regional_trend(trend):
     df = regional.regional_trend(
         trend=trend,
         grav_df=anomalies,
-        grav_data_column="grav",
+        grav_data_column="misfit",
     )
 
     # grid = df.set_index(["northing", "easting"]).to_xarray()
@@ -138,7 +138,7 @@ def test_regional_filter():
     df = regional.regional_filter(
         filter_width=300e3,
         grav_df=grav_df,
-        grav_data_column="grav",
+        grav_data_column="misfit",
         # registration="g",
     )
 
@@ -219,9 +219,10 @@ def test_regional_constraints(test_input):
     df = regional.regional_constraints(
         constraints_df=points,
         grav_df=anomalies,
-        grav_data_column="grav",
+        grav_data_column="misfit",
         grid_method=test_input,
         eqs_gridding_trials=2,
+        grav_obs_height=1e3,
     )
 
     # grid = df.set_index(["northing", "easting"]).to_xarray()
