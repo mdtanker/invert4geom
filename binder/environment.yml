@@ -16,6 +16,7 @@ dependencies:
   - ipywidgets
   - matplotlib
   - seaborn
+  - plotly
   - ipython
   - pip
   - pip:
