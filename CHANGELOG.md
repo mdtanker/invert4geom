@@ -5,6 +5,8 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 
 ## Unreleased
 ### 🧰 Chores / Maintenance
+### 📖 Documentation
+* update binder env to v0.6 ([`19551d7`](https://github.com/mdtanker/invert4geom/commit/19551d763cf3a5c993f05a5b51b16b5b39af39ac))
 
 
 ## v0.6.0 (2024-05-29)
