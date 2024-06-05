@@ -91,7 +91,7 @@ See the [overview](overview.md) for further description of this package and what
 #### What _Invert4Geom_ is **NOT** for:
 
 - performing parameter-estimation inversions (i.e. recovering density values) -> see [SimPEG](https://simpeg.xyz/) or [pyGIMLi](https://www.pygimli.org/index.html)
-- a point-and-click GUI -> see [Geosoft/Seequent Oasis Montaj](https://www.seequent.com/products-solutions/ geosoft-oasis-montaj/) or [MiraGeoscience VPmg](https://www.mirageoscience.com/mining-industry-software/geoscience-analyst-pro-geophysics/)
+- a point-and-click GUI -> see [Geosoft/Seequent Oasis Montaj](https://www.seequent.com/products-solutions/geosoft-oasis-montaj/) or [MiraGeoscience VPmg](https://www.mirageoscience.com/mining-industry-software/geoscience-analyst-pro-geophysics/)
 - a ready-to-use inversion with minimal user input
 - use with discrete (un-gridded) gravity data -> see [Harmonica](https://www.fatiando.org/harmonica/latest/index.html) for gridding your data
 - for processing gravity data -> see [Harmonica](https://www.fatiando.org/harmonica/latest/index.html) for gravity processing tools
