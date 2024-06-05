@@ -5,6 +5,7 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 
 ## Unreleased
 ### 🧰 Chores / Maintenance
+* pre-commit autoupdate to monthly ([`00189aa`](https://github.com/mdtanker/invert4geom/commit/00189aac0cbeabbffef9e15065c30a29c19c05a7))
 ### 📖 Documentation
 * update binder env to v0.6 ([`19551d7`](https://github.com/mdtanker/invert4geom/commit/19551d763cf3a5c993f05a5b51b16b5b39af39ac))
 
