@@ -4,6 +4,7 @@ Automatically updated by
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
 ## Unreleased
+### 📦️ Build
 ### 🧰 Chores / Maintenance
 * add codecov token ([`9d27f1b`](https://github.com/mdtanker/invert4geom/commit/9d27f1b2d861916c188ce47c4c5f91c1927002e3))
 * pre-commit autoupdate to monthly ([`00189aa`](https://github.com/mdtanker/invert4geom/commit/00189aac0cbeabbffef9e15065c30a29c19c05a7))
