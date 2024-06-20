@@ -674,7 +674,7 @@ def update_prisms_ds(
 
     ds = prisms_ds.copy()
 
-    density_contrast = ds.density.values.max()
+    density_contrast = np.fabs(ds.density)
 
     # create topo from top and bottom
     topo_grid = xr.where(ds.density > 0, ds.top, ds.bottom)
