@@ -101,6 +101,8 @@ def resample_with_test_points(
 def grav_cv_score(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
+    zref: float,
+    density_contrast: float | int | xr.DataArray,
     progressbar: bool = True,
     rmse_as_median: bool = False,
     plot: bool = False,
@@ -117,6 +119,10 @@ def grav_cv_score(
        rows of the data frame which are just the training data
     testing_data : pd.DataFrame
         rows of the data frame which are just the testing data
+    zref : float
+        reference level for creating the prism layer
+    density_contrast: float | int | xr.DataArray
+        density value(s) for creating the prism layer
     rmse_as_median : bool, optional
         calculate the RMSE as the median as opposed to the mean, by default False
     progressbar : bool, optional
@@ -140,16 +146,12 @@ def grav_cv_score(
     train = training_data.copy()
     test = testing_data.copy()
 
-    zref: float = kwargs.get("zref")  # type: ignore[assignment]
-    density_contrast: float = kwargs.get("density_contrast")  # type: ignore[assignment]
-
     new_kwargs = {
         key: value
         for key, value in kwargs.items()
         if key
         not in [
             "zref",
-            "density_contrast",
         ]
     }
 
@@ -157,7 +159,6 @@ def grav_cv_score(
     results = inversion.run_inversion(
         grav_df=train,
         zref=zref,
-        density_contrast=density_contrast,
         **new_kwargs,
     )
     prism_results, _, _, _ = results
@@ -407,7 +408,6 @@ def constraints_cv_score(
     constraints_df = constraints_df.copy()
 
     zref: float = kwargs.get("zref")  # type: ignore[assignment]
-    density_contrast: float = kwargs.get("density_contrast")  # type: ignore[assignment]
 
     new_kwargs = {
         key: value
@@ -415,7 +415,6 @@ def constraints_cv_score(
         if key
         not in [
             "zref",
-            "density_contrast",
         ]
     }
 
@@ -423,7 +422,6 @@ def constraints_cv_score(
     results = inversion.run_inversion(
         grav_df=grav_df,
         zref=zref,
-        density_contrast=density_contrast,
         **new_kwargs,
     )
     prism_results, _, _, _ = results
@@ -541,7 +539,22 @@ def zref_density_optimal_parameter(
             raise ValueError(msg)
         zref_values = [zref]
     elif density_contrast_values is None:
-        density_contrast = kwargs.get("density_contrast", None)
+        if starting_topography is None:
+            if starting_topography_kwargs is None:
+                msg = (
+                    "starting_topography_kwargs must be provided if "
+                    "starting_topography is not provided"
+                )
+                raise ValueError(msg)
+            density_contrast = starting_topography_kwargs.get("density_contrast", None)
+            if density_contrast is None:
+                msg = (
+                    "density_contrast must be provided to starting_topography_kwargs if"
+                    " starting_topography is not provided"
+                )
+                raise ValueError(msg)
+        else:
+            density_contrast = starting_topography.density
         if density_contrast is None:
             msg = "must provide density_contrast_values or density_contrast in kwargs"
             raise ValueError(msg)
@@ -645,9 +658,6 @@ def zref_density_optimal_parameter(
 
         # update zref value in kwargs
         kwargs["zref"] = zref
-
-        # update density contrast value in kwargs
-        kwargs["density_contrast"] = density_contrast
 
         # update starting model in kwargs
         kwargs["prism_layer"] = starting_prisms
