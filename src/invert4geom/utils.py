@@ -674,6 +674,7 @@ def update_prisms_ds(
 
     ds = prisms_ds.copy()
 
+    # extract the element-wise absolute value of the density contrast
     density_contrast = np.fabs(ds.density)
 
     # create topo from top and bottom
@@ -873,7 +874,8 @@ def grids_to_prisms(
         data or constant to use for prism reference, if value is below surface, prism
         will be inverted
     density : float | int | xr.DataArray
-        data or constant to use for prism densities.
+        data or constant to use for prism densities, should be in the form of a density
+        contrast across a surface (i.e. between air and rock).
     input_coord_names : tuple[str, str], optional
         names of the coordinates in the input dataarray, by default
         ["easting", "northing"]
