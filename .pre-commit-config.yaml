@@ -5,9 +5,15 @@ ci:
 
 exclude: |
   (?x)^(
+      docs/index.md|
+      docs/install.md|
+      docs/citing.md|
+      docs/overview.md|
+      docs/reference.md|
+      docs/contributing.md|
+      docs/api/invert4geom.rst|
       docs/api/invert4geom.inversion.rst|
       docs/api/invert4geom.plotting.rst|
-      docs/api/invert4geom.rst|
       docs/api/invert4geom.synthetic.rst|
       docs/api/invert4geom.utils.rst|
       docs/api/invert4geom.cross_validation.rst|
@@ -15,10 +21,12 @@ exclude: |
       docs/api/invert4geom.optimization.rst|
       docs/_invert4geom_refs.bib|
       CHANGELOG.md|
+      .github/ISSUE_TEMPLATE/feature_request.md|
       .github/config.yml|
       .github/workflows/ci.yml|
       binder/environment.yml|
       templates/CHANGELOG.md.j2|
+      README.md|
   )$
 
 repos:
