@@ -1,6 +1,6 @@
 # 🔎 Overview
 
-Invert4geom provides a series of tools for conducting a specific style of gravity inversion.
+`Invert4geom` provides a series of tools for conducting a specific style of gravity inversion.
 Many gravity inversions aim to model the density distribution of the subsurface.
 These are commonly used to identify bodies of anomalous densities, such as igneous intrusions or ore deposits.
 The typical way these are performed is to _discretize_ the subsurface into a series of finite volumes, such as cubes or prisms, where the shape of the volumes doesn't change.

@@ -9,7 +9,7 @@ This Binder environment can also be accessed by clicking the Binder icon in any 
 
 ## Install Python
 
-Before installing _Invert4Geom_, ensure you have Python downloaded.
+Before installing _Invert4Geom_, ensure you have Python 3.9 or greater downloaded.
 If you don't, I recommend setting up Python with Miniforge.
 See the install instructions [here](https://github.com/conda-forge/miniforge).
 
@@ -19,27 +19,27 @@ There are 3 main ways to install `invert4geom`. We show them here in order of si
 
 ### Conda / Mamba
 
+```{note}
+`conda` and `mamba` are interchangeable
+```
+
 The easiest way to install this package and it's dependencies is with conda or mamba into a new virtual environment:
 
-    mamba create --name invert4geom --yes --force invert4geom
+    mamba create --name invert4geom --yes --force invert4geom --channel conda-forge
 
 Activate the environment:
 
-    conda activate invert4geom
+    mamba activate invert4geom
 
 ### Pip
 
 Instead, you can use pip to install `invert4geom`, but first you need to install a few dependencies with conda.
 This is because a few dependencies rely on C packages, which can only be install with conda/mamba and not with pip.
 
-```{note}
-`conda` and `mamba` are interchangeable
-```
-
 Create a new virtual environment:
 
 ```
-mamba create --name invert4geom --yes --force polartoolkit
+mamba create --name invert4geom --yes --force polartoolkit --channel conda-forge
 ```
 
 The package `polartoolkit` provides several useful functions used in `invert4geom`.
@@ -63,26 +63,24 @@ You can use pip, with the above created environment, to install the latest sourc
 
     pip install git+https://github.com/mdtanker/invert4tgeom.git
 
-Or you can clone the git repository and install one of two ways:
+Or you can clone the git repository and install:
 
-#### with Make
 
-Or, assuming you have `make` installed, as well as `mamba` (install mamba with `pip install mamba`) installed within your Python environment, run the following to install the package locally:
+    git clone https://github.com/mdtanker/invert4geom.git
+    cd invert4geom
+    pip install .
 
+## Test your install
+
+Run the following inside a Python interpreter:
+
+```python
+import invert4geom
+invert4geom.__version__
 ```
-git clone https://github.com/mdtanker/invert4geom.git
-cd invert4geom
-make create
-conda activate invert4geom
-make install
-```
 
-#### manually
+This should tell you which version was installed.
 
-```
-git clone https://github.com/mdtanker/invert4geom.git
-cd invert4geom
-conda create --name invert4geom --yes --force polartoolkit python=3.11
-conda activate invert4geom
-pip install -e .[all]
-```
+To further test, you can clone the GitHub repository and run the suite of tests, see the [Contributors Guide](https://invert4geom.readthedocs.io/en/latest/contributing.html).
+
+A simpler method to ensure the basics are working would be to download any of the jupyter notebooks from the documentation and run them locally. On the documentation, each of the examples should have a drop down button in the top right corner to download the `.ipynb`.
