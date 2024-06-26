@@ -1138,10 +1138,18 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
     if run_damping_cv is True:
         # resample to half spacing
+        data_spacing = kwargs.get("grav_spacing", None)
+        if data_spacing is None:
+            msg = "need to supply `grav_spacing` if `run_damping_cv` is True"
+            raise ValueError(msg)
+        inversion_region = kwargs.get("inversion_region", None)
+        if inversion_region is None:
+            msg = "need to supply `inversion_region` if `run_damping_cv` is True"
+            raise ValueError(msg)
         grav_df = cross_validation.resample_with_test_points(
-            data_spacing=kwargs.get("grav_spacing", None),
+            data_spacing=data_spacing,
             data=grav_df,
-            region=kwargs.get("inversion_region", None),
+            region=inversion_region,
         )
 
     # Starting Topography
@@ -1326,9 +1334,9 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             "starting_topography",
             "starting_topography_kwargs",
             "starting_prisms",
+            "starting_prisms_kwargs",
             "starting_grav_kwargs",
             "regional_grav_kwargs",
-            "run",
             "grav_spacing",
             "damping_values",
             "zref_values",
@@ -1382,6 +1390,12 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         if run_zref_or_density_cv is False:
             return inv_results
 
+    msg = (
+        f"Damping CV finished with best value found of {best_damping}. Using this "
+        "value with the zref/density CV."
+    )
+    logging.info(msg)
+
     # drop the testing data
     if "test" in grav_df.columns:
         grav_df = grav_df[grav_df.test == False].copy()  # noqa: E712 pylint: disable=singleton-comparison
@@ -1394,14 +1408,13 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         raise ValueError(msg)
     inv_results, _, _, _, _, _ = cross_validation.zref_density_optimal_parameter(
         grav_df=grav_df,
-        grav_data_column=kwargs.get("grav_data_column"),
         constraints_df=kwargs.get("constraints_df"),
         zref_values=kwargs.get("zref_values"),
         density_contrast_values=kwargs.get("density_contrast_values", None),
         starting_topography=starting_topography,
         regional_grav_kwargs={
             "regional_method": regional_grav_kwargs.get("regional_method", None),
-            **regional_grav_kwargs.get("kwargs", None),
+            **regional_grav_kwargs,
         },
         plot_cv=plot_cv,
         progressbar=True,
