@@ -6,69 +6,7 @@
 <a href="https://invert4geom.readthedocs.io"><strong>Documentation Link</strong></a>
 </p>
 
-<!-- SPHINX-START1 -->
-
-<p align="center">
-<a href="https://mybinder.org/v2/gh/mdtanker/invert4geom/main">
- <img src="https://mybinder.org/badge_logo.svg" alt="Binder link"></a>
- </p>
-
-<p align="center">
-<a href=https://pypi.org/project/invert4geom/>
-<img src=https://img.shields.io/pypi/v/invert4geom
-alt="Latest version on PyPI"
-/>
-</a>
-<a href=https://github.com/conda-forge/invert4geom-feedstock>
-<img src=https://img.shields.io/conda/vn/conda-forge/invert4geom
-alt="Latest version on conda-forge"
-/>
-</a>
-<a href=https://pypi.org/project/invert4geom/>
-<img src=https://img.shields.io/pypi/pyversions/invert4geom
-alt="Compatible Python versions"
-/>
-
-<p align="center">
-<a href=https://app.codecov.io/github/mdtanker/invert4geom>
-<img src=https://codecov.io/github/mdtanker/invert4geom/badge.svg?
-alt="Test coverage status"
-/>
-</a>
-<a href=https://invert4geom.readthedocs.io/en/latest/?badge=latest>
-<img src=https://readthedocs.org/projects/invert4geom/badge/?version=latest&style=flat-square
-alt='Documentation Status'
-/>
-<a href=https://github.com/mdtanker/invert4geom/actions>
-<img src=https://github.com/mdtanker/invert4geom/workflows/CI/badge.svg
-alt="Actions status"
-/>
-<p align="center">
-<a href=https://github.com/mdtanker/invert4geom/discussions>
-<img src=https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
-alt="GitHub discussion"
-/>
-<!-- </a>
-<a href="https://zenodo.org/badge/latestdoi/475677039">
-<img src="https://zenodo.org/badge/475677039.svg?style=flat-square"
-alt="Zenodo DOI"
-/> -->
-</a>
- </p>
-
-<!-- <p align="center">
-<img src="docs/figures/cover_fig.png"/>
-</p> -->
-
-<!-- SPHINX-END1 -->
-
-![](docs/figures/cover_fig.png)
-
-<!-- <p align="center">
-<img src="docs/figures/cover_fig.png" width="400"/>
-</p> -->
-
-<!-- SPHINX-START2 -->
+<!-- SPHINX-START-proj-desc -->
 
 **Invert4geom** is a Python library for performing 3D geometric gravity inversions, where the aim is to recover the geometry of a density contrast.
 
@@ -78,6 +16,50 @@ Since we use vertical prisms, they don't take the curvature of the Earth into ac
 For large-scale applications, such as continental studies, it would be better to use tesseroids instead of prisms.
 
 See the [overview](overview.md) for further description of this package and what it can be used for.
+
+<!-- SPHINX-END-proj-desc -->
+
+<!-- SPHINX-START-badges -->
+
+<p align="center">
+<a href="https://mybinder.org/v2/gh/mdtanker/invert4geom/main">
+ <img src="https://mybinder.org/badge_logo.svg" alt="Binder link"></a>
+ </p>
+
+<p align="center">
+<a href=https://pypi.org/project/invert4geom/>
+<img src="https://img.shields.io/pypi/v/invert4geom?style=flat-square"
+alt="Latest version on PyPI"/></a>
+<a href=https://github.com/conda-forge/invert4geom-feedstock>
+<img src="https://img.shields.io/conda/vn/conda-forge/invert4geom.svg?style=flat-square"
+alt="Latest version on conda-forge"/></a>
+<a href="https://codecov.io/gh/mdtanker/invert4geom"><img src="https://img.shields.io/codecov/c/github/mdtanker/invert4geom/main.svg?style=flat-square" alt="Test coverage status"/></a>
+</p>
+
+<p align="center">
+<a href="https://pypi.org/project/invert4geom/"><img src="https://img.shields.io/pypi/pyversions/invert4geom?style=flat-square" alt="Compatible Python versions."/></a>
+<a href="https://zenodo.org/doi/10.5281/zenodo.11951924"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.12547952.svg?style=flat-square" alt="Zenodo DOI"/></a>
+<a href='https://readthedocs.org/projects/invert4geom/'><img src='https://readthedocs.org/projects/invert4geom/badge/?version=latest&style=flat-square' alt='Documentation Status' /></a>
+ </p>
+
+<!-- SPHINX-END-badges -->
+
+![](docs/figures/cover_fig.png)
+
+## Disclaimer
+
+<p align="center">
+🚨 **Ready for daily use but still changing.** 🚨
+</p>
+
+This means that we are still adding a lot of new features and sometimes we make changes to the ones we already have while we try to improve the software based on users' experience, test new ideas, make better design decisions, etc.
+Some of these changes could be **backwards incompatible**.
+Keep that in mind before you update Invert4Geom to a new major version (i.e. from `v1.0.0` to `v2.0.0`) and always check the [Changelog](https://github.com/mdtanker/invert4geom/blob/main/CHANGELOG.md) for `BREAKING CHANGES` and how to update your code appropriately.
+
+I welcome any feedback, ideas, or contributions!
+Please contact us on the [GitHub discussions page](https://github.com/mdtanker/invert4geom/discussions) or submit an [issue on GitHub](https://github.com/mdtanker/invert4geom/issues) for problems or feature ideas.
+
+<!-- SPHINX-START-long-desc -->
 
 #### What _Invert4Geom_ is for:
 
@@ -98,21 +80,11 @@ See the [overview](overview.md) for further description of this package and what
 - for use with tesseroids, or non-regular grids (raise an issue request if you want this implemented!)
 - publication-quality visualization -> see [PyGMT](https://www.pygmt.org/dev/index.html) for plotting tools
 
-<!-- prettier-ignore-start -->
-[actions-badge]:            https://github.com/mdtanker/invert4geom/workflows/CI/badge.svg
-[actions-link]:             https://github.com/mdtanker/invert4geom/actions
-[conda-badge]:              https://img.shields.io/conda/vn/conda-forge/invert4geom
-[conda-link]:               https://github.com/conda-forge/invert4geom-feedstock
-[codecov-badge]:            https://codecov.io/github/mdtanker/invert4geom/badge.svg?
-[codecov-link]:             https://app.codecov.io/github/mdtanker/invert4geom
-[github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
-[github-discussions-link]:  https://github.com/mdtanker/invert4geom/discussions
-[pypi-link]:                https://pypi.org/project/invert4geom/
-[pypi-platforms]:           https://img.shields.io/pypi/pyversions/invert4geom
-[pypi-version]:             https://img.shields.io/pypi/v/invert4geom
-[rtd-badge]:                https://readthedocs.org/projects/invert4geom/badge/?version=latest
-[rtd-link]:                 https://invert4geom.readthedocs.io/en/latest/?badge=latest
+<!-- SPHINX-END-long-desc -->
 
-<!-- prettier-ignore-end -->
+## How to contribute
+I welcome all forms of contribution! If you have any questions, comments or suggestions, please open a [discussion](https://github.com/mdtanker/invert4geom/discussions/new/choose) or [issue (feature request)](https://github.com/mdtanker/invert4geom/issues/new/choose)!
 
-<!-- SPHINX-END2 -->
+Also, please feel free to share how you're using Invert4Geom, I'd love to know.
+
+Please, read our [Contributor Guide](https://invert4geom.readthedocs.io/en/latest/contributing.html) to learn how you can contribute to the project.
