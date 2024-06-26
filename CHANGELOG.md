@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
+
+## v0.7.0 (2024-06-26)
 ### 💥 Breaking Changes
 * remove `density_contrast` parameter from `run_inversion` and extract contrast instead
 
@@ -28,7 +29,6 @@ BREAKING_CHANGE: make sure to remove all `zref` and `density_contrast` parameter
 * typo in docstring ([`d05861a`](https://github.com/mdtanker/invert4geom/commit/d05861aaf0463a099ddc976e39decf8c1864cb1e))
 ### Other
 *  ([`117490c`](https://github.com/mdtanker/invert4geom/commit/117490cde21145a8a9b67e086736ffc9f4a3e639))
-
 
 ## v0.6.0 (2024-05-29)
 ### 💥 Breaking Changes
