@@ -4,13 +4,30 @@ Automatically updated by
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
 ## Unreleased
+### 💥 Breaking Changes
+* remove `density_contrast` parameter from `run_inversion` and extract contrast instead
+
+BREAKING CHANGE: the `run_inversion` function now doesn&#39;t take `density_contrast` parameter, please remove these parameters from your code! ([`2883c25`](https://github.com/mdtanker/invert4geom/commit/2883c25d2bbaa7d6555a33992abb01dd5ef557b7))
 ### 📦️ Build
 ### 🧰 Chores / Maintenance
 * add codecov token ([`9d27f1b`](https://github.com/mdtanker/invert4geom/commit/9d27f1b2d861916c188ce47c4c5f91c1927002e3))
 * pre-commit autoupdate to monthly ([`00189aa`](https://github.com/mdtanker/invert4geom/commit/00189aac0cbeabbffef9e15065c30a29c19c05a7))
 ### 📖 Documentation
+* rerun the docs ([`322bcc8`](https://github.com/mdtanker/invert4geom/commit/322bcc8d0c5a954566b4dc9242d07ca86d004730))
+* add variable density example to user guide ([`bdce402`](https://github.com/mdtanker/invert4geom/commit/bdce4020e497fe82a9ecbed4f3e285bc57fcc388))
+* rerun docs ([`4635876`](https://github.com/mdtanker/invert4geom/commit/4635876b65bae44f575e8c4419c82710747c9986))
+* add documentation to density contrast implementation ([`ca96f76`](https://github.com/mdtanker/invert4geom/commit/ca96f768a4ad4949fdd012774b0280b6db265787))
 * fix error in readme ([`18b67c8`](https://github.com/mdtanker/invert4geom/commit/18b67c8e3cf738ffb3ace2b990c12d106932dda2))
 * update binder env to v0.6 ([`19551d7`](https://github.com/mdtanker/invert4geom/commit/19551d763cf3a5c993f05a5b51b16b5b39af39ac))
+### 🐛 Bug Fixes
+* add warnings for run_inversion_workflow ([`54fc6b9`](https://github.com/mdtanker/invert4geom/commit/54fc6b9217c8864a46a39d41d90a9446bdcf135a))
+* remove `zref` and `density_contrast`parameters, extract from prism layer instead
+
+BREAKING_CHANGE: make sure to remove all `zref` and `density_contrast` parameters from the following functions: run_inversion, grav_cv_score, constraints_cv_score. ([`f995f00`](https://github.com/mdtanker/invert4geom/commit/f995f000b80718f81073a86e388800dcd653ec0e))
+### ✏️ Formatting
+* typo in docstring ([`d05861a`](https://github.com/mdtanker/invert4geom/commit/d05861aaf0463a099ddc976e39decf8c1864cb1e))
+### Other
+*  ([`117490c`](https://github.com/mdtanker/invert4geom/commit/117490cde21145a8a9b67e086736ffc9f4a3e639))
 
 
 ## v0.6.0 (2024-05-29)
