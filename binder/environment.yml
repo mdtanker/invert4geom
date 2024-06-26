@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python==3.11
-  - invert4geom==0.6
+  - invert4geom==0.7
   # optimization
   - optuna>=3.1.0 # need JournalStorage
   - optuna-integration
