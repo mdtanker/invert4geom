@@ -8,7 +8,7 @@ STYLE_CHECK_FILES=.
 ####
 
 create:
-	mamba create --name $(PROJECT) --yes --force polartoolkit python=3.11
+	mamba create --name $(PROJECT) --yes --force --channel conda-forge polartoolkit python=3.11
 
 install:
 	pip install -e .[all]
@@ -20,7 +20,7 @@ remove:
 	mamba remove --name $(PROJECT) --all
 
 conda_install:
-	mamba create --name $(PROJECT) --yes --force $(PROJECT)
+	mamba create --name $(PROJECT) --yes --force --channel conda-forge $(PROJECT)
 
 ####
 ####
@@ -88,4 +88,6 @@ run_gallery:
 run_user_guide:
 	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/user_guide/*.ipynb
 
-run_all_doc_files: run_gallery run_user_guide
+run_doc_files:
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/*.ipynb
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/*/*.ipynb
