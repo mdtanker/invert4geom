@@ -651,7 +651,6 @@ def apply_surface_correction(
 def update_prisms_ds(
     prisms_ds: xr.Dataset,
     correction_grid: xr.DataArray,
-    zref: float,
 ) -> xr.Dataset:
     """
     apply the corrections grid and update the prism tops, bottoms, topo, and
@@ -663,8 +662,6 @@ def update_prisms_ds(
         harmonica prism layer
     correction_grid : xr.DataArray
         grid of corrections to apply to the prism layer
-    zref : float
-        reference level for the prism layer
 
     Returns
     -------
@@ -673,6 +670,9 @@ def update_prisms_ds(
     """
 
     ds = prisms_ds.copy()
+
+    # extract the reference value used to create the prisms
+    zref = ds.attrs.get("zref")
 
     # extract the element-wise absolute value of the density contrast
     density_contrast = np.fabs(ds.density)
@@ -910,7 +910,8 @@ def grids_to_prisms(
 
     prisms["thickness"] = prisms.top - prisms.bottom
 
-    return prisms
+    # add zref as an attribute
+    return prisms.assign_attrs(zref=reference)
 
 
 def best_spline_cv(

@@ -101,8 +101,6 @@ def resample_with_test_points(
 def grav_cv_score(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
-    zref: float,
-    density_contrast: float | int | xr.DataArray,
     progressbar: bool = True,
     rmse_as_median: bool = False,
     plot: bool = False,
@@ -119,10 +117,6 @@ def grav_cv_score(
        rows of the data frame which are just the training data
     testing_data : pd.DataFrame
         rows of the data frame which are just the testing data
-    zref : float
-        reference level for creating the prism layer
-    density_contrast: float | int | xr.DataArray
-        density value(s) for creating the prism layer
     rmse_as_median : bool, optional
         calculate the RMSE as the median as opposed to the mean, by default False
     progressbar : bool, optional
@@ -146,20 +140,15 @@ def grav_cv_score(
     train = training_data.copy()
     test = testing_data.copy()
 
-    new_kwargs = {
-        key: value
-        for key, value in kwargs.items()
-        if key
-        not in [
-            "zref",
-        ]
-    }
+    # extract density contrast and zref from prism layer
+    prism_layer: xr.Dataset = kwargs.get("prism_layer")
+    density_contrast = np.fabs(prism_layer.density)
+    zref = prism_layer.attrs.get("zref")
 
     # run inversion
     results = inversion.run_inversion(
         grav_df=train,
-        zref=zref,
-        **new_kwargs,
+        **kwargs,
     )
     prism_results, _, _, _ = results
 
@@ -407,22 +396,10 @@ def constraints_cv_score(
 
     constraints_df = constraints_df.copy()
 
-    zref: float = kwargs.get("zref")  # type: ignore[assignment]
-
-    new_kwargs = {
-        key: value
-        for key, value in kwargs.items()
-        if key
-        not in [
-            "zref",
-        ]
-    }
-
     # run inversion
     results = inversion.run_inversion(
         grav_df=grav_df,
-        zref=zref,
-        **new_kwargs,
+        **kwargs,
     )
     prism_results, _, _, _ = results
 
@@ -655,9 +632,6 @@ def zref_density_optimal_parameter(
 
         # remove the regional from the misfit to get the residual
         grav_df["res"] = grav_df.misfit - grav_df.reg
-
-        # update zref value in kwargs
-        kwargs["zref"] = zref
 
         # update starting model in kwargs
         kwargs["prism_layer"] = starting_prisms

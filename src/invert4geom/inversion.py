@@ -746,7 +746,6 @@ def run_inversion(
     grav_df: pd.DataFrame,
     grav_data_column: str,
     prism_layer: xr.Dataset,
-    zref: float,
     max_iterations: int,
     l2_norm_tolerance: float = 0.2,
     delta_l2_norm_tolerance: float = 1.001,
@@ -784,9 +783,6 @@ def run_inversion(
         This is typically a Topo-Free Disturbance (Complete Bouguer Anomaly).
     prism_layer : xr.Dataset
         starting prism layer
-    zref : float
-        reference height of the prisms layer, should be same value used to create the
-        starting model
     max_iterations : int
         the maximum allowed iterations, inclusive and starting at 1
     l2_norm_tolerance : float, optional
@@ -941,7 +937,7 @@ def run_inversion(
             correction_grid = correction_grid * weighting_grid
 
         # add the corrections to the topo and update the prisms dataset
-        prisms_ds = utils.update_prisms_ds(prisms_ds, correction_grid, zref)
+        prisms_ds = utils.update_prisms_ds(prisms_ds, correction_grid)
 
         # add updated properties to prisms dataframe
         prisms_df = utils.add_updated_prism_properties(
@@ -1018,7 +1014,7 @@ def run_inversion(
     params = {
         # first column
         "Density contrast(s)": f"{density_contrast} kg/m3",
-        "Reference level": f"{zref} m",
+        "Reference level": f"{prisms_ds.attrs.get('zref')} m",
         "Max iterations": max_iterations,
         "L2 norm tolerance": f"{l2_norm_tolerance}",
         "Delta L2 norm tolerance": f"{delta_l2_norm_tolerance}",
@@ -1204,21 +1200,28 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "True"
             )
             logging.warning(msg)
+        starting_prisms_kwargs = kwargs.get("starting_prisms_kwargs", None)
+        if starting_prisms_kwargs is None:
+            msg = (
+                "starting_prisms_kwargs must be provided if "
+                "create_starting_prisms is True"
+            )
+            raise ValueError(msg)
         if starting_topography is None:
             msg = (
                 "starting_topography must be provided if create_starting_prisms is True"
                 " and create_starting_topography is False"
             )
             raise ValueError(msg)
-        density_contrast = kwargs.get("density_contrast", None)
+        density_contrast = starting_prisms_kwargs.get("density_contrast", None)
+        zref = starting_prisms_kwargs.get("zref", None)
         if density_contrast is None:
             msg = "density must be provided if create_starting_prisms is True"
             raise ValueError(msg)
-        if kwargs.get("zref", None) is None:
+        if zref is None:
             msg = "zref must be provided if create_starting_prisms is True"
             raise ValueError(msg)
 
-        zref = kwargs.get("zref", None)
         density_grid = xr.where(
             starting_topography >= zref,
             density_contrast,
@@ -1332,7 +1335,6 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             "density_contrast_values",
             "constraints_df",
             "inversion_region",
-            "density_contrast",
         ]
     }
 
