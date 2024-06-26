@@ -385,7 +385,7 @@ def sample_grids(
     ----------
     df : pd.DataFrame
         Dataframe containing columns 'x', 'y', or columns with names defined by kwarg
-        "coor_names".
+        "coord_names".
     grid : str or xr.DataArray
         Grid to sample, either file name or xr.DataArray
     sampled_name : str,
