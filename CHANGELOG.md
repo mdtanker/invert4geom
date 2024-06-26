@@ -3,6 +3,20 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
+## Unreleased
+### 🧰 Chores / Maintenance
+* add nodefaults to testing env ([`9a06f62`](https://github.com/mdtanker/invert4geom/commit/9a06f62142b8262a37117b33fd4ef8d070727d68))
+* update invert4geom version in environment.yml ([`7762e06`](https://github.com/mdtanker/invert4geom/commit/7762e060577e91ac2397a931336e4d1e8d2eeacc))
+* updates to ci.yml ([`b3bb4d4`](https://github.com/mdtanker/invert4geom/commit/b3bb4d4baf0cce2679c6e54ac6f8e53b8847afad))
+* use micromamba for GHA test env and cache it ([`481a296`](https://github.com/mdtanker/invert4geom/commit/481a296594d8be25aa96fdb39a3a0e634723ae69))
+* dont run test on docs or style commits ([`8b1065f`](https://github.com/mdtanker/invert4geom/commit/8b1065fc60d4bb085604bf65198a9f56b1b158cb))
+* set min pylint version ([`f36ef0f`](https://github.com/mdtanker/invert4geom/commit/f36ef0f82636cc4b25e8a02d0afd9d307a807296))
+* update make commands ([`e5bc907`](https://github.com/mdtanker/invert4geom/commit/e5bc907946f8c775ec7bbd447016ba3b4f40561a))
+* precommit ignore doc md files ([`78461c3`](https://github.com/mdtanker/invert4geom/commit/78461c36dfe36789d3c43837d2f3e228f5574b08))
+### 📖 Documentation
+* update the docs ([`afab24d`](https://github.com/mdtanker/invert4geom/commit/afab24d99e9f88cee55883c78e3d19f694ef8ad1))
+* move contrib guide into docs folder ([`3009e90`](https://github.com/mdtanker/invert4geom/commit/3009e9027ca21b5593cd55ed56f004f61f15f6c9))
+
 
 ## v0.7.0 (2024-06-26)
 ### 💥 Breaking Changes
