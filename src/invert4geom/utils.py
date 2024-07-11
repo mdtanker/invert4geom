@@ -747,6 +747,7 @@ def create_topography(
     upwards: float | None = None,
     constraints_df: pd.DataFrame | None = None,
     dampings: list[float] | None = None,
+    weights: pd.Series | NDArray | None = None,
 ) -> xr.DataArray:
     """
     Create a grid of topography data from either the interpolation of point data or
@@ -769,14 +770,15 @@ def create_topography(
     dampings : list[float] | None, optional
         damping values to use in spline cross validation for method "spline", by
         default None
+    weights : pd.Series | NDArray | None, optional
+        weight to use for fitting the spline. Typically, this should be 1 over the data
+        uncertainty squared, by default None
 
     Returns
     -------
     xr.DataArray
         a topography grid
     """
-    if dampings is None:
-        dampings = np.logspace(-10, 0, 20)
 
     if method == "flat":
         if registration == "g":
@@ -812,6 +814,9 @@ def create_topography(
             raise ValueError(msg)
         coords = (constraints_df.easting, constraints_df.northing)
 
+        if dampings is None:
+            dampings = np.logspace(-10, 0, 20)
+
         # create a cross validated spline with default values
         spline = vd.SplineCV(dampings=dampings)
 
@@ -827,6 +832,7 @@ def create_topography(
             spline.fit(
                 coordinates=coords,
                 data=constraints_df.upward,
+                weights=weights,
             )
             return spline.grid(
                 region=region,
