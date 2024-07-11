@@ -75,6 +75,8 @@ clean:
 	find . -name '*.pickle' -delete
 	find . -name '*.log' -delete
 	find . -name '*.lock' -delete
+	find . -name '*.pkl' -delete
+	find . -name '*.sqlite3' -delete
 
 ####
 ####
