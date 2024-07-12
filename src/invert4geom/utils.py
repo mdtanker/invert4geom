@@ -1005,59 +1005,14 @@ def best_spline_cv(
     return spline
 
 
-def eq_sources_score(
-    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
-    data: pd.Series | NDArray,
-    damping: float | None = None,
-    depth: str | float | None = "default",
-    block_size: float | None = None,
-    points: NDArray | None = None,
-    delayed: bool = False,
-    weights: NDArray | None = None,
-) -> float:
+@deprecation.deprecated(  # type: ignore[misc]
+    deprecated_in="0.8.0",
+    removed_in="0.14.0",
+    current_version=invert4geom.__version__,
+    details="function eq_sources_score has been moved to the cross_validation model.",
+)
+def eq_sources_score(kwargs) -> float:
     """
-    Calculate the cross-validation score for fitting gravity data to equivalent sources.
-    Uses Verde's cross_val_score function to calculate the score.
-
-    Parameters
-    ----------
-    coordinates : tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray]
-        tuple of easting, northing, and upward coordinates of the gravity data
-    data : pd.Series | NDArray
-        the gravity data
-    damping : float | None, optional
-        damping parameter to use in the fitting, by default None
-    depth : str | float | None, optional
-        depth of the sources, positive downward in meters, by default "default"
-    block_size : float | None, optional
-        block size in meters to reduce the gravity data by, by default None
-    points : NDArray | None, optional
-        use to specify point locations, by default None
-    delayed : bool, optional
-        compute the scores in parallel if True, by default False
-    weights : NDArray | None, optional
-        optional weight values for each gravity data point, by default None
-
-    Returns
-    -------
-    float
-        a float of the score, the higher the value to better the fit.
+    deprecated function, use cross_validation.eq_sources_score instead.
     """
-    eqs = hm.EquivalentSources(
-        damping=damping,
-        depth=depth,
-        block_size=block_size,
-        points=points,
-    )
-
-    return float(
-        np.mean(
-            vd.cross_val_score(
-                eqs,
-                coordinates,
-                data,
-                delayed=delayed,
-                weights=weights,
-            )
-        )
-    )
+    return cross_validation.eq_sources_score(kwargs)

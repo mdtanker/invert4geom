@@ -723,3 +723,59 @@ def zref_density_optimal_parameter(
             )
 
     return inv_results, best_zref, best_density, best_score, parameter_pairs, scores
+def eq_sources_score(
+    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
+    data: pd.Series | NDArray,
+    damping: float | None = None,
+    depth: str | float | None = "default",
+    block_size: float | None = None,
+    points: NDArray | None = None,
+    delayed: bool = False,
+    weights: NDArray | None = None,
+) -> float:
+    """
+    Calculate the cross-validation score for fitting gravity data to equivalent sources.
+    Uses Verde's cross_val_score function to calculate the score.
+
+    Parameters
+    ----------
+    coordinates : tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray]
+        tuple of easting, northing, and upward coordinates of the gravity data
+    data : pd.Series | NDArray
+        the gravity data
+    damping : float | None, optional
+        damping parameter to use in the fitting, by default None
+    depth : str | float | None, optional
+        depth of the sources, positive downward in meters, by default "default"
+    block_size : float | None, optional
+        block size in meters to reduce the gravity data by, by default None
+    points : NDArray | None, optional
+        use to specify point locations, by default None
+    delayed : bool, optional
+        compute the scores in parallel if True, by default False
+    weights : NDArray | None, optional
+        optional weight values for each gravity data point, by default None
+
+    Returns
+    -------
+    float
+        a float of the score, the higher the value to better the fit.
+    """
+    eqs = hm.EquivalentSources(
+        damping=damping,
+        depth=depth,
+        block_size=block_size,
+        points=points,
+    )
+
+    return float(
+        np.mean(
+            vd.cross_val_score(
+                eqs,
+                coordinates,
+                data,
+                delayed=delayed,
+                weights=weights,
+            )
+        )
+    )
