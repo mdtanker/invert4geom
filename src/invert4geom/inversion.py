@@ -1087,6 +1087,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     run_damping_cv: bool = False,
     run_zref_or_density_cv: bool = False,
     plot_cv: bool = False,
+    fname: str | None = None,
     **kwargs: typing.Any,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]:
     """
@@ -1132,6 +1133,8 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         density_values`, by default False
     plot_cv : bool, optional
         Choose whether to plot the cross validation results, by default False
+    fname : str, optional
+        filename to save results to, by default None
     kwargs : typing.Any
         keyword arguments for the workflow and inversion, such as
         `starting_topography_kwargs`, `regional_grav_kwargs`, and all the other kwargs
@@ -1373,6 +1376,14 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             progressbar=False,
             **inversion_kwargs,
         )
+
+        if fname is not None:
+            # save results to pickle
+            with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+                pickle.dump(inversion_results, f)
+
+        return inversion_results
+
     if run_damping_cv is True:
         # set logging level
         logger = logging.getLogger()
@@ -1408,13 +1419,12 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             )
 
         if run_zref_or_density_cv is False:
-            return inv_results
+            if fname is not None:
+                # save results to pickle
+                with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+                    pickle.dump(inversion_results, f)
 
-    msg = (
-        f"Damping CV finished with best value found of {best_damping}. Using this "
-        "value with the zref/density CV."
-    )
-    logging.info(msg)
+            return inversion_results
 
     # drop the testing data
     if "test" in grav_df.columns:
@@ -1441,4 +1451,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         **inversion_kwargs,
     )
 
-    return inv_results
+    if fname is not None:
+        # save results to pickle
+        with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+            pickle.dump(inversion_results, f)
