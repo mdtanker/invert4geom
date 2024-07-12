@@ -148,6 +148,7 @@ def grav_cv_score(
     # run inversion
     results = inversion.run_inversion(
         grav_df=train,
+        progressbar=False,
         **kwargs,
     )
     prism_results, _, _, _ = results
@@ -399,6 +400,7 @@ def constraints_cv_score(
     # run inversion
     results = inversion.run_inversion(
         grav_df=grav_df,
+        progressbar=False,
         **kwargs,
     )
     prism_results, _, _, _ = results

@@ -761,6 +761,7 @@ def run_inversion(
     plot_convergence: bool = False,
     plot_dynamic_convergence: bool = False,
     results_fname: str | None = None,
+    progressbar: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]:
     """
     perform a geometric inversion, where the topography is updated to minimize the
@@ -814,6 +815,8 @@ def run_inversion(
         plot the misfit convergence dynamically, by default False
     results_fname : str, optional
         filename to save results to, by default None
+    progressbar : bool, optional
+        set to False to turn off the inversion progressbar
 
     Returns
     -------
@@ -865,7 +868,14 @@ def run_inversion(
 
     l2_norms = []
 
-    pbar = tqdm(range(max_iterations), initial=1, desc="Iteration")
+    if progressbar is True:
+        pbar = tqdm(range(max_iterations), initial=1, desc="Iteration")
+    elif progressbar is False:
+        pbar = range(max_iterations)
+    else:
+        msg = "progressbar must be a boolean"  # type: ignore[unreachable]
+        raise ValueError(msg)
+
     for iteration, _ in enumerate(pbar, start=1):
         logging.info(
             "\n #################################### \n iteration %s", iteration
@@ -1002,7 +1012,8 @@ def run_inversion(
             )
 
         if end is True:
-            pbar.set_description(f"Inversion ended due to {termination_reason}")
+            if progressbar is True:
+                pbar.set_description(f"Inversion ended due to {termination_reason}")
             break
         # end of inversion loop
 
@@ -1351,6 +1362,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         return run_inversion(
             grav_df=grav_df,
             prism_layer=starting_prisms,
+            progressbar=False,
             **inversion_kwargs,
         )
     if run_damping_cv is True:
