@@ -939,6 +939,14 @@ def run_inversion(
             prisms_df, iteration
         )
 
+        # warn if weighting grid supplied by unused
+        if (weighting_grid is not None) & (apply_weighting_grid is False):
+            msg = (
+                "weighting grid supplied but not used because apply_weighting_grid is "
+                "False"
+            )
+            raise ValueError(msg)
+
         # apply weights to the topo correction grid
         if apply_weighting_grid is True:
             if weighting_grid is None:
