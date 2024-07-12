@@ -2,10 +2,73 @@ from __future__ import annotations
 
 import logging
 
+import harmonica as hm
 import numpy as np
+import pooch
 import verde as vd
 import xarray as xr
 from nptyping import NDArray
+
+
+def load_bishop_model(
+    coarsen_factor: float | None = None,
+) -> xr.Dataset:
+    """
+    Download and return a dataset of the Bishop model which contains basement
+    topography, moho topography, and synthetically generated forward gravity of
+    both topographies. See https://wiki.seg.org/wiki/Bishop_Model for more info on the
+    derivation of this dataset.
+
+    Parameters
+    ----------
+    coarsen_factor : float, optional
+        Factor to coarsen the data by. Data originally at 200m resolution, by default
+        None
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables "basement_topo", "moho_topo", and "gravity".
+    """
+
+    url = "https://drive.usercontent.google.com/download?id=0B_notXWcvuh8dGZWbHlGODRMWEE&export=download&authuser=0&confirm=t&uuid=5d6bd6a1-a14b-48b6-ac76-6eda9f1baf1d&at=APZUnTVqVzwqlXHZAiYK-RoxHsH6%3A1713697379614"
+    fname = "bishop_Geosoft_grids.tar.gz"
+    known_hash = None
+    path = pooch.retrieve(
+        url=url,
+        fname=fname,
+        path=pooch.os_cache("bishop"),
+        known_hash=known_hash,
+        progressbar=True,
+        processor=pooch.Untar(extract_dir=pooch.os_cache("bishop")),
+    )
+    geosoft_grids = [p for p in path if p.endswith((".grd", ".GRD"))]
+
+    # get the necessary file paths
+    basement_path = [p for p in geosoft_grids if p.endswith("bishop5x_basement.grd")][0]  # noqa: RUF015
+    moho_path = [p for p in geosoft_grids if p.endswith("bishop5x_moho.GRD")][0]  # noqa: RUF015
+    gravity_path = [p for p in geosoft_grids if p.endswith("bishop5x_gravity.grd")][0]  # noqa: RUF015
+
+    # convert the .grd into xarray data arrays
+    basement = hm.load_oasis_montaj_grid(basement_path)
+    moho = hm.load_oasis_montaj_grid(moho_path)
+    gravity = hm.load_oasis_montaj_grid(gravity_path)
+
+    # merge into a dataset
+    data = xr.Dataset(
+        {
+            "basement_topo": basement,
+            "moho_topo": moho,
+            "gravity": gravity,
+        }
+    )
+
+    if coarsen_factor is not None:
+        data = data.coarsen(  # pylint: disable=no-member
+            easting=coarsen_factor, northing=coarsen_factor, boundary="trim"
+        ).mean()
+
+    return data
 
 
 def gaussian2d(
