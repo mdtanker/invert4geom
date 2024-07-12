@@ -1006,39 +1006,50 @@ def best_spline_cv(
 
 
 def eq_sources_score(
-    params: dict[str, float],
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
     data: pd.Series | NDArray,
+    damping: float | None = None,
+    depth: str | float | None = "default",
+    block_size: float | None = None,
+    points: NDArray | None = None,
     delayed: bool = False,
-    **kwargs: typing.Any,
+    weights: NDArray | None = None,
 ) -> float:
     """
-    _summary_
+    Calculate the cross-validation score for fitting gravity data to equivalent sources.
+    Uses Verde's cross_val_score function to calculate the score.
 
     Parameters
     ----------
-    params : dict[str, float]
-        dictionary with damping and depth parameters for the equivalent sources fit
-    coordinates : tuple[pd.Series  |  NDArray, pd.Series  |
-        NDArray, pd.Series  |  NDArray]
-        easting, northing, and upwards coordinates of the gravity data
+    coordinates : tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray]
+        tuple of easting, northing, and upward coordinates of the gravity data
     data : pd.Series | NDArray
-        gravity data values
+        the gravity data
+    damping : float | None, optional
+        damping parameter to use in the fitting, by default None
+    depth : str | float | None, optional
+        depth of the sources, positive downward in meters, by default "default"
+    block_size : float | None, optional
+        block size in meters to reduce the gravity data by, by default None
+    points : NDArray | None, optional
+        use to specify point locations, by default None
     delayed : bool, optional
-        If True, will use dask.delayed to dispatch computations without actually
-        executing them. The returned scores will be a list of delayed objects, by
-        default False
+        compute the scores in parallel if True, by default False
+    weights : NDArray | None, optional
+        optional weight values for each gravity data point, by default None
 
     Returns
     -------
     float
-        the mean score of the equivalent sources fit
+        a float of the score, the higher the value to better the fit.
     """
     eqs = hm.EquivalentSources(
-        damping=params.get("damping"),
-        depth=params.get("depth"),
-        **kwargs,
+        damping=damping,
+        depth=depth,
+        block_size=block_size,
+        points=points,
     )
+
     return float(
         np.mean(
             vd.cross_val_score(
@@ -1046,9 +1057,7 @@ def eq_sources_score(
                 coordinates,
                 data,
                 delayed=delayed,
-                weights=kwargs.get("weights", None),
+                weights=weights,
             )
         )
     )
-    # eqs.fit(coordinates, data, weights=kwargs.get("weights", None))
-    # score = eqs.score(coordinates, data, weights=kwargs.get("weights", None))
