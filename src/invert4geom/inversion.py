@@ -1159,20 +1159,27 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     grav_df = grav_df.copy()
 
     if run_damping_cv is True:
-        # resample to half spacing
-        data_spacing = kwargs.get("grav_spacing", None)
-        if data_spacing is None:
-            msg = "need to supply `grav_spacing` if `run_damping_cv` is True"
-            raise ValueError(msg)
-        inversion_region = kwargs.get("inversion_region", None)
-        if inversion_region is None:
-            msg = "need to supply `inversion_region` if `run_damping_cv` is True"
-            raise ValueError(msg)
-        grav_df = cross_validation.resample_with_test_points(
-            data_spacing=data_spacing,
-            data=grav_df,
-            region=inversion_region,
-        )
+        if (
+            ("test" in grav_df.columns)
+            and (False in grav_df.test.unique())
+            and (True in grav_df.test.unique())
+        ):
+            pass
+        else:
+            # resample to half spacing
+            data_spacing = kwargs.get("grav_spacing", None)
+            if data_spacing is None:
+                msg = "need to supply `grav_spacing` if `run_damping_cv` is True"
+                raise ValueError(msg)
+            inversion_region = kwargs.get("inversion_region", None)
+            if inversion_region is None:
+                msg = "need to supply `inversion_region` if `run_damping_cv` is True"
+                raise ValueError(msg)
+            grav_df = cross_validation.resample_with_test_points(
+                data_spacing=data_spacing,
+                data=grav_df,
+                region=inversion_region,
+            )
 
     # Starting Topography
     if create_starting_topography is False:
