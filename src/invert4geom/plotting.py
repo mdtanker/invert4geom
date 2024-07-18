@@ -616,6 +616,8 @@ def plot_inversion_topo_results(
     prisms_ds: xr.Dataset,
     topo_cmap_perc: float = 1,
     region: tuple[float, float, float, float] | None = None,
+    constraints_df: pd.DataFrame | None = None,
+    constraint_size: float = 1,
 ) -> None:
     """
     plot the initial and final topography grids from the inversion and their difference
@@ -628,6 +630,10 @@ def plot_inversion_topo_results(
         value to multiple min and max values by for colorscale, by default 1
     region : tuple[float, float, float, float], optional
         clip grids to this region before plotting
+    constraints_df : pd.DataFrame, optional
+        constraint points to include in the plots
+    constraint_size : float, optional
+        size for constraint points, by default 1
     """
     # Check if matplotlib is installed
     if plt is None:
@@ -636,12 +642,7 @@ def plot_inversion_topo_results(
 
     initial_topo = prisms_ds.starting_topo
 
-    # list of variables ending in "_layer"
-    topos = [s for s in list(prisms_ds.keys()) if "_layer" in s]
-    # list of iterations, e.g. [1,2,3,4]
-    its = [int(s[5:][:-6]) for s in topos]
-
-    final_topo = prisms_ds[f"iter_{max(its)}_layer"]
+    final_topo = prisms_ds.topo
 
     if region is not None:
         initial_topo = initial_topo.sel(
@@ -703,6 +704,13 @@ def plot_inversion_topo_results(
     )
     rmse = utils.rmse(dif)
     ax[1].set_title(f"difference, RMSE: {round(rmse,2)}m")
+    if constraints_df is not None:
+        ax[1].plot(
+            constraints_df.easting,
+            constraints_df.northing,
+            "k.",
+            markersize=constraint_size,
+        )
     final_topo.plot(
         ax=ax[2],
         robust=robust,
@@ -732,6 +740,7 @@ def plot_inversion_grav_results(
     grav_results: pd.DataFrame,
     region: tuple[float, float, float, float],
     iterations: list[int],
+    constraints_df: pd.DataFrame | None = None,
 ) -> None:
     """
     plot the initial and final misfit grids from the inversion and their difference
@@ -744,6 +753,8 @@ def plot_inversion_grav_results(
         region to use for gridding in format (xmin, xmax, ymin, ymax)
     iterations : list[int]
         list of all the iteration numbers
+    constraints_df : pd.DataFrame, optional
+        constraint points to include in the plots
     """
 
     grid = grav_results.set_index(["northing", "easting"]).to_xarray()
@@ -753,6 +764,11 @@ def plot_inversion_grav_results(
 
     initial_rmse = utils.rmse(grav_results["iter_1_initial_misfit"])
     final_rmse = utils.rmse(grav_results[f"iter_{max(iterations)}_final_misfit"])
+
+    if constraints_df is not None:
+        points = constraints_df.rename(columns={"easting": "x", "northing": "y"})
+    else:
+        points = None
 
     _ = polar_utils.grd_compare(
         initial_misfit,
@@ -769,6 +785,8 @@ def plot_inversion_grav_results(
         verbose="q",
         title="difference",
         diff_maxabs=True,
+        points=points,
+        points_style="x.15c",
     )
 
 
@@ -781,6 +799,8 @@ def plot_inversion_iteration_results(
     topo_cmap_perc: float = 1,
     misfit_cmap_perc: float = 1,
     corrections_cmap_perc: float = 1,
+    constraints_df: pd.DataFrame | None = None,
+    constraint_size: float = 1,
 ) -> None:
     """
     plot the starting misfit, updated topography, and correction grids for a specified
@@ -804,6 +824,10 @@ def plot_inversion_iteration_results(
         value to multiply the max and min colorscale values by, by default 1
     corrections_cmap_perc : float, optional
         value to multiply the max and min colorscale values by, by default 1
+    constraints_df : pd.DataFrame, optional
+        constraint points to include in the plots
+    constraint_size : float, optional
+        size for constraint points, by default 1
     """
     # Check if matplotlib is installed
     if plt is None:
@@ -909,6 +933,15 @@ def plot_inversion_iteration_results(
             elif column == 2:  # correction grids
                 rmse = utils.rmse(topo_results[f"iter_{iterations[row]}_correction"])
                 axes.set_title(f"iteration correction RMSE = {round(rmse, 2)} m")
+
+            if (constraints_df is not None) & (column in (0, 1, 2)):  # misfit grids
+                axes.plot(
+                    constraints_df.easting,  # type: ignore[union-attr]
+                    constraints_df.northing,  # type: ignore[union-attr]
+                    "k.",
+                    markersize=constraint_size,
+                    markeredgewidth=1,
+                )
 
             # set axes labels and make proportional
             axes.set_xticklabels([])
