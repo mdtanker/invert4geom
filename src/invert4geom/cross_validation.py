@@ -108,16 +108,16 @@ def grav_cv_score(
     **kwargs: typing.Any,
 ) -> float:
     """
-    Find the score, represented by the root mean squared error (RMSE), between the
-    testing gravity data, and the predict gravity data after and
+    Find the score, represented by the root mean (or median) squared error (RMSE),
+    between the testing gravity data, and the predict gravity data after and
     inversion. Follows methods of :footcite:t:`uiedafast2017`.
 
     Parameters
     ----------
     training_data : pd.DataFrame
-       rows of the data frame which are just the training data
+       rows of the gravity data frame which are just the training data
     testing_data : pd.DataFrame
-        rows of the data frame which are just the testing data
+        rows of the gravity data frame which are just the testing data
     rmse_as_median : bool, optional
         calculate the RMSE as the median as opposed to the mean, by default False
     progressbar : bool, optional
@@ -149,6 +149,9 @@ def grav_cv_score(
     # temporarily set Python's logging level to not get information about the
     # inversion's progress
     logging.disable(level=logging.INFO)
+
+    # make sure dynamic plotting of inversion iterations is off
+    kwargs["plot_dynamic_convergence"] = False
 
     # run inversion
     results = inversion.run_inversion(
