@@ -3,12 +3,8 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 import typing
 
 import numpy as np
+import optuna
 import pandas as pd
-
-try:
-    import optuna
-except ImportError:
-    optuna = None
 
 try:
     import plotly
@@ -1019,7 +1015,7 @@ def show_prism_layers(
 
 
 def combined_history(
-    study: typing.Any,
+    study: optuna.study.Study,
     target_names: list[str],
     include_duration: bool = False,
 ) -> typing.Any:
@@ -1028,7 +1024,7 @@ def combined_history(
 
     Parameters
     ----------
-    study : typing.Any
+    study : optuna.study.Study
         the optuna study object
     target_names : list[str]
         list of names for parameters in the study
@@ -1040,10 +1036,6 @@ def combined_history(
     typing.Any
         a plotly figure
     """
-    # Check if optuna is installed
-    if optuna is None:
-        msg = "Missing optional dependency 'optuna' required for optimization."
-        raise ImportError(msg)
 
     # Check if plotly is installed
     if plotly is None:
@@ -1120,7 +1112,7 @@ def combined_history(
 
 
 def plot_optuna_inversion_figures(
-    study: typing.Any,
+    study: optuna.study.Study,
     target_names: list[str],
     include_duration: bool = False,
     # params=None,
@@ -1136,7 +1128,7 @@ def plot_optuna_inversion_figures(
 
     Parameters
     ----------
-    study : typing.Any
+    study : optuna.study.Study
         the optuna study object
     target_names : list[str]
         list of names for parameters in the study
@@ -1148,10 +1140,6 @@ def plot_optuna_inversion_figures(
         choose to plot the parameter values vs. score for each parameter, by default
         True
     """
-    # Check if optuna is installed
-    if optuna is None:
-        msg = "Missing optional dependency 'optuna' required for optimization."
-        raise ImportError(msg)
 
     if plot_history:
         combined_history(
