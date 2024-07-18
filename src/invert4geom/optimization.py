@@ -12,15 +12,13 @@ import typing
 import warnings
 
 import harmonica as hm
+import optuna
+import optuna
 import pandas as pd
 from nptyping import NDArray
 
 from invert4geom import plotting, utils
 
-try:
-    import optuna
-except ImportError:
-    optuna = None
 
 try:
     import joblib
@@ -187,7 +185,7 @@ def available_cpu_count() -> typing.Any:
 
 def optuna_parallel(
     study_name: str,
-    study_storage: typing.Any,
+    study_storage: optuna.storages.BaseStorage,
     objective: typing.Callable[..., float],
     n_trials: int = 100,
     maximize_cpus: bool = True,
@@ -197,10 +195,6 @@ def optuna_parallel(
     Run optuna optimization in parallel. Pre-define the study, storage, and objective
     function and input them here.
     """
-    if optuna is None:
-        msg = "Missing optional dependency 'optuna' required for optimization."
-        raise ImportError(msg)
-
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     # load study metadata from storage
@@ -215,7 +209,7 @@ def optuna_parallel(
             objective: typing.Callable[..., float],
             n_trials: int,
         ) -> None:
-            study = optuna.load_study(study_name=study_name, storage=storage)
+            storage: optuna.storages.BaseStorage,
             optuna.logging.set_verbosity(optuna.logging.WARNING)
             study.optimize(
                 objective,
@@ -265,7 +259,7 @@ def optuna_max_cores(
     objective: typing.Callable[..., float],
 ) -> None:
     """
-    Set up optuna optimization in parallel splitting up the number of trials over all
+    study_storage: optuna.storages.BaseStorage,
     available cores.
     """
     if joblib is None:
@@ -302,7 +296,7 @@ def optuna_1job_per_core(
     n_trials: int,
     optimize_study: typing.Callable[..., None],
     study_name: str,
-    study_storage: typing.Any,
+    study_storage: optuna.storages.BaseStorage,
     objective: typing.Callable[..., float],
 ) -> None:
     """
@@ -376,11 +370,6 @@ class OptimalEqSourceParams:
         float
             the score of the eq_sources fit
         """
-        if optuna is None:
-            msg = "Missing optional dependency 'optuna' required for optimization."
-            raise ImportError(msg)
-
-        # define parameter space
         damping = trial.suggest_float(
             "damping",
             self.damping_limits[0],

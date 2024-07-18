@@ -48,10 +48,6 @@ dependencies = [
   "tqdm",
   "pygmt",
   "dask",
-]
-
-[project.optional-dependencies]
-opti = [
   "optuna>=3.1.0", # need JournalStorage
   "optuna-integration",
   "botorch>=0.4.0",
@@ -60,6 +56,8 @@ opti = [
   "tqdm_joblib",
   "deprecation",
 ]
+
+[project.optional-dependencies]
 viz = [
   "pyvista",
   "trame",
@@ -72,7 +70,7 @@ viz = [
 test = [
   "pytest >=6",
   "pytest-cov >=3",
-  "invert4geom[opti]",
+  "invert4geom",
 ]
 docs = [
   "sphinx>=4.0",
@@ -87,7 +85,7 @@ docs = [
   "sphinxcontrib-bibtex",
 ]
 dev = [
-  "invert4geom[opti,viz,test,docs]",
+  "invert4geom[viz,test,docs]",
   "ruff",
   "nox",
   "pre-commit",
@@ -98,7 +96,7 @@ dev = [
   "mypy",
 ]
 all = [
-  "invert4geom[opti,viz,test,dev,docs]",
+  "invert4geom[viz,test,dev,docs]",
 ]
 
 [project.urls]
