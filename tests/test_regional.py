@@ -222,6 +222,7 @@ def test_regional_constraints(test_input):
         grav_data_column="misfit",
         grid_method=test_input,
         grav_obs_height=1e3,
+        source_depth=100e3,
     )
 
     # grid = df.set_index(["northing", "easting"]).to_xarray()
