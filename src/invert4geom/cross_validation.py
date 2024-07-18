@@ -911,6 +911,42 @@ def split_test_train(
 
     return df
 
+
+def kfold_df_to_lists(
+    df: pd.DataFrame,
+) -> tuple[list[pd.DataFrame], list[pd.DataFrame]]:
+    """
+    convert a single dataframe with fold columns in the form fold_0, fold_1 etc. into
+    a list of testing dataframes for each fold and a list of training dataframes for
+    each fold.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe with fold columns in the form fold_0, fold_1 etc., as output by
+        function `split_test_train()`.
+
+    Returns
+    -------
+    tuple[list[pd.DataFrame], list[pd.DataFrame]]
+        a list of testing dataframes and a list of training dataframes
+    """
+    # get list of fold column names
+    folds = list(df.columns[df.columns.str.startswith("fold_")])
+
+    test_dfs = []
+    train_dfs = []
+    # add train and test df for each fold to each own list
+    for f in folds:
+        # remove other fold column for clarity
+        cols_to_remove = [i for i in folds if i != f]
+        df1 = df.drop(cols_to_remove, axis=1)
+        # append new dfs to lists
+        test_dfs.append(df1[df1[f] == "test"])
+        train_dfs.append(df1[df1[f] == "train"])
+    return test_dfs, train_dfs
+
+
 def eq_sources_score(
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
     data: pd.Series | NDArray,
