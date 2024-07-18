@@ -10,7 +10,7 @@ import pygmt
 import verde as vd
 from nptyping import NDArray
 
-from invert4geom import optimization, utils
+from invert4geom import utils
 
 
 def regional_dc_shift(
@@ -227,17 +227,14 @@ def regional_constraints(
     constraints_df: pd.DataFrame,
     tension_factor: float = 1,
     registration: str = "g",
-    constraint_block_size: float | None = None,
+    constraints_block_size: float | None = None,
     grid_method: str = "verde",
-    dampings: typing.Any | None = None,
-    delayed: bool = False,
-    constraint_weights_col: str | None = None,
-    eqs_gridding_trials: int = 10,
-    eqs_gridding_damping_lims: tuple[float, float] = (0.1, 100),
-    eqs_gridding_depth_lims: tuple[float, float] = (1e3, 100e3),
-    eqs_gridding_parallel: bool = False,
-    eqs_gridding_plot: bool = False,
-    force_coords: tuple[pd.Series | NDArray, pd.Series | NDArray] | None = None,
+    spline_damping: float | None = None,
+    source_depth: float | None = None,
+    eq_damping: float | None = None,
+    block_size: float | None = None,
+    eq_points: list[NDArray] | None = None,
+    constraints_weights_column: str | None = None,
     grav_obs_height: float | None = None,
     regional_column: str = "reg",
 ) -> pd.DataFrame:
@@ -257,33 +254,29 @@ def regional_constraints(
         Tension factor used if `grid_method` is "pygmt", by default 1
     registration : str, optional
        grid registration used if `grid_method` is "pygmt",, by default "g"
-    constraint_block_size : float | None, optional
+    constraints_block_size : float | None, optional
         size of block used in a block-mean reduction of the constraints points, by
         default None
     grid_method : str, optional
         method used to grid the sampled gravity data at the constraint points. Choose
         between "verde", "pygmt", or "eq_sources", by default "verde"
-    dampings : typing.Any | None, optional
+    spline_damping : typing.Any | None, optional
         damping values used if `grid_method` is "verde", by default None
-    delayed : bool, optional
-        whether to parallelize the gridding if `grid_method` is "verde", by default
-        False
-    constraint_weights_col : str | None, optional
+    source_depth : float | None, optional
+        depth of each source relative to the data elevation, positive downwards in
+        meters, by default None
+    eq_damping : float | None, optional
+        damping values used if `grid_method` is "eq_sources", by default None
+    block_size : float | None, optional
+        block size used if `grid_method` is "eq_sources", by default None
+    eq_points : list[NDArray] | None, optional
+        specify source locations for equivalent source fitting, by default None
+    constraints_weights_column : str | None, optional
        column name for weighting values of each constraint point. Used if
        `constraint_block_size` is not None or if `grid_method` is "verde", by default
        None
-    eqs_gridding_trials : int, optional
-        Number of trials to be performed if `grid_method` is "eq_sources", by default 10
-    eqs_gridding_damping_lims : tuple[float, float], optional
-        Damping limits to be used if `grid_method` is "eq_sources", by default
-        (0.1, 100)
-    eqs_gridding_depth_lims : tuple[float, float], optional
-       Depth limits to be used if `grid_method` is "eq_sources", by default (1e3, 100e3)
     grav_obs_height : float, optional
         Observation height to use if `grid_method` is "eq_sources", by default None
-    force_coords : tuple[pd.Series  |  NDArray, pd.Series  |  NDArray] | None, optional
-        Optionally forced coordinates to use if `grid_method` is "eq_sources", by
-        default None
     regional_column : str
         name for the new column in grav_df for the regional field, by default "reg"
 
@@ -318,17 +311,17 @@ def regional_constraints(
 
     constraints_df = constraints_df[constraints_df.sampled_grav.notna()]
 
-    if constraint_block_size is not None:
+    if constraints_block_size is not None:
         # get weighted mean gravity value of constraint points in each cell
-        if constraint_weights_col is None:
+        if constraints_weights_column is None:
             weights = None
             uncertainty = False
         else:
-            weights = constraints_df[constraint_weights_col]
+            weights = constraints_df[constraints_weights_column]
             uncertainty = True
 
         blockmean = vd.BlockMean(
-            spacing=constraint_block_size,
+            spacing=constraints_block_size,
             uncertainty=uncertainty,
         )
 
@@ -344,10 +337,10 @@ def regional_constraints(
         coord_cols = dict(zip(["easting", "northing"], coordinates))
 
         # add reduced data to a dictionary
-        if constraint_weights_col is None:
+        if constraints_weights_column is None:
             data_cols = {"sampled_grav": data}
         else:
-            data_cols = {"sampled_grav": data, constraint_weights_col: weights}
+            data_cols = {"sampled_grav": data, constraints_weights_column: weights}
         # merge dicts and create dataframe
         constraints_df = pd.DataFrame(data=coord_cols | data_cols)
 
@@ -363,51 +356,51 @@ def regional_constraints(
         )
 
     elif grid_method == "verde":
-        if dampings is None:
-            dampings = list(np.logspace(-10, -2, num=9))
-            dampings.append(None)
-
-        if constraint_weights_col is None:
+        if constraints_weights_column is None:
             weights = None
         else:
-            weights = constraints_df[constraint_weights_col]
+            weights = constraints_df[constraints_weights_column]
 
-        spline = utils.best_spline_cv(
+        spline = vd.Spline(
+            damping=spline_damping,
+        )
+        spline.fit(
             coordinates=(
                 constraints_df.easting,
                 constraints_df.northing,
             ),
             data=constraints_df.sampled_grav,
             weights=weights,
-            dampings=dampings,
-            delayed=delayed,
-            force_coords=force_coords,
         )
 
         regional_grav = spline.grid(region=region, spacing=spacing).scalars
 
     elif grid_method == "eq_sources":
+        if grav_obs_height is None:
+            msg = "if grid_method is 'eq_sources`, must provide grav_obs_height"
+            raise ValueError(msg)
         coords = (
             constraints_df.easting,
             constraints_df.northing,
             np.ones_like(constraints_df.easting) * grav_obs_height,
         )
-        if constraint_weights_col is None:
+        if constraints_weights_column is None:
             weights = None
         else:
-            weights = constraints_df[constraint_weights_col]
+            weights = constraints_df[constraints_weights_column]
 
-        # eqs = hm.EquivalentSources(depth=100e3, damping=1e2)
-        # eqs.fit(coords, constraints_df.sampled_grav, weights=weights,)
+        # create set of deep sources
+        eqs = hm.EquivalentSources(
+            depth=source_depth,
+            damping=eq_damping,
+            block_size=block_size,
+            points=eq_points,
+        )
 
-        _study_df, eqs = optimization.optimize_eq_source_params(
+        # fit the source coefficients to the data
+        eqs.fit(
             coords,
             constraints_df.sampled_grav,
-            n_trials=eqs_gridding_trials,
-            damping_limits=eqs_gridding_damping_lims,
-            depth_limits=eqs_gridding_depth_lims,
-            plot=eqs_gridding_plot,
-            parallel=eqs_gridding_parallel,
             weights=weights,
         )
 
@@ -473,7 +466,6 @@ def regional_separation(
         if constant is None:
             msg = "constant value not provided"
             raise ValueError(msg)
-
         grav_df[regional_column] = constant
         return grav_df
     if method == "dc_shift":
