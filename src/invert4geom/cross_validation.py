@@ -725,6 +725,8 @@ def zref_density_optimal_parameter(
             )
 
     return inv_results, best_zref, best_density, best_score, parameter_pairs, scores
+
+
 def eq_sources_score(
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
     data: pd.Series | NDArray,
