@@ -443,75 +443,584 @@ def optimize_eq_source_params(
     if fname is None:
         fname = f"tmp_{random.randint(0,999)}"
 
-    # set name and storage for the optimization
-    study_name = fname
-    fname = f"{study_name}.log"
+class OptimalInversionZrefDensity:
+    """
+    Objective function to use in an Optuna optimization for finding the optimal values
+    for zref and or density contrast values for a gravity inversion. Used within
+    function `optimize_inversion_zref_density_contrast()`.
+    """
+
+    def __init__(
+        self,
+        fname: str,
+        grav_df: pd.DataFrame,
+        constraints_df: pd.DataFrame,
+        zref: float | None = None,
+        zref_limits: tuple[float, float] | None = None,
+        density_contrast_limits: tuple[float, float] | None = None,
+        density_contrast: float | None = None,
+        starting_topography: xr.DataArray | None = None,
+        starting_topography_kwargs: dict[str, typing.Any] | None = None,
+        regional_grav_kwargs: dict[str, typing.Any] | None = None,
+        **kwargs: typing.Any,
+    ) -> None:
+        self.fname = fname
+        self.grav_df = grav_df
+        self.constraints_df = constraints_df
+        self.zref_limits = zref_limits
+        self.density_contrast_limits = density_contrast_limits
+        self.zref = zref
+        self.density_contrast = density_contrast
+        self.starting_topography = starting_topography
+        self.starting_topography_kwargs = starting_topography_kwargs
+        self.regional_grav_kwargs = regional_grav_kwargs
+        self.kwargs = kwargs
+
+    def __call__(self, trial: optuna.trial) -> float:
+        """
+        Parameters
+        ----------
+        trial : optuna.trial
+            the trial to run
+
+        Returns
+        -------
+        float
+            the score of the eq_sources fit
+        """
+        grav_df = self.grav_df.copy()
+        kwargs = self.kwargs.copy()
+
+        if kwargs.get("apply_weighting_grid", None) is True:
+            msg = (
+                "Using the weighting grid within the inversion for regularization. "
+                "This makes the inversion not update the topography at constraint "
+                "points. Since constraint points are used to determine the scores "
+                "within this cross validation, the scores will not be useful, giving "
+                "biased results. Set `apply_weighting_grid` to False to continue."
+            )
+            raise ValueError(msg)
+
+        if (self.zref_limits is None) & (self.density_contrast_limits is None):
+            msg = "must provide either or both zref_limits and density_contrast_limits"
+            raise ValueError(msg)
+
+        if self.zref_limits is not None:
+            zref = trial.suggest_float(
+                "zref",
+                self.zref_limits[0],
+                self.zref_limits[1],
+            )
+        else:
+            zref = self.zref
+            if zref is None:
+                msg = "must provide zref if zref_limits not provided"
+                raise ValueError(msg)
+
+        if self.density_contrast_limits is not None:
+            density_contrast = trial.suggest_float(
+                "density_contrast",
+                self.density_contrast_limits[0],
+                self.density_contrast_limits[1],
+            )
+        else:
+            density_contrast = self.density_contrast
+            if density_contrast is None:
+                msg = (
+                    "must provide density_contrast if density_contrast_limits not "
+                    "provided"
+                )
+                raise ValueError(msg)
+
+        if self.starting_topography is None:
+            msg = (
+                "starting_topography not provided, will create a flat surface at each "
+                "zref value to be the starting topography."
+            )
+            logging.warning(msg)
+            if self.starting_topography_kwargs is None:
+                msg = (
+                    "must provide `starting_topography_kwargs` with items `region` and "
+                    "`spacing` to create the starting topography for each zref level."
+                )
+                raise ValueError(msg)
+
+        # raise warning about using constraint point minimization for regional
+        # estimation
+        if (
+            (self.regional_grav_kwargs is not None)
+            and (self.regional_grav_kwargs.get("regional_method") == "constraints")
+            and (
+                len(self.regional_grav_kwargs.get("constraints_df"))  # type: ignore[arg-type]
+                == len(self.constraints_df)
+            )
+        ):
+            msg = (
+                "Using constraint point minimization technique for regional field "
+                "estimation. This is not recommended as the constraint points are used "
+                "for the density / reference level cross-validation scoring, which "
+                "biases the scoring. Consider using a different method for regional "
+                "field estimation, or set separate constraints in training and testing "
+                "sets and provide the training set to `regional_grav_kwargs` and the "
+                "testing set to `constraints_df` to use for scoring."
+            )
+            logging.warning(msg)
+
+        # make flat starting topo at zref if not provided
+        if self.starting_topography is None:
+            starting_topo = utils.create_topography(
+                method="flat",
+                region=self.starting_topography_kwargs.get("region"),  # type: ignore[union-attr,arg-type]
+                spacing=self.starting_topography_kwargs.get("spacing"),  # type: ignore[union-attr,arg-type]
+                upwards=zref,
+            )
+        else:
+            starting_topo = self.starting_topography.copy()
+
+        # re-calculate density grid with new density contrast
+        density_grid = xr.where(
+            starting_topo >= zref,
+            density_contrast,
+            -density_contrast,  # pylint: disable=invalid-unary-operand-type
+        )
+
+        # create layer of prisms
+        starting_prisms = utils.grids_to_prisms(
+            starting_topo,
+            reference=zref,
+            density=density_grid,
+        )
+
+        # calculate forward gravity of starting prism layer
+        grav_df["starting_grav"] = starting_prisms.prism_layer.gravity(
+            coordinates=(
+                grav_df.easting,
+                grav_df.northing,
+                grav_df.upward,
+            ),
+            field="g_z",
+            progressbar=False,
+        )
+
+        # calculate misfit as observed - starting
+        grav_data_column = kwargs.get("grav_data_column")
+        grav_df["misfit"] = grav_df[grav_data_column] - grav_df.starting_grav
+
+        # calculate regional field
+        reg_kwargs = self.regional_grav_kwargs.copy()  # type: ignore[union-attr]
+
+        grav_df = regional.regional_separation(
+            method=reg_kwargs.pop("regional_method", None),
+            grav_df=grav_df,
+            regional_column="reg",
+            grav_data_column="misfit",
+            **reg_kwargs,
+        )
+
+        # remove the regional from the misfit to get the residual
+        grav_df["res"] = grav_df.misfit - grav_df.reg
+
+        # update starting model in kwargs
+        kwargs["prism_layer"] = starting_prisms
+
+        new_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key
+            not in [
+                "zref",
+                "density_contrast",
+                "progressbar",
+                "results_fname",
+            ]
+        }
+
+        trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
+
+        # run cross validation
+        return cross_validation.constraints_cv_score(
+            grav_df=grav_df,
+            constraints_df=self.constraints_df,
+            results_fname=trial.user_attrs.get("fname"),
+            **new_kwargs,
+        )
+
+
+def optimize_inversion_zref_density_contrast(
+    grav_df: pd.DataFrame,
+    constraints_df: pd.DataFrame,
+    n_trials: int,
+    starting_topography: xr.DataArray | None = None,
+    zref_limits: tuple[float, float] | None = None,
+    density_contrast_limits: tuple[float, float] | None = None,
+    zref: float | None = None,
+    density_contrast: float | None = None,
+    starting_topography_kwargs: dict[str, typing.Any] | None = None,
+    regional_grav_kwargs: dict[str, typing.Any] | None = None,
+    score_as_median: bool = False,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    grid_search: bool = False,
+    fname: str | None = None,
+    plot_cv: bool = True,
+    logx: bool = False,
+    logy: bool = False,
+    **kwargs: typing.Any,
+) -> tuple[
+    optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
+]:
+    """
+    Use Optuna to find the optimal zref and or density contrast values for a gravity
+    inversion. The optimization aims to minimize the cross-validation score, represented
+    by the root mean (or median) squared error (RMSE), between the testing gravity data,
+    and the predict gravity data after and inversion. Follows methods of
+    :footcite:t:`uiedafast2017`. This can optimize for either zref, density contrast, or
+    both at the same time. Provide upper and low limits for each parameter, number of
+    trials and let Optuna choose the best parameter values for each trial or use a grid
+    search to test all values between the limits in intervals of n_trials. The results
+    are saved to a pickle file with the best inversion results and the study.
+
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity data frame with columns `easting`, `northing`, `upward`, and a gravity
+        column defined by kwarg `grav_data_column`
+    constraints_df : pd.DataFrame
+        constraints data frame with columns `easting`, `northing`, and `upward`.
+    n_trials : int
+        number of trials, if grid_search is True, needs to be a perfect square and >=16.
+    starting_topography : xr.DataArray | None, optional
+        a starting topography grid used to create the prisms layers. If not provided,
+        must provide region and spacing to starting_topography_kwargs, by default None
+    zref_limits : tuple[float, float] | None, optional
+        upper and lower limits for the reference level, in meters, by default None
+    density_contrast_limits : tuple[float, float] | None, optional
+        upper and lower limits for the density contrast, in kg/m^-3, by default None
+    zref : float | None, optional
+        if zref_limits not provided, must provide a constant zref value, by default None
+    density_contrast : float | None, optional
+        if density_contrast_limits not provided, must provide a constant density
+        contrast value, by default None
+    starting_topography_kwargs : dict[str, typing.Any] | None, optional
+        dictionary with region and spacing arguments used to create a flat starting
+        topography at each zref value if starting_topography not provided, by default
+        None
+    regional_grav_kwargs : dict[str, typing.Any] | None, optional
+        dictionary with kwargs to supply to `regional.regional_separation()`, by default
+        None
+    score_as_median : bool, optional
+        change scoring metric from root mean square to root median square, by default
+        False
+    sampler : optuna.samplers.BaseSampler | None, optional
+        customize the optuna sampler, by default uses BoTorch sampler unless grid_search
+        is True, then uses GridSampler.
+    grid_search : bool, optional
+        Switch the sampler to GridSampler and search entire parameter space between
+        provided limits in intervals set by n_trials (for 1 parameter optimizations), or
+        by the square root of n_trials (for 2 parameter optimizations), by default False
+    fname : str | None, optional
+        filename to save both the inversion results and study to as pickle files, by
+        default None
+    plot_cv : bool, optional
+        plot the cross-validation results, by default True
+    logx : bool, optional
+        use a log scale for the cross-validation plot x-axis, by default False
+    logy : bool, optional
+        use a log scale for the cross-validation plot y-axis, by default False
+
+    Returns
+    -------
+    tuple[
+        optuna.study,
+        tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float] ]
+        a tuple of the completed optuna study and a tuple of the inversion results:
+        topography dataframe, gravity dataframe, parameter values and elapsed time.
+    """
+
+    if "test" in grav_df.columns:
+        assert (
+            grav_df.test.any()
+        ), "test column contains True value, not needed except for during damping CV"
+
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # if sampler not provided, use BoTorch as default unless grid_search is True
+    if sampler is None:
+        if grid_search is True:
+            if zref_limits is None:
+                if n_trials < 4:
+                    msg = (
+                        "if grid_search is True, n_trials must be at least 4, "
+                        "resetting n_trials to 4 now."
+                    )
+                    logging.warning(msg)
+                    n_trials = 4
+                space = np.linspace(
+                    density_contrast_limits[0],  # type: ignore[index]
+                    density_contrast_limits[1],  # type: ignore[index]
+                    n_trials,
+                )
+                # omit first and last since they will be enqueued separately
+                space = space[1:-1]
+                sampler = optuna.samplers.GridSampler(
+                    search_space={"density_contrast": space},
+                    seed=10,
+                )
+            elif density_contrast_limits is None:
+                if n_trials < 4:
+                    msg = (
+                        "if grid_search is True, n_trials must be at least 4, "
+                        "resetting n_trials to 4 now."
+                    )
+                    logging.warning(msg)
+                    n_trials = 4
+                space = np.linspace(zref_limits[0], zref_limits[1], n_trials)
+                # omit first and last since they will be enqueued separately
+                space = space[1:-1]
+                sampler = optuna.samplers.GridSampler(
+                    search_space={"zref": space},
+                    seed=10,
+                )
+            else:
+                if n_trials < 16:
+                    msg = (
+                        "if grid_search is True, n_trials must be at least 16, "
+                        "resetting n_trials to 16 now."
+                    )
+                    logging.warning(msg)
+                    n_trials = 16
+
+                # n_trials needs to be square for 2 param grid search so each param has
+                # sqrt(n_trials).
+                if np.sqrt(n_trials).is_integer() is False:
+                    # get next largest square number
+                    old_n_trials = n_trials
+                    n_trials = (math.floor(math.sqrt(n_trials)) + 1) ** 2
+                    msg = (
+                        "if grid_search is True with provided limits for both zref and "
+                        "density contrast, n_trials (%s) must have an integer square "
+                        "root. Resetting n_trials to to next largest compatible value "
+                        "now (%s)"
+                    )
+                    logging.warning(msg, old_n_trials, n_trials)
+
+                zref_space = np.linspace(
+                    zref_limits[0],
+                    zref_limits[1],
+                    int(np.sqrt(n_trials)),
+                )
+
+                density_contrast_space = np.linspace(
+                    density_contrast_limits[0],
+                    density_contrast_limits[1],
+                    int(np.sqrt(n_trials)),
+                )
+
+                # omit first and last since they will be enqueued separately
+                sampler = optuna.samplers.GridSampler(
+                    search_space={
+                        "zref": zref_space[1:-1],
+                        "density_contrast": density_contrast_space[1:-1],
+                    },
+                    seed=10,
+                )
+        else:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="BoTorch")
+                sampler = optuna.integration.BoTorchSampler(
+                    n_startup_trials=int(n_trials / 4),
+                    seed=10,
+                )
+
+    # set file name for saving results with random number between 0 and 999
+    if fname is None:
+        fname = f"tmp_{random.randint(0,999)}"
+
+    study = optuna.create_study(
+        direction="minimize",
+        sampler=sampler,
+        load_if_exists=False,
+    )
+
+    # explicitly add the limits as trials
+    if zref_limits is None:
+        study.enqueue_trial({"density_contrast": density_contrast_limits[0]})  # type: ignore[index]
+        study.enqueue_trial({"density_contrast": density_contrast_limits[1]})  # type: ignore[index]
+    elif density_contrast_limits is None:
+        study.enqueue_trial({"zref": zref_limits[0]})
+        study.enqueue_trial({"zref": zref_limits[1]})
+    else:
+        if grid_search is True:
+            a = range(int(np.sqrt(n_trials)))
+            full_pairs = list(itertools.product(a, a))
+
+            a = range(int(np.sqrt(n_trials)))[1:-1]
+            inside_pairs = list(itertools.product(a, a))
+
+            pairs_to_enqueue = [p for p in full_pairs if p not in inside_pairs]
+
+            for pair in pairs_to_enqueue:
+                study.enqueue_trial(
+                    {
+                        "zref": zref_space[pair[0]],
+                        "density_contrast": density_contrast_space[pair[1]],
+                    },
+                )
+        else:
+            study.enqueue_trial(
+                {
+                    "zref": zref_limits[0],
+                    "density_contrast": density_contrast_limits[0],
+                },
+            )
+            study.enqueue_trial(
+                {
+                    "zref": zref_limits[0],
+                    "density_contrast": density_contrast_limits[1],
+                },
+            )
+            study.enqueue_trial(
+                {
+                    "zref": zref_limits[1],
+                    "density_contrast": density_contrast_limits[0],
+                },
+            )
+            study.enqueue_trial(
+                {
+                    "zref": zref_limits[1],
+                    "density_contrast": density_contrast_limits[1],
+                },
+            )
+
+    # run optimization
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="logei_candidates_func is experimental"
+        )
+        study.optimize(
+            OptimalInversionZrefDensity(
+                grav_df=grav_df,
+                constraints_df=constraints_df,
+                zref_limits=zref_limits,
+                density_contrast_limits=density_contrast_limits,
+                zref=zref,
+                density_contrast=density_contrast,
+                starting_topography=starting_topography,
+                starting_topography_kwargs=starting_topography_kwargs,
+                regional_grav_kwargs=regional_grav_kwargs,
+                rmse_as_median=score_as_median,
+                fname=fname,
+                **kwargs,
+            ),
+            n_trials=n_trials,
+            callbacks=[warn_limits_better_than_trial_multi_params],
+            show_progress_bar=True,
+        )
+
+    best_trial = study.best_trial
+
+    if zref_limits is not None:  # noqa: SIM102
+        if best_trial.params.get("zref") in zref_limits:
+            logging.warning(
+                "Best zref value (%s) is at the limit of provided values (%s) and "
+                "thus is likely not a global minimum, expand the range of values "
+                "tested to ensure the best parameter value is found.",
+                best_trial.params.get("zref"),
+                zref_limits,
+            )
+    if density_contrast_limits is not None:  # noqa: SIM102
+        if best_trial.params.get("density_contrast") in density_contrast_limits:
+            logging.warning(
+                "Best density contrast value (%s) is at the limit of provided values "
+                "(%s) and thus is likely not a global minimum, expand the range of "
+                "values tested to ensure the best parameter value is found.",
+                best_trial.params.get("density_contrast"),
+                density_contrast_limits,
+            )
+    logging.info("Trial with lowest score: ")
+    logging.info("\ttrial number: %s", best_trial.number)
+    logging.info("\tparameter: %s", best_trial.params)
+    logging.info("\tscores: %s", best_trial.values)
+
+    # get best inversion result of each set
+    with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
+        inv_results = pickle.load(f)
+
+    # delete other inversion results
+    for i in range(n_trials):
+        if i == best_trial.number:
+            pass
+        else:
+            pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
 
     # remove if exists
-    if use_existing is True:
-        pass
-    else:
-        pathlib.Path(fname).unlink(missing_ok=True)
-        pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
+    pathlib.Path(fname).unlink(missing_ok=True)
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="JournalStorage is experimental")
-        lock_obj = optuna.storages.JournalFileOpenLock(fname)
-        file_storage = optuna.storages.JournalFileStorage(fname, lock_obj=lock_obj)
-        storage = optuna.storages.JournalStorage(file_storage)
+    # save study to pickle
+    with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+        pickle.dump(study, f)
 
-        storage = optuna.storages.JournalStorage(
-            optuna.storages.JournalFileStorage(fname)
-        )
-
-    # if sampler not provided, used BoTorch as default
-    if sampler is None:
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="BoTorch")
-            sampler = (
-                optuna.integration.BoTorchSampler(n_startup_trials=int(n_trials / 3)),
+    if plot_cv is True:
+        if zref_limits is None:
+            plotting.plot_cv_scores(
+                study.trials_dataframe().value.values,
+                study.trials_dataframe().params_density_contrast.values,
+                param_name="Density contrast (kg/m$^3$)",
+                plot_title="Density contrast Cross-validation",
+                logx=logx,
+                logy=logy,
             )
-            # sampler=optuna.samplers.TPESampler(n_startup_trials=int(n_trials/3)),
-            # sampler=optuna.samplers.GridSampler(search_space),
-
-    # create study
-    study = optuna.create_study(
-        study_name=study_name,
-        storage=storage,
-        direction="maximize",
-        sampler=sampler,
-        load_if_exists=True,
-    )
-
-    # define the objective function
-    objective = OptimalEqSourceParams(
-        coordinates=coordinates,
-        data=data,
-        damping_limits=damping_limits,
-        depth_limits=depth_limits,
-        parallel=True,
-        **eq_kwargs,
-    )
-
-    if n_trials == 0:  # (use_existing is True) & (n_trials is None):
-        study = optuna.load_study(
-            study_name=study_name,
-            storage=storage,
-        )
-        study_df = study.trials_dataframe()
-    else:
-        # run the optimization
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # with HiddenPrints():
-            study, study_df = optuna_parallel(
-                study_name=study_name,
-                study_storage=storage,
-                objective=objective,
-                n_trials=n_trials,
-                maximize_cpus=True,
-                parallel=parallel,
+        elif density_contrast_limits is None:
+            plotting.plot_cv_scores(
+                study.trials_dataframe().value.values,
+                study.trials_dataframe().params_zref.values,
+                param_name="Reference level (m)",
+                plot_title="Reference level Cross-validation",
+                logx=logx,
+                logy=logy,
             )
+        else:
+            if grid_search is True:
+                parameter_pairs = list(
+                    zip(
+                        study.trials_dataframe().params_zref,
+                        study.trials_dataframe().params_density_contrast,
+                    )
+                )
+                plotting.plot_2_parameter_cv_scores(
+                    study.trials_dataframe().value.values,
+                    parameter_pairs,
+                    param_names=("Reference level (m)", "Density contrast (kg/m$^3$)"),
+                )
+            else:
+                plotting.plot_2_parameter_cv_scores_uneven(
+                    study,
+                    param_names=(
+                        "params_zref",
+                        "params_density_contrast",
+                    ),
+                    plot_param_names=(
+                        "Reference level (m)",
+                        "Density contrast (kg/m$^3$)",
+                    ),
+                )
+                # plotting.plot_cv_scores(
+                #     study.trials_dataframe().value.values,
+                #     study.trials_dataframe().params_density_contrast.values,  # type: ignore[arg-type] # noqa: E501
+                #     param_name="Density contrast (kg/m$^3$)",
+                #     plot_title="Density contrast Cross-validation",
+                #     logx=logx,
+                #     logy=logy,
+                # )
+                # plotting.plot_cv_scores(
+                #     study.trials_dataframe().value.values,
+                #     study.trials_dataframe().params_zref.values,
+                #     param_name="Reference level (m)",
+                #     plot_title="Reference level Cross-validation",
+                #     logx=logx,
+                #     logy=logy,
+                # )
+
+    return study, inv_results
 
     logging.info("Best params: %s", study.best_params)
     logging.info("Best trial: %s", study.best_trial.number)

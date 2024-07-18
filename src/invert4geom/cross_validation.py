@@ -421,6 +421,17 @@ def constraints_cv_score(
     return utils.rmse(dif, as_median=rmse_as_median)
 
 
+# pylint: disable=duplicate-code
+@deprecation.deprecated(  # type: ignore[misc]
+    deprecated_in="0.8.0",
+    removed_in="0.14.0",
+    current_version=invert4geom.__version__,
+    details=(
+        "Use the new function `optimization.optimize_inversion_zref_density_contrast()`"
+        "instead, which uses Optuna for optimization. If you would still like to "
+        "conduct a grid search, set `grid_search=True` in the new function.",
+    ),
+)
 def zref_density_optimal_parameter(
     grav_df: pd.DataFrame,
     constraints_df: pd.DataFrame,
@@ -458,19 +469,24 @@ def zref_density_optimal_parameter(
         "grav_data_column".
     constraints_df : pd.DataFrame
         dataframe with points where the topography of interest has been previously
-        measured, must have coordinate columns "easting", "northing", and "upward".
-    starting_topography : xr.DataArray,optional
-        starting topography to use to create the starting prism model. If not supplied,
-        starting_topography_kwargs must be provided to create the starting topography.
-        By default None.
+        measured, to be used for score, must have coordinate columns "easting",
+        "northing", and "upward".
+    starting_topography : xr.DataArray | None, optional
+        starting topography to use to create the starting prism model. If not provided,
+        will make a flat surface at each provided zref value using the region and
+        spacing values provided in starting_topography_kwargs.
     zref_values : list[float] | None, optional
         Reference level values to test, by default None
     density_contrast_values : list[float] | None, optional
         Density contrast values to test, by default None
     starting_topography_kwargs : dict[str, typing.Any] | None, optional
-        Keywords used to create the starting topography, by default None
+        region and spacing used to create a flat starting topography for each zref
+        value, by default None.
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
-        Keywords used to calculate the regional field, by default None
+        Keywords used to calculate the regional field, by default None. If method is
+        `constraints` for constraint point minimization, must separate the constraints
+        into testing and training sets and provide the training set to this argument and
+        the testing set to `constraints_df` to avoid biasing the scores.
     rmse_as_median : bool, optional
         Use the median instead of the root mean square as the scoring metric, by default
         False
@@ -492,7 +508,7 @@ def zref_density_optimal_parameter(
     """
 
     if verbose:
-        # set Python's logging level to get information about the inversion\s progress
+        # set Python's logging level to get information about the inversion's progress
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
     else:
@@ -502,10 +518,6 @@ def zref_density_optimal_parameter(
     # set file name for saving results with random number between 0 and 999
     if results_fname is None:
         results_fname = f"tmp_{random.randint(0,999)}"
-
-    if constraints_df is None:
-        msg = "must provide constraints_df"
-        raise ValueError(msg)
 
     if (zref_values is None) & (density_contrast_values is None):
         msg = "must provide either or both zref_values and density_contrast_values"
@@ -518,36 +530,39 @@ def zref_density_optimal_parameter(
             raise ValueError(msg)
         zref_values = [zref]
     elif density_contrast_values is None:
-        if starting_topography is None:
-            if starting_topography_kwargs is None:
-                msg = (
-                    "starting_topography_kwargs must be provided if "
-                    "starting_topography is not provided"
-                )
-                raise ValueError(msg)
-            density_contrast = starting_topography_kwargs.get("density_contrast", None)
-            if density_contrast is None:
-                msg = (
-                    "density_contrast must be provided to starting_topography_kwargs if"
-                    " starting_topography is not provided"
-                )
-                raise ValueError(msg)
-        else:
-            density_contrast = starting_topography.density
+        density_contrast = kwargs.get("density_contrast", None)
         if density_contrast is None:
             msg = "must provide density_contrast_values or density_contrast in kwargs"
             raise ValueError(msg)
         density_contrast_values = [density_contrast]
 
+    if starting_topography is None:
+        msg = (
+            "starting_topography not provided, will create a flat surface at each zref "
+            "value to be the starting topography."
+        )
+        logging.warning(msg)
+        if starting_topography_kwargs is None:
+            msg = (
+                "must provide `starting_topography_kwargs` with items `region` and "
+                "`spacing` to create the starting topography for each zref level."
+            )
+            raise ValueError(msg)
+
     # raise warning about using constraint point minimization for regional estimation
-    if (regional_grav_kwargs is not None) and (
-        regional_grav_kwargs.get("regional_method") == "constraints"
+    if (
+        (regional_grav_kwargs is not None)
+        and (regional_grav_kwargs.get("regional_method") == "constraints")
+        and (len(regional_grav_kwargs.get("constraints_df")) == len(constraints_df))  # type: ignore[arg-type]
     ):
         msg = (
-            "Using constraint points for regional field estimation. This is not "
-            "recommended as the constraint points are used for the cross-validation, "
-            "making the scoring metric meaningless. Consider using a different method "
-            "for regional field estimation."
+            "Using constraint point minimization technique for regional field "
+            "estimation. This is not recommended as the constraint points are used for "
+            "the density / reference level cross-validation scoring, which biases the "
+            "scoring. Consider using a different method for regional field estimation, "
+            "or set separate constraints in training and testing sets and provide the "
+            "training set to `regional_grav_kwargs` and the testing set to "
+            "constraints_df to use for scoring."
         )
         logging.warning(msg)
 
@@ -561,47 +576,36 @@ def zref_density_optimal_parameter(
 
     # run inversions and collect scores
     scores = []
-    pbar = tqdm(
-        parameter_pairs,
-        desc="Zref/Density pairs",
-        disable=not progressbar,
-    )
+    if progressbar is True:
+        pbar = tqdm(
+            parameter_pairs,
+            desc="Zref/Density pairs",
+        )
+    elif progressbar is False:
+        pbar = parameter_pairs
+    else:
+        msg = "progressbar must be a boolean"  # type: ignore[unreachable]
+        raise ValueError(msg)
 
     for i, (zref, density_contrast) in enumerate(pbar):
-        # create starting topography
         if starting_topography is None:
-            if starting_topography_kwargs is None:
-                msg = (
-                    "starting_topography_kwargs must be provided if "
-                    "starting_topography is not provided"
-                )
-                raise ValueError(msg)
-            method = starting_topography_kwargs.get("method")
-            upwards = starting_topography_kwargs.get("upwards", None)
-            if (method == "flat") & (upwards is None):
-                upwards = zref
-
-            created_starting_topography = utils.create_topography(
-                method=method,  # type: ignore [arg-type]
-                region=starting_topography_kwargs.get("region", None),
-                spacing=starting_topography_kwargs.get("spacing", None),
-                upwards=upwards,
-                constraints_df=constraints_df,
-                dampings=starting_topography_kwargs.get(
-                    "dampings", np.logspace(-10, 0, 100)
-                ),
+            starting_topo = utils.create_topography(
+                method="flat",
+                region=starting_topography_kwargs.get("region"),  # type: ignore[union-attr, arg-type]
+                spacing=starting_topography_kwargs.get("spacing"),  # type: ignore[union-attr, arg-type]
+                upwards=zref,
             )
         else:
-            created_starting_topography = starting_topography.copy()
+            starting_topo = starting_topography.copy()
 
         # re-calculate density grid with new density contrast
         density_grid = xr.where(
-            created_starting_topography >= zref, density_contrast, -density_contrast
+            starting_topo >= zref, density_contrast, -density_contrast
         )
 
         # create layer of prisms
         starting_prisms = utils.grids_to_prisms(
-            created_starting_topography,
+            starting_topo,
             reference=zref,
             density=density_grid,
         )
@@ -638,18 +642,24 @@ def zref_density_optimal_parameter(
         # update starting model in kwargs
         kwargs["prism_layer"] = starting_prisms
 
+        new_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key
+            not in [
+                "zref",
+                "density_contrast",
+            ]
+        }
         # run cross validation
         score = constraints_cv_score(
             grav_df=grav_df,
             constraints_df=constraints_df,
             results_fname=f"{results_fname}_trial_{i}",
             rmse_as_median=rmse_as_median,
-            **kwargs,
+            **new_kwargs,
         )
         scores.append(score)
-
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
 
     # print parameter and score pairs
     for (zref, density_contrast), score in zip(parameter_pairs, scores):
@@ -726,6 +736,8 @@ def zref_density_optimal_parameter(
 
     return inv_results, best_zref, best_density, best_score, parameter_pairs, scores
 
+
+# pylint: enable=duplicate-code
 
 def eq_sources_score(
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
