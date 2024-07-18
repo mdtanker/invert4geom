@@ -393,7 +393,7 @@ def plot_convergence(
 
     # add buffer to y axis limits
     ax1.set_ylim(0.9 * l2_norm_tolerance, starting_l2_norm)
-    ax2.set_ylim(0.9 * delta_l2_norm_tolerance, np.nanmax(delta_l2_norms))
+    ax2.set_ylim(delta_l2_norm_tolerance, np.nanmax(delta_l2_norms))
 
     # set x axis to integer values
     ax1.xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
@@ -497,7 +497,7 @@ def plot_dynamic_convergence(
     # add buffer to y axis limits
     ax1.set_ylim(0.9 * (l2_norm_tolerance), np.sqrt(starting_misfit))
     if iters > 1:
-        ax2.set_ylim(0.9 * (delta_l2_norm_tolerance), np.nanmax(delta_l2_norms))
+        ax2.set_ylim(delta_l2_norm_tolerance, np.nanmax(delta_l2_norms))
 
     # set x axis to integer values
     ax1.xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
