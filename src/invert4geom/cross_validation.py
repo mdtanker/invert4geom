@@ -146,12 +146,20 @@ def grav_cv_score(
     density_contrast = np.fabs(prism_layer.density)
     zref = prism_layer.attrs.get("zref")
 
+    # temporarily set Python's logging level to not get information about the
+    # inversion's progress
+    logging.disable(level=logging.INFO)
+
     # run inversion
     results = inversion.run_inversion(
         grav_df=train,
         progressbar=False,
         **kwargs,
     )
+
+    # reset logging level
+    logging.disable(level=logging.NOTSET)
+
     prism_results, _, _, _ = results
 
     # get last iteration's layer result
@@ -414,12 +422,20 @@ def constraints_cv_score(
 
     constraints_df = constraints_df.copy()
 
+    # temporarily set Python's logging level to not get information about the
+    # inversion's progress
+    logging.disable(level=logging.INFO)
+
     # run inversion
     results = inversion.run_inversion(
         grav_df=grav_df,
         progressbar=False,
         **kwargs,
     )
+
+    # reset logging level
+    logging.disable(level=logging.NOTSET)
+
     prism_results, _, _, _ = results
 
     # get last iteration's layer result
