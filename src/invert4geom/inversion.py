@@ -17,7 +17,7 @@ import xarray as xr
 from nptyping import NDArray
 from tqdm.autonotebook import tqdm
 
-from invert4geom import cross_validation, plotting, regional, utils
+from invert4geom import cross_validation, optimization, plotting, regional, utils
 
 
 @numba.jit(cache=True, nopython=True)  # type: ignore[misc]
@@ -1450,18 +1450,23 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     if regional_grav_kwargs is None:
         msg = "regional_grav_kwargs must be provided if performing zref or density CV"
         raise ValueError(msg)
-    inv_results, _, _, _, _, _ = cross_validation.zref_density_optimal_parameter(
+
+    # run zref or density optimization
+    _, inversion_results = optimization.optimize_inversion_zref_density_contrast(
         grav_df=grav_df,
         constraints_df=kwargs.get("constraints_df"),
-        zref_values=kwargs.get("zref_values"),
-        density_contrast_values=kwargs.get("density_contrast_values", None),
+        density_contrast_limits=kwargs.get("density_contrast_limits", None),
+        zref_limits=kwargs.get("zref_limits", None),
+        n_trials=kwargs.get("zref_density_cv_trials", None),
         starting_topography=starting_topography,
         regional_grav_kwargs={
             "regional_method": regional_grav_kwargs.get("regional_method", None),
             **regional_grav_kwargs,
         },
+        grid_search=kwargs.get("grid_search", False),
+        fname=kwargs.get("zref_density_cv_fname", f"{fname}_zref_density_cv"),
+        score_as_median=kwargs.get("score_as_median", False),
         plot_cv=plot_cv,
-        progressbar=True,
         **inversion_kwargs,
     )
 
