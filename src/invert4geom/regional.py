@@ -174,7 +174,6 @@ def regional_eq_sources(
     source_depth: float,
     eq_damping: float | None = None,
     block_size: float | None = None,
-    depth_type: str = "relative",
     regional_column: str = "reg",
 ) -> pd.DataFrame:
     """
@@ -183,18 +182,16 @@ def regional_eq_sources(
     Parameters
     ----------
     grav_df : pd.DataFrame
-        gravity data with columns "easting", "northing" and set by grav_data_column.
+        gravity data with columns "easting", "northing", "upward" and set by
+        grav_data_column.
     grav_data_column: str,
         column name for the gravity data
     source_depth : float
-        _description_
+        depth of each source relative to the data elevation
     eq_damping : float | None, optional
         smoothness to impose on estimated coefficients, by default None
     block_size : float | None, optional
         block reduce the data to speed up, by default None
-    depth_type : str, optional
-        sources depths are "relative" to observation heights or at a "constant" depth,
-        by default "relative"
     regional_column : str
         name for the new column in grav_df for the regional field.
 
@@ -211,7 +208,7 @@ def regional_eq_sources(
         depth=source_depth,
         damping=eq_damping,
         block_size=block_size,
-        depth_type=depth_type,
+        # depth_type="relative",
     )
 
     # fit the source coefficients to the data
