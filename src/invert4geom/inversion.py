@@ -1133,7 +1133,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         in grav_df, if True, must provide`regional_grav_kwargs`, by default False
     run_damping_cv : bool, optional
         Choose whether to run cross validation for damping, if True, must supplied
-        damping values with kwarg `damping_values`, by default False
+        damping values with kwarg `damping_limits`, by default False
     run_zref_or_density_cv : bool, optional
         Choose whether to run cross validation for zref or density, if True, must
         provide zref values, density values, or both  with kwargs `zref_values` or `
@@ -1313,7 +1313,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     if calculate_gravity_misfit is False:
         if "misfit" not in grav_df:
             msg = (
-                "'misfit' must be a column of `grav_df` if calculate_starting_misfit"
+                "'misfit' must be a column of `grav_df` if calculate_gravity_misfit"
                 " is False"
             )
             raise ValueError(msg)
@@ -1330,7 +1330,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
     # Regional Component of Misfit
     if calculate_regional_misfit is False:
-        if "reg" not in grav_df:
+        if ("reg" not in grav_df) & (run_zref_or_density_cv is False):
             msg = (
                 "'reg' must be a column of `grav_df` if calculate_regional_misfit is"
                 " False"
@@ -1345,7 +1345,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 " calculate_regional_misfit is True"
             )
             logging.warning(msg)
-        regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None).copy()
+        regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None)
         if regional_grav_kwargs is None:
             msg = (
                 "regional_grav_kwargs must be provided if calculate_regional_misfit"
@@ -1360,8 +1360,6 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             **regional_grav_kwargs,
         )
 
-    grav_df["res"] = grav_df["misfit"] - grav_df["reg"]
-
     inversion_kwargs = {
         key: value
         for key, value in kwargs.items()
@@ -1374,17 +1372,24 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             "starting_grav_kwargs",
             "regional_grav_kwargs",
             "grav_spacing",
-            "damping_values",
-            "zref_values",
-            "density_contrast_values",
+            "damping_limits",
+            "zref_limits",
+            "density_contrast_limits",
             "constraints_df",
             "inversion_region",
+            "damping_cv_fname",
+            "damping_cv_trials",
+            "zref_density_cv_trials",
+            "zref_density_cv_fname",
+            "score_as_median",
         ]
     }
 
     # run only the inversion with specified damping, density, and zref values
     if (run_damping_cv is False) & (run_zref_or_density_cv is False):
-        return run_inversion(
+        grav_df["res"] = grav_df["misfit"] - grav_df["reg"]
+
+        inversion_results = run_inversion(
             grav_df=grav_df,
             prism_layer=starting_prisms,
             progressbar=False,
@@ -1399,38 +1404,33 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         return inversion_results
 
     if run_damping_cv is True:
-        # set logging level
-        logger = logging.getLogger()
-        logger.setLevel(logging.WARNING)
+        grav_df["res"] = grav_df["misfit"] - grav_df["reg"]
 
         # set which damping parameters to include
-        damping_values = kwargs.get("damping_values", None)
+        damping_limits = kwargs.get("damping_limits", (0.001, 1))
+        if damping_limits is None:
+            msg = "must provide damping_limits if run_damping_cv is True"
+            raise ValueError(msg)
 
-        inv_results, best_damping, _, _, scores = (
-            cross_validation.grav_optimal_parameter(
-                training_data=grav_df[grav_df.test == False],  # noqa: E712 pylint: disable=singleton-comparison
-                testing_data=grav_df[grav_df.test == True],  # noqa: E712 pylint: disable=singleton-comparison
-                param_to_test=("solver_damping", damping_values),
-                progressbar=True,
-                plot_grids=False,
-                plot_cv=False,
-                verbose=True,
-                prism_layer=starting_prisms,
-                **inversion_kwargs,
-            )
+        study, inversion_results = optimization.optimize_inversion_damping(
+            training_df=grav_df[grav_df.test == False],  # noqa: E712 pylint: disable=singleton-comparison
+            testing_df=grav_df[grav_df.test == True],  # noqa: E712 pylint: disable=singleton-comparison
+            damping_limits=damping_limits,
+            n_trials=kwargs.get("damping_cv_trials", 20),
+            grid_search=kwargs.get("grid_search", False),
+            plot_grids=False,
+            fname=kwargs.get("damping_cv_fname", f"{fname}_damping_cv"),
+            prism_layer=starting_prisms,
+            score_as_median=kwargs.get("score_as_median", False),
+            plot_cv=plot_cv,
+            **inversion_kwargs,
         )
+
+        best_damping = study.best_params.get("solver_damping")
 
         # use the best damping parameter
         inversion_kwargs["solver_damping"] = best_damping
 
-        if plot_cv is True:
-            plotting.plot_cv_scores(
-                scores,
-                damping_values,
-                param_name="Damping",
-                logx=True,
-                logy=True,
-            )
 
         if run_zref_or_density_cv is False:
             if fname is not None:
@@ -1474,3 +1474,5 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         # save results to pickle
         with pathlib.Path(f"{fname}.pickle").open("wb") as f:
             pickle.dump(inversion_results, f)
+
+    return inversion_results
