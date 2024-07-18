@@ -92,9 +92,11 @@ def dummy_prism_layer_flat() -> xr.Dataset:
 ################
 ################
 
+
 @deprecation.fail_if_not_removed
 def test_eq_sources_score():
     utils.eq_sources_score()
+
 
 def test_rmeanse():
     """
