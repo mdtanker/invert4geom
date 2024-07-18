@@ -221,7 +221,6 @@ def test_regional_constraints(test_input):
         grav_df=anomalies,
         grav_data_column="misfit",
         grid_method=test_input,
-        eqs_gridding_trials=2,
         grav_obs_height=1e3,
     )
 

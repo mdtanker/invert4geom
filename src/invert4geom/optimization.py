@@ -1,10 +1,12 @@
-from __future__ import annotations
+from __future__ import annotations  # pylint: disable=too-many-lines
 
+import itertools
 import logging
 import math
 import multiprocessing
 import os
 import pathlib
+import pickle
 import random
 import re
 import subprocess
@@ -12,13 +14,14 @@ import typing
 import warnings
 
 import harmonica as hm
-import optuna
+import numpy as np
 import optuna
 import pandas as pd
+import xarray as xr
 from nptyping import NDArray
+from tqdm.autonotebook import tqdm
 
-from invert4geom import plotting, utils
-
+from invert4geom import cross_validation, plotting, regional, utils
 
 try:
     import joblib
@@ -346,14 +349,14 @@ def optuna_parallel(
 
     # set up parallel processing and run optimization
     if parallel is True:
-        # @utils.supress_stdout
+
         def optimize_study(
             study_name: str,
-            storage: typing.Any,
+            storage: optuna.storages.BaseStorage,
             objective: typing.Callable[..., float],
             n_trials: int,
         ) -> None:
-            storage: optuna.storages.BaseStorage,
+            study = optuna.load_study(study_name=study_name, storage=storage)
             optuna.logging.set_verbosity(optuna.logging.WARNING)
             study.optimize(
                 objective,
@@ -399,11 +402,11 @@ def optuna_max_cores(
     n_trials: int,
     optimize_study: typing.Callable[..., None],
     study_name: str,
-    study_storage: typing.Any,
+    study_storage: optuna.storages.BaseStorage,
     objective: typing.Callable[..., float],
 ) -> None:
     """
-    study_storage: optuna.storages.BaseStorage,
+    Set up optuna optimization in parallel splitting up the number of trials over all
     available cores.
     """
     if joblib is None:

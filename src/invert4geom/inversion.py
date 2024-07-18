@@ -984,8 +984,8 @@ def run_inversion(
         # update the l2 and delta l2 norms
         previous_delta_l2_norm = copy.copy(delta_l2_norm)
         l2_norm, delta_l2_norm = update_l2_norms(
-            current_rmse = updated_rmse,
-            last_l2_norm = l2_norm,
+            current_rmse=updated_rmse,
+            last_l2_norm=l2_norm,
         )
         final_l2_norm = l2_norm
 
@@ -1430,7 +1430,6 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
         # use the best damping parameter
         inversion_kwargs["solver_damping"] = best_damping
-
 
         if run_zref_or_density_cv is False:
             if fname is not None:

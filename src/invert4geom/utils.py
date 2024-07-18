@@ -6,6 +6,7 @@ import typing
 import warnings
 
 import dask
+import deprecation
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -15,6 +16,9 @@ import xarray as xr
 import xrft
 from nptyping import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
+
+import invert4geom
+from invert4geom import cross_validation
 
 
 def rmse(data: NDArray, as_median: bool = False) -> float:
@@ -1011,8 +1015,8 @@ def best_spline_cv(
     current_version=invert4geom.__version__,
     details="function eq_sources_score has been moved to the cross_validation model.",
 )
-def eq_sources_score(kwargs) -> float:
+def eq_sources_score(kwargs: typing.Any) -> float:
     """
     deprecated function, use cross_validation.eq_sources_score instead.
     """
-    return cross_validation.eq_sources_score(kwargs)
+    return cross_validation.eq_sources_score(**kwargs)

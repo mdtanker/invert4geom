@@ -1,5 +1,6 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
+import logging
 import typing
 
 import numpy as np
@@ -17,8 +18,8 @@ except ImportError:
     clear_output = None
 
 try:
+    import matplotlib as mpl
     import matplotlib.pyplot as plt
-    from matplotlib.ticker import MaxNLocator
 except ImportError:
     plt = None
 
@@ -32,8 +33,10 @@ try:
     import pyvista
 except ImportError:
     pyvista = None
+
 import verde as vd
 import xarray as xr
+from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 
 from invert4geom import utils
@@ -363,7 +366,7 @@ def plot_convergence(
         if i == 0:
             delta_l2_norms.append(np.nan)
         else:
-            delta_l2_norms.append(l2_norms[i-1]/m)
+            delta_l2_norms.append(l2_norms[i - 1] / m)
 
     # get tolerance values
     l2_norm_tolerance = float(params["L2 norm tolerance"])
@@ -478,11 +481,11 @@ def plot_dynamic_convergence(
     ax2 = ax1.twinx()
 
     # plot L2-norm convergence
-    ax1.plot([i for i in range(len(l2_norms))], l2_norms, "b-")
+    ax1.plot(list(range(len(l2_norms))), l2_norms, "b-")
 
     # plot delta L2-norm convergence
     if iters > 1:
-        ax2.plot([i for i in range(len(delta_l2_norms))], delta_l2_norms, "g-")
+        ax2.plot(list(range(len(delta_l2_norms))), delta_l2_norms, "g-")
 
     # set axis labels, ticks and gridlines
     ax1.set_xlabel("Iteration")
@@ -502,7 +505,7 @@ def plot_dynamic_convergence(
 
     # plot current L2-norm and Δ L2-norm
     ax1.plot(
-        iters-1,
+        iters - 1,
         l2_norms[-1],
         "^",
         markersize=6,
@@ -511,7 +514,7 @@ def plot_dynamic_convergence(
     )
     if iters > 1:
         ax2.plot(
-            iters-1,
+            iters - 1,
             delta_l2_norms[-1],
             "^",
             markersize=6,
@@ -541,7 +544,12 @@ def plot_dynamic_convergence(
     plt.show()
 
 
-def align_yaxis(ax1, v1, ax2, v2):
+def align_yaxis(
+    ax1: mpl.axes.Axes,
+    v1: float,
+    ax2: mpl.axes.Axes,
+    v2: float,
+) -> None:
     """
     adjust ax2 ylimit so that v2 in ax2 is aligned to v1 in ax1.
     From https://stackoverflow.com/a/10482477/18686384
@@ -549,9 +557,9 @@ def align_yaxis(ax1, v1, ax2, v2):
     _, y1 = ax1.transData.transform((0, v1))
     _, y2 = ax2.transData.transform((0, v2))
     inv = ax2.transData.inverted()
-    _, dy = inv.transform((0, 0)) - inv.transform((0, y1-y2))
+    _, dy = inv.transform((0, 0)) - inv.transform((0, y1 - y2))
     miny, maxy = ax2.get_ylim()
-    ax2.set_ylim(miny+dy, maxy+dy)
+    ax2.set_ylim(miny + dy, maxy + dy)
 
 
 def grid_inversion_results(
@@ -1211,7 +1219,7 @@ def show_prism_layers(
         prisms = [prisms]
 
     for i, j in enumerate(prisms):
-        # turn prisms into pyvist object
+        # turn prisms into pyvista object
         pv_grid = j.prism_layer.to_pyvista()
 
         trans = opacity[i] if opacity is not None else None
@@ -1263,7 +1271,7 @@ def combined_history(
     study: optuna.study.Study,
     target_names: list[str],
     include_duration: bool = False,
-) -> typing.Any:
+) -> plotly.graph_objects.Figure:
     """
     plot combined optimization history for multiobjective optimizations.
 
@@ -1278,7 +1286,7 @@ def combined_history(
 
     Returns
     -------
-    typing.Any
+    plotly.graph_objects.Figure
         a plotly figure
     """
 
@@ -1361,7 +1369,7 @@ def plot_optuna_figures(
     target_names: list[str],
     include_duration: bool = False,
     # params=None,
-    # seperate_param_importances=False,
+    # separate_param_importances=False,
     plot_history: bool = True,
     plot_slice: bool = True,
     plot_importance: bool = True,
@@ -1417,7 +1425,7 @@ def plot_optuna_figures(
     #         pass
     #     else:
     #         try:
-    #             if seperate_param_importances is True:
+    #             if separate_param_importances is True:
     #                 combined_importance(
     #                     study,
     #                     target_names,
