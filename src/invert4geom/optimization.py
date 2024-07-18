@@ -36,23 +36,44 @@ except ImportError:
     tqdm_joblib = None
 
 
-def logging_callback(study: typing.Any, frozen_trial: optuna.trial.FrozenTrial) -> None:
+def logging_callback(
+    study: optuna.study.Study,
+    frozen_trial: optuna.trial.FrozenTrial,
+) -> None:
     """
-    custom optuna callback, only print trial if it's the best value yet.
-    """
-    if optuna is None:
-        msg = "Missing optional dependency 'optuna' required for optimization."
-        raise ImportError(msg)
+    custom optuna callback, only log trial info if it's the best value yet.
 
-    previous_best_value = study.user_attrs.get("previous_best_value", None)
-    if previous_best_value != study.best_value:
-        study.set_user_attr("previous_best_value", study.best_value)
-        logging.info(
-            "Trial %s finished with best value: %s and parameters: %s.",
-            frozen_trial.number,
-            frozen_trial.value,
-            frozen_trial.params,
-        )
+    Parameters
+    ----------
+    study : optuna.study.Study
+        optuna study
+    frozen_trial : optuna.trial.FrozenTrial
+        current trial
+    """
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+    if study._is_multi_objective() is False:  # pylint: disable=protected-access
+        previous_best_value = study.user_attrs.get("previous_best_value", None)
+        if previous_best_value != study.best_value:
+            study.set_user_attr("previous_best_value", study.best_value)
+            logging.info(
+                "Trial %s finished with best value: %s and parameters: %s.",
+                frozen_trial.number,
+                frozen_trial.value,
+                frozen_trial.params,
+            )
+    else:
+        if frozen_trial.number in [n.number for n in study.best_trials]:
+            msg = (
+                "Trial %s is on the Pareto front with value 1: %s, value 2: %s and "
+                "parameters: %s."
+            )
+            logging.info(
+                msg,
+                frozen_trial.number,
+                frozen_trial.values[0],
+                frozen_trial.values[1],
+                frozen_trial.params,
+            )
 
 
 def available_cpu_count() -> typing.Any:
