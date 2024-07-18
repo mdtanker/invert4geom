@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import deprecation
 import harmonica as hm
 import numpy as np
 import numpy.testing as npt
@@ -92,11 +91,6 @@ def dummy_prism_layer_flat() -> xr.Dataset:
 # TESTS
 ################
 ################
-
-
-@deprecation.fail_if_not_removed
-def test_eq_sources_score():
-    utils.eq_sources_score()
 
 
 def test_rmeanse():

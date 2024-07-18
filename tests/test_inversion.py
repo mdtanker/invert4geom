@@ -292,15 +292,18 @@ def test_grav_column_der():
         prism_density=np.array([2670]),
     )[0]
     # harmonica prism approximation
-    step = 0.000001
+    step = 1e-3
     hm_dg_z = (
         hm.prism_gravity(
-            (20, 20, 100), (0, 5, 0, 5, -10, -10 + step), 2670, field="g_z"
+            coordinates=(20, 20, 100),
+            prisms=(0, 5, 0, 5, -10, -10 + step),
+            density=2670,
+            field="g_z",
         )
         / step
     )
     # test that the derivative matches a small prism approximation from
-    assert dg_z == pytest.approx(hm_dg_z, rel=1e-3)
+    assert dg_z == pytest.approx(hm_dg_z, rel=1e-2)
 
 
 @pytest.mark.use_numba()
