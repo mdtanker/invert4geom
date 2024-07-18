@@ -543,17 +543,25 @@ def solver(
 
 
 def update_l2_norms(
-    rmse: float,
-    l2_norm: float,
+    current_rmse: float,
+    last_l2_norm: float,
 ) -> tuple[float, float]:
     """
-    update the l2 norm and delta l2 norm of the misfit
+    update the l2 norm and delta l2 norm of the misfit.
+
+    We want the misfit (L2-norm) to be steadily decreasing with each iteration.
+    If it increases, something is wrong, stop inversion.
+    If it doesn't decrease enough, inversion has finished and can be stopped.
+    Delta L2 norm starts at +inf, and should decreases with each iteration.
+    If it gets close to 1, the iterations aren't making progress and can be stopped.
+    A value of 1.001 means the L2 norm has only decrease by 0.1% between iterations and
+    RMSE has only decreased by 0.05%.
 
     Parameters
     ----------
-    rmse : float
+    current_rmse : float
         root mean square error of the residual gravity misfit
-    l2_norm : float
+    last_l2_norm : float
         l2 norm of the residual gravity misfit
     Returns
     -------
@@ -561,27 +569,19 @@ def update_l2_norms(
         updated l2 norm and delta l2 norm
     """
 
-    # square-root of RMSE is the l-2 norm
-    updated_l2_norm = np.sqrt(rmse)
+    # square-root of RMSE is the L-2 norm
+    updated_l2_norm = np.sqrt(current_rmse)
 
-    updated_delta_l2_norm = l2_norm / updated_l2_norm
-
-    # we want the misfit (L2-norm) to be steadily decreasing with each iteration.
-    # If it increases, something is wrong, stop inversion
-    # If it doesn't decrease enough, inversion has finished and can be stopped
-    # delta L2 norm starts at +inf, and should decreases with each iteration.
-    # if it gets close to 1, the iterations aren't making progress and can be stopped.
-    # a value of 1.001 means the L2 norm has only decrease by 0.1% between iterations.
-    # and RMSE has only decreased by 0.05%.
+    updated_delta_l2_norm = last_l2_norm / updated_l2_norm
 
     # update the l2_norm
-    l2_norm = updated_l2_norm
+    last_l2_norm = updated_l2_norm
 
     # updated the delta l2_norm
     delta_l2_norm = updated_delta_l2_norm
 
     return (
-        l2_norm,
+        last_l2_norm,
         delta_l2_norm,
     )
 
@@ -983,7 +983,10 @@ def run_inversion(
 
         # update the l2 and delta l2 norms
         previous_delta_l2_norm = copy.copy(delta_l2_norm)
-        l2_norm, delta_l2_norm = update_l2_norms(updated_rmse, l2_norm)
+        l2_norm, delta_l2_norm = update_l2_norms(
+            current_rmse = updated_rmse,
+            last_l2_norm = l2_norm,
+        )
         final_l2_norm = l2_norm
 
         l2_norms.append(l2_norm)
