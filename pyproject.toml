@@ -58,6 +58,7 @@ opti = [
   "joblib",
   "psutil",
   "tqdm_joblib",
+  "deprecation",
 ]
 viz = [
   "pyvista",
