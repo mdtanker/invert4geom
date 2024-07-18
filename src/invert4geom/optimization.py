@@ -1309,7 +1309,1117 @@ def optimize_inversion_zref_density_contrast(
             target_names=["score"],
             plot_history=False,
             plot_slice=True,
-            # include_duration=True,
+
+class OptimizeRegionalTrend:
+    """
+    Objective function to use in an Optuna optimization for finding the optimal trend
+    order for estimation the regional component of gravity misfit.
+    """
+
+    def __init__(
+        self,
+        trend_limits: tuple[int, int],
+        optimize_on_true_regional_misfit: bool = False,
+        **kwargs: typing.Any,
+    ) -> None:
+        self.trend_limits = trend_limits
+        self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
+        self.kwargs = kwargs
+
+    def __call__(self, trial: optuna.trial) -> tuple[float, float] | float:
+        """
+        Parameters
+        ----------
+        trial : optuna.trial
+            the trial to run
+
+        Returns
+        -------
+        float
+            the scores
+        """
+
+        trend = trial.suggest_int(
+            "trend",
+            self.trend_limits[0],
+            self.trend_limits[1],
         )
 
-    return study_df.sort_values("value", ascending=False), eqs
+        res_score, reg_score, true_reg_score, df = (
+            cross_validation.regional_separation_score(
+                method="trend",
+                trend=trend,
+                **self.kwargs,
+            )
+        )
+
+        trial.set_user_attr("results", df)
+        trial.set_user_attr("true_reg_score", true_reg_score)
+
+        if self.optimize_on_true_regional_misfit is True:
+            return true_reg_score  # type: ignore[return-value]
+        return res_score, reg_score
+
+
+class OptimizeRegionalFilter:
+    """
+    Objective function to use in an Optuna optimization for finding the optimal filter
+    width for estimation the regional component of gravity misfit.
+    """
+
+    def __init__(
+        self,
+        filter_width_limits: tuple[float, float],
+        optimize_on_true_regional_misfit: bool = False,
+        **kwargs: typing.Any,
+    ) -> None:
+        self.filter_width_limits = filter_width_limits
+        self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
+        self.kwargs = kwargs
+
+    def __call__(self, trial: optuna.trial) -> float:
+        """
+        Parameters
+        ----------
+        trial : optuna.trial
+            the trial to run
+
+        Returns
+        -------
+        float
+            the scores
+        """
+
+        filter_width = trial.suggest_float(
+            "filter_width",
+            self.filter_width_limits[0],
+            self.filter_width_limits[1],
+        )
+
+        res_score, reg_score, true_reg_score, df = (
+            cross_validation.regional_separation_score(
+                method="filter",
+                filter_width=filter_width,
+                **self.kwargs,
+            )
+        )
+
+        trial.set_user_attr("results", df)
+        trial.set_user_attr("true_reg_score", true_reg_score)
+
+        if self.optimize_on_true_regional_misfit is True:
+            return true_reg_score  # type: ignore[return-value]
+        return res_score, reg_score  # type: ignore[return-value]
+
+
+class OptimizeRegionalEqSources:
+    """
+    Objective function to use in an Optuna optimization for finding the optimal
+    equivalent source parameters for estimation the regional component of gravity
+    misfit.
+    """
+
+    def __init__(
+        self,
+        source_depth_limits: tuple[float, float] | None = None,
+        block_size_limits: tuple[float, float] | None = None,
+        eq_damping_limits: tuple[float, float] | None = None,
+        optimize_on_true_regional_misfit: bool = False,
+        **kwargs: typing.Any,
+    ) -> None:
+        self.source_depth_limits = source_depth_limits
+        self.block_size_limits = block_size_limits
+        self.eq_damping_limits = eq_damping_limits
+        self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
+        self.kwargs = kwargs
+
+    def __call__(self, trial: optuna.trial) -> float:
+        """
+        Parameters
+        ----------
+        trial : optuna.trial
+            the trial to run
+
+        Returns
+        -------
+        float
+            the scores
+        """
+
+        if self.source_depth_limits is not None:
+            source_depth = trial.suggest_float(
+                "source_depth",
+                self.source_depth_limits[0],
+                self.source_depth_limits[1],
+            )
+        else:
+            source_depth = self.kwargs.get("source_depth", None)
+            if source_depth is None:
+                msg = "must provide source_depth if source_depth_limits not provided"
+                raise ValueError(msg)
+
+        if self.block_size_limits is not None:
+            block_size = trial.suggest_float(
+                "block_size",
+                self.block_size_limits[0],
+                self.block_size_limits[1],
+            )
+        else:
+            block_size = self.kwargs.get("block_size", None)
+
+        if self.eq_damping_limits is not None:
+            eq_damping = trial.suggest_float(
+                "eq_damping",
+                self.eq_damping_limits[0],
+                self.eq_damping_limits[1],
+                log=True,
+            )
+        else:
+            eq_damping = self.kwargs.get("eq_damping", None)
+
+        new_kwargs = {
+            key: value
+            for key, value in self.kwargs.items()
+            if key not in ["source_depth", "block_size", "eq_damping"]
+        }
+
+        res_score, reg_score, true_reg_score, df = (
+            cross_validation.regional_separation_score(
+                method="eq_sources",
+                source_depth=source_depth,
+                block_size=block_size,
+                eq_damping=eq_damping,
+                **new_kwargs,
+            )
+        )
+
+        trial.set_user_attr("results", df)
+        trial.set_user_attr("true_reg_score", true_reg_score)
+
+        if self.optimize_on_true_regional_misfit is True:
+            return true_reg_score  # type: ignore[return-value]
+        return res_score, reg_score  # type: ignore[return-value]
+
+
+class OptimizeRegionalConstraintsPointMinimization:
+    """
+    Objective function to use in an Optuna optimization for finding the optimal
+    hyperparameter values the Constraint Point Minimization technique for estimation the
+    regional component of gravity misfit.
+    """
+
+    def __init__(
+        self,
+        training_df: pd.DataFrame,
+        testing_df: pd.DataFrame,
+        grid_method: str,
+        # for tensioned minimum curvature gridding
+        tension_factor_limits: tuple[float, float] = (0, 1),
+        # for bi-harmonic spline gridding
+        spline_damping_limits: tuple[float, float] | None = None,
+        # for eq source gridding
+        source_depth_limits: tuple[float, float] | None = None,
+        block_size_limits: tuple[float, float] | None = None,
+        eq_damping_limits: tuple[float, float] | None = None,
+        grav_obs_height_limits: tuple[float, float] | None = None,
+        # other args
+        optimize_on_true_regional_misfit: bool = False,
+        progressbar: bool = False,
+        **kwargs: typing.Any,
+    ) -> None:
+        self.training_df = training_df
+        self.testing_df = testing_df
+        self.grid_method = grid_method
+        self.tension_factor_limits = tension_factor_limits
+        self.spline_damping_limits = spline_damping_limits
+        self.source_depth_limits = source_depth_limits
+        self.block_size_limits = block_size_limits
+        self.eq_damping_limits = eq_damping_limits
+        self.grav_obs_height_limits = grav_obs_height_limits
+        self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
+        self.progressbar = progressbar
+        self.kwargs = kwargs
+
+    def __call__(self, trial: optuna.trial) -> float:
+        """
+        Parameters
+        ----------
+        trial : optuna.trial
+            the trial to run
+
+        Returns
+        -------
+        float
+            the scores
+        """
+
+        new_kwargs = self.kwargs.copy()
+
+        if self.grid_method == "pygmt":
+            new_kwargs["tension_factor"] = trial.suggest_float(
+                "tension_factor",
+                self.tension_factor_limits[0],
+                self.tension_factor_limits[1],
+            )
+        elif self.grid_method == "verde":
+            if self.spline_damping_limits is None:
+                msg = "if grid_method is 'verde' must provide spline_damping_limits"
+                raise ValueError(msg)
+            new_kwargs["spline_damping"] = trial.suggest_float(
+                "spline_damping",
+                self.spline_damping_limits[0],
+                self.spline_damping_limits[1],
+                log=True,
+            )
+
+        elif self.grid_method == "eq_sources":
+            if self.source_depth_limits is not None:
+                new_kwargs["source_depth"] = trial.suggest_float(
+                    "source_depth",
+                    self.source_depth_limits[0],
+                    self.source_depth_limits[1],
+                )
+            else:
+                new_kwargs["source_depth"] = self.kwargs.get("source_depth", "default")
+
+            if self.block_size_limits is not None:
+                new_kwargs["block_size"] = trial.suggest_float(
+                    "block_size",
+                    self.block_size_limits[0],
+                    self.block_size_limits[1],
+                )
+            else:
+                new_kwargs["block_size"] = self.kwargs.get("block_size", None)
+
+            if self.eq_damping_limits is not None:
+                new_kwargs["eq_damping"] = trial.suggest_float(
+                    "eq_damping",
+                    self.eq_damping_limits[0],
+                    self.eq_damping_limits[1],
+                    log=True,
+                )
+            else:
+                new_kwargs["eq_damping"] = self.kwargs.get("eq_damping", None)
+
+            if self.grav_obs_height_limits is not None:
+                new_kwargs["grav_obs_height"] = trial.suggest_float(
+                    "grav_obs_height",
+                    self.grav_obs_height_limits[0],
+                    self.grav_obs_height_limits[1],
+                )
+            else:
+                new_kwargs["grav_obs_height"] = self.kwargs.get("grav_obs_height", None)
+
+        else:
+            msg = "invalid gridding method"
+            raise ValueError(msg)
+
+        if isinstance(self.training_df, list):
+            # get list of folds
+            folds = [
+                list(df.columns[df.columns.str.startswith("fold_")])[0]  # noqa: RUF015
+                for df in self.testing_df
+            ]
+
+            # progressbar for folds
+            if self.progressbar is True:
+                pbar = tqdm(
+                    folds,
+                    desc="Cross-validation folds",
+                )
+            elif self.progressbar is False:
+                pbar = folds
+            else:
+                msg = "progressbar must be a boolean"  # type: ignore[unreachable]
+                raise ValueError(msg)
+
+            # for each fold, run CV
+            results = []
+            for i, _ in enumerate(pbar):
+                fold_results = cross_validation.regional_separation_score(
+                    constraints_df=self.training_df[i],
+                    testing_df=self.testing_df[i],
+                    method="constraints",
+                    grid_method=self.grid_method,
+                    **new_kwargs,
+                )
+                results.append(fold_results)
+
+            # get mean of scores of all folds
+            res_score = np.mean([r[0] for r in results])
+            reg_score = np.mean([r[1] for r in results])
+            try:
+                true_reg_score = np.mean([r[2] for r in results])
+            except TypeError:
+                true_reg_score = None
+            # df = pd.concat([r[3] for r in results])
+            df = None
+
+        else:
+            assert isinstance(self.training_df, pd.DataFrame)
+            assert isinstance(self.testing_df, pd.DataFrame)
+            res_score, reg_score, true_reg_score, df = (
+                cross_validation.regional_separation_score(
+                    constraints_df=self.training_df,
+                    testing_df=self.testing_df,
+                    method="constraints",
+                    grid_method=self.grid_method,
+                    **new_kwargs,
+                )
+            )
+
+        trial.set_user_attr("results", df)
+        trial.set_user_attr("true_reg_score", true_reg_score)
+
+        if self.optimize_on_true_regional_misfit is True:
+            return true_reg_score  # type: ignore[no-any-return]
+        return res_score, reg_score  # type: ignore[return-value]
+
+
+def optimize_regional_filter(
+    testing_df: pd.DataFrame,
+    grav_df: pd.DataFrame,
+    grav_data_column: str,
+    regional_column: str,
+    filter_width_limits: tuple[float, float],
+    score_as_median: bool = False,
+    true_regional: xr.DataArray | None = None,
+    n_trials: int = 100,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    plot: bool = False,
+    plot_grid: bool = False,
+    optimize_on_true_regional_misfit: bool = False,
+) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+    """
+    Run an Optuna optimization to find the optimal filter width for estimating the
+    regional component of gravity misfit. For synthetic testing, if the true regional
+    grid is provided, the optimization can be set to optimize on the RMSE of the
+    predicted and true regional gravity, by setting
+    `optimize_on_true_regional_misfit=True`. By default this will perform a
+    multi-objective optimization to find the best trade-off between the lowest RMSE of
+    the residual at the constraints and the highest RMSE of the residual at all
+    locations.
+
+    Parameters
+    ----------
+    testing_df : pd.DataFrame
+        constraint points to use for calculating the score with columns "easting",
+        "northing" and "upward".
+    grav_df : pd.DataFrame
+        gravity dataframe with columns "easting", "northing", gravity data provided by
+        grav_data_column, and regional gravity provided by regional_column.
+    grav_data_column : str
+        column name for the gravity data used to calculate the gravity misfit from the
+        prism model.
+    regional_column : str
+        column name to use for regional component of gravity.
+    filter_width_limits : tuple[float, float]
+        limits to use for the filter width in meters.
+    score_as_median : bool, optional
+        use the root median square instead of the root mean square for the scoring
+        metric, by default False
+    true_regional : xr.DataArray | None, optional
+        if the true regional gravity is known (in synthetic models), supply this as a
+        grid to include a user_attr of the RMSE between this and the estimated regional
+        for each trial, or set `optimize_on_true_regional_misfit=True` to have the
+        optimization optimize on the RMSE, by default None
+    n_trials : int, optional
+        number of trials to run, by default 100
+    sampler : optuna.samplers.BaseSampler | None, optional
+        customize the optuna sampler, by default TPE sampler
+    plot : bool, optional
+        plot the resulting optimization figures, by default False
+    plot_grid : bool, optional
+        plot the resulting regional gravity grid, by default False
+    optimize_on_true_regional_misfit : bool, optional
+        if true_regional grid is provide, choose to perform optimization on the RMSE
+        between the true regional and the estimated region, by default False
+
+    Returns
+    -------
+    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
+        the completed Optuna study, the resulting gravity dataframe of the best trial,
+        and the best trial itself.
+    """
+
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # if sampler not provided, use TPE as default
+    if sampler is None:
+        sampler = optuna.samplers.TPESampler(
+            n_startup_trials=int(n_trials / 4),
+            seed=10,
+        )
+
+    if optimize_on_true_regional_misfit is True:
+        if true_regional is None:
+            msg = (
+                "if optimizing on true regional misfit, must provide true_regional grid"
+            )
+            raise ValueError(msg)
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=sampler,
+            load_if_exists=False,
+        )
+    else:
+        study = optuna.create_study(
+            directions=[
+                "minimize",
+                "maximize",
+            ],
+            sampler=sampler,
+            load_if_exists=False,
+        )
+
+    # run optimization
+    study.optimize(
+        OptimizeRegionalFilter(
+            filter_width_limits=filter_width_limits,
+            testing_df=testing_df,
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            true_regional=true_regional,
+            score_as_median=score_as_median,
+            optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        ),
+        n_trials=n_trials,
+        show_progress_bar=True,
+    )
+
+    if optimize_on_true_regional_misfit is True:
+        best_trial = study.best_trial
+    else:
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])
+        logging.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+
+    logging.info("Trial with lowest residual at constraint points: ")
+    logging.info("\ttrial number: %s", best_trial.number)
+    logging.info("\tparameter: %s", best_trial.params)
+    logging.info("\tscores: %s", best_trial.values)
+
+    resulting_grav_df = best_trial.user_attrs.get("results")
+
+    if plot is True:
+        if optimize_on_true_regional_misfit is True:
+            optuna.visualization.plot_slice(study).show()
+        else:
+            optuna.visualization.plot_pareto_front(
+                study,
+                target_names=["RMS of residual at constraints", "RMS of residual"],
+            ).show()
+        if plot_grid is True:
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
+                regional_column
+            ].plot()
+
+    return study, resulting_grav_df, best_trial
+
+
+def optimize_regional_trend(
+    testing_df: pd.DataFrame,
+    grav_df: pd.DataFrame,
+    grav_data_column: str,
+    regional_column: str,
+    trend_limits: tuple[int, int],
+    score_as_median: bool = False,
+    true_regional: xr.DataArray | None = None,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    plot: bool = False,
+    plot_grid: bool = False,
+    optimize_on_true_regional_misfit: bool = False,
+) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+    """
+    Run an Optuna optimization to find the optimal trend order for estimating the
+    regional component of gravity misfit. For synthetic testing, if the true regional
+    grid is provided, the optimization can be set to optimize on the RMSE of the
+    predicted and true regional gravity, by setting
+    `optimize_on_true_regional_misfit=True`. By default this will perform a
+    multi-objective optimization to find the best trade-off between the lowest RMSE of
+    the residual at the constraints and the highest RMSE of the residual at all
+    locations.
+
+    Parameters
+    ----------
+    testing_df : pd.DataFrame
+        constraint points to use for calculating the score with columns "easting",
+        "northing" and "upward".
+    grav_df : pd.DataFrame
+        gravity dataframe with columns "easting", "northing", gravity data provided by
+        grav_data_column, and regional gravity provided by regional_column.
+    grav_data_column : str
+        column name for the gravity data used to calculate the gravity misfit from the
+        prism model.
+    regional_column : str
+        column name to use for regional component of gravity.
+    trend_limits : tuple[int, int]
+        limits to use for the trend order in degrees.
+    score_as_median : bool, optional
+        use the root median square instead of the root mean square for the scoring
+        metric, by default False
+    true_regional : xr.DataArray | None, optional
+        if the true regional gravity is known (in synthetic models), supply this as a
+        grid to include a user_attr of the RMSE between this and the estimated regional
+        for each trial, or set `optimize_on_true_regional_misfit=True` to have the
+        optimization optimize on the RMSE, by default None
+    sampler : optuna.samplers.BaseSampler | None, optional
+        customize the optuna sampler, by default GridSampler
+    plot : bool, optional
+        plot the resulting optimization figures, by default False
+    plot_grid : bool, optional
+        plot the resulting regional gravity grid, by default False
+    optimize_on_true_regional_misfit : bool, optional
+        if true_regional grid is provide, choose to perform optimization on the RMSE
+        between the true regional and the estimated region, by default False
+
+    Returns
+    -------
+    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
+        the completed Optuna study, the resulting gravity dataframe of the best trial,
+        and the best trial itself.
+    """
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # if sampler not provided, use GridSampler as default
+    if sampler is None:
+        sampler = optuna.samplers.GridSampler(
+            search_space={"trend": list(range(trend_limits[0], trend_limits[1] + 1))},
+            seed=10,
+        )
+
+    if optimize_on_true_regional_misfit is True:
+        if true_regional is None:
+            msg = (
+                "if optimizing on true regional misfit, must provide true_regional grid"
+            )
+            raise ValueError(msg)
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=sampler,
+            load_if_exists=False,
+        )
+    else:
+        study = optuna.create_study(
+            directions=[
+                "minimize",
+                "maximize",
+            ],
+            sampler=sampler,
+            load_if_exists=False,
+        )
+
+    # run optimization
+    study.optimize(
+        OptimizeRegionalTrend(
+            trend_limits=trend_limits,
+            testing_df=testing_df,
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            true_regional=true_regional,
+            score_as_median=score_as_median,
+            optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        ),
+        show_progress_bar=True,
+    )
+
+    if optimize_on_true_regional_misfit is True:
+        best_trial = study.best_trial
+    else:
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])
+        logging.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+
+    logging.info("Trial with lowest residual at constraint points: ")
+    logging.info("\ttrial number: %s", best_trial.number)
+    logging.info("\tparameter: %s", best_trial.params)
+    logging.info("\tscores: %s", best_trial.values)
+
+    resulting_grav_df = best_trial.user_attrs.get("results")
+
+    if plot is True:
+        if optimize_on_true_regional_misfit is True:
+            optuna.visualization.plot_slice(study).show()
+        else:
+            optuna.visualization.plot_pareto_front(
+                study,
+                target_names=["RMS of residual at constraints", "RMS of residual"],
+            ).show()
+        if plot_grid is True:
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
+                regional_column
+            ].plot()
+
+    return study, resulting_grav_df, best_trial
+
+
+def optimize_regional_eq_sources(
+    testing_df: pd.DataFrame,
+    grav_df: pd.DataFrame,
+    grav_data_column: str,
+    regional_column: str,
+    score_as_median: bool = False,
+    true_regional: xr.DataArray | None = None,
+    n_trials: int = 100,
+    source_depth_limits: tuple[float, float] | None = None,
+    source_depth: float | None = None,
+    block_size_limits: tuple[float, float] | None = None,
+    block_size: float | None = None,
+    eq_damping_limits: tuple[float, float] | None = None,
+    eq_damping: float | None = None,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    plot: bool = False,
+    plot_grid: bool = False,
+    optimize_on_true_regional_misfit: bool = False,
+) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+    """
+    Run an Optuna optimization to find the optimal equivalent source parameters for
+    estimating the regional component of gravity misfit. For synthetic testing, if the
+    true regional grid is provided, the optimization can be set to optimize on the
+    RMSE of the predicted and true regional gravity, by setting
+    `optimize_on_true_regional_misfit=True`. By default this will perform a
+    multi-objective optimization to find the best trade-off between the lowest RMSE of
+    the residual at the constraints and the highest RMSE of the residual at all
+    locations.
+
+    Parameters
+    ----------
+    testing_df : pd.DataFrame
+        constraint points to use for calculating the score with columns "easting",
+        "northing" and "upward".
+    grav_df : pd.DataFrame
+        gravity dataframe with columns "easting", "northing", gravity data provided by
+        grav_data_column, and regional gravity provided by regional_column.
+    grav_data_column : str
+        column name for the gravity data used to calculate the gravity misfit from the
+        prism model.
+    regional_column : str
+        column name to use for regional component of gravity.
+    score_as_median : bool, optional
+        use the root median square instead of the root mean square for the scoring
+        metric, by default False
+    true_regional : xr.DataArray | None, optional
+        if the true regional gravity is known (in synthetic models), supply this as a
+        grid to include a user_attr of the RMSE between this and the estimated regional
+        for each trial, or set `optimize_on_true_regional_misfit=True` to have the
+        optimization optimize on the RMSE, by default None
+    n_trials : int, optional
+        number of trials to run, by default 100
+    source_depth_limits : tuple[float, float] | None, optional
+        limits to use for source depths, positive down in meters, by default None
+    source_depth : float | None, optional
+        if source_depth_limits not supplied, use this value, by default None
+    block_size_limits : tuple[float, float] | None, optional
+        limits to use for block size in meters, by default None
+    block_size : float | None, optional
+        if block_size_limits not supplied, use this value, by default None
+    eq_damping_limits : tuple[float, float] | None, optional
+        limits to use for the damping parameter, by default None
+    eq_damping : float | None, optional
+        if eq_damping_limits not provided, use this value, by default None
+    sampler : optuna.samplers.BaseSampler | None, optional
+        customize the optuna sampler, by default TPE sampler
+    plot : bool, optional
+        plot the resulting optimization figures, by default False
+    plot_grid : bool, optional
+        plot the resulting regional gravity grid, by default False
+    optimize_on_true_regional_misfit : bool, optional
+        if true_regional grid is provide, choose to perform optimization on the RMSE
+        between the true regional and the estimated region, by default False
+
+    Returns
+    -------
+    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
+        the completed Optuna study, the resulting gravity dataframe of the best trial,
+        and the best trial itself.
+    """
+
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # if sampler not provided, use TPE as default
+    if sampler is None:
+        sampler = optuna.samplers.TPESampler(
+            n_startup_trials=int(n_trials / 4),
+            seed=10,
+        )
+
+    if optimize_on_true_regional_misfit is True:
+        if true_regional is None:
+            msg = (
+                "if optimizing on true regional misfit, must provide true_regional grid"
+            )
+            raise ValueError(msg)
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=sampler,
+            load_if_exists=False,
+        )
+    else:
+        study = optuna.create_study(
+            directions=[
+                "minimize",
+                "maximize",
+            ],
+            sampler=sampler,
+            load_if_exists=False,
+        )
+    # run optimization
+    study.optimize(
+        OptimizeRegionalEqSources(
+            source_depth_limits=source_depth_limits,
+            block_size_limits=block_size_limits,
+            eq_damping_limits=eq_damping_limits,
+            testing_df=testing_df,
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            true_regional=true_regional,
+            score_as_median=score_as_median,
+            source_depth=source_depth,
+            block_size=block_size,
+            eq_damping=eq_damping,
+            optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        ),
+        n_trials=n_trials,
+        show_progress_bar=True,
+    )
+
+    if optimize_on_true_regional_misfit is True:
+        best_trial = study.best_trial
+    else:
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])
+        logging.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+
+    logging.info("Trial with lowest residual at constraint points: ")
+    logging.info("\ttrial number: %s", best_trial.number)
+    logging.info("\tparameter: %s", best_trial.params)
+    logging.info("\tscores: %s", best_trial.values)
+
+    resulting_grav_df = best_trial.user_attrs.get("results")
+
+    if plot is True:
+        if optimize_on_true_regional_misfit is True:
+            optuna.visualization.plot_slice(study).show()
+        else:
+            optuna.visualization.plot_pareto_front(
+                study,
+                target_names=["RMS of residual at constraints", "RMS of residual"],
+            ).show()
+        optuna.visualization.plot_param_importances(study).show()
+
+        if plot_grid is True:
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
+                regional_column
+            ].plot()
+
+    return study, resulting_grav_df, best_trial
+
+
+def optimize_regional_constraint_point_minimization(
+    training_df: pd.DataFrame | list[pd.DataFrame],
+    testing_df: pd.DataFrame | list[pd.DataFrame],
+    grid_method: str,
+    grav_df: pd.DataFrame,
+    grav_data_column: str,
+    regional_column: str,
+    constraints_weights_column: str | None = None,
+    score_as_median: bool = False,
+    true_regional: xr.DataArray | None = None,
+    n_trials: int = 100,
+    tension_factor_limits: tuple[float, float] = (0, 1),
+    spline_damping_limits: tuple[float, float] | None = None,
+    source_depth_limits: tuple[float, float] | None = None,
+    source_depth: float | None = None,
+    block_size_limits: tuple[float, float] | None = None,
+    block_size: float | None = None,
+    eq_damping_limits: tuple[float, float] | None = None,
+    eq_damping: float | None = None,
+    grav_obs_height_limits: tuple[float, float] | None = None,
+    grav_obs_height: float | None = None,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    plot: bool = False,
+    plot_grid: bool = False,
+    progressbar: bool = True,
+    fold_progressbar: bool = False,
+    optimize_on_true_regional_misfit: bool = False,
+) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+    """
+    Run an Optuna optimization to find the optimal hyperparameters for the Constraint
+    Point Minimization technique for estimating the regional component of gravity
+    misfit. This function can be used for both single and K-Folds cross validation,
+    which is determined by the type of supplied training_df and testing_df. For
+    synthetic testing, if the true regional grid is provided, the optimization can be
+    set to optimize on the RMSE of the predicted and true regional gravity, by setting
+    `optimize_on_true_regional_misfit=True`. By default this will perform a
+    multi-objective optimization to find the best trade-off between the lowest RMSE of
+    the residual at the constraints and the highest RMSE of the residual at all
+    locations.
+
+    Parameters
+    ----------
+    training_df : pd.DataFrame | list[pd.DataFrame]
+        constraint points to use for training (estimating the regional field) with
+        columns "easting", "northing" and "upward". If a list of dataframe are provided,
+        each should represent 1 fold of a K-Folds cross-validation.
+    testing_df : pd.DataFrame | list[pd.DataFrame]
+        constraint points to use for testing (calculating the score) with columns
+        "easting", "northing" and "upward". If a list of dataframe are provided, each
+        should represent 1 fold of a K-Folds cross-validation.
+    grid_method : str
+        constraint point minimization method to use, choose between "verde" for
+        bi-harmonic spline gridding, "pygmt" for tensioned minimum curvature gridding,
+        or "eq_sources" for equivalent sources gridding.
+    grav_df : pd.DataFrame
+        gravity dataframe with columns "easting", "northing", gravity data provided by
+        grav_data_column, and regional gravity provided by regional_column.
+    grav_data_column : str
+        column name for the gravity data used to calculate the gravity misfit from the
+        prism model.
+    regional_column : str
+        column name to use for regional component of gravity.
+    constraints_weights_column : str | None, optional
+        column name containing the optional weight values for each constraint point, by
+        default None
+    score_as_median : bool, optional
+        use the root median square instead of the root mean square for the scoring
+        metric, by default False
+    true_regional : xr.DataArray | None, optional
+        if the true regional gravity is known (in synthetic models), supply this as a
+        grid to include a user_attr of the RMSE between this and the estimated regional
+        for each trial, or set `optimize_on_true_regional_misfit=True` to have the
+        optimization optimize on the RMSE, by default None
+    n_trials : int, optional
+        number of trials to run, by default 100
+    tension_factor_limits : tuple[float, float], optional
+        limits to use for the PyGMT tension factor gridding, by default (0, 1)
+    spline_damping_limits : tuple[float, float] | None, optional
+        limits to use for the Verde bi-harmonic spline damping, by default None
+    source_depth_limits : tuple[float, float] | None, optional
+        limits to use for the equivalent sources' depths, by default None
+    source_depth : float | None, optional
+        if source_depth_limits are not supplied, use this value, by default None
+    block_size_limits : tuple[float, float] | None, optional
+        limits to use for the block size for fitting equivalent sources, by default None
+    block_size : float | None, optional
+        if block_size_limits are not supplied, use this value, by default None
+    eq_damping_limits : tuple[float, float] | None, optional
+        limits to use for the damping value for fitting equivalent sources, by default
+        None
+    eq_damping : float | None, optional
+        if eq_damping_limits are not provided, use this value, by default None
+    grav_obs_height_limits : tuple[float, float] | None, optional
+        limits to use for the gravity observation height for fitting equivalent sources,
+        by default None
+    grav_obs_height : float | None, optional
+        if grav_obs_height_limits are not provided, use this value, by default None
+    sampler : optuna.samplers.BaseSampler | None, optional
+        customize the optuna sampler, by default TPE sampler
+    plot : bool, optional
+        plot the resulting optimization figures, by default False
+    plot_grid : bool, optional
+        plot the resulting regional gravity grid, by default False
+    progressbar : bool, optional
+        show a progressbar for the optimization, by default True
+    fold_progressbar : bool, optional
+        turn on or off a progress bar for the optimization of each fold if performing
+        a K-Folds cross-validation within the optimization, by default False
+    optimize_on_true_regional_misfit : bool, optional
+        if true_regional grid is provide, choose to perform optimization on the RMSE
+        between the true regional and the estimated region, by default False
+
+    Returns
+    -------
+    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
+        the completed Optuna study, the resulting gravity dataframe of the best trial,
+        and the best trial itself.
+    """
+
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # if sampler not provided, use TPE as default
+    if sampler is None:
+        sampler = optuna.samplers.TPESampler(
+            n_startup_trials=int(n_trials / 4),
+            seed=10,
+        )
+
+    if optimize_on_true_regional_misfit is True:
+        if true_regional is None:
+            msg = (
+                "if optimizing on true regional misfit, must provide true_regional grid"
+            )
+            raise ValueError(msg)
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=sampler,
+            load_if_exists=False,
+        )
+    else:
+        study = optuna.create_study(
+            directions=[
+                "minimize",
+                "maximize",
+            ],
+            sampler=sampler,
+            load_if_exists=False,
+        )
+
+    if isinstance(training_df, list):
+        msg = (
+            "training and testing data supplied as lists of dataframe, using them "
+            "for a K-Folds cross validation"
+        )
+        logging.info(msg)
+
+    # run optimization
+    study.optimize(
+        OptimizeRegionalConstraintsPointMinimization(
+            training_df=training_df,
+            testing_df=testing_df,
+            grid_method=grid_method,
+            grav_df=grav_df,
+            grav_data_column=grav_data_column,
+            regional_column=regional_column,
+            constraints_weights_column=constraints_weights_column,
+            true_regional=true_regional,
+            score_as_median=score_as_median,
+            tension_factor_limits=tension_factor_limits,
+            spline_damping_limits=spline_damping_limits,
+            source_depth_limits=source_depth_limits,
+            block_size_limits=block_size_limits,
+            eq_damping_limits=eq_damping_limits,
+            grav_obs_height_limits=grav_obs_height_limits,
+            source_depth=source_depth,
+            block_size=block_size,
+            eq_damping=eq_damping,
+            grav_obs_height=grav_obs_height,
+            optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            progressbar=fold_progressbar,
+        ),
+        n_trials=n_trials,
+        show_progress_bar=progressbar,
+    )
+
+    if optimize_on_true_regional_misfit is True:
+        best_trial = study.best_trial
+    else:
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])
+        logging.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+
+    logging.info("Trial with lowest residual at constraint points: ")
+    logging.info("\ttrial number: %s", best_trial.number)
+    logging.info("\tparameter: %s", best_trial.params)
+    logging.info("\tscores: %s", best_trial.values)
+
+    resulting_grav_df = best_trial.user_attrs.get("results")
+
+    if plot is True:
+        if optimize_on_true_regional_misfit is True:
+            optuna.visualization.plot_slice(study).show()
+        else:
+            optuna.visualization.plot_pareto_front(
+                study,
+                target_names=["RMS of residual at constraints", "RMS of residual"],
+            ).show()
+        if len(study.trials[0].params) > 1:
+            optuna.visualization.plot_param_importances(study).show()
+        if isinstance(testing_df, pd.DataFrame) & (plot_grid is True):
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
+                regional_column
+            ].plot()
+
+    return study, resulting_grav_df, best_trial
+
+
+def optimize_regional_constraint_point_minimization_kfolds(
+    testing_training_df: pd.DataFrame,
+    plot: bool = False,
+    plot_grid: bool = False,
+    fold_progressbar: bool = True,
+    **kwargs: typing.Any,
+) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+    """
+    see below links for ideas of a better method to do this.
+    https://stackoverflow.com/questions/63224426/how-can-i-cross-validate-by-pytorch-and-optuna
+    https://www.kaggle.com/code/muhammetgamal5/kfold-cross-validation-optuna-tuning
+
+    Parameters
+    ----------
+    testing_training_df : pd.DataFrame
+        constraints dataframe with columns "easting", "northing", "upward", and a column
+        for each fold in the format "fold_0", "fold_1", etc. This can be created with
+        function `cross_validation.split_test_train()`.
+    plot : bool, optional
+        plot optimization figures and optional the regional gravity grid, by default
+        False
+    plot_grid : bool, optional
+        plot the resulting regional gravity grid, by default False
+    fold_progressbar : bool, optional
+        turn on or off a progress bar for the optimization of each fold, by default True
+
+    Returns
+    -------
+    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
+        the completed Optuna study, the resulting gravity dataframe of the best trial,
+        and the best trial itself.
+    """
+
+    test_dfs, train_dfs = cross_validation.kfold_df_to_lists(testing_training_df)
+
+    kwargs.pop("plot", False)
+    kwargs.pop("plot_grid", False)
+    study, _, _ = optimize_regional_constraint_point_minimization(
+        training_df=train_dfs,
+        testing_df=test_dfs,
+        plot=False,
+        plot_grid=False,
+        fold_progressbar=fold_progressbar,
+        **kwargs,
+    )
+
+    if kwargs.get("optimize_on_true_regional_misfit") is True:
+        best_trial = study.best_trial
+    else:
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])
+
+    # redo regional sep with all data (not 1 fold) to get resulting df
+    resulting_grav_df = regional.regional_separation(
+        method="constraints",
+        grav_df=kwargs.get("grav_df"),
+        grav_data_column=kwargs.get("grav_data_column"),  # type: ignore[arg-type]
+        constraints_df=testing_training_df,
+        registration=kwargs.get("registration", "g"),
+        constraints_block_size=kwargs.get("constraints_block_size", None),
+        eq_points=kwargs.get("eq_points", None),
+        constraints_weights_column=kwargs.get("constraints_weights_column", None),
+        grid_method=kwargs.get("grid_method"),
+        regional_column=kwargs.get("regional_column"),  # type: ignore[arg-type]
+        # hyperparameters
+        tension_factor=best_trial.params.get("tension_factor", 1),
+        spline_damping=best_trial.params.get("spline_damping", None),
+        source_depth=best_trial.params.get(
+            "source_depth", kwargs.get("source_depth", None)
+        ),
+        eq_damping=best_trial.params.get("eq_damping", kwargs.get("eq_damping", None)),
+        block_size=best_trial.params.get("block_size", kwargs.get("block_size", None)),
+        grav_obs_height=best_trial.params.get(
+            "grav_obs_height", kwargs.get("grav_obs_height", None)
+        ),
+    )
+
+    if plot is True:
+        if kwargs.get("optimize_on_true_regional_misfit") is True:
+            optuna.visualization.plot_slice(study).show()
+        else:
+            optuna.visualization.plot_pareto_front(
+                study,
+                target_names=["RMS of residual at constraints", "RMS of residual"],
+            ).show()
+        if len(study.trials[0].params) > 1:
+            optuna.visualization.plot_param_importances(study).show()
+        if plot_grid is True:
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
+                kwargs.get("regional_column")
+            ].plot()
+
+    return study, resulting_grav_df, best_trial
