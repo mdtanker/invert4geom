@@ -36,7 +36,6 @@ except ImportError:
 
 import verde as vd
 import xarray as xr
-from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 
 from invert4geom import utils
