@@ -1282,33 +1282,184 @@ def optimize_inversion_zref_density_contrast(
 
     return study, inv_results
 
+
+class OptimalEqSourceParams:
+    """
+    Objective function to use in an Optuna optimization for finding the optimal
+    equivalent source parameters for fitting to gravity data.
+    """
+
+    def __init__(
+        self,
+        source_depth_limits: tuple[float, float] | None = None,
+        block_size_limits: tuple[float, float] | None = None,
+        eq_damping_limits: tuple[float, float] | None = None,
+        **kwargs: typing.Any,
+    ) -> None:
+        self.source_depth_limits = source_depth_limits
+        self.block_size_limits = block_size_limits
+        self.eq_damping_limits = eq_damping_limits
+        self.kwargs = kwargs
+
+    def __call__(self, trial: optuna.trial) -> float:
+        """
+        Parameters
+        ----------
+        trial : optuna.trial
+            the trial to run
+
+        Returns
+        -------
+        float
+            the score of the eq_sources fit
+        """
+        kwargs_to_remove = []
+        if self.source_depth_limits is not None:
+            source_depth = trial.suggest_float(
+                "source_depth",
+                self.source_depth_limits[0],
+                self.source_depth_limits[1],
+            )
+        else:
+            source_depth = self.kwargs.get("source_depth", None)
+            kwargs_to_remove.append("source_depth")
+
+        if self.block_size_limits is not None:
+            block_size = trial.suggest_float(
+                "block_size",
+                self.block_size_limits[0],
+                self.block_size_limits[1],
+            )
+        else:
+            block_size = self.kwargs.get("block_size", None)
+            kwargs_to_remove.append("block_size")
+
+        if self.eq_damping_limits is not None:
+            eq_damping = trial.suggest_float(
+                "eq_damping",
+                self.eq_damping_limits[0],
+                self.eq_damping_limits[1],
+                log=True,
+            )
+        else:
+            eq_damping = self.kwargs.get("eq_damping", None)
+            kwargs_to_remove.append("eq_damping")
+
+        new_kwargs = {
+            key: value
+            for key, value in self.kwargs.items()
+            if key not in kwargs_to_remove
+        }
+
+        return cross_validation.eq_sources_score(
+            damping=eq_damping,
+            depth=source_depth,
+            block_size=block_size,
+            **new_kwargs,
+        )
+
+
+def optimize_eq_source_params(
+    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
+    data: pd.Series | NDArray,
+    points: NDArray | None = None,
+    n_trials: int = 100,
+    eq_damping_limits: tuple[float, float] = (0, 10**3),
+    source_depth_limits: tuple[float, float] = (0, 10e6),
+    block_size_limits: tuple[float, float] | None = None,
+    weights: NDArray | None = None,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    plot: bool = False,
+    **kwargs: typing.Any,
+) -> tuple[optuna.study, hm.EquivalentSources]:
+    """
+    Use Optuna to find the optimal parameters for fitting equivalent sources to gravity
+    data.
+
+    Parameters
+    ----------
+    coordinates : tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray]
+        tuple of coordinates in the order (easting, northing, upward) for the gravity
+        observation locations.
+    data : pd.Series | NDArray
+        gravity data values
+    points : NDArray | None, optional
+        specify the coordinates of source points, by default None
+    n_trials : int, optional
+        number of trials to run, by default 100
+    eq_damping_limits : tuple[float, float], optional
+        damping parameter limits, by default (0, 10**3)
+    source_depth_limits : tuple[float, float], optional
+        source depth limits (positive downwards) in meters, by default (0, 10e6)
+    block_size_limits : tuple[float, float] | None, optional
+        block size limits in meters, by default None
+    weights : NDArray | None, optional
+        weights for the gravity data, typically 1/(uncertainty**2), by default None
+    sampler : optuna.samplers.BaseSampler | None, optional
+        specify which Optuna sampler to use, by default None
+    plot : bool, optional
+        plot the resulting optimization figures, by default False
+
+    Returns
+    -------
+    tuple[optuna., hm.EquivalentSources]
+        a tuple of the resulting Optuna study and the fitted equivalent sources model
+    """
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # if sampler not provided, used TPE as default
+    if sampler is None:
+        sampler = optuna.samplers.TPESampler(
+            n_startup_trials=int(n_trials / 4),
+            seed=10,
+        )
+
+    # create study
+    study = optuna.create_study(
+        direction="maximize",
+        sampler=sampler,
+        load_if_exists=False,
+    )
+
+    study.optimize(
+        OptimalEqSourceParams(
+            source_depth_limits=source_depth_limits,
+            block_size_limits=block_size_limits,
+            eq_damping_limits=eq_damping_limits,
+            coordinates=coordinates,
+            data=data,
+            points=points,
+            **kwargs,
+        ),
+        n_trials=n_trials,
+        # callbacks=[logging_callback],
+        show_progress_bar=True,
+    )
+
     logging.info("Best params: %s", study.best_params)
     logging.info("Best trial: %s", study.best_trial.number)
     logging.info("Best score: %s", study.best_trial.value)
 
-    if study.best_params.get("damping") in [damping_limits[0], damping_limits[1]]:
-        logging.warning(
-            "Best damping value (%s) is at the limit of provided "
-            "values (%s, %s) and thus is likely not a global minimum, expand the "
-            "range "
-            "of values tested to ensure the best parameter value is found.",
-            study.best_params.get("damping"),
-            damping_limits[0],
-            damping_limits[1],
-        )
-
     eqs = hm.EquivalentSources(
-        damping=study.best_params.get("damping"),
-        depth=study.best_params.get("depth"),
-        **eq_kwargs,
-    ).fit(coordinates, data, weights=eq_kwargs.get("weights"))
+        damping=study.best_params.get("eq_damping"),
+        depth=study.best_params.get("source_depth"),
+        block_size=study.best_params.get("block_size"),
+        points=points,
+    )
+    eqs.fit(coordinates, data, weights=weights)
 
     if plot is True:
-        plotting.plot_optuna_inversion_figures(
+        plotting.plot_optuna_figures(
             study,
             target_names=["score"],
             plot_history=False,
             plot_slice=True,
+            plot_importance=True,
+            include_duration=False,
+        )
+
+    return study, eqs
+
 
 class OptimizeRegionalTrend:
     """
