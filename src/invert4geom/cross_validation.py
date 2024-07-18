@@ -1003,3 +1003,88 @@ def eq_sources_score(
             )
         )
     )
+
+
+def regional_separation_score(
+    testing_df: pd.DataFrame,
+    score_as_median: bool = False,
+    **kwargs: typing.Any,
+) -> tuple[float, float, float | None, pd.DataFrame]:
+    """
+    Evaluate the effectiveness of the gravity regional-residual separation.
+
+    Parameters
+    ----------
+    testing_df : pd.DataFrame
+        dataframe containing a priori measurements of the topography of interest with
+        columns "upward", "easting", and "northing"
+    score_as_median : bool, optional
+        switch from using the root mean square to the root median square for the score,
+        by default is False., by default False
+    **kwargs: typing.Any,
+        additional keyword arguments for the specified method.
+
+    Returns
+    -------
+    tuple[float, float, float|None, pd.DataFrame]
+        the score and the resulting dataframe of regional and residual gravity
+    """
+
+    # pull out kwargs
+    kwargs = kwargs.copy()
+    method = kwargs.pop("method")
+    grav_df = kwargs.pop("grav_df")
+    grav_data_column = kwargs.pop("grav_data_column")
+    regional_column = kwargs.pop("regional_column")
+    true_regional = kwargs.pop("true_regional", None)
+
+    df_anomalies = regional.regional_separation(
+        method=method,
+        grav_df=grav_df,
+        grav_data_column=grav_data_column,
+        regional_column=regional_column,
+        **kwargs,
+    )
+
+    # calculate residual
+    df_anomalies["res"] = df_anomalies[grav_data_column] - df_anomalies[regional_column]
+
+    # grid the anomalies
+    grid = df_anomalies.set_index(["northing", "easting"]).to_xarray()
+
+    # sample the residual and regional at the constraint points
+    df = utils.sample_grids(
+        df=testing_df,
+        grid=grid.res,
+        sampled_name="res",
+    )
+    df = utils.sample_grids(
+        df=df,
+        grid=grid[regional_column],
+        sampled_name="reg",
+    )
+    residual_constraint_score = utils.rmse(df.res, as_median=score_as_median)
+
+    residual_amplitude_score = utils.rmse(grid.res, as_median=score_as_median)
+
+    if true_regional is not None:
+        true_reg_score = utils.rmse(
+            np.abs(true_regional - grid[regional_column]), as_median=score_as_median
+        )
+    else:
+        true_reg_score = None
+
+    # misfit = reg + res
+    # want residual at constraint to be low
+    # don't want this accomplished by having reg = misfit everywhere
+
+    # optimize on
+    # 1) low residual at constraints
+    # 2) high residual everywhere else
+
+    return (
+        residual_constraint_score,
+        residual_amplitude_score,
+        true_reg_score,
+        df_anomalies,
+    )
