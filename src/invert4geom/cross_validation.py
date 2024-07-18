@@ -775,6 +775,142 @@ def zref_density_optimal_parameter(
 
 # pylint: enable=duplicate-code
 
+
+def split_test_train(
+    data_df: pd.DataFrame,
+    method: str,
+    spacing: float | tuple[float, float] | None = None,
+    shape: tuple[float, float] | None = None,
+    n_splits: int = 5,
+    # test_size=0.1,
+    random_state: int = 10,
+    plot: bool = False,
+) -> pd.DataFrame:
+    """
+    Split data into training or testing sets either using KFold, BlockedKFold or
+    LeaveOneOut methods.
+
+    Parameters
+    ----------
+    data_df : pd.DataFrame
+        dataframe with coordinate columns "easting" and "northing"
+    method : str
+        choose between "LeaveOneOut" or "KFold" methods.
+    spacing : float | tuple[float, float] | None, optional
+        grid spacing to use for Block K-Folds, by default None
+    shape : tuple[float, float] | None, optional
+        number of blocks to use for Block K-Folds, by default None
+    n_splits : int, optional
+        number for folds to make for K-Folds method, by default 5
+    random_state : int, optional
+        random state used for both methods, by default 10
+    plot : bool, optional
+        plot the separated training and testing dataset, by default False
+
+    Returns
+    -------
+    pd.DataFrame
+        a dataset with a new column for each fold in the form fold_0, fold_1 etc., with
+        the value "train" or "test"
+
+    """
+    df = data_df.copy()
+
+    if method == "LeaveOneOut":
+        kfold = sklearn.model_selection.LeaveOneOut()
+    elif method == "KFold":
+        if spacing or shape is None:
+            kfold = sklearn.model_selection.KFold(
+                n_splits=n_splits,
+                shuffle=True,
+                random_state=random_state,
+            )
+        else:
+            kfold = vd.BlockKFold(
+                spacing=spacing,
+                shape=shape,
+                n_splits=n_splits,
+                shuffle=True,
+                random_state=random_state,
+            )
+            # kfold = vd.BlockShuffleSplit(
+            #     spacing=spacing,
+            #     shape=shape,
+            #     n_splits=n_splits,
+            #     test_size=test_size,
+            #     random_state = random_state,
+            # )
+    else:
+        msg = "invalid string for `method`"
+        raise ValueError(msg)
+
+    coords = (df.easting, df.northing)
+    feature_matrix = np.transpose(coords)
+    coord_shape = coords[0].shape
+    mask = np.full(shape=coord_shape, fill_value="     ")
+
+    for iteration, (train, test) in enumerate(kfold.split(feature_matrix)):
+        mask[np.unravel_index(train, coord_shape)] = "train"
+        mask[np.unravel_index(test, coord_shape)] = "_test"
+        df = pd.concat(
+            [df, pd.DataFrame({f"fold_{iteration}": mask}, index=df.index)], axis=1
+        )
+
+    df = df.replace("_test", "test")
+    if plot is True:
+        folds = list(df.columns[df.columns.str.startswith("fold_")])
+        _, ncols = polar_utils.square_subplots(len(folds))
+        df = df.copy()
+        for i in range(len(folds)):
+            if i == 0:
+                fig = (None,)
+                origin_shift = "initialize"
+                xshift_amount = None
+                yshift_amount = None
+            elif i % ncols == 0:
+                # fig = fig
+                origin_shift = "both_shift"
+                xshift_amount = -ncols + 1
+                yshift_amount = -1
+            else:
+                # fig= fig
+                origin_shift = "xshift"
+                xshift_amount = 1
+                yshift_amount = 1
+
+            df_test = df[df[f"fold_{i}"] == "test"]
+            df_train = df[df[f"fold_{i}"] == "train"]
+
+            region = vd.get_region((df.easting, df.northing))
+            plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
+            fig = maps.basemap(
+                region=plot_region,
+                title=f"Fold {i} ({len(df_test)} testing points)",
+                origin_shift=origin_shift,
+                xshift_amount=xshift_amount,
+                yshift_amount=yshift_amount,
+                fig=fig,
+            )
+            maps.add_box(fig, box=region)
+            fig.plot(  # type: ignore[attr-defined]
+                x=df_train.easting,
+                y=df_train.northing,
+                style="c.4c",
+                fill="blue",
+                label="Train",
+            )
+            fig.plot(  # type: ignore[attr-defined]
+                x=df_test.easting,
+                y=df_test.northing,
+                style="t.7c",
+                fill="red",
+                label="Test",
+            )
+            fig.legend()  # type: ignore[attr-defined]
+        fig.show()  # type: ignore[attr-defined]
+
+    return df
+
 def eq_sources_score(
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
     data: pd.Series | NDArray,
