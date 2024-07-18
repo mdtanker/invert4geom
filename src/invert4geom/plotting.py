@@ -312,22 +312,19 @@ def plot_cv_scores(
 
 def plot_convergence(
     results: pd.DataFrame,
-    iter_times: list[float] | None = None,
-    logy: bool = False,
+    params: dict[str, typing.Any],
     inversion_region: tuple[float, float, float, float] | None = None,
     figsize: tuple[float, float] = (5, 3.5),
 ) -> None:
     """
-    plot a graph of misfit and time vs iteration number.
+    plot a graph of L2-norm and delta L2-norm vs iteration number.
 
     Parameters
     ----------
     results : pd.DataFrame
         gravity result dataframe
-    iter_times : list[float] | None, optional
-        list of iteration execution times, by default None
-    logy : bool, optional
-        choose whether to plot y axis in log scale, by default False
+    params : dict[str, typing.Any]
+        inversion parameters output from function `run_inversion()`
     inversion_region : tuple[float, float, float, float] | None, optional
         inside region of inversion, by default None
     figsize : tuple[float, float], optional
@@ -347,56 +344,103 @@ def plot_convergence(
     # get misfit data at end of each iteration
     cols = [s for s in results.columns.to_list() if "_final_misfit" in s]
     iters = len(cols)
+
     if inversion_region is not None:
-        misfits = [utils.rmse(results[results.inside][i]) for i in cols]
+        l2_norms = [np.sqrt(utils.rmse(results[results.inside][i])) for i in cols]
         starting_misfit = utils.rmse(results[results.inside]["iter_1_initial_misfit"])
+        starting_l2_norm = np.sqrt(starting_misfit)
     else:
-        misfits = [utils.rmse(results[i]) for i in cols]
+        l2_norms = [np.sqrt(utils.rmse(results[i])) for i in cols]
         starting_misfit = utils.rmse(results["iter_1_initial_misfit"])
-    # add starting misfit to the beginning of the list
-    misfits.insert(0, starting_misfit)
+        starting_l2_norm = np.sqrt(starting_misfit)
 
+    # add starting l2 norm to the beginning of the list
+    l2_norms.insert(0, starting_l2_norm)
+
+    # calculate delta L2-norms
+    delta_l2_norms = []
+    for i, m in enumerate(l2_norms):
+        if i == 0:
+            delta_l2_norms.append(np.nan)
+        else:
+            delta_l2_norms.append(l2_norms[i-1]/m)
+
+    # get tolerance values
+    l2_norm_tolerance = float(params["L2 norm tolerance"])
+    delta_l2_norm_tolerance = float(params["Delta L2 norm tolerance"])
+
+    # create figure instance
     _fig, ax1 = plt.subplots(figsize=figsize)
-    plt.title("Inversion convergence")
-    ax1.plot(range(iters + 1), misfits, "b-")
+
+    # make second y axis for delta l2 norm
+    ax2 = ax1.twinx()
+
+    # plot L2-norm convergence
+    ax1.plot(range(iters + 1), l2_norms, "b-")
+
+    # plot delta L2-norm convergence
+    ax2.plot(range(iters + 1), delta_l2_norms, "g-")
+
+    # set axis labels, ticks and gridlines
     ax1.set_xlabel("Iteration")
-    if logy:
-        ax1.set_yscale("log")
-    ax1.set_ylabel("RMS (mGal)", color="b")
+    ax1.set_ylabel("L2-norm", color="b")
     ax1.tick_params(axis="y", colors="b", which="both")
+    ax2.set_ylabel("Δ L2-norm", color="g")
+    ax2.tick_params(axis="y", colors="g", which="both")
+    ax2.grid(False)
 
-    if iter_times is not None:
-        iteration_times = iter_times.copy()
-        iteration_times.insert(0, 0)
-        ax2 = ax1.twinx()
-        ax2.plot(range(iters + 1), np.cumsum(iteration_times), "g-")
-        ax2.set_ylabel("Cumulative time (s)", color="g")
-        ax2.tick_params(axis="y", colors="g")
-        ax2.grid(False)
+    # add buffer to y axis limits
+    ax1.set_ylim(0.9 * l2_norm_tolerance, starting_l2_norm)
+    ax2.set_ylim(0.9 * delta_l2_norm_tolerance, np.nanmax(delta_l2_norms))
 
+    # set x axis to integer values
+    ax1.xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
+
+    # make both y axes align at tolerance levels
+    align_yaxis(ax1, l2_norm_tolerance, ax2, delta_l2_norm_tolerance)
+
+    # plot horizontal line of tolerances
+    ax2.axhline(
+        y=delta_l2_norm_tolerance,
+        linewidth=1,
+        color="r",
+        linestyle="dashed",
+        label="tolerances",
+    )
+
+    # ask matplotlib for the plotted objects and their labels
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, loc="upper right")
+
+    plt.title("Inversion convergence")
     plt.tight_layout()
+    plt.show()
 
 
 def plot_dynamic_convergence(
-    results: pd.DataFrame,
+    l2_norms: list[float],
     l2_norm_tolerance: float,
+    delta_l2_norms: list[float],
+    delta_l2_norm_tolerance: float,
     starting_misfit: float,
-    inversion_region: tuple[float, float, float, float] | None = None,
     figsize: tuple[float, float] = (5, 3.5),
 ) -> None:
     """
-    plot a graph of misfit and time vs iteration number.
+    plot a dynamic graph of L2-norm and delta L2-norm vs iteration number.
 
     Parameters
     ----------
-    results : pd.DataFrame
-        gravity result dataframe
+    l2_norms : list[float]
+        list of l2 norm values
     l2_norm_tolerance : float
         l2 norm tolerance
+    delta_l2_norms : list[float]
+        list of delta l2 norm values
+    delta_l2_norm_tolerance : float
+        delta l2 norm tolerance
     starting_misfit : float
         starting misfit rmse
-    inversion_region : tuple[float, float, float, float] | None, optional
-        inside region of inversion, by default None
     figsize : tuple[float, float], optional
         width and height of figure, by default (5, 3.5)
     """
@@ -417,48 +461,97 @@ def plot_dynamic_convergence(
         raise ImportError(msg)
     clear_output(wait=True)
 
-    # get misfit data at end of each iteration
-    cols = [s for s in results.columns.to_list() if "_final_misfit" in s]
-    iters = len(cols)
-    if inversion_region is not None:
-        misfits = [np.sqrt(utils.rmse(results[results.inside][i])) for i in cols]
-    else:
-        misfits = [np.sqrt(utils.rmse(results[i])) for i in cols]
-    # add starting misfit to the beginning of the list
-    misfits.insert(0, np.sqrt(starting_misfit))
+    l2_norms = l2_norms.copy()
+    delta_l2_norms = delta_l2_norms.copy()
 
+    assert len(delta_l2_norms) == len(l2_norms)
+
+    l2_norms.insert(0, np.sqrt(starting_misfit))
+    delta_l2_norms.insert(0, np.nan)
+
+    iters = len(l2_norms)
+
+    # create figure instance
     _fig, ax1 = plt.subplots(figsize=figsize)
-    plt.title("Inversion convergence")
-    ax1.plot(range(iters + 1), misfits, "b-")
+
+    # make second y axis for delta l2 norm
+    ax2 = ax1.twinx()
+
+    # plot L2-norm convergence
+    ax1.plot([i for i in range(len(l2_norms))], l2_norms, "b-")
+
+    # plot delta L2-norm convergence
+    if iters > 1:
+        ax2.plot([i for i in range(len(delta_l2_norms))], delta_l2_norms, "g-")
+
+    # set axis labels, ticks and gridlines
     ax1.set_xlabel("Iteration")
     ax1.set_ylabel("L2-norm", color="b")
     ax1.tick_params(axis="y", colors="b", which="both")
+    ax2.set_ylabel("Δ L2-norm", color="g")
+    ax2.tick_params(axis="y", colors="g", which="both")
+    ax2.grid(False)
 
-    # plot horizontal line of misfit tolerance
-    plt.axhline(
-        y=l2_norm_tolerance,
+    # add buffer to y axis limits
+    ax1.set_ylim(0.9 * (l2_norm_tolerance), np.sqrt(starting_misfit))
+    if iters > 1:
+        ax2.set_ylim(0.9 * (delta_l2_norm_tolerance), np.nanmax(delta_l2_norms))
+
+    # set x axis to integer values
+    ax1.xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
+
+    # plot current L2-norm and Δ L2-norm
+    ax1.plot(
+        iters-1,
+        l2_norms[-1],
+        "^",
+        markersize=6,
+        color=sns.color_palette()[3],
+        # label="current L2-norm",
+    )
+    if iters > 1:
+        ax2.plot(
+            iters-1,
+            delta_l2_norms[-1],
+            "^",
+            markersize=6,
+            color=sns.color_palette()[3],
+            # label="current Δ L2-norm",
+        )
+
+    # make both y axes align at tolerance levels
+    align_yaxis(ax1, l2_norm_tolerance, ax2, delta_l2_norm_tolerance)
+
+    # plot horizontal line of tolerances
+    ax2.axhline(
+        y=delta_l2_norm_tolerance,
         linewidth=1,
         color="r",
-        linestyle="--",
-        label="L2-norm tolerance",
+        linestyle="dashed",
+        label="tolerances",
     )
-    ax1.set_ylim(0.9 * (l2_norm_tolerance), np.sqrt(starting_misfit))
 
-    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+    # ask matplotlib for the plotted objects and their labels
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, loc="upper right")
 
-    plt.plot(
-        iters,
-        misfits[-1],
-        "s",
-        markersize=10,
-        color=sns.color_palette()[3],
-        label="current L2-norm",
-    )
-    plt.legend(
-        loc="upper right",
-    )
+    plt.title("Inversion convergence")
     plt.tight_layout()
     plt.show()
+
+
+def align_yaxis(ax1, v1, ax2, v2):
+    """
+    adjust ax2 ylimit so that v2 in ax2 is aligned to v1 in ax1.
+    From https://stackoverflow.com/a/10482477/18686384
+    """
+    _, y1 = ax1.transData.transform((0, v1))
+    _, y2 = ax2.transData.transform((0, v2))
+    inv = ax2.transData.inverted()
+    _, dy = inv.transform((0, 0)) - inv.transform((0, y1-y2))
+    miny, maxy = ax2.get_ylim()
+    ax2.set_ylim(miny+dy, maxy+dy)
 
 
 def grid_inversion_results(
