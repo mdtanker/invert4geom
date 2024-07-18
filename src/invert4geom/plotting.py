@@ -782,6 +782,7 @@ def plot_inversion_results(
     plot_iter_results: bool = True,
     plot_topo_results: bool = True,
     plot_grav_results: bool = True,
+    constraints_df: pd.DataFrame | None = None,
     **kwargs: typing.Any,
 ) -> None:
     """
@@ -805,6 +806,8 @@ def plot_inversion_results(
         plot the topography results, by default True
     plot_grav_results : bool, optional
         plot the gravity results, by default True
+    constraints_df : pd.DataFrame, optional
+        constraint points to include in the plots
     """
     # if results are given as filenames (strings), load them
     if isinstance(grav_results, str):
@@ -876,6 +879,8 @@ def plot_inversion_results(
             topo_cmap_perc=kwargs.get("topo_cmap_perc", 1),
             misfit_cmap_perc=kwargs.get("misfit_cmap_perc", 1),
             corrections_cmap_perc=kwargs.get("corrections_cmap_perc", 1),
+            constraints_df=constraints_df,
+            constraint_size=kwargs.get("constraint_size", 1),
         )
 
     if plot_topo_results is True:
@@ -883,6 +888,8 @@ def plot_inversion_results(
             prisms_ds,
             topo_cmap_perc=kwargs.get("topo_cmap_perc", 1),
             region=grav_region,
+            constraints_df=constraints_df,
+            constraint_size=kwargs.get("constraint_size", 1),
         )
 
     if plot_grav_results is True:
@@ -890,6 +897,7 @@ def plot_inversion_results(
             grav_results,
             grav_region,
             iterations,
+            constraints_df=constraints_df,
         )
 
 
