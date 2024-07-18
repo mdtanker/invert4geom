@@ -1356,7 +1356,7 @@ def combined_history(
     return fig
 
 
-def plot_optuna_inversion_figures(
+def plot_optuna_figures(
     study: optuna.study.Study,
     target_names: list[str],
     include_duration: bool = False,
@@ -1364,7 +1364,7 @@ def plot_optuna_inversion_figures(
     # seperate_param_importances=False,
     plot_history: bool = True,
     plot_slice: bool = True,
-    # plot_importance=True,
+    plot_importance: bool = True,
     # plot_edf=True,
     # plot_pareto=True,
 ) -> None:
@@ -1411,7 +1411,8 @@ def plot_optuna_inversion_figures(
                 target_name="Execution time",
             ).show()
 
-    # if plot_importance:
+    if plot_importance:
+        optuna.visualization.plot_param_importances(study).show()
     #     if len(params) <= 1:
     #         pass
     #     else:
