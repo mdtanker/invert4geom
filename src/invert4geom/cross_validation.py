@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # pylint: disable=too-many-lines
 
 import itertools
 import logging
@@ -8,13 +8,18 @@ import random
 import typing
 
 import deprecation
+import harmonica as hm
 import numpy as np
 import pandas as pd
+import sklearn
 import verde as vd
 import xarray as xr
+from nptyping import NDArray
+from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
+import invert4geom
 from invert4geom import inversion, plotting, regional, utils
 
 
