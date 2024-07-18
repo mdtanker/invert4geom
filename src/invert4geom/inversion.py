@@ -867,6 +867,7 @@ def run_inversion(
     iter_times = []
 
     l2_norms = []
+    delta_l2_norms = []
 
     if progressbar is True:
         pbar = tqdm(range(max_iterations), initial=1, desc="Iteration")
@@ -986,6 +987,7 @@ def run_inversion(
         final_l2_norm = l2_norm
 
         l2_norms.append(l2_norm)
+        delta_l2_norms.append(delta_l2_norm)
 
         logging.info(
             "updated L2-norm: %s, tolerance: %s", round(l2_norm, 4), l2_norm_tolerance
@@ -1014,8 +1016,10 @@ def run_inversion(
 
         if plot_dynamic_convergence is True:
             plotting.plot_dynamic_convergence(
-                gravity,
+                l2_norms,
                 l2_norm_tolerance,
+                delta_l2_norms,
+                delta_l2_norm_tolerance,
                 starting_misfit,  # pylint: disable=possibly-used-before-assignment
             )
 
@@ -1063,7 +1067,7 @@ def run_inversion(
     if plot_convergence is True:
         plotting.plot_convergence(
             gravity,
-            iter_times=iter_times,
+            params,
         )
 
     results = prisms_df, gravity, params, elapsed_time
