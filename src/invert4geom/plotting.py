@@ -112,7 +112,7 @@ def plot_2_parameter_cv_scores(
         # cmap = cmap,
         # marker="o",
         marker=".",
-        color="black",
+        color="gray",
     )
     plt.plot(
         best[param_names[0]],
