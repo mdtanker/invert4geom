@@ -7,6 +7,7 @@ import pickle
 import random
 import typing
 
+import deprecation
 import numpy as np
 import pandas as pd
 import verde as vd
@@ -208,6 +209,16 @@ def grav_cv_score(
     return score
 
 
+@deprecation.deprecated(  # type: ignore[misc]
+    deprecated_in="0.8.0",
+    removed_in="0.14.0",
+    current_version=invert4geom.__version__,
+    details=(
+        "Use the new function `optimization.optimize_inversion_damping()`"
+        "instead, which uses Optuna for optimization. If you would still like to "
+        "conduct a grid search, set `grid_search=True` in the new function.",
+    ),
+)
 def grav_optimal_parameter(
     training_data: pd.DataFrame,
     testing_data: pd.DataFrame,
@@ -274,11 +285,17 @@ def grav_optimal_parameter(
 
     # run inversions and collect scores
     scores = []
-    pbar = tqdm(
-        param_values,
-        desc=f"{param_name} values",
-        disable=not progressbar,
-    )
+    if progressbar is True:
+        pbar = tqdm(
+            param_values,
+            desc=f"{param_name} values",
+        )
+    elif progressbar is False:
+        pbar = param_values
+    else:
+        msg = "progressbar must be a boolean"  # type: ignore[unreachable]
+        raise ValueError(msg)
+
     for i, value in enumerate(pbar):
         # update parameter value in kwargs
         kwargs[param_name] = value
@@ -300,7 +317,7 @@ def grav_optimal_parameter(
             )
             logging.warning(msg)
     if verbose:
-        # set Python's logging level to get information about the inversion\s progress
+        # set Python's logging level to get information about the inversion's progress
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
 

@@ -323,40 +323,24 @@ def optuna_1job_per_core(
         )
 
 
-class OptimalEqSourceParams:
+class OptimalInversionDamping:
     """
-    a class for finding the optimal depth and damping parameters to best fit a set of
-    equivalent sources to the gravity data.
+    Objective function to use in an Optuna optimization for finding the optimal damping
+    regularization value for a gravity inversion. Used within function
+    `optimize_inversion_damping()`.
     """
 
     def __init__(
         self,
-        coordinates: tuple[
-            pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray
-        ],
-        data: pd.Series | NDArray,
         damping_limits: tuple[float, float],
-        depth_limits: tuple[float, float],
+        fname: str,
+        plot_grids: bool = False,
         **kwargs: typing.Any,
     ) -> None:
-        """
-        Parameters
-        ----------
-        coordinates : tuple[ pd.Series  |  NDArray, pd.Series  |  NDArray,
-        pd.Series  |  NDArray ]
-            easting, northing, and upward coordinates of the data
-        data : pd.Series | NDArray
-            gravity values
-        damping_limits : tuple[float, float]
-            lower and upper bounds for the damping parameter
-        depth_limits : tuple[float, float]
-            lower and upper bounds for the depth of the sources
-        """
-        self.coordinates = coordinates
-        self.data = data
+        self.fname = fname
         self.damping_limits = damping_limits
-        self.depth_limits = depth_limits
         self.kwargs = kwargs
+        self.plot_grids = plot_grids
 
     def __call__(self, trial: optuna.trial) -> float:
         """
@@ -374,74 +358,206 @@ class OptimalEqSourceParams:
             "damping",
             self.damping_limits[0],
             self.damping_limits[1],
-        )
-        depth = trial.suggest_float(
-            "depth",
-            self.depth_limits[0],
-            self.depth_limits[1],
+            log=True,
         )
 
-        return utils.eq_sources_score(
-            params={"damping": damping, "depth": depth},
-            coordinates=self.coordinates,
-            data=self.data,
-            **self.kwargs,
+        new_kwargs = {
+            key: value
+            for key, value in self.kwargs.items()
+            if key
+            not in [
+                "solver_damping",
+                "progressbar",
+                "results_fname",
+            ]
+        }
+
+        trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
+
+        return cross_validation.grav_cv_score(
+            solver_damping=damping,
+            progressbar=False,
+            results_fname=trial.user_attrs.get("fname"),
+            plot=self.plot_grids,
+            **new_kwargs,
         )
 
 
-def optimize_eq_source_params(
-    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
-    data: pd.Series | NDArray,
-    n_trials: int = 0,
-    damping_limits: tuple[float, float] = (0, 10**3),
-    depth_limits: tuple[float, float] = (0, 10e6),
+def optimize_inversion_damping(
+    training_df: pd.DataFrame,
+    testing_df: pd.DataFrame,
+    n_trials: int,
+    damping_limits: tuple[float, float],
+    score_as_median: bool = False,
     sampler: optuna.samplers.BaseSampler | None = None,
-    parallel: bool = False,
+    grid_search: bool = False,
     fname: str | None = None,
-    use_existing: bool = False,
-    plot: bool = False,
-    **eq_kwargs: typing.Any,
-) -> tuple[pd.DataFrame, hm.EquivalentSources]:
+    plot_cv: bool = True,
+    plot_grids: bool = False,
+    logx: bool = True,
+    logy: bool = True,
+    **kwargs: typing.Any,
+) -> tuple[
+    optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
+]:
     """
-    find the best parameter values for fitting equivalent sources to a set of gravity
-    data.
+    Use Optuna to find the optimal damping regularization parameter for a gravity
+    inversion. The optimization aims to minimize the cross-validation score,
+    represented by the root mean (or median) squared error (RMSE), between the testing
+    gravity data, and the predict gravity data after and inversion. Follows methods of
+    :footcite:t:`uiedafast2017`.
+
+    Provide upper and low damping values, number of trials to run, and specify to let
+    Optuna choose the best damping value for each trial or to use a grid search. The
+    results are saved to a pickle file with the best inversion results and the study.
 
     Parameters
     ----------
-    coordinates : tuple[pd.Series  |  NDArray, pd.Series  |  NDArray,
-        pd.Series  |  NDArray]
-       easting, northing, and upwards coordinates of gravity data
-    data : pd.Series | NDArray
-        gravity data values
-    n_trials : int, optional
-        number of trials to perform / set of parameters to test, by default 0
-    damping_limits : tuple[float, float], optional
-        lower and upper bounds of damping parameter, by default (0, 10**3)
-    depth_limits : tuple[float, float], optional
-        lower and upper bounds of depth parameter, by default (0, 10e6)
+    training_df : pd.DataFrame
+        rows of the gravity data frame which are just the training data
+    testing_df : pd.DataFrame
+        rows of the gravity data frame which are just the testing data
+    n_trials : int
+        number of damping values to try
+    damping_limits : tuple[float, float]
+        upper and lower limits
+    score_as_median : bool, optional
+        if True, changes the scoring from the root mean square to the root median
+        square, by default False
     sampler : optuna.samplers.BaseSampler | None, optional
-        type of sampler to use, by default None
-    parallel : bool, optional
-        if True, will run the trials in parallel, by default False
-    fname : str, optional
-        path and filename to save the study results, by default "tmp" with a random
-        number attached
-    use_existing : bool, optional
-        if True, will continue a previously starting optimization, by default False
+        customize the optuna sampler, by default either BoTorch sampler or GridSampler
+        depending on if grid_search is True or False
+    grid_search : bool, optional
+        search the entire parameter space between damping_limits in n_trial steps, by
+        default False
+    fname : str | None, optional
+        file name to save both study and inversion results to as pickle files, by
+        default in format `tmp_{random.randint(0,999)}`.
+    plot_cv : bool, optional
+        plot the cross-validation results, by default True
+    plot_grids : bool, optional
+        for each damping value, plot comparison of predicted and testing gravity data,
+        by default False
+    logx : bool, optional
+        make x axis of CV result plot on log scale, by default True
+    logy : bool, optional
+        make y axis of CV result plot on log scale, by default True
 
     Returns
     -------
-    tuple[pd.DataFrame, hm.EquivalentSources]
-        gives a dataframe of the tested parameter sets and associated scores, and the
-        best resulting fitted equivalent sources.
+    tuple[optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]
+        a tuple of the completed optuna study and a tuple of the inversion results:
+        topography dataframe, gravity dataframe, parameter values and elapsed time.
     """
-    if optuna is None:
-        msg = "Missing optional dependency 'optuna' required for optimization."
-        raise ImportError(msg)
+
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # if sampler not provided, use BoTorch as default unless grid_search is True
+    if sampler is None:
+        if grid_search is True:
+            if n_trials < 4:
+                msg = (
+                    "if grid_search is True, n_trials must be at least 4, "
+                    "resetting n_trials to 4 now."
+                )
+                logging.warning(msg)
+                n_trials = 4
+            space = np.logspace(
+                np.log10(damping_limits[0]), np.log10(damping_limits[1]), n_trials
+            )
+            # omit first and last since they will be enqueued separately
+            space = space[1:-1]
+            sampler = optuna.samplers.GridSampler(
+                search_space={"damping": space},
+                seed=10,
+            )
+        else:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="BoTorch")
+                sampler = optuna.integration.BoTorchSampler(
+                    n_startup_trials=int(n_trials / 4),
+                    seed=10,
+                )
 
     # set file name for saving results with random number between 0 and 999
     if fname is None:
         fname = f"tmp_{random.randint(0,999)}"
+
+    study = optuna.create_study(
+        direction="minimize",
+        sampler=sampler,
+        load_if_exists=False,
+    )
+
+    # explicitly add the limits as trials
+    # if grid_search is False:
+    study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
+    study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
+
+    # run optimization
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="logei_candidates_func is experimental"
+        )
+        study.optimize(
+            OptimalInversionDamping(
+                damping_limits=damping_limits,
+                rmse_as_median=score_as_median,
+                training_data=training_df,
+                testing_data=testing_df,
+                fname=fname,
+                plot_grids=plot_grids,
+                **kwargs,
+            ),
+            n_trials=n_trials,
+            callbacks=[warn_limits_better_than_trial_1_param],
+            show_progress_bar=True,
+        )
+
+    best_trial = study.best_trial
+
+    if best_trial.params.get("damping") in damping_limits:
+        logging.warning(
+            "Best damping value (%s) is at the limit of provided values "
+            "(%s) and thus is likely not a global minimum, expand the range of "
+            "values tested to ensure the best parameter value is found.",
+            best_trial.params.get("damping"),
+            damping_limits,
+        )
+
+    logging.info("Trial with lowest score: ")
+    logging.info("\ttrial number: %s", best_trial.number)
+    logging.info("\tparameter: %s", best_trial.params)
+    logging.info("\tscores: %s", best_trial.values)
+
+    # get best inversion result of each set
+    with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
+        inv_results = pickle.load(f)
+
+    # delete other inversion results
+    for i in range(n_trials):
+        if i == best_trial.number:
+            pass
+        else:
+            pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
+
+    # remove if exists
+    pathlib.Path(fname).unlink(missing_ok=True)
+
+    # save study to pickle
+    with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+        pickle.dump(study, f)
+
+    if plot_cv is True:
+        plotting.plot_cv_scores(
+            study.trials_dataframe().value.values,
+            study.trials_dataframe().params_damping.values,
+            param_name="Damping",
+            logx=logx,
+            logy=logy,
+        )
+    return study, inv_results
+
 
 class OptimalInversionZrefDensity:
     """
