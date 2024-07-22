@@ -48,6 +48,7 @@ def rmse(data: NDArray, as_median: bool = False) -> float:
 def nearest_grid_fill(
     grid: xr.DataArray,
     method: str = "verde",
+    crs: str | None = None,
 ) -> xr.DataArray:
     """
     fill missing values in a grid with the nearest value.
@@ -58,7 +59,9 @@ def nearest_grid_fill(
         grid with missing values
     method : str, optional
         choose method of filling, by default "verde"
-
+    crs : str | None, optional
+        if method is 'rioxarray', provide the crs of the grid, in format 'epsg:xxxx',
+        by default None
     Returns
     -------
     xr.DataArray
@@ -73,7 +76,7 @@ def nearest_grid_fill(
 
     if method == "rioxarray":
         filled: xr.DataArray = (
-            grid.rio.write_crs("epsg:3031")
+            grid.rio.write_crs(crs)
             .rio.set_spatial_dims(original_dims[1], original_dims[0])
             .rio.write_nodata(np.nan)
             .rio.interpolate_na(method="nearest")

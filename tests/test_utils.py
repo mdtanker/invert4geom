@@ -132,7 +132,7 @@ def test_nearest_grid_fill(test_input):
     # check the grid has a hole
     assert grid.isnull().any()
     # fill the hole
-    filled = utils.nearest_grid_fill(grid, method=test_input)
+    filled = utils.nearest_grid_fill(grid, method=test_input, crs="epsg:3031")
     # check that the hole has been filled
     assert not filled.isnull().any()
     # check fill value is equal to one of the adjacent cells
