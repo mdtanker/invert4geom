@@ -71,7 +71,7 @@ or
 ### Building docs
 You can build the docs using:
 ```bash
-    nox -s docs -- serve
+    nox -s docs -- --serve
 ```
 
 ## What Can I Do?
