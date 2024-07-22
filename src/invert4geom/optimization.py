@@ -521,13 +521,17 @@ class OptimalInversionDamping:
 
         trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
-        return cross_validation.grav_cv_score(
+        score, results = cross_validation.grav_cv_score(
             solver_damping=damping,
             progressbar=False,
             results_fname=trial.user_attrs.get("fname"),
             plot=self.plot_grids,
             **new_kwargs,
         )
+
+        trial.set_user_attr("results", results)
+
+        return score
 
 
 def optimize_inversion_damping(
@@ -901,12 +905,13 @@ class OptimalInversionZrefDensity:
         trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
         # run cross validation
-        return cross_validation.constraints_cv_score(
+        score, _ = cross_validation.constraints_cv_score(
             grav_df=grav_df,
             constraints_df=self.constraints_df,
             results_fname=trial.user_attrs.get("fname"),
             **new_kwargs,
         )
+        return score
 
 
 def optimize_inversion_zref_density_contrast(

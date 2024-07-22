@@ -111,7 +111,7 @@ def grav_cv_score(
     rmse_as_median: bool = False,
     plot: bool = False,
     **kwargs: typing.Any,
-) -> float:
+) -> tuple[float, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]:
     """
     Find the score, represented by the root mean (or median) squared error (RMSE),
     between the testing gravity data, and the predict gravity data after and
@@ -134,9 +134,9 @@ def grav_cv_score(
 
     Returns
     -------
-    float
+    tuple[float, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]
         a score, represented by the root mean squared error, between the testing gravity
-        data and the predicted gravity data.
+        data and the predicted gravity data, and a tuple of the inversion results.
 
     References
     ----------
@@ -222,7 +222,7 @@ def grav_cv_score(
             rmse_in_title=False,
         )
 
-    return score
+    return score, results
 
 
 @deprecation.deprecated(  # type: ignore[misc]
@@ -316,7 +316,7 @@ def grav_optimal_parameter(
         # update parameter value in kwargs
         kwargs[param_name] = value
         # run cross validation
-        score = grav_cv_score(
+        score, _ = grav_cv_score(
             training_data=train,
             testing_data=test,
             rmse_as_median=rmse_as_median,
@@ -401,7 +401,7 @@ def constraints_cv_score(
     constraints_df: pd.DataFrame,
     rmse_as_median: bool = False,
     **kwargs: typing.Any,
-) -> float:
+) -> tuple[float, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]:
     """
     Find the score, represented by the root mean squared error (RMSE), between the
     constraint point elevation, and the inverted topography at the constraint points.
@@ -419,9 +419,10 @@ def constraints_cv_score(
         False
     Returns
     -------
-    float
-        a score, represented by the root mean squared error, between the testing gravity
-        data and the predicted gravity data.
+    tuple[float, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]
+        a score, represented by the root mean squared error, between the constraint
+        point elevation and the inverted topography at the constraint points, and a
+        tuple of the inversion results.
 
     References
     ----------
@@ -459,7 +460,7 @@ def constraints_cv_score(
 
     dif = constraints_df.upward - constraints_df.inverted_topo
 
-    return utils.rmse(dif, as_median=rmse_as_median)
+    return utils.rmse(dif, as_median=rmse_as_median), results
 
 
 # pylint: disable=duplicate-code
@@ -693,7 +694,7 @@ def zref_density_optimal_parameter(
             ]
         }
         # run cross validation
-        score = constraints_cv_score(
+        score, _ = constraints_cv_score(
             grav_df=grav_df,
             constraints_df=constraints_df,
             results_fname=f"{results_fname}_trial_{i}",
