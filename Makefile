@@ -77,6 +77,7 @@ clean:
 	find . -name '*.lock' -delete
 	find . -name '*.pkl' -delete
 	find . -name '*.sqlite3' -delete
+	find . -name '*.coverage' -delete
 
 ####
 ####
@@ -84,12 +85,20 @@ clean:
 ####
 ####
 
-run_gallery:
-	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/gallery/*.ipynb
+clear_gallery_outputs:
+	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/gallery/*.ipynb
 
-run_user_guide:
-	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/user_guide/*.ipynb
+run_gallery: clear_gallery_outputs
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/gallery/*.ipynb
 
-run_doc_files:
-	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/*.ipynb
-	jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/*/*.ipynb
+clear_user_guide_outputs:
+	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/user_guide/*.ipynb
+
+run_user_guide: clear_user_guide_outputs
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/user_guide/*.ipynb
+
+clear_docs_outputs:
+	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/**/*.ipynb
+
+run_doc_files: clear_docs_outputs
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/**/*.ipynb
