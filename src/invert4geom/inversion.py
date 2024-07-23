@@ -1404,11 +1404,17 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             msg = "must provide damping_limits if run_damping_cv is True"
             raise ValueError(msg)
 
+        try:
+            damping_cv_trials = kwargs["damping_cv_trials"]
+        except KeyError as e:
+            msg = "must provide damping_cv_trials if run_zref_or_density_cv is True"
+            raise ValueError(msg) from e
+
         study, inversion_results = optimization.optimize_inversion_damping(
             training_df=grav_df[grav_df.test == False],  # noqa: E712 pylint: disable=singleton-comparison
             testing_df=grav_df[grav_df.test == True],  # noqa: E712 pylint: disable=singleton-comparison
             damping_limits=damping_limits,
-            n_trials=kwargs.get("damping_cv_trials", 20),
+            n_trials=damping_cv_trials,
             grid_search=kwargs.get("grid_search", False),
             plot_grids=False,
             fname=kwargs.get("damping_cv_fname", f"{fname}_damping_cv"),
@@ -1443,12 +1449,18 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         raise ValueError(msg)
 
     # run zref or density optimization
+    try:
+        zref_density_cv_trials = kwargs["zref_density_cv_trials"]
+    except KeyError as e:
+        msg = "must provide zref_density_cv_trials if run_zref_or_density_cv is True"
+        raise ValueError(msg) from e
+
     _, inversion_results = optimization.optimize_inversion_zref_density_contrast(
         grav_df=grav_df,
         constraints_df=kwargs.get("constraints_df"),
         density_contrast_limits=kwargs.get("density_contrast_limits", None),
         zref_limits=kwargs.get("zref_limits", None),
-        n_trials=kwargs.get("zref_density_cv_trials", None),
+        n_trials=zref_density_cv_trials,
         starting_topography=starting_topography,
         regional_grav_kwargs={
             "regional_method": regional_grav_kwargs.get("regional_method", None),
