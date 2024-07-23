@@ -926,6 +926,7 @@ class OptimalInversionZrefDensity:
                 "density_contrast",
                 "progressbar",
                 "results_fname",
+                "prism_layer",
             ]
         }
 
@@ -936,6 +937,7 @@ class OptimalInversionZrefDensity:
             grav_df=grav_df,
             constraints_df=self.constraints_df,
             results_fname=trial.user_attrs.get("fname"),
+            prism_layer=starting_prisms,
             **new_kwargs,
         )
         return score
