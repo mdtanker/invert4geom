@@ -691,7 +691,6 @@ def end_inversion(
 def update_gravity_and_misfit(
     gravity_df: pd.DataFrame,
     prisms_ds: xr.Dataset,
-    grav_data_column: str,
     iteration_number: int,
 ) -> pd.DataFrame:
     """
@@ -703,12 +702,10 @@ def update_gravity_and_misfit(
     ----------
     gravity_df : pd.DataFrame
         gravity dataframe with gravity observation coordinate columns ('easting',
-        'northing'), a gravity data column, set by `grav_data_column`,
-        and a regional gravity column ('reg').
+        'northing'), a gravity data column 'gravity_anomaly', and a regional gravity
+        column ('reg').
     prisms_ds : xr.Dataset
         harmonica prism layer
-    grav_data_column : str
-        name of gravity data column
     iteration_number : int
         iteration number to use in updated column names
 
@@ -729,12 +726,13 @@ def update_gravity_and_misfit(
     # each iteration updates the topography of the layer to minimize the residual
     # portion of the misfit. We then want to recalculate the forward gravity of the
     # new layer, use the same original regional misfit, and re-calculate the residual
-    # Gmisfit  = Gobs_corr - Gforward
+    # Gmisfit  = Gobs - Gforward
     # Gres = Gmisfit - Greg
-    # Gres = Gobs_corr_shift - Gforward - Greg
+    # Gres = Gobs - Gforward - Greg
+
     # update the residual misfit with the new forward gravity and the same regional
     gravity[f"iter_{iteration_number}_final_misfit"] = (
-        gravity[grav_data_column]
+        gravity.gravity_anomaly
         - gravity[f"iter_{iteration_number}_forward_grav"]
         - gravity.reg
     )
@@ -744,7 +742,6 @@ def update_gravity_and_misfit(
 
 def run_inversion(
     grav_df: pd.DataFrame,
-    grav_data_column: str,
     prism_layer: xr.Dataset,
     max_iterations: int,
     l2_norm_tolerance: float = 0.2,
@@ -776,12 +773,9 @@ def run_inversion(
     Parameters
     ----------
     grav_df : pd.DataFrame
-        dataframe with gravity data and coordinates, must have columns "res" and "reg"
-        for residual and regional gravity, and coordinate columns "easting" and
-        "northing".
-    grav_data_column : str
-        Column name containing the gravity anomaly data used to calculate the misfit.
-        This is typically a Topo-Free Disturbance (Complete Bouguer Anomaly).
+        dataframe with gravity data and coordinates, must have columns
+        "gravity_anomaly", "misfit", "res" and "reg", and coordinate columns "easting"
+        and "northing".
     prism_layer : xr.Dataset
         starting prism layer
     max_iterations : int
@@ -826,6 +820,18 @@ def run_inversion(
         params: dict, Properties of the inversion such as kwarg values,
         elapsed_time: float, time in seconds for the inversion to run
     """
+    cols = [
+        "easting",
+        "northing",
+        "gravity_anomaly",
+        # "starting_gravity",
+        "misfit",
+        "reg",
+        "res",
+    ]
+    if all(i in grav_df.columns for i in cols) is False:
+        msg = f"`grav_df` needs all the following columns: {cols}"
+        raise ValueError(msg)
 
     logging.info("starting inversion")
 
@@ -848,7 +854,7 @@ def run_inversion(
 
     # create empty jacobian matrix
     empty_jac: NDArray = np.empty(
-        (len(gravity[grav_data_column]), prisms_ds.top.size),
+        (len(gravity.gravity_anomaly), prisms_ds.top.size),
         dtype=np.float64,
     )
 
@@ -972,7 +978,6 @@ def run_inversion(
         gravity = update_gravity_and_misfit(
             gravity,
             prisms_ds,
-            grav_data_column,
             iteration,
         )
 
@@ -1111,10 +1116,9 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     Parameters
     ----------
     grav_df : pd.DataFrame
-        gravity dataframe with gravity data, must have coordinate columns "easting", and
-        "northing". It must also have a gravity data column specified by kwarg
-        `grav_data_column`. Optionally should have columns "starting_grav", "misfit",
-        "reg", "res".
+        gravity dataframe with gravity data, must have coordinate columns 'easting', and
+        'northing'. It must also have a gravity data column 'gravity_anomaly'.
+        Optionally should have columns 'starting_gravity', 'misfit', 'reg', 'res'.
     create_starting_topography : bool, optional
         Choose whether to create starting topography model. If True, must provide
         `starting_topography_kwargs`, if False must provide `starting_topography by
@@ -1279,7 +1283,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
     # Starting Gravity of Prism Model
     if calculate_starting_gravity is False:
-        if "starting_grav" not in grav_df:
+        if "starting_gravity" not in grav_df:
             msg = (
                 "'starting_gravity' must be a column of `grav_df` if "
                 "calculate_starting_gravity is False"
@@ -1287,8 +1291,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             raise ValueError(msg)
     elif calculate_starting_gravity is True:
         # if calculating starting gravity, must also calculate gravity misfit
-        calculate_gravity_misfit = True
-        if "starting_grav" in grav_df:
+        if "starting_gravity" in grav_df:
             msg = (
                 "'starting_gravity' already a column of `grav_df`, but is being "
                 "overwritten since calculate_starting_gravity is True"
@@ -1305,7 +1308,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 ),
                 "progressbar": False,
             }
-        grav_df["starting_grav"] = starting_prisms.prism_layer.gravity(
+        grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
             **starting_grav_kwargs,
         )
 
@@ -1355,8 +1358,6 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         grav_df = regional.regional_separation(
             method=regional_grav_kwargs.pop("regional_method"),
             grav_df=grav_df,
-            regional_column="reg",
-            grav_data_column="misfit",
             **regional_grav_kwargs,
         )
 

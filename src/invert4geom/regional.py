@@ -13,7 +13,24 @@ from nptyping import NDArray
 from invert4geom import utils
 
 
-def regional_dc_shift(
+def _check_grav_cols(grav_df: pd.DataFrame) -> None:
+    """
+    ensure gravity dataframe has the necessary columns
+
+    Parameters
+    ----------
+    grav_df : pd.DataFrame
+        gravity dataframe
+    """
+    cols = [
+        "gravity_anomaly",
+        "starting_gravity",
+    ]
+    if all(i in grav_df.columns for i in cols) is False:
+        msg = f"`grav_df` needs all the following columns: {cols}"
+        raise ValueError(msg)
+
+
     grav_df: pd.DataFrame,
     grav_data_column: str,
     dc_shift: float | None = None,
@@ -124,7 +141,7 @@ def regional_filter(
     return utils.sample_grids(
         grav_df,
         regional_grid,
-        sampled_name=regional_column,
+        sampled_name="reg",
         coord_names=(original_dims[1], original_dims[0]),
     )
 
@@ -161,8 +178,7 @@ def regional_trend(
         (grav_df.easting, grav_df.northing),
         grav_df[grav_data_column],
     )
-    grav_df[regional_column] = vdtrend.predict(
-        (grav_df.easting, grav_df.northing),
+    grav_df["reg"] = (
     )
 
     return grav_df
@@ -216,7 +232,7 @@ def regional_eq_sources(
     equivalent_sources.fit(coordinates, grav_df[grav_data_column])
 
     # use sources to predict the regional field at the observation points
-    grav_df[regional_column] = equivalent_sources.predict(coordinates)
+    grav_df["reg"] = equivalent_sources.predict(coordinates) + regional_shift
 
     return grav_df
 

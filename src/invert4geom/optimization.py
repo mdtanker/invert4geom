@@ -756,6 +756,17 @@ class OptimalInversionZrefDensity:
             the score of the eq_sources fit
         """
         grav_df = self.grav_df.copy()
+
+        cols = [
+            "easting",
+            "northing",
+            "upward",
+            "gravity_anomaly",
+        ]
+        if all(i in grav_df.columns for i in cols) is False:
+            msg = f"`grav_df` needs all the following columns: {cols}"
+            raise ValueError(msg)
+
         kwargs = self.kwargs.copy()
 
         if kwargs.get("apply_weighting_grid", None) is True:
@@ -859,7 +870,7 @@ class OptimalInversionZrefDensity:
         )
 
         # calculate forward gravity of starting prism layer
-        grav_df["starting_grav"] = starting_prisms.prism_layer.gravity(
+        grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
             coordinates=(
                 grav_df.easting,
                 grav_df.northing,
@@ -879,8 +890,6 @@ class OptimalInversionZrefDensity:
         grav_df = regional.regional_separation(
             method=reg_kwargs.pop("regional_method", None),
             grav_df=grav_df,
-            regional_column="reg",
-            grav_data_column="misfit",
             **reg_kwargs,
         )
 
@@ -950,8 +959,8 @@ def optimize_inversion_zref_density_contrast(
     Parameters
     ----------
     grav_df : pd.DataFrame
-        gravity data frame with columns `easting`, `northing`, `upward`, and a gravity
-        column defined by kwarg `grav_data_column`
+        gravity data frame with columns `easting`, `northing`, `upward`, and
+        `gravity_anomaly`
     constraints_df : pd.DataFrame
         constraints data frame with columns `easting`, `northing`, and `upward`.
     n_trials : int
@@ -1865,13 +1874,8 @@ def optimize_regional_filter(
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
     grav_df : pd.DataFrame
-        gravity dataframe with columns "easting", "northing", gravity data provided by
-        grav_data_column, and regional gravity provided by regional_column.
-    grav_data_column : str
-        column name for the gravity data used to calculate the gravity misfit from the
-        prism model.
-    regional_column : str
-        column name to use for regional component of gravity.
+        gravity dataframe with columns "easting", "northing", "reg", and
+        `gravity_anomaly`.
     filter_width_limits : tuple[float, float]
         limits to use for the filter width in meters.
     score_as_median : bool, optional
@@ -1937,8 +1941,6 @@ def optimize_regional_filter(
             filter_width_limits=filter_width_limits,
             testing_df=testing_df,
             grav_df=grav_df,
-            grav_data_column=grav_data_column,
-            regional_column=regional_column,
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
@@ -1979,8 +1981,6 @@ def optimize_regional_filter(
 def optimize_regional_trend(
     testing_df: pd.DataFrame,
     grav_df: pd.DataFrame,
-    grav_data_column: str,
-    regional_column: str,
     trend_limits: tuple[int, int],
     score_as_median: bool = False,
     true_regional: xr.DataArray | None = None,
@@ -2005,13 +2005,8 @@ def optimize_regional_trend(
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
     grav_df : pd.DataFrame
-        gravity dataframe with columns "easting", "northing", gravity data provided by
-        grav_data_column, and regional gravity provided by regional_column.
-    grav_data_column : str
-        column name for the gravity data used to calculate the gravity misfit from the
-        prism model.
-    regional_column : str
-        column name to use for regional component of gravity.
+        gravity dataframe with columns "easting", "northing", "reg" and
+        `gravity_anomaly`.
     trend_limits : tuple[int, int]
         limits to use for the trend order in degrees.
     score_as_median : bool, optional
@@ -2074,8 +2069,6 @@ def optimize_regional_trend(
             trend_limits=trend_limits,
             testing_df=testing_df,
             grav_df=grav_df,
-            grav_data_column=grav_data_column,
-            regional_column=regional_column,
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
@@ -2115,8 +2108,6 @@ def optimize_regional_trend(
 def optimize_regional_eq_sources(
     testing_df: pd.DataFrame,
     grav_df: pd.DataFrame,
-    grav_data_column: str,
-    regional_column: str,
     score_as_median: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
@@ -2147,13 +2138,8 @@ def optimize_regional_eq_sources(
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
     grav_df : pd.DataFrame
-        gravity dataframe with columns "easting", "northing", gravity data provided by
-        grav_data_column, and regional gravity provided by regional_column.
-    grav_data_column : str
-        column name for the gravity data used to calculate the gravity misfit from the
-        prism model.
-    regional_column : str
-        column name to use for regional component of gravity.
+        gravity dataframe with columns "easting", "northing", "reg", and
+        `gravity_anomaly`.
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
@@ -2230,8 +2216,6 @@ def optimize_regional_eq_sources(
             eq_damping_limits=eq_damping_limits,
             testing_df=testing_df,
             grav_df=grav_df,
-            grav_data_column=grav_data_column,
-            regional_column=regional_column,
             true_regional=true_regional,
             score_as_median=score_as_median,
             source_depth=source_depth,
@@ -2267,9 +2251,7 @@ def optimize_regional_eq_sources(
         optuna.visualization.plot_param_importances(study).show()
 
         if plot_grid is True:
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
-                regional_column
-            ].plot()
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
 
     return study, resulting_grav_df, best_trial
 
@@ -2279,8 +2261,6 @@ def optimize_regional_constraint_point_minimization(
     testing_df: pd.DataFrame | list[pd.DataFrame],
     grid_method: str,
     grav_df: pd.DataFrame,
-    grav_data_column: str,
-    regional_column: str,
     constraints_weights_column: str | None = None,
     score_as_median: bool = False,
     true_regional: xr.DataArray | None = None,
@@ -2329,13 +2309,8 @@ def optimize_regional_constraint_point_minimization(
         bi-harmonic spline gridding, "pygmt" for tensioned minimum curvature gridding,
         or "eq_sources" for equivalent sources gridding.
     grav_df : pd.DataFrame
-        gravity dataframe with columns "easting", "northing", gravity data provided by
-        grav_data_column, and regional gravity provided by regional_column.
-    grav_data_column : str
-        column name for the gravity data used to calculate the gravity misfit from the
-        prism model.
-    regional_column : str
-        column name to use for regional component of gravity.
+        gravity dataframe with columns "easting", "northing", "reg", and
+        "gravity_anomaly".
     constraints_weights_column : str | None, optional
         column name containing the optional weight values for each constraint point, by
         default None
@@ -2437,8 +2412,6 @@ def optimize_regional_constraint_point_minimization(
             testing_df=testing_df,
             grid_method=grid_method,
             grav_df=grav_df,
-            grav_data_column=grav_data_column,
-            regional_column=regional_column,
             constraints_weights_column=constraints_weights_column,
             true_regional=true_regional,
             score_as_median=score_as_median,
@@ -2483,9 +2456,7 @@ def optimize_regional_constraint_point_minimization(
         if len(study.trials[0].params) > 1:
             optuna.visualization.plot_param_importances(study).show()
         if isinstance(testing_df, pd.DataFrame) & (plot_grid is True):
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
-                regional_column
-            ].plot()
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
 
     return study, resulting_grav_df, best_trial
 
@@ -2545,7 +2516,6 @@ def optimize_regional_constraint_point_minimization_kfolds(
     resulting_grav_df = regional.regional_separation(
         method="constraints",
         grav_df=kwargs.get("grav_df"),
-        grav_data_column=kwargs.get("grav_data_column"),  # type: ignore[arg-type]
         constraints_df=testing_training_df,
         registration=kwargs.get("registration", "g"),
         constraints_block_size=kwargs.get("constraints_block_size", None),
@@ -2577,8 +2547,6 @@ def optimize_regional_constraint_point_minimization_kfolds(
         if len(study.trials[0].params) > 1:
             optuna.visualization.plot_param_importances(study).show()
         if plot_grid is True:
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
-                kwargs.get("regional_column")
-            ].plot()
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
 
     return study, resulting_grav_df, best_trial
