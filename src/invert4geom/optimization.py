@@ -844,6 +844,28 @@ class OptimalInversionZrefDensity:
             )
             logging.warning(msg)
 
+        # raise warning about using constraint points for regional
+        # estimation
+        if (
+            (self.regional_grav_kwargs is not None)
+            and (self.regional_grav_kwargs.get("regional_method") == "constraints")
+            and (
+                len(self.regional_grav_kwargs.get("constraints_df"))  # type: ignore[arg-type]
+                == len(self.constraints_df)
+            )
+        ):
+            msg = (
+                "Using constraint points for estimating a constant regional field."
+                "This is not recommended as the constraint points are used "
+                "for the density / reference level cross-validation scoring, which "
+                "biases the scoring. Consider using a constant value not determined "
+                "from the constraints, a different method for regional field "
+                "estimation, or set separate constraints in training and testing "
+                "sets and provide the training set to `regional_grav_kwargs` and the "
+                "testing set to `constraints_df` to use for scoring."
+            )
+            logging.warning(msg)
+
         # make flat starting topo at zref if not provided
         if self.starting_topography is None:
             starting_topo = utils.create_topography(
