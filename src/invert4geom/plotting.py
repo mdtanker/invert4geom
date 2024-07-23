@@ -193,15 +193,25 @@ def plot_2_parameter_cv_scores_uneven(
     dampings = list(np.logspace(-10, -2, num=9))
     dampings.append(None)
 
-    # temporarily set Python's logging level to not get information about the
-    # inversion's progress
+    # temporarily set Python's logging level
     logging.disable(level=logging.INFO)
 
-    spline = utils.best_spline_cv(
-        coordinates=(df1[param_names[0]], df1[param_names[1]]),
-        data=df1.value,
-        dampings=dampings,
-    )
+    if len(df1.value) > 5:
+        spline = utils.best_spline_cv(
+            coordinates=(df1[param_names[0]], df1[param_names[1]]),
+            data=df1.value,
+            dampings=dampings,
+        )
+    elif len(df1.value) > 2:
+        spline = vd.KNeighbors()
+        spline.fit(
+            coordinates=(df1[param_names[0]], df1[param_names[1]]),
+            data=df1.value,
+        )
+    else:
+        msg = "Not enough data points to interpolate."
+        logging.error(msg)
+        return
 
     # reset logging level
     logging.disable(level=logging.NOTSET)
