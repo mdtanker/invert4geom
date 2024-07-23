@@ -36,6 +36,7 @@ except ImportError:
 
 import verde as vd
 import xarray as xr
+from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 
 from invert4geom import utils
@@ -1480,3 +1481,82 @@ def plot_optuna_figures(
     #             optuna.visualization.plot_pareto_front(
     #                 study, target_names=target_names
     #             ).show()
+
+
+def plot_stochastic_results(
+    stats_ds: xr.Dataset,
+    constraints_df: pd.DataFrame | None = None,
+    title: str | None = None,
+) -> None:
+    """
+    Plot the standard deviation (uncertainty) and mean of the stochastic inversion
+    results. Optionally, plot the constraints as well.
+
+    Parameters
+    ----------
+    stats_ds : xr.Dataset
+        dataset with the merged inversion results, generate from function
+        `uncertainty.model_ensemble_stats`.
+    constraints_df : pd.DataFrame | None, optional
+        dataframe with constraint points, by default None
+    title : str | None, optional
+        title for plots, by default None
+    """
+    cmap = "rain"
+    unit = "m"
+    reverse_cpt = True
+    label = "inverted bed"
+
+    try:
+        stdev = stats_ds.weighted_stdev
+    except AttributeError:
+        stdev = stats_ds.z_std
+
+    fig = maps.plot_grd(
+        stdev,
+        cmap="inferno",
+        reverse_cpt=True,
+        robust=True,
+        hist=True,
+        cbar_label=f"{label}: weighted standard deviation, {unit}",
+        title=title,
+    )
+    if constraints_df is not None:
+        fig.plot(
+            x=constraints_df.easting,
+            y=constraints_df.northing,
+            fill="black",
+            style="x.3c",
+            pen="1p",
+            label="Topographic constraints",
+        )
+        fig.legend()
+
+    try:
+        mean = stats_ds.weighted_mean
+    except AttributeError:
+        mean = stats_ds.z_mean
+
+    fig = maps.plot_grd(
+        mean,
+        cmap=cmap,
+        reverse_cpt=reverse_cpt,
+        robust=True,
+        hist=True,
+        cbar_label=f"{label}: weighted mean, {unit}",
+        title=title,
+        fig=fig,
+        origin_shift="xshift",
+    )
+    if constraints_df is not None:
+        fig.plot(
+            x=constraints_df.easting,
+            y=constraints_df.northing,
+            fill="black",
+            style="x.3c",
+            pen="1p",
+            label="Topographic constraints",
+        )
+        fig.legend()
+
+    fig.show()
