@@ -1424,7 +1424,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             **inversion_kwargs,
         )
 
-        best_damping = study.best_params.get("solver_damping")
+        best_damping = study.best_params.get("damping")
 
         # use the best damping parameter
         inversion_kwargs["solver_damping"] = best_damping
@@ -1459,7 +1459,9 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         grav_df=grav_df,
         constraints_df=kwargs.get("constraints_df"),
         density_contrast_limits=kwargs.get("density_contrast_limits", None),
+        density_contrast=kwargs.get("density_contrast", None),
         zref_limits=kwargs.get("zref_limits", None),
+        zref=kwargs.get("zref", None),
         n_trials=zref_density_cv_trials,
         starting_topography=starting_topography,
         regional_grav_kwargs={
