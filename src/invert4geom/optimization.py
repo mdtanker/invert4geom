@@ -1781,6 +1781,10 @@ class OptimizeRegionalConstraintsPointMinimization:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
+            # temporarily set Python's logging level to not get information about the
+            # inversion's progress
+            logging.disable(level=logging.INFO)
+
             # for each fold, run CV
             results = []
             for i, _ in enumerate(pbar):
@@ -1792,6 +1796,9 @@ class OptimizeRegionalConstraintsPointMinimization:
                     **new_kwargs,
                 )
                 results.append(fold_results)
+
+            # reset logging level
+            logging.disable(level=logging.NOTSET)
 
             # get mean of scores of all folds
             res_score = np.mean([r[0] for r in results])
