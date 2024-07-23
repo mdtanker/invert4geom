@@ -1560,3 +1560,37 @@ def plot_stochastic_results(
         fig.legend()
 
     fig.show()
+
+
+def remove_df_from_hoverdata(
+    plot: plotly.graph_objects.Figure,
+) -> plotly.graph_objects.Figure:
+    """
+    Remove the dataframe from the hoverdata of a plotly plot
+
+    Parameters
+    ----------
+    plot : plotly.graph_objects.Figure
+        plotly figure
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        plotly figure with the dataframe removed from the hoverdata
+    """
+    # Check if plotly is installed
+    if plotly is None:
+        msg = "Missing optional dependency 'plotly' required for plotting."
+        raise ImportError(msg)
+
+    text = []
+    for s in plot.data[1].text:
+        sub1 = '<br>    "results"'
+        sub2 = "<br>    "
+        start = s.split(sub1)[0]
+        end = s.split(sub1)[1]
+        new_string = start + end.split(sub2)[1]
+        text.append(new_string)
+    text = tuple(text)  # type: ignore[assignment]
+
+    return plot.update_traces(text=text)
