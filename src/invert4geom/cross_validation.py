@@ -334,8 +334,7 @@ def grav_optimal_parameter(
             logging.warning(msg)
     if verbose:
         # set Python's logging level to get information about the inversion's progress
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.INFO)
 
     # print value and score pairs
     for value, score in zip(param_values, scores):
@@ -549,11 +548,9 @@ def zref_density_optimal_parameter(
 
     if verbose:
         # set Python's logging level to get information about the inversion's progress
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.INFO)
     else:
-        logger = logging.getLogger()
-        logger.setLevel(logging.WARNING)
+        logging.getLogger().setLevel(logging.WARNING)
 
     # set file name for saving results with random number between 0 and 999
     if results_fname is None:
@@ -777,7 +774,6 @@ def split_test_train(
     spacing: float | tuple[float, float] | None = None,
     shape: tuple[float, float] | None = None,
     n_splits: int = 5,
-    # test_size=0.1,
     random_state: int = 10,
     plot: bool = False,
 ) -> pd.DataFrame:

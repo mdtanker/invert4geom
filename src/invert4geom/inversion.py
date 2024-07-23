@@ -337,7 +337,7 @@ def jacobian(
                 "change the prism tops or gravity elevations, or use the small-prisms "
                 "vertical derivative technique."
             )
-            logging.warning(msg)
+            raise ValueError(msg)
 
         jac = jacobian_annular(
             grav_easting,
@@ -685,6 +685,13 @@ def end_inversion(
         end = True
         termination_reason.append("max iterations")
 
+    if "max iterations" in termination_reason:
+        msg = (
+            "Inversion terminated due to max_iterations limit. Consider increasing "
+            "this limit."
+        )
+        logging.warning(msg)
+
     return end, termination_reason
 
 
@@ -847,8 +854,6 @@ def run_inversion(
         _,
     ) = utils.extract_prism_data(prism_layer)
 
-    logging.info("extracted prism spacing is %s", prism_spacing)
-
     # extract density contrast value(s) (only used in parameter list for plots)
     density_contrast = np.unique(np.abs(prism_layer.density))
 
@@ -925,7 +930,7 @@ def run_inversion(
             solver_type=solver_type,
         )
 
-        # print correction values
+        # log correction values
         logging.info(
             "Layer correction median: %s m, RMSE:%s m",
             round(np.median(surface_correction), 4),
@@ -1110,7 +1115,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     4) calculate the gravity misfit
     5) calculate the regional and residual components of the misfit
     6) run the inversion
-        - you can choose to run cross validations for damping, density, and zref
+    you can choose to run cross validations for damping, density, and zref
 
     Parameters
     ----------
