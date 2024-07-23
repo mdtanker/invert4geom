@@ -198,7 +198,7 @@ def grav_cv_score(
     )
 
     # compare forward of inverted layer with observed
-    observed = test[kwargs.get("grav_data_column")] - test.reg
+    observed = test.gravity_anomaly - test.reg
     predicted = test.test_point_grav
 
     dif = predicted - observed
@@ -207,7 +207,7 @@ def grav_cv_score(
 
     if plot:
         test_grid = test.set_index(["northing", "easting"]).to_xarray()
-        obs = test_grid[kwargs.get("grav_data_column")] - test_grid.reg
+        obs = test_grid.gravity_anomaly - test_grid.reg
         pred = test_grid.test_point_grav.rename("")
 
         polar_utils.grd_compare(
@@ -410,8 +410,7 @@ def constraints_cv_score(
     Parameters
     ----------
     grav_df : pd.DataFrame
-       gravity dataframe with columns "res", "reg", and column set by kwarg
-       grav_data_column
+       gravity dataframe with columns "res", "reg", and "gravity_anomaly"
     constraints_df : pd.DataFrame
         constraints dataframe with columns "easting", "northing", and "upward"
     rmse_as_median : bool, optional
@@ -507,8 +506,7 @@ def zref_density_optimal_parameter(
     ----------
     grav_df : pd.DataFrame
         dataframe with gravity data and coordinates, must have coordinate columns
-        "easting", "northing", and "upward", and gravity data column defined by kwarg
-        "grav_data_column".
+        "easting", "northing", and "upward", and gravity data column "gravity_anomaly"
     constraints_df : pd.DataFrame
         dataframe with points where the topography of interest has been previously
         measured, to be used for score, must have coordinate columns "easting",
@@ -653,7 +651,7 @@ def zref_density_optimal_parameter(
         )
 
         # calculate forward gravity of starting prism layer
-        grav_df["starting_grav"] = starting_prisms.prism_layer.gravity(
+        grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
             coordinates=(
                 grav_df.easting,
                 grav_df.northing,
@@ -673,8 +671,6 @@ def zref_density_optimal_parameter(
         grav_df = regional.regional_separation(
             method=reg_kwargs.pop("regional_method", None),
             grav_df=grav_df,
-            regional_column="reg",
-            grav_data_column="misfit",
             **reg_kwargs,
         )
 
@@ -1040,15 +1036,12 @@ def regional_separation_score(
     kwargs = kwargs.copy()
     method = kwargs.pop("method")
     grav_df = kwargs.pop("grav_df")
-    grav_data_column = kwargs.pop("grav_data_column")
-    regional_column = kwargs.pop("regional_column")
     true_regional = kwargs.pop("true_regional", None)
 
     df_anomalies = regional.regional_separation(
         method=method,
         grav_df=grav_df,
-        grav_data_column=grav_data_column,
-        regional_column=regional_column,
+        remove_starting_grav_mean=remove_starting_grav_mean,
         **kwargs,
     )
 
@@ -1066,7 +1059,7 @@ def regional_separation_score(
     )
     df = utils.sample_grids(
         df=df,
-        grid=grid[regional_column],
+        grid=grid.reg,
         sampled_name="reg",
     )
     residual_constraint_score = utils.rmse(df.res, as_median=score_as_median)
@@ -1075,7 +1068,7 @@ def regional_separation_score(
 
     if true_regional is not None:
         true_reg_score = utils.rmse(
-            np.abs(true_regional - grid[regional_column]), as_median=score_as_median
+            np.abs(true_regional - grid.reg), as_median=score_as_median
         )
     else:
         true_reg_score = None
