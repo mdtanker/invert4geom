@@ -21,27 +21,27 @@ def dummy_grid() -> xr.DataArray:
         extra_coords=20,
     )
 
-    # create topographic features
-    misfit = y**2 + x**2
+    # create synthetic data
+    observed_grav = y**2 + x**2
 
     return vd.make_xarray_grid(
         (x, y),
-        (misfit, z),
-        data_names=("misfit", "upward"),
+        (observed_grav, z),
+        data_names=("gravity_anomaly", "upward"),
         dims=("northing", "easting"),
     )
 
 
 def dummy_df() -> pd.DataFrame:
     df = dummy_grid().to_dataframe().reset_index()
-    df["grav"] = 20000
+    df["starting_gravity"] = 20000
     return df
 
 
 # %%
-def test_regional_dc_shift_constraints():
+def test_regional_constant_constraints():
     """
-    test the regional_dc_shift function with a supplied constraints
+    test the regional_constant function with a supplied constraints
     """
     grav_df = dummy_df()
     region = (0, 200, 200, 400)
@@ -51,36 +51,28 @@ def test_regional_dc_shift_constraints():
     coords = vd.scatter_points(region=region, size=num_constraints, random_state=0)
     points = pd.DataFrame(data={"easting": coords[0], "northing": coords[1]})
 
-    # print(grav_df.describe())
-
-    df = regional.regional_dc_shift(
+    df = regional.regional_constant(
         grav_df=grav_df,
-        grav_data_column="misfit",
         constraints_df=points,
-        regional_column="reg",
     )
-
-    # print(df.describe())
 
     # test whether regional field has been removed correctly
     # by whether the means of the reg and misfit are similar
     # print(np.mean(df.reg), np.mean(df.misfit))
-    print(np.mean(df.reg), np.mean(df.misfit))
     assert np.mean(df.reg) == pytest.approx(np.mean(df.misfit), rel=1000)
 
 
-def test_regional_dc_shift():
+def test_regional_constant():
     """
-    test the regional_dc_shift function with a supplied DC shift
+    test the regional_constant function with a supplied constant value
     """
 
-    grav_df = dummy_grid().to_dataframe().reset_index()
+    # grav_df = dummy_grid().to_dataframe().reset_index()
+    grav_df = dummy_df()
 
-    df = regional.regional_dc_shift(
+    df = regional.regional_constant(
         grav_df=grav_df,
-        grav_data_column="misfit",
-        dc_shift=-200,
-        regional_column="reg",
+        constant=-200,
     )
 
     assert df.reg.mean() == -200
@@ -97,7 +89,6 @@ def test_regional_trend(trend):
     df = regional.regional_trend(
         trend=trend,
         grav_df=anomalies,
-        grav_data_column="misfit",
     )
 
     # grid = df.set_index(["northing", "easting"]).to_xarray()
@@ -138,7 +129,6 @@ def test_regional_filter():
     df = regional.regional_filter(
         filter_width=300e3,
         grav_df=grav_df,
-        grav_data_column="misfit",
         # registration="g",
     )
 
@@ -162,29 +152,29 @@ def test_regional_eq_sources():
     """
     test the regional_eq_sources function
     """
-    # grav_df = dummy_df()
+    grav_df = dummy_df()
     # grav_df["Gobs"] = np.random.normal(100, 100, len(grav_df))
 
-    grav_df = dummy_grid().to_dataframe().reset_index()
+    # grav_df = dummy_grid().to_dataframe().reset_index()
 
     # add noise
-    grav_df["misfit"], _ = synthetic.contaminate(
-        grav_df["misfit"],
+    grav_df["starting_gravity"], _ = synthetic.contaminate(
+        grav_df.starting_gravity,
         stddev=0.2,
         percent=True,
         seed=0,
     )
 
     df = regional.regional_eq_sources(
-        source_depth=100e3,
+        source_depth=500e3,
+        eq_damping=10,
         grav_df=grav_df,
-        grav_data_column="misfit",
     )
     # print(df)
     reg_range = np.max(df.reg) - np.min(df.reg)
     misfit_range = np.max(df.misfit) - np.min(df.misfit)
     # print(reg_range, misfit_range)
-    # test  whether regional field has been remove correctly
+    # test whether regional field has been remove correctly
     # by whether the range of regional values are lower than the range of misfit values
     assert reg_range < misfit_range
 
@@ -219,7 +209,6 @@ def test_regional_constraints(test_input):
     df = regional.regional_constraints(
         constraints_df=points,
         grav_df=anomalies,
-        grav_data_column="misfit",
         grid_method=test_input,
         grav_obs_height=1e3,
         source_depth=100e3,

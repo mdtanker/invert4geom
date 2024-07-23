@@ -880,12 +880,11 @@ class OptimalInversionZrefDensity:
             progressbar=False,
         )
 
-        # calculate misfit as observed - starting
-        grav_data_column = kwargs.get("grav_data_column")
-        grav_df["misfit"] = grav_df[grav_data_column] - grav_df.starting_grav
-
         # calculate regional field
         reg_kwargs = self.regional_grav_kwargs.copy()  # type: ignore[union-attr]
+
+        # temporarily set Python's logging level to not get info
+        logging.disable(level=logging.INFO)
 
         grav_df = regional.regional_separation(
             method=reg_kwargs.pop("regional_method", None),
@@ -893,11 +892,8 @@ class OptimalInversionZrefDensity:
             **reg_kwargs,
         )
 
-        # remove the regional from the misfit to get the residual
-        grav_df["res"] = grav_df.misfit - grav_df.reg
-
-        # update starting model in kwargs
-        kwargs["prism_layer"] = starting_prisms
+        # reset logging level
+        logging.disable(level=logging.NOTSET)
 
         new_kwargs = {
             key: value
@@ -1280,22 +1276,6 @@ def optimize_inversion_zref_density_contrast(
                         "Density contrast (kg/m$^3$)",
                     ),
                 )
-                # plotting.plot_cv_scores(
-                #     study.trials_dataframe().value.values,
-                #     study.trials_dataframe().params_density_contrast.values,  # type: ignore[arg-type] # noqa: E501
-                #     param_name="Density contrast (kg/m$^3$)",
-                #     plot_title="Density contrast Cross-validation",
-                #     logx=logx,
-                #     logy=logy,
-                # )
-                # plotting.plot_cv_scores(
-                #     study.trials_dataframe().value.values,
-                #     study.trials_dataframe().params_zref.values,
-                #     param_name="Reference level (m)",
-                #     plot_title="Reference level Cross-validation",
-                #     logx=logx,
-                #     logy=logy,
-                # )
 
     return study, inv_results
 
@@ -1847,10 +1827,9 @@ class OptimizeRegionalConstraintsPointMinimization:
 def optimize_regional_filter(
     testing_df: pd.DataFrame,
     grav_df: pd.DataFrame,
-    grav_data_column: str,
-    regional_column: str,
     filter_width_limits: tuple[float, float],
     score_as_median: bool = False,
+    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
     sampler: optuna.samplers.BaseSampler | None = None,
@@ -1881,6 +1860,9 @@ def optimize_regional_filter(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
+    remove_starting_grav_mean : bool, optional
+        remove the mean of the starting gravity data before estimating the regional.
+        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xr.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -1944,6 +1926,7 @@ def optimize_regional_filter(
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=n_trials,
         show_progress_bar=True,
@@ -1971,9 +1954,7 @@ def optimize_regional_filter(
                 target_names=["RMS of residual at constraints", "RMS of residual"],
             ).show()
         if plot_grid is True:
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
-                regional_column
-            ].plot()
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
 
     return study, resulting_grav_df, best_trial
 
@@ -1983,6 +1964,7 @@ def optimize_regional_trend(
     grav_df: pd.DataFrame,
     trend_limits: tuple[int, int],
     score_as_median: bool = False,
+    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
     plot: bool = False,
@@ -2012,6 +1994,9 @@ def optimize_regional_trend(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
+    remove_starting_grav_mean : bool, optional
+        remove the mean of the starting gravity data before estimating the regional.
+        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xr.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -2072,6 +2057,7 @@ def optimize_regional_trend(
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         show_progress_bar=True,
     )
@@ -2098,9 +2084,7 @@ def optimize_regional_trend(
                 target_names=["RMS of residual at constraints", "RMS of residual"],
             ).show()
         if plot_grid is True:
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray()[
-                regional_column
-            ].plot()
+            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
 
     return study, resulting_grav_df, best_trial
 
@@ -2109,6 +2093,7 @@ def optimize_regional_eq_sources(
     testing_df: pd.DataFrame,
     grav_df: pd.DataFrame,
     score_as_median: bool = False,
+    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
     source_depth_limits: tuple[float, float] | None = None,
@@ -2143,6 +2128,9 @@ def optimize_regional_eq_sources(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
+    remove_starting_grav_mean : bool, optional
+        remove the mean of the starting gravity data before estimating the regional.
+        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xr.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -2222,6 +2210,7 @@ def optimize_regional_eq_sources(
             block_size=block_size,
             eq_damping=eq_damping,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=n_trials,
         show_progress_bar=True,
@@ -2263,6 +2252,7 @@ def optimize_regional_constraint_point_minimization(
     grav_df: pd.DataFrame,
     constraints_weights_column: str | None = None,
     score_as_median: bool = False,
+    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
     tension_factor_limits: tuple[float, float] = (0, 1),
@@ -2317,6 +2307,9 @@ def optimize_regional_constraint_point_minimization(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
+    remove_starting_grav_mean : bool, optional
+        remove the mean of the starting gravity data before estimating the regional.
+        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xr.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -2426,6 +2419,7 @@ def optimize_regional_constraint_point_minimization(
             eq_damping=eq_damping,
             grav_obs_height=grav_obs_height,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            remove_starting_grav_mean=remove_starting_grav_mean,
             progressbar=fold_progressbar,
         ),
         n_trials=n_trials,
@@ -2522,7 +2516,7 @@ def optimize_regional_constraint_point_minimization_kfolds(
         eq_points=kwargs.get("eq_points", None),
         constraints_weights_column=kwargs.get("constraints_weights_column", None),
         grid_method=kwargs.get("grid_method"),
-        regional_column=kwargs.get("regional_column"),  # type: ignore[arg-type]
+        remove_starting_grav_mean=kwargs.get("remove_starting_grav_mean", False),
         # hyperparameters
         tension_factor=best_trial.params.get("tension_factor", 1),
         spline_damping=best_trial.params.get("spline_damping", None),

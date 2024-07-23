@@ -661,10 +661,6 @@ def zref_density_optimal_parameter(
             progressbar=False,
         )
 
-        # calculate misfit as observed - starting
-        grav_data_column = kwargs.get("grav_data_column")
-        grav_df["misfit"] = grav_df[grav_data_column] - grav_df.starting_grav
-
         # calculate regional field
         reg_kwargs = regional_grav_kwargs.copy()  # type: ignore[union-attr]
 
@@ -673,9 +669,6 @@ def zref_density_optimal_parameter(
             grav_df=grav_df,
             **reg_kwargs,
         )
-
-        # remove the regional from the misfit to get the residual
-        grav_df["res"] = grav_df.misfit - grav_df.reg
 
         # update starting model in kwargs
         kwargs["prism_layer"] = starting_prisms
@@ -1037,6 +1030,7 @@ def regional_separation_score(
     method = kwargs.pop("method")
     grav_df = kwargs.pop("grav_df")
     true_regional = kwargs.pop("true_regional", None)
+    remove_starting_grav_mean = kwargs.pop("remove_starting_grav_mean", False)
 
     df_anomalies = regional.regional_separation(
         method=method,
@@ -1044,9 +1038,6 @@ def regional_separation_score(
         remove_starting_grav_mean=remove_starting_grav_mean,
         **kwargs,
     )
-
-    # calculate residual
-    df_anomalies["res"] = df_anomalies[grav_data_column] - df_anomalies[regional_column]
 
     # grid the anomalies
     grid = df_anomalies.set_index(["northing", "easting"]).to_xarray()

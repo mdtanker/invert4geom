@@ -1094,7 +1094,6 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     create_starting_topography: bool = False,
     create_starting_prisms: bool = False,
     calculate_starting_gravity: bool = False,
-    calculate_gravity_misfit: bool = False,
     calculate_regional_misfit: bool = False,
     run_damping_cv: bool = False,
     run_zref_or_density_cv: bool = False,
@@ -1129,9 +1128,6 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     calculate_starting_gravity : bool, optional
         Choose whether to calculate starting gravity from prisms model. If False, must
         provide column "starting_gravity" in grav_df , by default False
-    calculate_gravity_misfit : bool, optional
-        Choose whether to calculate gravity misfit. If False, must provide column
-        "misfit" in grav_df, by default False
     calculate_regional_misfit : bool, optional
         Choose whether to calculate regional misfit. If False, must provide column "reg"
         in grav_df, if True, must provide`regional_grav_kwargs`, by default False
@@ -1290,6 +1286,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             )
             raise ValueError(msg)
     elif calculate_starting_gravity is True:
+        calculate_regional_misfit = True
         # if calculating starting gravity, must also calculate gravity misfit
         if "starting_gravity" in grav_df:
             msg = (
@@ -1312,27 +1309,14 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             **starting_grav_kwargs,
         )
 
-    # Gravity Misfit
-    if calculate_gravity_misfit is False:
-        if "misfit" not in grav_df:
-            msg = (
-                "'misfit' must be a column of `grav_df` if calculate_gravity_misfit"
-                " is False"
-            )
-            raise ValueError(msg)
-    elif calculate_gravity_misfit is True:
-        if "misfit" in grav_df:
-            msg = (
-                "'misfit' already a column of `grav_df`, but is being overwritten "
-                "since calculate_gravity_misfit is True"
-            )
-            logging.warning(msg)
-        grav_df["misfit"] = (
-            grav_df[kwargs.get("grav_data_column")] - grav_df["starting_grav"]
-        )
-
     # Regional Component of Misfit
     if calculate_regional_misfit is False:
+        if ("misfit" not in grav_df) & (run_zref_or_density_cv is False):
+            msg = (
+                "'misfit' must be a column of `grav_df` if calculate_regional_misfit is"
+                " False"
+            )
+            raise ValueError(msg)
         if ("reg" not in grav_df) & (run_zref_or_density_cv is False):
             msg = (
                 "'reg' must be a column of `grav_df` if calculate_regional_misfit is"
@@ -1348,7 +1332,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 " calculate_regional_misfit is True"
             )
             logging.warning(msg)
-        regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None)
+        regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None).copy()
         if regional_grav_kwargs is None:
             msg = (
                 "regional_grav_kwargs must be provided if calculate_regional_misfit"
@@ -1383,12 +1367,16 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             "zref_density_cv_trials",
             "zref_density_cv_fname",
             "score_as_median",
+            "zref",
+            "density_contrast",
         ]
     }
 
     # run only the inversion with specified damping, density, and zref values
     if (run_damping_cv is False) & (run_zref_or_density_cv is False):
-        grav_df["res"] = grav_df["misfit"] - grav_df["reg"]
+        inversion_kwargs.pop("prism_layer", None)
+        inversion_kwargs.pop("progressbar", None)
+        inversion_kwargs.pop("grav_df", None)
 
         inversion_results = run_inversion(
             grav_df=grav_df,
@@ -1405,8 +1393,6 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         return inversion_results
 
     if run_damping_cv is True:
-        grav_df["res"] = grav_df["misfit"] - grav_df["reg"]
-
         # set which damping parameters to include
         damping_limits = kwargs.get("damping_limits", (0.001, 1))
         if damping_limits is None:
