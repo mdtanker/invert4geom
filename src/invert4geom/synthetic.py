@@ -18,6 +18,7 @@ from invert4geom import cross_validation, log, utils
 def load_synthetic_model(
     spacing: float = 1e3,
     region: tuple[float, float, float, float] = (0, 40000, 0, 30000),
+    buffer: float = 0,
     topography_coarsen_factor: float = 2,
     topography_percent_noise: float | None = None,
     number_of_constraints: int | None = None,
@@ -40,6 +41,10 @@ def load_synthetic_model(
         spacing of the grid and gravity, by default 1e3
     region : tuple[float, float, float, float], optional
         bounding region for the grid, by default (0, 40000, 0, 30000)
+    buffer : float, optional
+        buffer to add around the region, by default 0. Buffer region used for creating
+        topography and prisms, while inner region used for extent of gravity and
+        constraints.
     topography_coarsen_factor : float, optional
         factor to coarsen the topography data by for adding noise, by default 2
     topography_percent_noise : float | None, optional
@@ -69,7 +74,10 @@ def load_synthetic_model(
     tuple[xr.DataArray, xr.DataArray, pd.DataFrame, pd.DataFrame]
         tuple of: true topography, starting topography, constraint points, gravity data
     """
-    true_topography = synthetic_topography_simple(spacing, region)
+
+    buffer_region = vd.pad_region(region, buffer) if buffer != 0 else region
+
+    true_topography = synthetic_topography_simple(spacing, buffer_region)
 
     if topography_percent_noise is not None:
         true_topography = contaminate_with_long_wavelength_noise(
