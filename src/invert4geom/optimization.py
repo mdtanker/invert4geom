@@ -1534,6 +1534,25 @@ def optimize_eq_source_params(
         load_if_exists=False,
     )
 
+    # explicitly add the limits as trials
+    num_params = 0
+    if source_depth_limits is not None:
+        study.enqueue_trial(
+            {"source_depth": source_depth_limits[0]}, skip_if_exists=True
+        )
+        study.enqueue_trial(
+            {"source_depth": source_depth_limits[1]}, skip_if_exists=True
+        )
+        num_params += 1
+    if block_size_limits is not None:
+        study.enqueue_trial({"block_size": block_size_limits[0]}, skip_if_exists=True)
+        study.enqueue_trial({"block_size": block_size_limits[1]}, skip_if_exists=True)
+        num_params += 1
+    if eq_damping_limits is not None:
+        study.enqueue_trial({"eq_damping": eq_damping_limits[0]}, skip_if_exists=True)
+        study.enqueue_trial({"eq_damping": eq_damping_limits[1]}, skip_if_exists=True)
+        num_params += 1
+
     if num_params == 1:
         callbacks = [warn_limits_better_than_trial_1_param]
     else:
