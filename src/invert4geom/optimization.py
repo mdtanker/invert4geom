@@ -1205,9 +1205,15 @@ def optimize_inversion_zref_density_contrast(
                 )
         else:
             with warnings.catch_warnings():
+                # if optimizing on both zref and density, do more startup trials to
+                # cover param space
+                if (zref_limits is not None) & (density_contrast_limits is not None):
+                    n_startup_trials = int(n_trials / 3)
+                else:
+                    n_startup_trials = int(n_trials / 4)
                 warnings.filterwarnings("ignore", message="BoTorch")
                 sampler = optuna.integration.BoTorchSampler(
-                    n_startup_trials=int(n_trials / 4),
+                    n_startup_trials=n_startup_trials,
                     seed=10,
                 )
 
