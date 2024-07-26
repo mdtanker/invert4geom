@@ -1,7 +1,6 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
 import itertools
-import logging
 import pathlib
 import pickle
 import random
@@ -20,7 +19,12 @@ from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
 import invert4geom
-from invert4geom import inversion, plotting, regional, utils
+from invert4geom import inversion, log, plotting, regional, utils
+
+
+def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
+    """Used to filter logging."""
+    return False
 
 
 def resample_with_test_points(
@@ -151,9 +155,7 @@ def grav_cv_score(
     density_contrast = np.fabs(prism_layer.density)
     zref = prism_layer.attrs.get("zref")
 
-    # temporarily set Python's logging level to not get information about the
-    # inversion's progress
-    logging.disable(level=logging.INFO)
+    log.addFilter(log_filter)
 
     # make sure dynamic plotting of inversion iterations is off
     kwargs["plot_dynamic_convergence"] = False
@@ -164,9 +166,7 @@ def grav_cv_score(
         progressbar=False,
         **kwargs,
     )
-
-    # reset logging level
-    logging.disable(level=logging.NOTSET)
+    log.removeFilter(log_filter)
 
     prism_results, _, _, _ = results
 
@@ -243,7 +243,6 @@ def grav_optimal_parameter(
     progressbar: bool = True,
     plot_grids: bool = False,
     plot_cv: bool = False,
-    verbose: bool = False,
     results_fname: str | None = None,
     **kwargs: typing.Any,
 ) -> tuple[
@@ -275,8 +274,6 @@ def grav_optimal_parameter(
         default False
     plot_cv : bool, optional
        plot a graph of scores vs parameter values, by default False
-    verbose : bool, optional
-       log the results, by default False
     results_fname : str, optional
         file name to save results to, by default "tmp" with an attached random number
 
@@ -331,21 +328,16 @@ def grav_optimal_parameter(
                 "first score was lower than second, consider changing the lower"
                 " parameter value range"
             )
-            logging.warning(msg)
-    if verbose:
-        # set Python's logging level to get information about the inversion's progress
-        logging.getLogger().setLevel(logging.INFO)
+            log.warning(msg)
 
     # print value and score pairs
     for value, score in zip(param_values, scores):
-        logging.info("%s value: %s -> Score: %s", param_name, value, score)
+        log.info("%s value: %s -> Score: %s", param_name, value, score)
 
     best_idx = np.argmin(scores)
     best_score = scores[best_idx]
     best_param_value = param_values[best_idx]
-    logging.info(
-        "Best score of %s with %s=%s", best_score, param_name, best_param_value
-    )
+    log.info("Best score of %s with %s=%s", best_score, param_name, best_param_value)
 
     # get best inversion result of each set
     with pathlib.Path(f"{results_fname}_trial_{best_idx}.pickle").open("rb") as f:
@@ -365,7 +357,7 @@ def grav_optimal_parameter(
     }
 
     if best_param_value in [np.min(param_values), np.max(param_values)]:
-        logging.warning(
+        log.warning(
             "Best parameter value (%s) for %s CV is at the limit of provided "
             "values (%s, %s) and thus is likely not a global minimum, expand the range "
             "of values tested to ensure the best parameter value is found.",
@@ -429,9 +421,7 @@ def constraints_cv_score(
 
     constraints_df = constraints_df.copy()
 
-    # temporarily set Python's logging level to not get information about the
-    # inversion's progress
-    logging.disable(level=logging.INFO)
+    log.addFilter(log_filter)
 
     # run inversion
     results = inversion.run_inversion(
@@ -439,9 +429,7 @@ def constraints_cv_score(
         progressbar=False,
         **kwargs,
     )
-
-    # reset logging level
-    logging.disable(level=logging.NOTSET)
+    log.removeFilter(log_filter)
 
     prism_results, _, _, _ = results
 
@@ -483,7 +471,6 @@ def zref_density_optimal_parameter(
     rmse_as_median: bool = False,
     progressbar: bool = True,
     plot_cv: bool = False,
-    verbose: bool = False,
     results_fname: str | None = None,
     **kwargs: typing.Any,
 ) -> tuple[
@@ -533,8 +520,6 @@ def zref_density_optimal_parameter(
         display a progress bar for the number of tested values, by default True
     plot_cv : bool, optional
         plot a graph of scores vs parameter values, by default False
-    verbose : bool, optional
-        log the results, by default False
     results_fname : str, optional
         file name to save results to, by default "tmp" with an attached random number
 
@@ -545,12 +530,6 @@ def zref_density_optimal_parameter(
         the inversion results, the optimal parameter value, the score associated with
         it, the parameter values and the scores for each parameter value
     """
-
-    if verbose:
-        # set Python's logging level to get information about the inversion's progress
-        logging.getLogger().setLevel(logging.INFO)
-    else:
-        logging.getLogger().setLevel(logging.WARNING)
 
     # set file name for saving results with random number between 0 and 999
     if results_fname is None:
@@ -578,7 +557,7 @@ def zref_density_optimal_parameter(
             "starting_topography not provided, will create a flat surface at each zref "
             "value to be the starting topography."
         )
-        logging.warning(msg)
+        log.warning(msg)
         if starting_topography_kwargs is None:
             msg = (
                 "must provide `starting_topography_kwargs` with items `region` and "
@@ -601,7 +580,7 @@ def zref_density_optimal_parameter(
             "training set to `regional_grav_kwargs` and the testing set to "
             "constraints_df to use for scoring."
         )
-        logging.warning(msg)
+        log.warning(msg)
 
     # create all possible combinations of zref and density contrast
     parameter_pairs = list(itertools.product(zref_values, density_contrast_values))  # type: ignore[arg-type]
@@ -691,7 +670,7 @@ def zref_density_optimal_parameter(
 
     # print parameter and score pairs
     for (zref, density_contrast), score in zip(parameter_pairs, scores):
-        logging.info(
+        log.info(
             "Reference level: %s, Density contrast: %s -> Score: %s",
             zref,
             density_contrast,
@@ -702,7 +681,7 @@ def zref_density_optimal_parameter(
     best_score = scores[best_idx]
     best_zref = parameter_pairs[best_idx][0]
     best_density = parameter_pairs[best_idx][1]
-    logging.info(
+    log.info(
         "Best score of %s with reference level=%s and density contrast=%s",
         best_score,
         best_zref,

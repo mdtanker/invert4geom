@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import typing
 
 import harmonica as hm
@@ -10,7 +9,12 @@ import pygmt
 import verde as vd
 from nptyping import NDArray
 
-from invert4geom import utils
+from invert4geom import cross_validation, log, optimization, utils
+
+
+def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
+    """Used to filter logging."""
+    return False
 
 
 def _check_grav_cols(grav_df: pd.DataFrame) -> None:
@@ -88,7 +92,7 @@ def regional_constant(
                 "`constant` parameter provide but not used since `constraints_df`"
                 "were provided."
             )
-            logging.warning(msg)
+            log.warning(msg)
         # get the gravity values at the constraint points
         constraints_df = constraints_df.copy()
 
@@ -107,7 +111,7 @@ def regional_constant(
             "using median gravity misfit of constraint points for regional field: "
             f"{constant} mGal"
         )
-        logging.info(msg)
+        log.info(msg)
 
     grav_df["reg"] = constant + regional_shift  # type: ignore[operator]
 
@@ -530,7 +534,7 @@ def regional_separation(
     if remove_starting_grav_mean is True:
         regional_shift = np.nanmean(grav_df.starting_gravity)
         msg = f"adding {regional_shift} to the observed gravity data"
-        logging.info(msg)
+        log.info(msg)
         if "regional_shift" in kwargs:
             msg = (
                 "if remove_starting_grav_mean is True, do not provide"

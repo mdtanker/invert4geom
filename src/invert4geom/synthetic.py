@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import logging
+import typing
 
 import harmonica as hm
 import numpy as np
@@ -8,6 +8,12 @@ import pooch
 import verde as vd
 import xarray as xr
 from nptyping import NDArray
+from invert4geom import cross_validation, log, utils
+
+
+def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
+    """Used to filter logging."""
+    return False
 
 
 def load_bishop_model(
@@ -449,7 +455,7 @@ def contaminate(
             else:
                 stddev[i] = stddev[i] * abs(data[i])
         if percent_as_max_abs is True:
-            logging.info("Standard deviation used for noise: %s", stddev)
+            log.info("Standard deviation used for noise: %s", stddev)
         # use stdevs to generate random noise
         noise = rng.normal(scale=stddev[i], size=len(data[i]))
         # Subtract the mean so that the noise doesn't introduce a systematic shift in
