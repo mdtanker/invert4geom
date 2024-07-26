@@ -3176,15 +3176,13 @@ def optimize_regional_constraint_point_minimization_kfolds(
     kwargs.pop("plot", False)
     kwargs.pop("plot_grid", False)
 
-    study, _, best_trial = (
-        optimize_regional_constraint_point_minimization(
-            training_df=train_dfs,
-            testing_df=test_dfs,
-            plot=False,
-            plot_grid=False,
-            fold_progressbar=fold_progressbar,
-            **kwargs,
-        )
+    study, _, best_trial = optimize_regional_constraint_point_minimization(
+        training_df=train_dfs,
+        testing_df=test_dfs,
+        plot=False,
+        plot_grid=False,
+        fold_progressbar=fold_progressbar,
+        **kwargs,
     )
 
     # redo regional sep with all data (not 1 fold) to get resulting df

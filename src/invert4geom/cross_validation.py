@@ -625,7 +625,7 @@ def zref_density_optimal_parameter(
             reference=zref,
             density=density_grid,
         )
-
+        # pylint: disable=duplicate-code
         # calculate forward gravity of starting prism layer
         grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
             coordinates=(
@@ -636,7 +636,7 @@ def zref_density_optimal_parameter(
             field="g_z",
             progressbar=False,
         )
-
+        # pylint: enable=duplicate-code
         # calculate regional field
         reg_kwargs = regional_grav_kwargs.copy()  # type: ignore[union-attr]
 
@@ -648,7 +648,7 @@ def zref_density_optimal_parameter(
 
         # update starting model in kwargs
         kwargs["prism_layer"] = starting_prisms
-
+        # pylint: disable=duplicate-code
         new_kwargs = {
             key: value
             for key, value in kwargs.items()
@@ -658,6 +658,7 @@ def zref_density_optimal_parameter(
                 "density_contrast",
             ]
         }
+        # pylint: enable=duplicate-code
         # run cross validation
         score, _ = constraints_cv_score(
             grav_df=grav_df,
@@ -1071,6 +1072,8 @@ def regional_separation_score(
 ) -> tuple[float, float, float | None, pd.DataFrame]:
     """
     Evaluate the effectiveness of the gravity regional-residual separation.
+    The optimal regional component is that which results in a residual component which
+    is lowest at constraint points, while still contains a high amplitude elsewhere.
 
     Parameters
     ----------
@@ -1112,11 +1115,7 @@ def regional_separation_score(
         grid=grid.res,
         sampled_name="res",
     )
-    df = utils.sample_grids(
-        df=df,
-        grid=grid.reg,
-        sampled_name="reg",
-    )
+
     residual_constraint_score = utils.rmse(df.res, as_median=score_as_median)
 
     residual_amplitude_score = utils.rmse(grid.res, as_median=score_as_median)

@@ -310,6 +310,7 @@ def regional_eq_sources(
         upward_continuation_height = np.ones_like(grav_df.upward) * grav_obs_height
 
     coords = (grav_df.easting, grav_df.northing, upward_continuation_height)
+    grav_df["reg"] = eqs.predict(coords) + regional_shift
 
     grav_df["res"] = grav_df.misfit - grav_df.reg
 
@@ -641,7 +642,7 @@ def regional_separation(
 
     if remove_starting_grav_mean is True:
         regional_shift = np.nanmean(grav_df.starting_gravity)
-        msg = f"adding {regional_shift} to the observed gravity data"
+        msg = f"adding {regional_shift} to the regional gravity data"
         log.info(msg)
         if "regional_shift" in kwargs:
             msg = (
