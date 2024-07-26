@@ -2966,6 +2966,9 @@ def optimize_regional_constraint_point_minimization(
         )
         log.info(msg)
 
+    log.debug("separate_metrics: %s", separate_metrics)
+    log.debug("optimize_on_true_regional_misfit: %s", optimize_on_true_regional_misfit)
+
     # run optimization
     study.optimize(
         OptimizeRegionalConstraintsPointMinimization(
@@ -3123,7 +3126,7 @@ def optimize_regional_constraint_point_minimization_kfolds(
         the completed Optuna study, the resulting gravity dataframe of the best trial,
         and the best trial itself.
     """
-
+    log.debug("KFolds CPM optimization")
     test_dfs, train_dfs = cross_validation.kfold_df_to_lists(testing_training_df)
 
     kwargs.pop("plot", False)
@@ -3137,6 +3140,8 @@ def optimize_regional_constraint_point_minimization_kfolds(
         fold_progressbar=fold_progressbar,
         **kwargs,
     )
+
+    log.debug("K-Folds CPM finished")
 
     # redo regional sep with all data (not 1 fold) to get resulting df
     resulting_grav_df = regional.regional_separation(
