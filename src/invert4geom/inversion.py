@@ -1206,9 +1206,8 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "provided"
             )
             raise ValueError(msg)
+        log.debug("not creating starting topo because it is provided")
     elif create_starting_topography is True:
-        # if creating starting topo, must also create starting prisms
-        create_starting_prisms = True
         if starting_topography is not None:
             msg = (
                 "starting_topography provided but unused since "
@@ -1222,27 +1221,15 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "create_starting_topography is True"
             )
             raise ValueError(msg)
-        constraints_df = starting_topography_kwargs.get("constraints_df", None)
-        # create the starting topography
-        starting_topography = utils.create_topography(
-            method=starting_topography_kwargs.get("method", None),
-            region=starting_topography_kwargs.get("region", None),
-            spacing=starting_topography_kwargs.get("spacing", None),
-            upwards=starting_topography_kwargs.get("upwards", None),
-            constraints_df=constraints_df,
-            dampings=starting_topography_kwargs.get(
-                "dampings", np.logspace(-10, 0, 100)
-            ),
-        )
+        log.debug("starting topo created")
 
     # Starting Prism Model
     if create_starting_prisms is False:
         if (starting_prisms is None) & (run_zref_or_density_cv is False):
             msg = "starting_prisms must be provided if create_starting_prisms is False"
             raise ValueError(msg)
+        log.debug("not creating starting prisms because it is provided")
     elif create_starting_prisms is True:
-        # if creating starting prisms, must also calculate starting gravity
-        calculate_starting_gravity = True
         if starting_prisms is not None:
             msg = (
                 "starting_prisms provided but unused since create_starting_prisms is "
@@ -1281,7 +1268,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             reference=zref,
             density=density_grid,
         )
-
+        log.debug("starting prisms created")
     # Starting Gravity of Prism Model
     if calculate_starting_gravity is False:
         if "starting_gravity" not in grav_df:
@@ -1290,9 +1277,8 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "calculate_starting_gravity is False"
             )
             raise ValueError(msg)
+        log.debug("not calculating starting gravity because it is provided")
     elif calculate_starting_gravity is True:
-        calculate_regional_misfit = True
-        # if calculating starting gravity, must also calculate gravity misfit
         if "starting_gravity" in grav_df:
             msg = (
                 "'starting_gravity' already a column of `grav_df`, but is being "
@@ -1310,9 +1296,11 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 ),
                 "progressbar": False,
             }
+        log.debug("calculating starting gravity")
         grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
             **starting_grav_kwargs,
         )
+        log.debug("starting gravity calculated")
 
     # Regional Component of Misfit
     if calculate_regional_misfit is False:
@@ -1328,27 +1316,22 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 " False"
             )
             raise ValueError(msg)
+        log.debug("not calculating regional misfit because it is provided")
     elif calculate_regional_misfit is True:
-        # if calculating regional misfit, must also calculate residual misfit
-        # calculate_residual_misfit = True
         if "reg" in grav_df:
             msg = (
                 "'reg' already a column of `grav_df`, but is being overwritten since"
                 " calculate_regional_misfit is True"
             )
             log.warning(msg)
-        regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None).copy()
-        if regional_grav_kwargs is None:
-            msg = (
-                "regional_grav_kwargs must be provided if calculate_regional_misfit"
-                " is True"
-            )
-            raise ValueError(msg)
+        log.debug("calculating regional misfit")
+        log.debug("regional_grav_kwargs: %s", regional_grav_kwargs)
         grav_df = regional.regional_separation(
             method=regional_grav_kwargs.pop("regional_method"),
             grav_df=grav_df,
             **regional_grav_kwargs,
         )
+        log.debug("regional misfit calculated")
 
     inversion_kwargs = {
         key: value
@@ -1367,21 +1350,10 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             "density_contrast_limits",
             "constraints_df",
             "inversion_region",
-            "damping_cv_fname",
-            "damping_cv_trials",
-            "zref_density_cv_trials",
-            "zref_density_cv_fname",
-            "score_as_median",
-            "zref",
-            "density_contrast",
-        ]
-    }
-
+    log.debug("inversion kwargs: %s", inversion_kwargs)
     # run only the inversion with specified damping, density, and zref values
     if (run_damping_cv is False) & (run_zref_or_density_cv is False):
-        inversion_kwargs.pop("prism_layer", None)
-        inversion_kwargs.pop("progressbar", None)
-        inversion_kwargs.pop("grav_df", None)
+        log.info("running individual inversion")
 
         if inversion_kwargs.get("plot_dynamic_convergence", False) is True:
             log.addFilter(log_filter)
@@ -1401,19 +1373,13 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
         return inversion_results
 
+    ###
+    ###
+    # DAMPING CV
+    ###
+    ###
     if run_damping_cv is True:
-        # set which damping parameters to include
-        damping_limits = kwargs.get("damping_limits", (0.001, 1))
-        if damping_limits is None:
-            msg = "must provide damping_limits if run_damping_cv is True"
-            raise ValueError(msg)
-
-        try:
-            damping_cv_trials = kwargs["damping_cv_trials"]
-        except KeyError as e:
-            msg = "must provide damping_cv_trials if run_zref_or_density_cv is True"
-            raise ValueError(msg) from e
-
+        log.info("running damping cross validation")
         study, inversion_results = optimization.optimize_inversion_damping(
             training_df=grav_df[grav_df.test == False],  # noqa: E712 pylint: disable=singleton-comparison
             testing_df=grav_df[grav_df.test == True],  # noqa: E712 pylint: disable=singleton-comparison
@@ -1441,30 +1407,17 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
             return inversion_results
 
+    ###
+    ###
+    # DENSITY / ZREF CV
+    ###
+    ###
+    log.info("running zref and/or density contrast cross validation")
     # drop the testing data
     if "test" in grav_df.columns:
         grav_df = grav_df[grav_df.test == False].copy()  # noqa: E712 pylint: disable=singleton-comparison
         grav_df = grav_df.drop(columns=["test"])
-
-    # get regional separation kwargs
-    regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None)
-    if regional_grav_kwargs is None:
-        msg = "regional_grav_kwargs must be provided if performing zref or density CV"
-        raise ValueError(msg)
-
-    # run zref or density optimization
-    try:
-        zref_density_cv_trials = kwargs["zref_density_cv_trials"]
-    except KeyError as e:
-        msg = "must provide zref_density_cv_trials if run_zref_or_density_cv is True"
-        raise ValueError(msg) from e
-
-    constraints_df = kwargs.get("constraints_df", None)
-    if constraints_df is None:
-        msg = "must provide constraints_df if run_zref_or_density_cv is True"
-        raise ValueError(msg)
-
-    _, inversion_results = optimization.optimize_inversion_zref_density_contrast(
+        log.debug("dropped testing data")
         grav_df=grav_df,
         constraints_df=constraints_df,
         density_contrast_limits=kwargs.get("density_contrast_limits", None),

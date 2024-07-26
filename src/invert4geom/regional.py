@@ -59,7 +59,7 @@ def regional_constant(
     pd.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
-
+    log.debug("starting regional_constant")
     grav_df = grav_df.copy()
 
     _check_grav_cols(grav_df)
@@ -143,6 +143,7 @@ def regional_filter(
     pd.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
+    log.debug("starting regional_filter")
 
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
@@ -206,6 +207,7 @@ def regional_trend(
     pd.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
+    log.debug("starting regional_trend")
 
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
@@ -267,6 +269,7 @@ def regional_eq_sources(
     pd.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
+    log.debug("starting regional_eq_sources")
 
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
@@ -388,6 +391,8 @@ def regional_constraints(
     pd.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
+    log.debug("starting regional_constraints")
+
     if constraints_df is None:
         msg = "need to provide constraints_df"
         raise ValueError(msg)
@@ -415,6 +420,7 @@ def regional_constraints(
         no_skip=True,
         verbose="q",
     )
+    log.debug("sampled constraints: %s", constraints_df.describe())
 
     constraints_df = constraints_df[constraints_df.sampled_grav.notna()]
 
@@ -576,6 +582,8 @@ def regional_constraints_cv(
     separate the regional field by sampling and re-gridding at the constraint points
     using cross-validation to find the best parameters
     """
+    log.debug("starting regional_constraints_cv")
+
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df, kwargs.get("grav_df")
     )
@@ -592,7 +600,7 @@ def regional_constraints_cv(
         random_state=random_state,
         plot=False,
     )
-    # print("DF2\n", testing_training_df)
+    log.debug("cv constraints split: %s", testing_training_df.describe())
 
     with utils.log_level(logging.WARN):
         _, grav_df, _ = (
