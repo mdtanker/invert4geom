@@ -15,6 +15,66 @@ def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=un
     """Used to filter logging."""
     return False
 
+def contaminate_with_long_wavelength_noise(
+    grid: xr.DataArray,
+    coarsen_factor: float = 2,
+    percent_noise: float = 0.02,
+) -> xr.DataArray:
+    """
+    Contaminate a grid with long wavelength noise.
+
+    Parameters
+    ----------
+    grid : xr.DataArray
+        Grid to contaminate
+    coarsen_factor : float, optional
+        Factor to coarsen the data by, by default 2
+    percent_noise : float, optional
+        Decimal percentage of noise to add to the data, by default 0.02
+
+    Returns
+    -------
+    xr.DataArray
+        Contaminated grid
+    """
+
+    grid = grid.copy()
+
+    # get original coordinate names
+    original_dims = list(grid.sizes.keys())
+
+    # get original grid name
+    original_name = grid.name
+
+    # get original spacing
+    original_spacing = polar_utils.get_grid_info(grid)[0]
+
+    # resample at lower resolution
+    grid = fetch.resample_grid(
+        grid,
+        spacing=original_spacing * coarsen_factor,
+    )
+
+    # turn to dataframe and contaminate with noise
+    df = grid.to_dataframe()
+    df["z"], _ = contaminate(
+        df.z,
+        stddev=percent_noise,
+        percent=True,
+        seed=1,
+    )
+    grid = df.to_xarray().z
+
+    # resample back to original spacing
+    return (
+        fetch.resample_grid(
+            grid,
+            spacing=original_spacing,
+        )
+        .rename({"x": original_dims[1], "y": original_dims[0]})
+        .rename(original_name)
+    )
+
 
 def load_bishop_model(
     coarsen_factor: float | None = None,
