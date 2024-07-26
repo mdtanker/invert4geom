@@ -1431,11 +1431,6 @@ def optimize_inversion_zref_density_contrast_kfolds(
 
     best_trial = study.best_trial
 
-    # log.info("Trial with lowest score: ")
-    # log.info("\ttrial number: %s", best_trial.number)
-    # log.info("\tparameter: %s", best_trial.params)
-    # log.info("\tscores: %s", best_trial.values)
-
     # redo inversion with best parameters
     zref = best_trial.params.get("zref", None)
     density_contrast = best_trial.params.get("density_contrast", None)
@@ -1778,6 +1773,13 @@ class OptimizeRegionalTrend:
         )
 
         with utils.log_level(logging.WARN):
+            residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
+                cross_validation.regional_separation_score(
+                    method="trend",
+                    trend=trend,
+                    **self.kwargs,
+                )
+            )
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -1833,6 +1835,12 @@ class OptimizeRegionalFilter:
 
         with utils.log_level(logging.WARN):
             residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
+                cross_validation.regional_separation_score(
+                    method="filter",
+                    filter_width=filter_width,
+                    **self.kwargs,
+                )
+            )
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -1923,6 +1931,15 @@ class OptimizeRegionalEqSources:
         }
 
         with utils.log_level(logging.WARN):
+            residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
+                cross_validation.regional_separation_score(
+                    method="eq_sources",
+                    source_depth=source_depth,
+                    block_size=block_size,
+                    eq_damping=eq_damping,
+                    **new_kwargs,
+                )
+            )
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -2075,6 +2092,16 @@ class OptimizeRegionalConstraintsPointMinimization:
 
             with utils.log_level(logging.WARN):
                 # for each fold, run CV
+                results = []
+                for i, _ in enumerate(pbar):
+                    fold_results = cross_validation.regional_separation_score(
+                        constraints_df=self.training_df[i],
+                        testing_df=self.testing_df[i],
+                        method="constraints",
+                        grid_method=self.grid_method,
+                        **new_kwargs,
+                    )
+                    results.append(fold_results)
 
             # get mean of scores of all folds
             residual_constraint_score = np.mean([r[0] for r in results])
@@ -2091,14 +2118,24 @@ class OptimizeRegionalConstraintsPointMinimization:
             assert isinstance(self.testing_df, pd.DataFrame)
 
             with utils.log_level(logging.WARN):
+                (
+                    residual_constraint_score,
+                    residual_amplitude_score,
+                    true_reg_score,
+                    df,
+                ) = cross_validation.regional_separation_score(
                     constraints_df=self.training_df,
                     testing_df=self.testing_df,
                     method="constraints",
                     grid_method=self.grid_method,
                     **new_kwargs,
                 )
-            )
-            log.removeFilter(log_filter)
+
+        log.debug("separate_metrics: %s", self.separate_metrics)
+        log.debug(
+            "optimize_on_true_regional_misfit: %s",
+            self.optimize_on_true_regional_misfit,
+        )
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
