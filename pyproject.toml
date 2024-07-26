@@ -209,7 +209,7 @@ extend-include = ["*.ipynb"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]
 "noxfile.py" = ["T20"]
-"*.ipynb" = ["E402", "B018", "T201"]
+"*.ipynb" = ["E402", "B018", "T201", "C408", "E712",]
 
 
 [tool.pylint]
