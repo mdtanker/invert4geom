@@ -1239,7 +1239,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
     # Starting Prism Model
     if create_starting_prisms is False:
-        if starting_prisms is None:
+        if (starting_prisms is None) & (run_zref_or_density_cv is False):
             msg = "starting_prisms must be provided if create_starting_prisms is False"
             raise ValueError(msg)
     elif create_starting_prisms is True:
@@ -1250,7 +1250,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "starting_prisms provided but unused since create_starting_prisms is "
                 "True"
             )
-            logging.warning(msg)
+            log.warning(msg)
         starting_prisms_kwargs = kwargs.get("starting_prisms_kwargs", None)
         if starting_prisms_kwargs is None:
             msg = (
