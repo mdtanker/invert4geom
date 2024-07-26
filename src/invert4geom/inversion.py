@@ -840,6 +840,8 @@ def run_inversion(
         msg = f"`grav_df` needs all the following columns: {cols}"
         raise ValueError(msg)
 
+    utils._check_gravity_inside_topography_region(grav_df, prism_layer)  # pylint: disable=protected-access
+
     log.info("starting inversion")
 
     time_start = time.perf_counter()

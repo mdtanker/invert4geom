@@ -32,6 +32,36 @@ def log_level(level):  # type: ignore[no-untyped-def]
         log.setLevel(saved_logger_level)
 
 
+def _check_constraints_inside_gravity_region(
+    constraints_df: pd.DataFrame,
+    grav_df: pd.DataFrame,
+) -> None:
+    """check that all constraints are inside the region of the gravity data"""
+    grav_region = vd.get_region((grav_df.easting, grav_df.northing))
+    inside = vd.inside(
+        (constraints_df.easting, constraints_df.northing), region=grav_region
+    )
+    if not inside.all():
+        msg = (
+            "Some constraints are outside the region of the gravity data. "
+            "This may result in unexpected behavior."
+        )
+        raise ValueError(msg)
+
+
+def _check_gravity_inside_topography_region(
+    grav_df: pd.DataFrame,
+    topography: xr.DataArray,
+) -> None:
+    """check that all gravity data is inside the region of the topography grid"""
+    topo_region = vd.get_region((topography.easting.values, topography.northing.values))
+    inside = vd.inside((grav_df.easting, grav_df.northing), region=topo_region)
+    if not inside.all():
+        msg = (
+            "Some gravity data are outside the region of the topography grid. "
+            "This may result in unexpected behavior."
+        )
+        raise ValueError(msg)
 
 
 def rmse(data: NDArray, as_median: bool = False) -> float:
@@ -159,7 +189,6 @@ def filter_grid(
     # if there are nan's, fill them with nearest neighbor
     if grid.isnull().any():
         filled = nearest_grid_fill(grid, method="verde")
-        # print("filling NaN's with nearest neighbor")
     else:
         filled = grid.copy()
 
