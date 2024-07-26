@@ -89,6 +89,9 @@ def regional_constant(
                 "were provided."
             )
             log.warning(msg)
+
+        utils._check_constraints_inside_gravity_region(constraints_df, grav_df)  # pylint: disable=protected-access
+
         # get the gravity values at the constraint points
         constraints_df = constraints_df.copy()
 
@@ -389,6 +392,8 @@ def regional_constraints(
         msg = "need to provide constraints_df"
         raise ValueError(msg)
 
+    utils._check_constraints_inside_gravity_region(constraints_df, grav_df)  # pylint: disable=protected-access
+
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
     constraints_df = constraints_df.copy()
@@ -571,8 +576,11 @@ def regional_constraints_cv(
     separate the regional field by sampling and re-gridding at the constraint points
     using cross-validation to find the best parameters
     """
+    utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
+        constraints_df, kwargs.get("grav_df")
+    )
+
     df = constraints_df.copy()
-    # print("DF1\n", df)
     df = df[df.columns.drop(list(df.filter(regex="fold_")))]
 
     testing_training_df = cross_validation.split_test_train(

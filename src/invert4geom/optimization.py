@@ -880,6 +880,8 @@ class OptimalInversionZrefDensity:
         else:
             starting_topo = self.starting_topography.copy()
 
+        utils._check_gravity_inside_topography_region(grav_df, starting_topo)
+
         # re-calculate density grid with new density contrast
         density_grid = xr.where(
             starting_topo >= zref,
