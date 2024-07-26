@@ -1179,13 +1179,13 @@ def show_prism_layers(
     plotter.show(jupyter_backend=kwargs.get("backend", "client"))
 
 
-def combined_history(
+def combined_slice(
     study: optuna.study.Study,
-    target_names: list[str],
-    include_duration: bool = False,
+    attribute_names: list[str],
+    parameter_name: str | None = None,
 ) -> plotly.graph_objects.Figure:
     """
-    plot combined optimization history for multiobjective optimizations.
+    plot combined slice plots for optimizations.
 
     Parameters
     ----------
@@ -1193,8 +1193,6 @@ def combined_history(
         the optuna study object
     target_names : list[str]
         list of names for parameters in the study
-    include_duration : bool, optional
-        whether to add the duration to the plot, by default False
 
     Returns
     -------
@@ -1207,60 +1205,55 @@ def combined_history(
         msg = "Missing optional dependency 'plotly' required for plotting."
         raise ImportError(msg)
 
-    target_names = target_names.copy()
     figs = []
-    for i, j in enumerate(target_names):
-        f = optuna.visualization.plot_optimization_history(
+    names = []
+    for i, j in enumerate(study.metric_names):
+        f = optuna.visualization.plot_slice(
             study,
+            params=parameter_name,
             target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
             target_name=j,
         )
-        figs.append(f)
+        if i == 0:
+            figs.append(f)
+            names.append(j)
 
-    if include_duration is True and "duration" not in target_names:
-        f = optuna.visualization.plot_optimization_history(
-            study, target=lambda t: t.duration.total_seconds(), target_name="duration"
+    for i in attribute_names:  # type: ignore[assignment]
+        f = optuna.visualization.plot_slice(
+            study,
+            params=parameter_name,
+            target=lambda t: t.user_attrs[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+            target_name=i,
         )
         figs.append(f)
-        target_names.append("duration")
+        names.append(i)
 
-    if len(target_names) < 2:
-        layout = plotly.graph_objects.Layout(
-            title="Optimization History Plot",
-            yaxis=plotly.graph_objs.layout.YAxis(
-                title=target_names[0],
-            ),
-            xaxis={"title": "Trial"},
-        )
-    elif len(target_names) >= 2:
-        yaxes = {}
-        for i, j in enumerate(target_names, start=1):
-            if i == 1:
-                pass
-            else:
-                yax = plotly.graph_objs.layout.YAxis(
-                    title=j,
-                    overlaying="y",
-                    side="left",
-                    anchor="free",
-                    autoshift=True,
-                )
-                yaxes[f"yaxis{i}"] = yax
-        layout = plotly.graph_objects.Layout(
-            title="Optimization History Plot",
-            yaxis1=plotly.graph_objs.layout.YAxis(
-                title=target_names[0],
-                side="right",
-            ),
-            xaxis={"title": "Trial"},
-            **yaxes,
-        )
+    yaxes = {}
+    for i, j in enumerate(names, start=1):
+        if i == 1:
+            pass
+        else:
+            yax = plotly.graph_objs.layout.YAxis(
+                title=j,
+                overlaying="y",
+                side="left",
+                anchor="free",
+                autoshift=True,
+            )
+            yaxes[f"yaxis{i}"] = yax
+    layout = plotly.graph_objects.Layout(
+        yaxis1=plotly.graph_objs.layout.YAxis(
+            title=names[0],
+            side="right",
+        ),
+        **yaxes,
+    )
 
     # Create figure with secondary x-axis
     fig = plotly.graph_objects.Figure(layout=layout)  # pylint: disable=possibly-used-before-assignment
 
     # Add traces
-    for i, j in enumerate(target_names):
+    for i, j in enumerate(names):
         fig.add_trace(
             plotly.graph_objects.Scatter(
                 x=figs[i].data[0]["x"],
@@ -1271,7 +1264,10 @@ def combined_history(
             )
         )
 
-    fig.update_layout(xaxis_title="Trial", title="Optimization History Plot")
+    fig.update_layout(
+        xaxis=f.layout.xaxis,
+        title=f.layout.title.text,
+    )
 
     return fig
 
@@ -1307,11 +1303,7 @@ def plot_optuna_figures(
     """
 
     if plot_history:
-        combined_history(
-            study,
-            target_names,
-            include_duration=include_duration,
-        ).show()
+        optuna.visualization.plot_optimization_history(study).show()
 
     # if params is None:
     #     params = [k for k, v in study.get_trials()[0].params.items()]
@@ -1323,7 +1315,6 @@ def plot_optuna_figures(
                 target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
                 target_name=j,
             ).show()
-
         if include_duration is True and "duration" not in target_names:
             optuna.visualization.plot_slice(
                 study,
@@ -1333,66 +1324,6 @@ def plot_optuna_figures(
 
     if plot_importance:
         optuna.visualization.plot_param_importances(study).show()
-    #     if len(params) <= 1:
-    #         pass
-    #     else:
-    #         try:
-    #             if separate_param_importances is True:
-    #                 combined_importance(
-    #                     study,
-    #                     target_names,
-    #                     params=[
-    #                         "deriv_type",
-    #                         "verde_damping",
-    #                     ],
-    #                     include_duration=include_duration,
-    #                 ).show()
-
-    #                 combined_importance(
-    #                     study,
-    #                     target_names,
-    #                     params=["deriv_type", "scipy_damping"],
-    #                     include_duration=include_duration,
-    #                 ).show()
-    #             else:
-    #                 combined_importance(
-    #                     study,
-    #                     target_names,
-    #                     params=params,
-    #                     include_duration=include_duration,
-    #                 ).show()
-    #         except AttributeError:
-    #             print("issue with showing importance figure")
-
-    # if plot_edf:
-    #     combined_edf(study, target_names, include_duration=include_duration).show()
-
-    # if plot_pareto:
-    #     if len(target_names) == 1:
-    #         if "duration" not in target_names:
-    #             if include_duration is True:
-    #                 optuna.visualization.plot_pareto_front(
-    #                     study,
-    #                     targets=lambda t: (t.values[0], t.duration.total_seconds()),
-    #                     target_names=target_names + ["duration"],
-    #                 ).show()
-
-    #     elif len(target_names) > 1:
-    #         if "duration" not in target_names:
-    #             if include_duration is True:
-    #                 optuna.visualization.plot_pareto_front(
-    #                     study,
-    #                     targets=lambda t: (t.values, t.duration.total_seconds()),
-    #                     target_names=target_names + ["duration"],
-    #                 ).show()
-    #             elif include_duration is False:
-    #                 optuna.visualization.plot_pareto_front(
-    #                     study, target_names=target_names
-    #                 ).show()
-    #         elif "duration" in target_names:
-    #             optuna.visualization.plot_pareto_front(
-    #                 study, target_names=target_names
-    #             ).show()
 
 
 def plot_stochastic_results(
