@@ -2874,19 +2874,17 @@ def optimize_regional_constraint_point_minimization_kfolds(
 
     kwargs.pop("plot", False)
     kwargs.pop("plot_grid", False)
-    study, _, _ = optimize_regional_constraint_point_minimization(
-        training_df=train_dfs,
-        testing_df=test_dfs,
-        plot=False,
-        plot_grid=False,
-        fold_progressbar=fold_progressbar,
-        **kwargs,
-    )
 
-    if kwargs.get("optimize_on_true_regional_misfit") is True:
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])
+    study, _, best_trial = (
+        optimize_regional_constraint_point_minimization(
+            training_df=train_dfs,
+            testing_df=test_dfs,
+            plot=False,
+            plot_grid=False,
+            fold_progressbar=fold_progressbar,
+            **kwargs,
+        )
+    )
 
     # redo regional sep with all data (not 1 fold) to get resulting df
     resulting_grav_df = regional.regional_separation(
@@ -2900,10 +2898,10 @@ def optimize_regional_constraint_point_minimization_kfolds(
         grid_method=kwargs.get("grid_method"),
         remove_starting_grav_mean=kwargs.get("remove_starting_grav_mean", False),
         # hyperparameters
-        tension_factor=best_trial.params.get("tension_factor", 1),
+        tension_factor=best_trial.params.get("tension_factor", None),
         spline_damping=best_trial.params.get("spline_damping", None),
         source_depth=best_trial.params.get(
-            "source_depth", kwargs.get("source_depth", None)
+            "source_depth", kwargs.get("source_depth", "default")
         ),
         eq_damping=best_trial.params.get("eq_damping", kwargs.get("eq_damping", None)),
         block_size=best_trial.params.get("block_size", kwargs.get("block_size", None)),
