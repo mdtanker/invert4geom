@@ -33,6 +33,7 @@ try:
 except ImportError:
     pyvista = None
 
+import scipy as sp
 import verde as vd
 import xarray as xr
 from polartoolkit import maps
@@ -173,73 +174,31 @@ def plot_2_parameter_cv_scores_uneven(
     if cmap is None:
         cmap = sns.color_palette("mako", as_cmap=True)
 
-    df0 = study.trials_dataframe().sort_values(by="value")
-
-    df0 = df0[[param_names[0], param_names[1], "value"]]
-
-    best = df0.iloc[0]
-
-    df = df0.set_index([param_names[0], param_names[1]])
-    df = df[~df.index.duplicated()]
-
-    df1 = df.reset_index()[["value", param_names[0], param_names[1]]]
+    df = study.trials_dataframe().sort_values(by="value")
+    df = df[[param_names[0], param_names[1], "value"]]
+    best = df.iloc[0]
 
     plt.figure(figsize=figsize)
     plt.title("Two parameter cross-validation")
 
-    x_min = df1[param_names[0]].min()
-    x_max = df1[param_names[0]].max()
-    y_min = df1[param_names[1]].min()
-    y_max = df1[param_names[1]].max()
-    x_buffer = (x_max - x_min) / 10
-    y_buffer = (y_max - y_min) / 10
+    x = df[param_names[0]].values
+    y = df[param_names[1]].values
+    z = df.value.values
 
-    dampings = list(np.logspace(-10, -2, num=9))
-    dampings.append(None)
+    x_buffer = (max(x) - min(x)) / 50
+    y_buffer = (max(y) - min(y)) / 50
 
-    # temporarily set Python's logging level
-    logging.disable(level=logging.INFO)
+    # 2D grid for interpolation
+    xi = np.linspace(min(x), max(x))
+    yi = np.linspace(min(y), max(y))
+    xi, yi = np.meshgrid(xi, yi)
 
-    if len(df1.value) > 5:
-        spline = utils.best_spline_cv(
-            coordinates=(df1[param_names[0]], df1[param_names[1]]),
-            data=df1.value,
-            dampings=dampings,
-        )
-    elif len(df1.value) > 2:
-        spline = vd.KNeighbors()
-        spline.fit(
-            coordinates=(df1[param_names[0]], df1[param_names[1]]),
-            data=df1.value,
-        )
-    else:
-        msg = "Not enough data points to interpolate."
-        logging.error(msg)
-        return
+    interp = sp.interpolate.CloughTocher2DInterpolator(list(zip(x, y)), z)
+    zi = interp(xi, yi)
 
-    # reset logging level
-    logging.disable(level=logging.NOTSET)
-
-    region = vd.pad_region(
-        vd.get_region((df1[param_names[0]], df1[param_names[1]])),
-        (y_buffer, x_buffer),
-    )
-    grid = spline.grid(
-        shape=(100, 100),
-        region=region,
-    ).scalars
-
-    grid.plot(
-        cmap=cmap,
-    )
-
-    plt.scatter(
-        df1[param_names[0]],  # pylint: disable=unsubscriptable-object
-        df1[param_names[1]],  # pylint: disable=unsubscriptable-object
-        marker=".",
-        color="gray",
-        label="Trials",
-    )
+    # plt.pcolormesh(xi, yi, zi, cmap=cmap, shading='auto')
+    plt.contourf(xi, yi, zi, 30, cmap=cmap, shading="auto")
+    plt.colorbar().set_label("Scores")
 
     plt.plot(
         best[param_names[0]],
@@ -249,13 +208,21 @@ def plot_2_parameter_cv_scores_uneven(
         color=sns.color_palette()[3],
         label="Minimum",
     )
+    plt.scatter(
+        x,
+        y,
+        marker=".",
+        color="lightgray",
+        edgecolor="black",
+    )
     plt.legend(
         loc="upper right",
     )
-    plt.xlim([x_min - x_buffer, x_max + x_buffer])
-    plt.ylim([y_min - y_buffer, y_max + y_buffer])
+    plt.xlim([min(x) - x_buffer, max(x) + x_buffer])
+    plt.ylim([min(y) - y_buffer, max(y) + y_buffer])
     plt.xlabel(plot_param_names[0])
     plt.ylabel(plot_param_names[1])
+    plt.xticks(rotation=20)
 
     plt.tight_layout()
 
