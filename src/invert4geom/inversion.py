@@ -2,7 +2,6 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 
 import copy
 import itertools
-import logging
 import pathlib
 import pickle
 import time
@@ -17,7 +16,12 @@ import xarray as xr
 from nptyping import NDArray
 from tqdm.autonotebook import tqdm
 
-from invert4geom import cross_validation, optimization, plotting, regional, utils
+from invert4geom import cross_validation, log, optimization, plotting, regional, utils
+
+
+def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
+    """Used to filter logging."""
+    return False
 
 
 @numba.jit(cache=True, nopython=True)  # type: ignore[misc]
@@ -315,7 +319,7 @@ def jacobian(
             (len(grav_easting), prisms_layer.top.size),  # type: ignore[union-attr]
             dtype=np.float64,
         )
-        logging.warning("no empty jacobian supplied")
+        log.warning("no empty jacobian supplied")
 
     jac = empty_jac.copy()
 
@@ -635,7 +639,7 @@ def end_inversion(
         pass
     else:
         if l2_norm > np.min(l2_norms) * (1 + perc_increase_limit):
-            logging.info(
+            log.info(
                 "\nInversion terminated after %s iterations because L2 norm (%s) \n"
                 "was over %s times greater than minimum L2 norm (%s) \n"
                 "Change parameter 'perc_increase_limit' if desired.",
@@ -650,7 +654,7 @@ def end_inversion(
         if (delta_l2_norm <= delta_l2_norm_tolerance) & (
             previous_delta_l2_norm <= delta_l2_norm_tolerance
         ):
-            logging.info(
+            log.info(
                 "\nInversion terminated after %s iterations because there was no "
                 "significant variation in the L2-norm over 2 iterations \n"
                 "Change parameter 'delta_l2_norm_tolerance' if desired.",
@@ -661,7 +665,7 @@ def end_inversion(
             termination_reason.append("delta l2-norm tolerance")
 
         if l2_norm < l2_norm_tolerance:
-            logging.info(
+            log.info(
                 "\nInversion terminated after %s iterations because L2-norm (%s) was "
                 "less then set tolerance: %s \nChange parameter "
                 "'l2_norm_tolerance' if desired.",
@@ -674,7 +678,7 @@ def end_inversion(
             termination_reason.append("l2-norm tolerance")
 
     if iteration_number >= max_iterations:
-        logging.info(
+        log.info(
             "\nInversion terminated after %s iterations with L2-norm=%s because "
             "maximum number of iterations (%s) reached.",
             iteration_number,
@@ -690,7 +694,7 @@ def end_inversion(
             "Inversion terminated due to max_iterations limit. Consider increasing "
             "this limit."
         )
-        logging.warning(msg)
+        log.warning(msg)
 
     return end, termination_reason
 
@@ -840,7 +844,7 @@ def run_inversion(
         msg = f"`grav_df` needs all the following columns: {cols}"
         raise ValueError(msg)
 
-    logging.info("starting inversion")
+    log.info("starting inversion")
 
     time_start = time.perf_counter()
 
@@ -889,9 +893,7 @@ def run_inversion(
         raise ValueError(msg)
 
     for iteration, _ in enumerate(pbar, start=1):
-        logging.info(
-            "\n #################################### \n iteration %s", iteration
-        )
+        log.info("\n #################################### \n iteration %s", iteration)
         # start iteration timer
         iter_time_start = time.perf_counter()
 
@@ -931,7 +933,7 @@ def run_inversion(
         )
 
         # log correction values
-        logging.info(
+        log.info(
             "Layer correction median: %s m, RMSE:%s m",
             round(np.median(surface_correction), 4),
             round(utils.rmse(surface_correction), 4),
@@ -988,7 +990,7 @@ def run_inversion(
 
         # update the misfit RMSE
         updated_rmse = utils.rmse(gravity[f"iter_{iteration}_final_misfit"])
-        logging.info("updated misfit RMSE: %s", round(updated_rmse, 4))
+        log.info("updated misfit RMSE: %s", round(updated_rmse, 4))
         final_rmse = updated_rmse
 
         # update the l2 and delta l2 norms
@@ -1002,10 +1004,10 @@ def run_inversion(
         l2_norms.append(l2_norm)
         delta_l2_norms.append(delta_l2_norm)
 
-        logging.info(
+        log.info(
             "updated L2-norm: %s, tolerance: %s", round(l2_norm, 4), l2_norm_tolerance
         )
-        logging.info(
+        log.info(
             "updated delta L2-norm : %s, tolerance: %s",
             round(delta_l2_norm, 4),
             delta_l2_norm_tolerance,
@@ -1089,7 +1091,7 @@ def run_inversion(
         pathlib.Path(f"{results_fname}.pickle").unlink(missing_ok=True)
         with pathlib.Path(f"{results_fname}.pickle").open("wb") as f:
             pickle.dump(results, f)
-        logging.info("results saved to %s.pickle", results_fname)
+        log.info("results saved to %s.pickle", results_fname)
 
     return results
 
@@ -1214,7 +1216,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "starting_topography provided but unused since "
                 "create_starting_topography is True"
             )
-            logging.warning(msg)
+            log.warning(msg)
         starting_topography_kwargs = kwargs.get("starting_topography_kwargs", None)
         if starting_topography_kwargs is None:
             msg = (
@@ -1298,7 +1300,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "'starting_gravity' already a column of `grav_df`, but is being "
                 "overwritten since calculate_starting_gravity is True"
             )
-            logging.warning(msg)
+            log.warning(msg)
         starting_grav_kwargs = kwargs.get("starting_grav_kwargs", None)
         if starting_grav_kwargs is None:
             starting_grav_kwargs = {
@@ -1336,7 +1338,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "'reg' already a column of `grav_df`, but is being overwritten since"
                 " calculate_regional_misfit is True"
             )
-            logging.warning(msg)
+            log.warning(msg)
         regional_grav_kwargs = kwargs.get("regional_grav_kwargs", None).copy()
         if regional_grav_kwargs is None:
             msg = (
@@ -1383,12 +1385,16 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         inversion_kwargs.pop("progressbar", None)
         inversion_kwargs.pop("grav_df", None)
 
+        if inversion_kwargs.get("plot_dynamic_convergence", False) is True:
+            log.addFilter(log_filter)
         inversion_results = run_inversion(
             grav_df=grav_df,
             prism_layer=starting_prisms,
             progressbar=False,
             **inversion_kwargs,
         )
+        if inversion_kwargs.get("plot_dynamic_convergence", False) is True:
+            log.removeFilter(log_filter)
 
         if fname is not None:
             # save results to pickle

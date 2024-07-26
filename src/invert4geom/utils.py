@@ -1,7 +1,6 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
 import copy
-import logging
 import typing
 import warnings
 
@@ -18,7 +17,12 @@ from nptyping import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 import invert4geom
-from invert4geom import cross_validation
+from invert4geom import cross_validation, log
+
+
+def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
+    """Used to filter logging."""
+    return False
 
 
 def rmse(data: NDArray, as_median: bool = False) -> float:
@@ -581,7 +585,7 @@ def enforce_confining_surface(
                 df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_above[
                     i
                 ]
-        logging.info("enforced upper confining surface at %s prisms", number_enforced)
+        log.info("enforced upper confining surface at %s prisms", number_enforced)
     if "lower_bounds" in df:
         # get max downward change allowed for each prism
         # negative values indicate max allowed downward change
@@ -595,7 +599,7 @@ def enforce_confining_surface(
                     i
                 ]
 
-        logging.info("enforced lower confining surface at %s prisms", number_enforced)
+        log.info("enforced lower confining surface at %s prisms", number_enforced)
 
     # check that when constrained correction is added to topo it doesn't intersect
     # either bounding layer

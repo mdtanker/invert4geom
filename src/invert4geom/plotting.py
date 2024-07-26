@@ -1,6 +1,5 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
-import logging
 import typing
 
 import numpy as np
@@ -40,6 +39,11 @@ from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 
 from invert4geom import utils
+
+
+def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
+    """Used to filter logging."""
+    return False
 
 
 def plot_2_parameter_cv_scores(

@@ -1,7 +1,6 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
 import itertools
-import logging
 import math
 import multiprocessing
 import os
@@ -21,7 +20,7 @@ import xarray as xr
 from nptyping import NDArray
 from tqdm.autonotebook import tqdm
 
-from invert4geom import cross_validation, plotting, regional, utils
+from invert4geom import cross_validation, inversion, log, plotting, regional, utils
 
 try:
     import joblib
@@ -37,6 +36,11 @@ try:
     from tqdm_joblib import tqdm_joblib
 except ImportError:
     tqdm_joblib = None
+
+
+def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
+    """Used to filter logging."""
+    return False
 
 
 def logging_callback(
@@ -58,7 +62,7 @@ def logging_callback(
         previous_best_value = study.user_attrs.get("previous_best_value", None)
         if previous_best_value != study.best_value:
             study.set_user_attr("previous_best_value", study.best_value)
-            logging.info(
+            log.info(
                 "Trial %s finished with best value: %s and parameters: %s.",
                 frozen_trial.number,
                 frozen_trial.value,
@@ -70,7 +74,7 @@ def logging_callback(
                 "Trial %s is on the Pareto front with value 1: %s, value 2: %s and "
                 "parameters: %s."
             )
-            logging.info(
+            log.info(
                 msg,
                 frozen_trial.number,
                 frozen_trial.values[0],
@@ -111,7 +115,7 @@ def warn_limits_better_than_trial_1_param(
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
         if trial.values[0] > max(lower_limit_score, upper_limit_score):
-            logging.warning(
+            log.warning(
                 msg,
                 trial.number,
                 trial.params,
@@ -126,7 +130,7 @@ def warn_limits_better_than_trial_1_param(
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
         if trial.values[0] < min(lower_limit_score, upper_limit_score):
-            logging.warning(
+            log.warning(
                 msg,
                 trial.number,
                 trial.params,
@@ -179,7 +183,7 @@ def warn_limits_better_than_trial_multi_params(
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
         if trial.values[0] > max(scores):
-            logging.warning(
+            log.warning(
                 msg,
                 trial.number,
                 trial.params,
@@ -192,7 +196,7 @@ def warn_limits_better_than_trial_multi_params(
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
         if trial.values[0] < min(scores):
-            logging.warning(
+            log.warning(
                 msg,
                 trial.number,
                 trial.params,
@@ -611,7 +615,7 @@ def optimize_inversion_damping(
                     "if grid_search is True, n_trials must be at least 4, "
                     "resetting n_trials to 4 now."
                 )
-                logging.warning(msg)
+                log.warning(msg)
                 n_trials = 4
             space = np.logspace(
                 np.log10(damping_limits[0]), np.log10(damping_limits[1]), n_trials
@@ -668,7 +672,7 @@ def optimize_inversion_damping(
     best_trial = study.best_trial
 
     if best_trial.params.get("damping") in damping_limits:
-        logging.warning(
+        log.warning(
             "Best damping value (%s) is at the limit of provided values "
             "(%s) and thus is likely not a global minimum, expand the range of "
             "values tested to ensure the best parameter value is found.",
@@ -676,10 +680,10 @@ def optimize_inversion_damping(
             damping_limits,
         )
 
-    logging.info("Trial with lowest score: ")
-    logging.info("\ttrial number: %s", best_trial.number)
-    logging.info("\tparameter: %s", best_trial.params)
-    logging.info("\tscores: %s", best_trial.values)
+    log.info("Trial with lowest score: ")
+    log.info("\ttrial number: %s", best_trial.number)
+    log.info("\tparameter: %s", best_trial.params)
+    log.info("\tscores: %s", best_trial.values)
 
     # get best inversion result of each set
     with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
@@ -815,7 +819,7 @@ class OptimalInversionZrefDensity:
                 "starting_topography not provided, will create a flat surface at each "
                 "zref value to be the starting topography."
             )
-            logging.warning(msg)
+            log.warning(msg)
             if self.starting_topography_kwargs is None:
                 msg = (
                     "must provide `starting_topography_kwargs` with items `region` and "
@@ -842,7 +846,7 @@ class OptimalInversionZrefDensity:
                 "sets and provide the training set to `regional_grav_kwargs` and the "
                 "testing set to `constraints_df` to use for scoring."
             )
-            logging.warning(msg)
+            log.warning(msg)
 
         # raise warning about using constraint points for regional
         # estimation
@@ -1049,7 +1053,7 @@ def optimize_inversion_zref_density_contrast(
                         "if grid_search is True, n_trials must be at least 4, "
                         "resetting n_trials to 4 now."
                     )
-                    logging.warning(msg)
+                    log.warning(msg)
                     n_trials = 4
                 space = np.linspace(
                     density_contrast_limits[0],  # type: ignore[index]
@@ -1068,7 +1072,7 @@ def optimize_inversion_zref_density_contrast(
                         "if grid_search is True, n_trials must be at least 4, "
                         "resetting n_trials to 4 now."
                     )
-                    logging.warning(msg)
+                    log.warning(msg)
                     n_trials = 4
                 space = np.linspace(zref_limits[0], zref_limits[1], n_trials)
                 # omit first and last since they will be enqueued separately
@@ -1083,7 +1087,7 @@ def optimize_inversion_zref_density_contrast(
                         "if grid_search is True, n_trials must be at least 16, "
                         "resetting n_trials to 16 now."
                     )
-                    logging.warning(msg)
+                    log.warning(msg)
                     n_trials = 16
 
                 # n_trials needs to be square for 2 param grid search so each param has
@@ -1098,7 +1102,7 @@ def optimize_inversion_zref_density_contrast(
                         "root. Resetting n_trials to to next largest compatible value "
                         "now (%s)"
                     )
-                    logging.warning(msg, old_n_trials, n_trials)
+                    log.warning(msg, old_n_trials, n_trials)
 
                 zref_space = np.linspace(
                     zref_limits[0],
@@ -1217,7 +1221,7 @@ def optimize_inversion_zref_density_contrast(
 
     if zref_limits is not None:  # noqa: SIM102
         if best_trial.params.get("zref") in zref_limits:
-            logging.warning(
+            log.warning(
                 "Best zref value (%s) is at the limit of provided values (%s) and "
                 "thus is likely not a global minimum, expand the range of values "
                 "tested to ensure the best parameter value is found.",
@@ -1226,19 +1230,19 @@ def optimize_inversion_zref_density_contrast(
             )
     if density_contrast_limits is not None:  # noqa: SIM102
         if best_trial.params.get("density_contrast") in density_contrast_limits:
-            logging.warning(
+            log.warning(
                 "Best density contrast value (%s) is at the limit of provided values "
                 "(%s) and thus is likely not a global minimum, expand the range of "
                 "values tested to ensure the best parameter value is found.",
                 best_trial.params.get("density_contrast"),
                 density_contrast_limits,
             )
-    logging.info("Trial with lowest score: ")
-    logging.info("\ttrial number: %s", best_trial.number)
-    logging.info("\tparameter: %s", best_trial.params)
-    logging.info("\tscores: %s", best_trial.values)
+    log.info("Trial with lowest score: ")
+    log.info("\ttrial number: %s", best_trial.number)
+    log.info("\tparameter: %s", best_trial.params)
+    log.info("\tscores: %s", best_trial.values)
 
-    # get best inversion result of each set
+    # get best inversion result of each
     with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
         inv_results = pickle.load(f)
 
@@ -1457,9 +1461,9 @@ def optimize_eq_source_params(
         show_progress_bar=True,
     )
 
-    logging.info("Best params: %s", study.best_params)
-    logging.info("Best trial: %s", study.best_trial.number)
-    logging.info("Best score: %s", study.best_trial.value)
+    log.info("Best params: %s", study.best_params)
+    log.info("Best trial: %s", study.best_trial.number)
+    log.info("Best score: %s", study.best_trial.value)
 
     eqs = hm.EquivalentSources(
         damping=study.best_params.get("eq_damping"),
@@ -1517,13 +1521,14 @@ class OptimizeRegionalTrend:
             self.trend_limits[1],
         )
 
-        res_score, reg_score, true_reg_score, df = (
+        log.addFilter(log_filter)
             cross_validation.regional_separation_score(
                 method="trend",
                 trend=trend,
                 **self.kwargs,
             )
         )
+        log.removeFilter(log_filter)
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -1568,13 +1573,14 @@ class OptimizeRegionalFilter:
             self.filter_width_limits[1],
         )
 
-        res_score, reg_score, true_reg_score, df = (
+        log.addFilter(log_filter)
             cross_validation.regional_separation_score(
                 method="filter",
                 filter_width=filter_width,
                 **self.kwargs,
             )
         )
+        log.removeFilter(log_filter)
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -1655,7 +1661,7 @@ class OptimizeRegionalEqSources:
             if key not in ["source_depth", "block_size", "eq_damping"]
         }
 
-        res_score, reg_score, true_reg_score, df = (
+        log.addFilter(log_filter)
             cross_validation.regional_separation_score(
                 method="eq_sources",
                 source_depth=source_depth,
@@ -1664,6 +1670,7 @@ class OptimizeRegionalEqSources:
                 **new_kwargs,
             )
         )
+        log.removeFilter(log_filter)
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -1805,9 +1812,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
-            # temporarily set Python's logging level to not get information about the
-            # inversion's progress
-            logging.disable(level=logging.INFO)
+            log.addFilter(log_filter)
 
             # for each fold, run CV
             results = []
@@ -1820,9 +1825,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                     **new_kwargs,
                 )
                 results.append(fold_results)
-
-            # reset logging level
-            logging.disable(level=logging.NOTSET)
+            log.removeFilter(log_filter)
 
             # get mean of scores of all folds
             res_score = np.mean([r[0] for r in results])
@@ -1837,7 +1840,8 @@ class OptimizeRegionalConstraintsPointMinimization:
         else:
             assert isinstance(self.training_df, pd.DataFrame)
             assert isinstance(self.testing_df, pd.DataFrame)
-            res_score, reg_score, true_reg_score, df = (
+
+            log.addFilter(log_filter)
                 cross_validation.regional_separation_score(
                     constraints_df=self.training_df,
                     testing_df=self.testing_df,
@@ -1846,6 +1850,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                     **new_kwargs,
                 )
             )
+            log.removeFilter(log_filter)
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -1967,12 +1972,12 @@ def optimize_regional_filter(
         best_trial = study.best_trial
     else:
         best_trial = min(study.best_trials, key=lambda t: t.values[0])
-        logging.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+        log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
-    logging.info("Trial with lowest residual at constraint points: ")
-    logging.info("\ttrial number: %s", best_trial.number)
-    logging.info("\tparameter: %s", best_trial.params)
-    logging.info("\tscores: %s", best_trial.values)
+    log.info("Trial with lowest residual at constraint points: ")
+    log.info("\ttrial number: %s", best_trial.number)
+    log.info("\tparameter: %s", best_trial.params)
+    log.info("\tscores: %s", best_trial.values)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -2101,12 +2106,12 @@ def optimize_regional_trend(
         best_trial = study.best_trial
     else:
         best_trial = min(study.best_trials, key=lambda t: t.values[0])
-        logging.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+        log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
-    logging.info("Trial with lowest residual at constraint points: ")
-    logging.info("\ttrial number: %s", best_trial.number)
-    logging.info("\tparameter: %s", best_trial.params)
-    logging.info("\tscores: %s", best_trial.values)
+    log.info("Trial with lowest residual at constraint points: ")
+    log.info("\ttrial number: %s", best_trial.number)
+    log.info("\tparameter: %s", best_trial.params)
+    log.info("\tscores: %s", best_trial.values)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -2259,12 +2264,12 @@ def optimize_regional_eq_sources(
         best_trial = study.best_trial
     else:
         best_trial = min(study.best_trials, key=lambda t: t.values[0])
-        logging.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+        log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
-    logging.info("Trial with lowest residual at constraint points: ")
-    logging.info("\ttrial number: %s", best_trial.number)
-    logging.info("\tparameter: %s", best_trial.params)
-    logging.info("\tscores: %s", best_trial.values)
+    log.info("Trial with lowest residual at constraint points: ")
+    log.info("\ttrial number: %s", best_trial.number)
+    log.info("\tparameter: %s", best_trial.params)
+    log.info("\tscores: %s", best_trial.values)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -2437,7 +2442,7 @@ def optimize_regional_constraint_point_minimization(
             "training and testing data supplied as lists of dataframe, using them "
             "for a K-Folds cross validation"
         )
-        logging.info(msg)
+        log.info(msg)
 
     # run optimization
     study.optimize(
@@ -2471,12 +2476,12 @@ def optimize_regional_constraint_point_minimization(
         best_trial = study.best_trial
     else:
         best_trial = min(study.best_trials, key=lambda t: t.values[0])
-        logging.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+        log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
-    logging.info("Trial with lowest residual at constraint points: ")
-    logging.info("\ttrial number: %s", best_trial.number)
-    logging.info("\tparameter: %s", best_trial.params)
-    logging.info("\tscores: %s", best_trial.values)
+    log.info("Trial with lowest residual at constraint points: ")
+    log.info("\ttrial number: %s", best_trial.number)
+    log.info("\tparameter: %s", best_trial.params)
+    log.info("\tscores: %s", best_trial.values)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
