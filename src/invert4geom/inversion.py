@@ -2,6 +2,7 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 
 import copy
 import itertools
+import logging
 import pathlib
 import pickle
 import time
@@ -17,11 +18,6 @@ from nptyping import NDArray
 from tqdm.autonotebook import tqdm
 
 from invert4geom import cross_validation, log, optimization, plotting, regional, utils
-
-
-def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
-    """Used to filter logging."""
-    return False
 
 
 @numba.jit(cache=True, nopython=True)  # type: ignore[misc]

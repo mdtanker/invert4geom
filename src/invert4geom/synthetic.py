@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import typing
+import logging
 
 import harmonica as hm
 import numpy as np
@@ -13,11 +13,6 @@ from polartoolkit import fetch, maps
 from polartoolkit import utils as polar_utils
 
 from invert4geom import cross_validation, log, utils
-
-
-def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
-    """Used to filter logging."""
-    return False
 
 
 def load_synthetic_model(
@@ -101,17 +96,15 @@ def load_synthetic_model(
             coord_names=("easting", "northing"),
         )
 
-        log.addFilter(log_filter)
-
-        # grid the sampled values using verde
-        starting_topography = utils.create_topography(
-            method="splines",
-            region=region,
-            spacing=spacing,
-            constraints_df=constraint_points,
-            dampings=np.logspace(-20, 0, 100),
-        )
-        log.removeFilter(log_filter)
+        with utils.log_level(logging.WARN):
+            # grid the sampled values using verde
+            starting_topography = utils.create_topography(
+                method="splines",
+                region=buffer_region,
+                spacing=spacing,
+                constraints_df=constraint_points,
+                dampings=np.logspace(-20, 0, 100),
+            )
 
         # re-sample the starting topography at the constraint points to see how the
         # gridded did
