@@ -895,7 +895,7 @@ class OptimalInversionZrefDensity:
             reference=zref,
             density=density_grid,
         )
-
+        # pylint: disable=duplicate-code
         # calculate forward gravity of starting prism layer
         grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
             coordinates=(
@@ -906,7 +906,7 @@ class OptimalInversionZrefDensity:
             field="g_z",
             progressbar=False,
         )
-
+        # pylint: enable=duplicate-code
         # calculate regional field
         reg_kwargs = self.regional_grav_kwargs.copy()  # type: ignore[union-attr]
 
@@ -1047,10 +1047,10 @@ def optimize_inversion_zref_density_contrast(
     """
     Use Optuna to find the optimal zref and or density contrast values for a gravity
     inversion. The optimization aims to minimize the cross-validation score, represented
-    by the root mean (or median) squared error (RMSE), between the testing gravity data,
-    and the predict gravity data after and inversion. Follows methods of
-    :footcite:t:`uiedafast2017`. This can optimize for either zref, density contrast, or
-    both at the same time. Provide upper and low limits for each parameter, number of
+    by the root mean (or median) squared error (RMSE), between points of known
+    topography and the inverted topography. Follows methods of
+    :footcite:t:`uiedafast2017`. This can optimize for either zref, density contrast,
+    or both at the same time. Provide upper and low limits for each parameter, number of
     trials and let Optuna choose the best parameter values for each trial or use a grid
     search to test all values between the limits in intervals of n_trials. The results
     are saved to a pickle file with the best inversion results and the study.
@@ -1667,6 +1667,8 @@ def optimize_eq_source_params(
         plot the resulting optimization figures, by default False
     progressbar : bool, optional
         add a progressbar, by default True
+    kwargs : typing.Any
+        additional keyword arguments to pass to OptimalEqSourceParams.
     Returns
     -------
     tuple[optuna., hm.EquivalentSources]
@@ -2276,6 +2278,7 @@ def optimize_regional_filter(
             sampler=sampler,
             load_if_exists=False,
         )
+        study.set_metric_names(["difference with true regional"])
     else:
         if separate_metrics is True:
             study = optuna.create_study(
@@ -2311,10 +2314,50 @@ def optimize_regional_filter(
         show_progress_bar=True,
     )
 
-    if optimize_on_true_regional_misfit is True:
+    if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
         best_trial = min(study.best_trials, key=lambda t: t.values[0])
+        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
+
+        # # find the mean parameter value of the best half of the pareto front and use
+        # # that value for 1 more trial to be the best trial
+        # # get dataframe of the pareto front
+        # best_trials = [t.number for t in study.best_trials]
+        # study_df = study.trials_dataframe()
+        # study_df = study_df.sort_values(
+        #     ["values_residual at constraints", "values_amplitude of residual"],
+        #     ascending=[True, False],
+        # )
+        # study_df = study_df[study_df.number.isin(best_trials)]
+
+        # # get the mean parameter values of the best half of the pareto front
+        # params = list(study.get_trials()[0].params.keys())
+        # params_to_enqueue = {}
+        # for p in params:
+        #     val = study_df.iloc[: len(study_df) // 2][f"params_{p}"].mean()
+        #     params_to_enqueue[p] = val
+
+        # # enqueue the mean parameter values
+        # study.enqueue_trial(params_to_enqueue)
+
+        # # re-run the optimization
+        # study.optimize(
+        #     OptimizeRegionalFilter(
+        #         filter_width_limits=filter_width_limits,
+        #         testing_df=testing_df,
+        #         grav_df=grav_df,
+        #         true_regional=true_regional,
+        #         score_as_median=score_as_median,
+        #         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        #         separate_metrics=separate_metrics,
+        #         remove_starting_grav_mean=remove_starting_grav_mean,
+        #     ),
+        #     n_trials=1,
+        #     show_progress_bar=False,
+        # )
+        # best_trial = study.trials[-1]
+
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     log.info("Trial with lowest residual at constraint points: ")
@@ -2441,6 +2484,7 @@ def optimize_regional_trend(
             sampler=sampler,
             load_if_exists=False,
         )
+        study.set_metric_names(["difference with true regional"])
     else:
         if separate_metrics is True:
             study = optuna.create_study(
@@ -2473,12 +2517,54 @@ def optimize_regional_trend(
             remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         show_progress_bar=True,
+        n_trials=len(list(range(trend_limits[0], trend_limits[1] + 1))),
     )
 
-    if optimize_on_true_regional_misfit is True:
+    if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
         best_trial = min(study.best_trials, key=lambda t: t.values[0])
+        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
+
+        # # find the mean parameter value of the best half of the pareto front and use
+        # # that value for 1 more trial to be the best trial
+        # # get dataframe of the pareto front
+        # best_trials = [t.number for t in study.best_trials]
+        # study_df = study.trials_dataframe()
+        # study_df.sort_values(
+        #   ["values_residual at constraints", "values_amplitude of residual"],
+        #   ascending=[True, False],
+        #   inplace=True,
+        # )
+        # study_df = study_df[study_df.number.isin(best_trials)]
+
+        # # get the mean parameter values of the best half of the pareto front
+        # params = list(study.get_trials()[0].params.keys())
+        # params_to_enqueue = {}
+        # for p in params:
+        #     val = study_df.iloc[:len(study_df)//2][f"params_{p}"].mean()
+        #     params_to_enqueue[p] = val
+
+        # # enqueue the mean parameter values
+        # study.enqueue_trial(params_to_enqueue)
+
+        # # re-run the optimization
+        # study.optimize(
+        #     OptimizeRegionalTrend(
+        #         trend_limits=trend_limits,
+        #         testing_df=testing_df,
+        #         grav_df=grav_df,
+        #         true_regional=true_regional,
+        #         score_as_median=score_as_median,
+        #         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        #         separate_metrics=separate_metrics,
+        #         remove_starting_grav_mean=remove_starting_grav_mean,
+        #     ),
+        #     n_trials=1,
+        #     show_progress_bar=False,
+        # )
+        # best_trial = study.trials[-1]
+
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     log.info("Trial with lowest residual at constraint points: ")
@@ -2624,6 +2710,7 @@ def optimize_regional_eq_sources(
             sampler=sampler,
             load_if_exists=False,
         )
+        study.set_metric_names(["difference with true regional"])
     else:
         if separate_metrics is True:
             study = optuna.create_study(
@@ -2664,10 +2751,57 @@ def optimize_regional_eq_sources(
         show_progress_bar=True,
     )
 
-    if optimize_on_true_regional_misfit is True:
+    if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
         best_trial = min(study.best_trials, key=lambda t: t.values[0])
+        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
+
+        # best_trials = [t.number for t in study.best_trials]
+        # study_df = study.trials_dataframe()
+        # study_df.sort_values(
+        #   ["values_residual at constraints", "values_amplitude of residual"],
+        #   ascending=[True, False],
+        #   inplace=True,
+        # )
+        # study_df = study_df[study_df.number.isin(best_trials)]
+
+        # # get the mean parameter values of the best half of the pareto front
+        # params = list(study.get_trials()[0].params.keys())
+        # params_to_enqueue = {}
+        # for p in params:
+        #     if p == "eq_damping":
+        #         values = study_df.iloc[:len(study_df)//2][f"params_{p}"]
+        #         val = np.exp(np.mean(np.log(values)))
+        #     else:
+        #         val = study_df.iloc[:len(study_df)//2][f"params_{p}"].mean()
+        #     params_to_enqueue[p] = val
+
+        # # enqueue the mean parameter values
+        # study.enqueue_trial(params_to_enqueue)
+
+        # # re-run the optimization
+        # study.optimize(
+        #     OptimizeRegionalEqSources(
+        #         source_depth_limits=source_depth_limits,
+        #         block_size_limits=block_size_limits,
+        #         eq_damping_limits=eq_damping_limits,
+        #         testing_df=testing_df,
+        #         grav_df=grav_df,
+        #         true_regional=true_regional,
+        #         score_as_median=score_as_median,
+        #         source_depth=source_depth,
+        #         block_size=block_size,
+        #         eq_damping=eq_damping,
+        #         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        #         separate_metrics=separate_metrics,
+        #         remove_starting_grav_mean=remove_starting_grav_mean,
+        #     ),
+        #         n_trials=1,
+        #         show_progress_bar=False,
+        #     )
+        # best_trial = study.trials[-1]
+
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     log.info("Trial with lowest residual at constraint points: ")
@@ -2750,11 +2884,11 @@ def optimize_regional_constraint_point_minimization(
     ----------
     training_df : pd.DataFrame | list[pd.DataFrame]
         constraint points to use for training (estimating the regional field) with
-        columns "easting", "northing" and "upward". If a list of dataframe are provided,
-        each should represent 1 fold of a K-Folds cross-validation.
+        columns "easting", "northing" and "upward". If a list of dataframes are
+        provided, each should represent 1 fold of a K-Folds cross-validation.
     testing_df : pd.DataFrame | list[pd.DataFrame]
         constraint points to use for testing (calculating the score) with columns
-        "easting", "northing" and "upward". If a list of dataframe are provided, each
+        "easting", "northing" and "upward". If a list of dataframes are provided, each
         should represent 1 fold of a K-Folds cross-validation.
     grid_method : str
         constraint point minimization method to use, choose between "verde" for
@@ -2853,6 +2987,7 @@ def optimize_regional_constraint_point_minimization(
             sampler=sampler,
             load_if_exists=False,
         )
+        study.set_metric_names(["difference with true regional"])
     else:
         if separate_metrics is True:
             study = optuna.create_study(
@@ -2873,7 +3008,7 @@ def optimize_regional_constraint_point_minimization(
             study.set_metric_names(["combined scores"])
     if isinstance(training_df, list):
         msg = (
-            "training and testing data supplied as lists of dataframe, using them "
+            "training and testing data supplied as lists of dataframes, using them "
             "for a K-Folds cross validation"
         )
         log.info(msg)
@@ -2907,10 +3042,64 @@ def optimize_regional_constraint_point_minimization(
         show_progress_bar=progressbar,
     )
 
-    if optimize_on_true_regional_misfit is True:
+    if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
         best_trial = min(study.best_trials, key=lambda t: t.values[0])
+        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
+
+        # best_trials = [t.number for t in study.best_trials]
+        # study_df = study.trials_dataframe()
+        # study_df = study_df.sort_values(
+        #     ["values_residual at constraints", "values_amplitude of residual"],
+        #     ascending=[True, False],
+        # )
+        # study_df = study_df[study_df.number.isin(best_trials)]
+
+        # # get the mean parameter values of the best half of the pareto front
+        # params = list(study.get_trials()[0].params.keys())
+        # params_to_enqueue = {}
+        # for p in params:
+        #     if "damping" in p:
+        #         values = study_df.iloc[: len(study_df) // 2][f"params_{p}"]
+        #         val = np.exp(np.mean(np.log(values)))
+        #     else:
+        #         val = study_df.iloc[: len(study_df) // 2][f"params_{p}"].mean()
+        #     params_to_enqueue[p] = val
+
+        # # enqueue the mean parameter values
+        # study.enqueue_trial(params_to_enqueue)
+
+        # # re-run the optimization
+        # study.optimize(
+        #     OptimizeRegionalConstraintsPointMinimization(
+        #         training_df=training_df,
+        #         testing_df=testing_df,
+        #         grid_method=grid_method,
+        #         grav_df=grav_df,
+        #         constraints_weights_column=constraints_weights_column,
+        #         true_regional=true_regional,
+        #         score_as_median=score_as_median,
+        #         tension_factor_limits=tension_factor_limits,
+        #         spline_damping_limits=spline_damping_limits,
+        #         source_depth_limits=source_depth_limits,
+        #         block_size_limits=block_size_limits,
+        #         eq_damping_limits=eq_damping_limits,
+        #         grav_obs_height_limits=grav_obs_height_limits,
+        #         source_depth=source_depth,
+        #         block_size=block_size,
+        #         eq_damping=eq_damping,
+        #         grav_obs_height=grav_obs_height,
+        #         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        #         separate_metrics=separate_metrics,
+        #         remove_starting_grav_mean=remove_starting_grav_mean,
+        #         progressbar=fold_progressbar,
+        #     ),
+        #     n_trials=1,
+        #     show_progress_bar=False,
+        # )
+        # best_trial = study.trials[-1]
+
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     log.info("Trial with lowest residual at constraint points: ")
