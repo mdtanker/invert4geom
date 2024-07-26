@@ -1461,9 +1461,14 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         msg = "must provide zref_density_cv_trials if run_zref_or_density_cv is True"
         raise ValueError(msg) from e
 
+    constraints_df = kwargs.get("constraints_df", None)
+    if constraints_df is None:
+        msg = "must provide constraints_df if run_zref_or_density_cv is True"
+        raise ValueError(msg)
+
     _, inversion_results = optimization.optimize_inversion_zref_density_contrast(
         grav_df=grav_df,
-        constraints_df=kwargs.get("constraints_df"),
+        constraints_df=constraints_df,
         density_contrast_limits=kwargs.get("density_contrast_limits", None),
         density_contrast=kwargs.get("density_contrast", None),
         zref_limits=kwargs.get("zref_limits", None),
