@@ -236,6 +236,7 @@ def regional_eq_sources(
     block_size: float | None = None,
     grav_obs_height: float | None = None,
     regional_shift: float = 0,
+    weights_column: str | None = None,
 ) -> pd.DataFrame:
     """
     separate the regional field by estimating deep equivalent sources
@@ -256,7 +257,8 @@ def regional_eq_sources(
         use the data height from grav_df.
     regional_shift : float, optional
         shift to add to the regional field, by default 0
-
+    weights_column: str | None, optional
+        column name for weighting values of each gravity point.
     Returns
     -------
     pd.DataFrame
@@ -268,17 +270,9 @@ def regional_eq_sources(
 
     grav_df["misfit"] = grav_df.gravity_anomaly - grav_df.starting_gravity
 
-    # create set of deep sources
-    equivalent_sources = hm.EquivalentSources(
-        depth=source_depth,
-        damping=eq_damping,
-        block_size=block_size,
-        # depth_type="relative",
-    )
+    weights = None if weights_column is None else grav_df[weights_column]
 
-    # fit the source coefficients to the data
-    coordinates = (grav_df.easting, grav_df.northing, grav_df.upward)
-    equivalent_sources.fit(coordinates, grav_df.misfit)
+            weights=weights,
 
     # use sources to predict the regional field at the observation points
     # set observation height
