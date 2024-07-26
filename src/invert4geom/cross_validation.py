@@ -1108,8 +1108,13 @@ def regional_separation_score(
     )
 
     residual_constraint_score = utils.rmse(df.res, as_median=score_as_median)
-
+    if np.isnan(residual_constraint_score):
+        msg = "residual_constraint_score is NaN"
+        raise ValueError(msg)
     residual_amplitude_score = utils.rmse(grid.res, as_median=score_as_median)
+    if np.isnan(residual_amplitude_score):
+        msg = "residual_amplitude_score is NaN"
+        raise ValueError(msg)
 
     if true_regional is not None:
         true_reg_score = utils.rmse(
