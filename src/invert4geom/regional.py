@@ -234,6 +234,7 @@ def regional_eq_sources(
     source_depth: float,
     eq_damping: float | None = None,
     block_size: float | None = None,
+    grav_obs_height: float | None = None,
     regional_shift: float = 0,
 ) -> pd.DataFrame:
     """
@@ -250,6 +251,9 @@ def regional_eq_sources(
         smoothness to impose on estimated coefficients, by default None
     block_size : float | None, optional
         block reduce the data to speed up, by default None
+    grav_obs_height: float, optional
+        Observation height to use predicting the eq sources, by default None and will
+        use the data height from grav_df.
     regional_shift : float, optional
         shift to add to the regional field, by default 0
 
@@ -277,7 +281,13 @@ def regional_eq_sources(
     equivalent_sources.fit(coordinates, grav_df.misfit)
 
     # use sources to predict the regional field at the observation points
-    grav_df["reg"] = equivalent_sources.predict(coordinates) + regional_shift
+    # set observation height
+    if grav_obs_height is None:
+        upward_continuation_height = grav_df.upward
+    else:
+        upward_continuation_height = np.ones_like(grav_df.upward) * grav_obs_height
+
+    coords = (grav_df.easting, grav_df.northing, upward_continuation_height)
 
     grav_df["res"] = grav_df.misfit - grav_df.reg
 
