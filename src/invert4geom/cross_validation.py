@@ -749,7 +749,6 @@ def zref_density_optimal_parameter(
 
 def random_split_test_train(
     data_df: pd.DataFrame,
-    data_column: str = "upward",
     test_size: float = 0.3,
     random_state: int = 10,
     plot: bool = False,
@@ -761,10 +760,7 @@ def random_split_test_train(
     Parameters
     ----------
     data_df : pd.DataFrame
-        data to be split, must have columns "easting", "northing" and column specified
-        by `data_column`.
-    data_column : str, optional
-        name of the data column, by default "upward"
+        data to be split, must have columns "easting" and "northing".
     test_size : float, optional
         decimal percentage of points to put in the testing set, by default 0.3
     random_state : int, optional
@@ -775,12 +771,14 @@ def random_split_test_train(
     Returns
     -------
     pd.DataFrame
-        dataframe with a new column "train" which is a boolean value of whether the row
+        dataframe with a new column "test" which is a boolean value of whether the row
         is in the training or testing set.
     """
+    data_df = data_df.copy()
+
     train, test = vd.train_test_split(
-        (data_df.easting, data_df.northing),
-        data_df[data_column],
+        coordinates=(data_df.easting, data_df.northing),
+        data=data_df.index,
         test_size=test_size,
         random_state=random_state,
     )
@@ -788,23 +786,27 @@ def random_split_test_train(
         data={
             "easting": train[0][0],
             "northing": train[0][1],
-            data_column: train[1][0],
-            "train": True,
+            "index": train[1][0],
+            "test": False,
         }
     )
     test_df = pd.DataFrame(
         data={
             "easting": test[0][0],
             "northing": test[0][1],
-            data_column: test[1][0],
-            "train": False,
+            "index": test[1][0],
+            "test": True,
         }
     )
     random_split_df = pd.concat([train_df, test_df])
 
+    random_split_df = pd.merge(data_df, random_split_df, on=["easting", "northing"])  # noqa: PD015
+
+    random_split_df = random_split_df.drop(columns=["index"])
+
     if plot is True:
-        df_train = random_split_df[random_split_df.train == True]  # noqa: E712 # pylint: disable=singleton-comparison
-        df_test = random_split_df[random_split_df.train == False]  # noqa: E712 # pylint: disable=singleton-comparison
+        df_train = random_split_df[random_split_df.test == False]  # noqa: E712 # pylint: disable=singleton-comparison
+        df_test = random_split_df[random_split_df.test == True]  # noqa: E712 # pylint: disable=singleton-comparison
 
         region = vd.get_region((random_split_df.easting, random_split_df.northing))
         plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
