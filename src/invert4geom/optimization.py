@@ -1800,6 +1800,8 @@ class OptimizeRegionalTrend:
         )
 
         log.addFilter(log_filter)
+
+        residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
             cross_validation.regional_separation_score(
                 method="trend",
                 trend=trend,
@@ -1812,6 +1814,8 @@ class OptimizeRegionalTrend:
         trial.set_user_attr("true_reg_score", true_reg_score)
 
         if self.optimize_on_true_regional_misfit is True:
+            trial.set_user_attr("residual constraint score", residual_constraint_score)
+            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
             return true_reg_score  # type: ignore[return-value]
         return res_score, reg_score
 
@@ -1852,6 +1856,8 @@ class OptimizeRegionalFilter:
         )
 
         log.addFilter(log_filter)
+
+        residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
             cross_validation.regional_separation_score(
                 method="filter",
                 filter_width=filter_width,
@@ -1864,6 +1870,8 @@ class OptimizeRegionalFilter:
         trial.set_user_attr("true_reg_score", true_reg_score)
 
         if self.optimize_on_true_regional_misfit is True:
+            trial.set_user_attr("residual constraint score", residual_constraint_score)
+            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
             return true_reg_score  # type: ignore[return-value]
         return res_score, reg_score  # type: ignore[return-value]
 
@@ -1940,6 +1948,8 @@ class OptimizeRegionalEqSources:
         }
 
         log.addFilter(log_filter)
+
+        residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
             cross_validation.regional_separation_score(
                 method="eq_sources",
                 source_depth=source_depth,
@@ -1954,6 +1964,8 @@ class OptimizeRegionalEqSources:
         trial.set_user_attr("true_reg_score", true_reg_score)
 
         if self.optimize_on_true_regional_misfit is True:
+            trial.set_user_attr("residual constraint score", residual_constraint_score)
+            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
             return true_reg_score  # type: ignore[return-value]
         return res_score, reg_score  # type: ignore[return-value]
 
@@ -2106,8 +2118,8 @@ class OptimizeRegionalConstraintsPointMinimization:
             log.removeFilter(log_filter)
 
             # get mean of scores of all folds
-            res_score = np.mean([r[0] for r in results])
-            reg_score = np.mean([r[1] for r in results])
+            residual_constraint_score = np.mean([r[0] for r in results])
+            residual_amplitude_score = np.mean([r[1] for r in results])
             try:
                 true_reg_score = np.mean([r[2] for r in results])
             except TypeError:
@@ -2120,6 +2132,8 @@ class OptimizeRegionalConstraintsPointMinimization:
             assert isinstance(self.testing_df, pd.DataFrame)
 
             log.addFilter(log_filter)
+
+            residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
                 cross_validation.regional_separation_score(
                     constraints_df=self.training_df,
                     testing_df=self.testing_df,
@@ -2134,6 +2148,8 @@ class OptimizeRegionalConstraintsPointMinimization:
         trial.set_user_attr("true_reg_score", true_reg_score)
 
         if self.optimize_on_true_regional_misfit is True:
+            trial.set_user_attr("residual constraint score", residual_constraint_score)
+            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
             return true_reg_score  # type: ignore[no-any-return]
         return res_score, reg_score  # type: ignore[return-value]
 
