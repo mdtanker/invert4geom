@@ -725,7 +725,7 @@ class OptimalInversionZrefDensity:
         self,
         fname: str,
         grav_df: pd.DataFrame,
-        constraints_df: pd.DataFrame,
+        constraints_df: pd.DataFrame | list[pd.DataFrame],
         zref: float | None = None,
         zref_limits: tuple[float, float] | None = None,
         density_contrast_limits: tuple[float, float] | None = None,
@@ -733,6 +733,7 @@ class OptimalInversionZrefDensity:
         starting_topography: xr.DataArray | None = None,
         starting_topography_kwargs: dict[str, typing.Any] | None = None,
         regional_grav_kwargs: dict[str, typing.Any] | None = None,
+        progressbar: bool = True,
         **kwargs: typing.Any,
     ) -> None:
         self.fname = fname
@@ -745,6 +746,7 @@ class OptimalInversionZrefDensity:
         self.starting_topography = starting_topography
         self.starting_topography_kwargs = starting_topography_kwargs
         self.regional_grav_kwargs = regional_grav_kwargs
+        self.progressbar = progressbar
         self.kwargs = kwargs
 
     def __call__(self, trial: optuna.trial) -> float:
@@ -842,7 +844,7 @@ class OptimalInversionZrefDensity:
                 "estimation. This is not recommended as the constraint points are used "
                 "for the density / reference level cross-validation scoring, which "
                 "biases the scoring. Consider using a different method for regional "
-                "field estimation, or set separate constraints in training and testing "
+                "field estimation, or separate constraints in training and testing "
                 "sets and provide the training set to `regional_grav_kwargs` and the "
                 "testing set to `constraints_df` to use for scoring."
             )
@@ -909,47 +911,120 @@ class OptimalInversionZrefDensity:
         # calculate regional field
         reg_kwargs = self.regional_grav_kwargs.copy()  # type: ignore[union-attr]
 
-        # temporarily set Python's logging level to not get info
-        logging.disable(level=logging.INFO)
+        if isinstance(self.constraints_df, list):
+            regional_method = reg_kwargs.pop("regional_method", None)
+            training_constraints = reg_kwargs.pop("constraints_df", None)
+            testing_constraints = self.constraints_df
 
-        grav_df = regional.regional_separation(
-            method=reg_kwargs.pop("regional_method", None),
-            grav_df=grav_df,
-            **reg_kwargs,
-        )
+            if training_constraints is None:
+                pass
+            elif isinstance(training_constraints, pd.DataFrame):
+                msg = (
+                    "must provide a list of training constraints dataframes for "
+                    "cross-validation to parameter `constraints_df` of "
+                    "`regional_grav_kwargs`."
+                )
+                raise ValueError(msg)
 
-        # reset logging level
-        logging.disable(level=logging.NOTSET)
-
-        new_kwargs = {
-            key: value
-            for key, value in kwargs.items()
-            if key
-            not in [
-                "zref",
-                "density_contrast",
-                "progressbar",
-                "results_fname",
-                "prism_layer",
+            # get list of folds
+            folds = [
+                list(df.columns[df.columns.str.startswith("fold_")])[0]  # noqa: RUF015
+                for df in self.constraints_df
             ]
-        }
 
-        trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
+            # progressbar for folds
+            if self.progressbar is True:
+                pbar = tqdm(
+                    folds,
+                    desc="Regional Estimation CV folds",
+                )
+            elif self.progressbar is False:
+                pbar = folds
+            else:
+                msg = "progressbar must be a boolean"  # type: ignore[unreachable]
+                raise ValueError(msg)
 
-        # run cross validation
-        score, _ = cross_validation.constraints_cv_score(
-            grav_df=grav_df,
-            constraints_df=self.constraints_df,
-            results_fname=trial.user_attrs.get("fname"),
-            prism_layer=starting_prisms,
-            **new_kwargs,
-        )
+            # for each fold, run CV
+            scores = []
+            for i, _ in enumerate(pbar):
+                log.addFilter(log_filter)
+                grav_df = regional.regional_separation(
+                    method=regional_method,
+                    grav_df=grav_df,
+                    constraints_df=training_constraints[i],
+                    **reg_kwargs,
+                )
+                log.removeFilter(log_filter)
+
+                new_kwargs = {
+                    key: value
+                    for key, value in kwargs.items()
+                    if key
+                    not in [
+                        "zref",
+                        "density_contrast",
+                        "progressbar",
+                        "results_fname",
+                        "prism_layer",
+                    ]
+                }
+
+                trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
+
+                # run cross validation
+                score, _ = cross_validation.constraints_cv_score(
+                    grav_df=grav_df,
+                    constraints_df=testing_constraints[i],
+                    results_fname=trial.user_attrs.get("fname"),
+                    prism_layer=starting_prisms,
+                    **new_kwargs,
+                )
+                scores.append(score)
+
+            # get mean of scores of all folds
+            score = np.mean(scores)
+
+        else:
+            assert isinstance(self.constraints_df, pd.DataFrame)
+
+            log.addFilter(log_filter)
+            grav_df = regional.regional_separation(
+                method=reg_kwargs.pop("regional_method", None),
+                grav_df=grav_df,
+                **reg_kwargs,
+            )
+            log.removeFilter(log_filter)
+
+            new_kwargs = {
+                key: value
+                for key, value in kwargs.items()
+                if key
+                not in [
+                    "zref",
+                    "density_contrast",
+                    "progressbar",
+                    "results_fname",
+                    "prism_layer",
+                ]
+            }
+
+            trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
+
+            # run cross validation
+            score, _ = cross_validation.constraints_cv_score(
+                grav_df=grav_df,
+                constraints_df=self.constraints_df,
+                results_fname=trial.user_attrs.get("fname"),
+                prism_layer=starting_prisms,
+                **new_kwargs,
+            )
+
         return score
 
 
 def optimize_inversion_zref_density_contrast(
     grav_df: pd.DataFrame,
-    constraints_df: pd.DataFrame,
+    constraints_df: pd.DataFrame | list[pd.DataFrame],
     n_trials: int,
     starting_topography: xr.DataArray | None = None,
     zref_limits: tuple[float, float] | None = None,
@@ -965,6 +1040,7 @@ def optimize_inversion_zref_density_contrast(
     plot_cv: bool = True,
     logx: bool = False,
     logy: bool = False,
+    fold_progressbar: bool = True,
     **kwargs: typing.Any,
 ) -> tuple[
     optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
@@ -985,8 +1061,9 @@ def optimize_inversion_zref_density_contrast(
     grav_df : pd.DataFrame
         gravity data frame with columns `easting`, `northing`, `upward`, and
         `gravity_anomaly`
-    constraints_df : pd.DataFrame
-        constraints data frame with columns `easting`, `northing`, and `upward`.
+    constraints_df : pd.DataFrame or list[pd.DataFrame]
+        constraints data frame with columns `easting`, `northing`, and `upward`, or list
+        of dataframes for each fold of a cross-validation
     n_trials : int
         number of trials, if grid_search is True, needs to be a perfect square and >=16.
     starting_topography : xr.DataArray | None, optional
@@ -1027,6 +1104,9 @@ def optimize_inversion_zref_density_contrast(
         use a log scale for the cross-validation plot x-axis, by default False
     logy : bool, optional
         use a log scale for the cross-validation plot y-axis, by default False
+    fold_progressbar : bool, optional
+        show a progress bar for each fold of the constraint-point minimization
+        cross-validation, by default True
 
     Returns
     -------
@@ -1210,6 +1290,7 @@ def optimize_inversion_zref_density_contrast(
                 regional_grav_kwargs=regional_grav_kwargs,
                 rmse_as_median=score_as_median,
                 fname=fname,
+                progressbar=fold_progressbar,
                 **kwargs,
             ),
             n_trials=n_trials,
