@@ -1394,6 +1394,160 @@ def optimize_inversion_zref_density_contrast(
     return study, inv_results
 
 
+def optimize_inversion_zref_density_contrast_kfolds(
+    testing_training_constraints_df: pd.DataFrame,
+    plot_cv: bool = True,
+    fold_progressbar: bool = True,
+    **kwargs: typing.Any,
+) -> tuple[
+    optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
+]:
+    """
+    Perform a cross validation for the optimal zref and density contrast values same as
+    function `optimize_inversion_zref_density_contrast`, but pass a dataframe of
+    constraint points which contains folds of testing and training data (generated with
+    `cross_validation.split_test_train`) so for each iteration of the zref/density cross
+    validation, the regional separation is performed with 1 training fold, and the
+    scoring is performed with 1 testing fold. This is only useful if the regional
+    separation technique you supply via `regional_grav_kwargs` uses constraints points
+    for the estimations, such as constraint point minimization.
+
+    Parameters
+    ----------
+    testing_training_constraints_df : pd.DataFrame
+        dataframe of constraints with columns "fold_x" for x folds, with values of
+        'test' or 'train'.
+    plot_cv : bool, optional
+        plot the density and/or zref parameters values and the resulting scores, by
+        default True
+    fold_progressbar : bool, optional
+        add a progressbar for each fold, by default True
+
+    Returns
+    -------
+    tuple[ optuna.study,
+    tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float] ]
+        returns the optuna study, and a tuple of the best inversion results.
+    """
+    test_dfs, train_dfs = cross_validation.kfold_df_to_lists(
+        testing_training_constraints_df
+    )
+
+    kwargs.pop("plot_cv", False)
+
+    regional_grav_kwargs_original = kwargs.pop("regional_grav_kwargs", None).copy()
+
+    regional_grav_kwargs = regional_grav_kwargs_original.copy()
+
+    regional_grav_kwargs.pop("constraints_df", None)
+
+    regional_grav_kwargs["constraints_df"] = train_dfs
+
+    study, _ = optimize_inversion_zref_density_contrast(
+        constraints_df=test_dfs,
+        fold_progressbar=fold_progressbar,
+        regional_grav_kwargs=regional_grav_kwargs,
+        plot_cv=False,
+        **kwargs,
+    )
+
+    best_trial = study.best_trial
+
+    # log.info("Trial with lowest score: ")
+    # log.info("\ttrial number: %s", best_trial.number)
+    # log.info("\tparameter: %s", best_trial.params)
+    # log.info("\tscores: %s", best_trial.values)
+
+    # redo inversion with best parameters
+    zref = best_trial.params.get("zref", None)
+    density_contrast = best_trial.params.get("density_contrast", None)
+
+    if zref is None:
+        zref = kwargs.get("zref")
+    if density_contrast is None:
+        density_contrast = kwargs.get("density_contrast")
+
+    fname = kwargs.get("fname", None)
+    if fname is not None:
+        fname = f"{fname}_inversion_results"
+
+    new_kwargs = {
+        key: value
+        for key, value in kwargs.items()
+        if key
+        not in [
+            "zref",
+            "density_contrast",
+            "progressbar",
+            "results_fname",
+            "prism_layer",
+            "density_contrast_limits",
+            "zref_limits",
+            "n_trials",
+            "fname",
+            "grid_search",
+        ]
+    }
+    # run the inversion workflow
+    log.addFilter(log_filter)
+    final_inversion_results = inversion.run_inversion_workflow(
+        create_starting_prisms=True,
+        starting_prisms_kwargs={
+            "zref": zref,
+            "density_contrast": density_contrast,
+        },
+        calculate_regional_misfit=True,
+        regional_grav_kwargs=regional_grav_kwargs_original,
+        fname=fname,
+        plot_convergence=True,
+        **new_kwargs,
+    )
+    log.removeFilter(log_filter)
+
+    if plot_cv is True:
+        if kwargs.get("zref_limits", None) is None:
+            plotting.plot_cv_scores(
+                study.trials_dataframe().value.values,
+                study.trials_dataframe().params_density_contrast.values,
+                param_name="Density contrast (kg/m$^3$)",
+                plot_title="Density contrast Cross-validation",
+            )
+        elif kwargs.get("density_contrast_limits", None) is None:
+            plotting.plot_cv_scores(
+                study.trials_dataframe().value.values,
+                study.trials_dataframe().params_zref.values,
+                param_name="Reference level (m)",
+                plot_title="Reference level Cross-validation",
+            )
+        else:
+            if kwargs.get("grid_search", False) is True:
+                parameter_pairs = list(
+                    zip(
+                        study.trials_dataframe().params_zref,
+                        study.trials_dataframe().params_density_contrast,
+                    )
+                )
+                plotting.plot_2_parameter_cv_scores(
+                    study.trials_dataframe().value.values,
+                    parameter_pairs,
+                    param_names=("Reference level (m)", "Density contrast (kg/m$^3$)"),
+                )
+            else:
+                plotting.plot_2_parameter_cv_scores_uneven(
+                    study,
+                    param_names=(
+                        "params_zref",
+                        "params_density_contrast",
+                    ),
+                    plot_param_names=(
+                        "Reference level (m)",
+                        "Density contrast (kg/m$^3$)",
+                    ),
+                )
+
+    return study, final_inversion_results
+
+
 class OptimalEqSourceParams:
     """
     Objective function to use in an Optuna optimization for finding the optimal
