@@ -324,8 +324,11 @@ def regional_constraints(
     constraints_block_size: float | None = None,
     grid_method: str = "verde",
     spline_damping: float | None = None,
+    spline_cv: bool = False,
+    spline_damping_values: NDArray | None = None,
     source_depth: float | None = None,
     eq_damping: float | None = None,
+    eq_cv: bool = False,
     block_size: float | None = None,
     eq_points: list[NDArray] | None = None,
     constraints_weights_column: str | None = None,
@@ -333,7 +336,7 @@ def regional_constraints(
     regional_shift: float = 0,
 ) -> pd.DataFrame:
     """
-    separate the regional field by sampling and regridding at the constraint points
+    separate the regional field by sampling and re-gridding at the constraint points
 
     Parameters
     ----------
@@ -354,11 +357,19 @@ def regional_constraints(
         between "verde", "pygmt", or "eq_sources", by default "verde"
     spline_damping : typing.Any | None, optional
         damping values used if `grid_method` is "verde", by default None
+    spline_cv : bool, optional
+        use cross-validation to find the best damping value, by default False
+    spline_damping_values : NDArray | None, optional
+        damping values used if `grid_method` is "verde" for a cross-validation of
+        damping values, by default None
     source_depth : float | None, optional
         depth of each source relative to the data elevation, positive downwards in
         meters, by default None
     eq_damping : float | None, optional
         damping values used if `grid_method` is "eq_sources", by default None
+    eq_cv : bool, optional
+        use cross-validation to find the best equivalent source parameters, by default
+        False
     block_size : float | None, optional
         block size used if `grid_method` is "eq_sources", by default None
     eq_points : list[NDArray] | None, optional
@@ -377,7 +388,6 @@ def regional_constraints(
     pd.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
-
     if constraints_df is None:
         msg = "need to provide constraints_df"
         raise ValueError(msg)
@@ -462,17 +472,23 @@ def regional_constraints(
             weights = None
         else:
             weights = constraints_df[constraints_weights_column]
-
-        spline = vd.Spline(
-            damping=spline_damping,
-        )
-        spline.fit(
+        if spline_cv is True:
+            if spline_damping is not None:
+                msg = "can't supply `spline_damping` if `spline_cv` is True."
+                raise ValueError(msg)
+            if spline_damping_values is None:
+                spline_damping_values = list(np.logspace(-40, 0, 100))
+                spline_damping_values.append(None)
+        else:
+            spline_damping_values = spline_damping
+        spline = utils.best_spline_cv(
             coordinates=(
                 constraints_df.easting,
                 constraints_df.northing,
             ),
             data=constraints_df.sampled_grav,
             weights=weights,
+            dampings=spline_damping_values,
         )
         # predict fitted grid at gravity points
         grav_df["reg"] = (
@@ -495,20 +511,32 @@ def regional_constraints(
         else:
             weights = constraints_df[constraints_weights_column]
 
-        # create set of deep sources
-        eqs = hm.EquivalentSources(
-            depth=source_depth,
-            damping=eq_damping,
-            block_size=block_size,
-            points=eq_points,
-        )
+        if eq_cv is True:
+            _, eqs = optimization.optimize_eq_source_params(
+                coordinates=coords,
+                data=constraints_df.sampled_grav,
+                weights=weights,
+                progressbar=False,
+                n_trials=100,
+                eq_damping_limits=(1e-20, 10),
+                source_depth="default",
+                block_size=None,
+            )
+        else:
+            # create set of deep sources
+            eqs = hm.EquivalentSources(
+                depth=source_depth,
+                damping=eq_damping,
+                block_size=block_size,
+                points=eq_points,
+            )
 
-        # fit the source coefficients to the data
-        eqs.fit(
-            coords,
-            constraints_df.sampled_grav,
-            weights=weights,
-        )
+            # fit the source coefficients to the data
+            eqs.fit(
+                coords,
+                constraints_df.sampled_grav,
+                weights=weights,
+            )
 
         # predict sources at gravity points
         grav_df["reg"] = (
