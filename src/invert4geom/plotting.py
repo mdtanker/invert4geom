@@ -6,32 +6,19 @@ import numpy as np
 import optuna
 import pandas as pd
 
-try:
-    import plotly
-except ImportError:
-    plotly = None
+import plotly
 
-try:
-    from IPython.display import clear_output
-except ImportError:
-    clear_output = None
-
-try:
-    import matplotlib as mpl
-    import matplotlib.pyplot as plt
-except ImportError:
-    plt = None
+from IPython.display import clear_output
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 
-try:
-    import seaborn as sns
-except ImportError:
-    sns = None
 
-try:
-    import pyvista
-except ImportError:
-    pyvista = None
+import seaborn as sns
+
+
+import pyvista
+
 
 import scipy as sp
 import verde as vd
@@ -71,15 +58,8 @@ def plot_2_parameter_cv_scores(
     cmap : str, optional
         matplotlib colormap for scores, by default "viridis"
     """
-    # Check if seaborn is installed
-    if sns is None:
-        msg = "Missing optional dependency 'seaborn' required for plotting."
-        raise ImportError(msg)
     sns.set_theme()
-    # Check if matplotlib is installed
-    if plt is None:
-        msg = "Missing optional dependency 'matplotlib' required for plotting."
-        raise ImportError(msg)
+
 
     if cmap is None:
         cmap = sns.color_palette("mako", as_cmap=True)
@@ -161,15 +141,8 @@ def plot_2_parameter_cv_scores_uneven(
     cmap : str, optional
         matplotlib colormap for scores, by default "viridis"
     """
-    # Check if seaborn is installed
-    if sns is None:
-        msg = "Missing optional dependency 'seaborn' required for plotting."
-        raise ImportError(msg)
+
     sns.set_theme()
-    # Check if matplotlib is installed
-    if plt is None:
-        msg = "Missing optional dependency 'matplotlib' required for plotting."
-        raise ImportError(msg)
 
     if cmap is None:
         cmap = sns.color_palette("mako", as_cmap=True)
@@ -254,15 +227,9 @@ def plot_cv_scores(
     plot_title : str | None, optional
         title of figure, by default None
     """
-    # Check if seaborn is installed
-    if sns is None:
-        msg = "Missing optional dependency 'seaborn' required for plotting."
-        raise ImportError(msg)
+
     sns.set_theme()
-    # Check if matplotlib is installed
-    if plt is None:
-        msg = "Missing optional dependency 'matplotlib' required for plotting."
-        raise ImportError(msg)
+
 
     df0 = pd.DataFrame({"scores": scores, "parameters": parameters})
     df = df0.sort_values(by="parameters")
@@ -314,16 +281,10 @@ def plot_convergence(
     figsize : tuple[float, float], optional
         width and height of figure, by default (5, 3.5)
     """
-    # Check if seaborn is installed
-    if sns is None:
-        msg = "Missing optional dependency 'seaborn' required for plotting."
-        raise ImportError(msg)
+
     sns.set_theme()
 
-    # Check if matplotlib is installed
-    if plt is None:
-        msg = "Missing optional dependency 'matplotlib' required for plotting."
-        raise ImportError(msg)
+
 
     # get misfit data at end of each iteration
     cols = [s for s in results.columns.to_list() if "_final_misfit" in s]
@@ -428,21 +389,11 @@ def plot_dynamic_convergence(
     figsize : tuple[float, float], optional
         width and height of figure, by default (5, 3.5)
     """
-    # Check if seaborn is installed
-    if sns is None:
-        msg = "Missing optional dependency 'seaborn' required for plotting."
-        raise ImportError(msg)
+
     sns.set_theme()
 
-    # Check if matplotlib is installed
-    if plt is None:
-        msg = "Missing optional dependency 'matplotlib' required for plotting."
-        raise ImportError(msg)
 
-    # Check if Ipython is installed
-    if clear_output is None:
-        msg = "Missing optional dependency 'IPython' required for plotting."
-        raise ImportError(msg)
+
     clear_output(wait=True)
 
     l2_norms = l2_norms.copy()
@@ -758,10 +709,7 @@ def plot_inversion_iteration_results(
     constraint_size : float, optional
         size for constraint points, by default 1
     """
-    # Check if matplotlib is installed
-    if plt is None:
-        msg = "Missing optional dependency 'matplotlib' required for plotting."
-        raise ImportError(msg)
+
 
     misfit_grids, topo_grids, corrections_grids = grids
 
@@ -1082,12 +1030,7 @@ def add_light(
     prisms : xr.Dataset
         harmonica prisms layer
     """
-    # Check if pyvista are installed
-    if pyvista is None:
-        msg = (
-            "Missing optional dependency 'pyvista' required for building pyvista grids."
-        )
-        raise ImportError(msg)
+
     # Add a ceiling light
     west, east, south, north = vd.get_region((prisms.easting, prisms.northing))
     easting_center, northing_center = (east + west) / 2, (north + south) / 2
@@ -1122,12 +1065,7 @@ def show_prism_layers(
         'thickness', or choose 'constant' to have each layer colored by a unique color
         use kwarg `colors` to alter these colors, by default is "density"
     """
-    # Check if pyvista are installed
-    if pyvista is None:
-        msg = (
-            "Missing optional dependency 'pyvista' required for building pyvista grids."
-        )
-        raise ImportError(msg)
+
 
     # Plot with pyvista
     plotter = pyvista.Plotter(
@@ -1209,11 +1147,6 @@ def combined_slice(
     plotly.graph_objects.Figure
         a plotly figure
     """
-
-    # Check if plotly is installed
-    if plotly is None:
-        msg = "Missing optional dependency 'plotly' required for plotting."
-        raise ImportError(msg)
 
     figs = []
     names = []
@@ -1431,10 +1364,6 @@ def remove_df_from_hoverdata(
     plotly.graph_objects.Figure
         plotly figure with the dataframe removed from the hoverdata
     """
-    # Check if plotly is installed
-    if plotly is None:
-        msg = "Missing optional dependency 'plotly' required for plotting."
-        raise ImportError(msg)
 
     text = []
     for s in plot.data[1].text:

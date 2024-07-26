@@ -55,10 +55,6 @@ dependencies = [
   "psutil",
   "tqdm_joblib",
   "deprecation",
-]
-
-[project.optional-dependencies]
-viz = [
   "pyvista",
   "trame",
   "ipywidgets",
@@ -67,6 +63,8 @@ viz = [
   "ipython",
   "plotly",
 ]
+
+[project.optional-dependencies]
 test = [
   "pytest >=6",
   "pytest-cov >=3",
@@ -85,7 +83,7 @@ docs = [
   "sphinxcontrib-bibtex",
 ]
 dev = [
-  "invert4geom[viz,test,docs]",
+  "invert4geom[test,docs]",
   "ruff",
   "nox",
   "pre-commit",
@@ -96,7 +94,7 @@ dev = [
   "mypy",
 ]
 all = [
-  "invert4geom[viz,test,dev,docs]",
+  "invert4geom[test,dev,docs]",
 ]
 
 [project.urls]
