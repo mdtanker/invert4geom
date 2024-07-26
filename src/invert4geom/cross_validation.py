@@ -559,7 +559,7 @@ def zref_density_optimal_parameter(
     # raise warning about using constraint point minimization for regional estimation
     if (
         (regional_grav_kwargs is not None)
-        and (regional_grav_kwargs.get("regional_method") == "constraints")
+        and (regional_grav_kwargs.get("method") == "constraints")
         and (len(regional_grav_kwargs.get("constraints_df")) == len(constraints_df))  # type: ignore[arg-type]
     ):
         msg = (
@@ -632,7 +632,6 @@ def zref_density_optimal_parameter(
         reg_kwargs = regional_grav_kwargs.copy()  # type: ignore[union-attr]
 
         grav_df = regional.regional_separation(
-            method=reg_kwargs.pop("regional_method", None),
             grav_df=grav_df,
             **reg_kwargs,
         )

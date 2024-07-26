@@ -807,7 +807,7 @@ class OptimalInversionZrefDensity:
         # estimation
         if (
             (self.regional_grav_kwargs is not None)
-            and (self.regional_grav_kwargs.get("regional_method") == "constraints")
+            and (self.regional_grav_kwargs.get("method") == "constraints")
             and (
                 len(self.regional_grav_kwargs.get("constraints_df"))  # type: ignore[arg-type]
                 == len(self.constraints_df)
@@ -826,7 +826,7 @@ class OptimalInversionZrefDensity:
 
         # raise warning about using constraint points for regional estimation
         # if self.regional_grav_kwargs is not None:
-        #     if self.regional_grav_kwargs.get("regional_method") == "constant":
+        #     if self.regional_grav_kwargs.get("method") == "constant":
         #         if self.regional_grav_kwargs.get("constraints_df", None) is not None:
         #             if len(
         #                 self.regional_grav_kwargs.get("constraints_df", None)
@@ -887,7 +887,6 @@ class OptimalInversionZrefDensity:
         reg_kwargs = self.regional_grav_kwargs.copy()  # type: ignore[union-attr]
 
         if isinstance(self.constraints_df, list):
-            regional_method = reg_kwargs.pop("regional_method", None)
             training_constraints = reg_kwargs.pop("constraints_df", None)
             testing_constraints = self.constraints_df
 
