@@ -4,16 +4,243 @@ import typing
 
 import harmonica as hm
 import numpy as np
+import pandas as pd
 import pooch
 import verde as vd
 import xarray as xr
 from nptyping import NDArray
+from polartoolkit import fetch, maps
+from polartoolkit import utils as polar_utils
+
 from invert4geom import cross_validation, log, utils
 
 
 def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
     """Used to filter logging."""
     return False
+
+
+def load_synthetic_model(
+    spacing: float = 1e3,
+    region: tuple[float, float, float, float] = (0, 40000, 0, 30000),
+    topography_coarsen_factor: float = 2,
+    topography_percent_noise: float | None = None,
+    number_of_constraints: int | None = None,
+    density_contrast: float | None = None,
+    zref: float | None = None,
+    gravity_obs_height: float = 1000,
+    gravity_noise: float = 0.2,
+    resample_for_cv: bool = False,
+    plot_topography: bool = False,
+    plot_topography_diff: bool = True,
+    plot_gravity: bool = True,
+) -> tuple[xr.DataArray, xr.DataArray, pd.DataFrame, pd.DataFrame]:
+    """
+    Function to perform all necessary steps to create a synthetic model for the examples
+    in the documentation.
+
+    Parameters
+    ----------
+    spacing : float, optional
+        spacing of the grid and gravity, by default 1e3
+    region : tuple[float, float, float, float], optional
+        bounding region for the grid, by default (0, 40000, 0, 30000)
+    topography_coarsen_factor : float, optional
+        factor to coarsen the topography data by for adding noise, by default 2
+    topography_percent_noise : float | None, optional
+        noise decimal percent to add to topography data, by default None
+    number_of_constraints : int | None, optional
+        number of random constraints to use, by default None
+    density_contrast : float | None, optional
+        density contrast to use, by default None
+    zref : float | None, optional
+        reference level to use, by default None
+    gravity_obs_height : float, optional
+        gravity observation height to use, by default 1000
+    gravity_noise : float, optional
+        decimal percentage noise level to add to gravity data, by default 0.2
+    resample_for_cv : bool, optional
+        resample gravity data at half spacing to create train and test sets, by default
+        False
+    plot_topography : bool, optional
+        plot the topography, by default False
+    plot_topography_diff : bool, optional
+        plot the difference between the true and starting topography, by default True
+    plot_gravity : bool, optional
+        plot the gravity data, by default True
+
+    Returns
+    -------
+    tuple[xr.DataArray, xr.DataArray, pd.DataFrame, pd.DataFrame]
+        tuple of: true topography, starting topography, constraint points, gravity data
+    """
+    true_topography = synthetic_topography_simple(spacing, region)
+
+    if topography_percent_noise is not None:
+        true_topography = contaminate_with_long_wavelength_noise(
+            true_topography,
+            coarsen_factor=topography_coarsen_factor,
+            percent_noise=topography_percent_noise,
+        )
+    # create random points within the region
+    if number_of_constraints is not None:
+        coords = vd.scatter_points(
+            region=region,
+            size=number_of_constraints,
+            random_state=7,
+        )
+        constraint_points = pd.DataFrame(
+            data={"easting": coords[0], "northing": coords[1]},
+        )
+
+        # sample simple topography at these points
+        constraint_points = utils.sample_grids(
+            constraint_points,
+            true_topography,
+            "upward",
+            coord_names=("easting", "northing"),
+        )
+
+        log.addFilter(log_filter)
+
+        # grid the sampled values using verde
+        starting_topography = utils.create_topography(
+            method="splines",
+            region=region,
+            spacing=spacing,
+            constraints_df=constraint_points,
+            dampings=np.logspace(-20, 0, 100),
+        )
+        log.removeFilter(log_filter)
+
+        # re-sample the starting topography at the constraint points to see how the
+        # gridded did
+        constraint_points = utils.sample_grids(
+            constraint_points,
+            starting_topography,
+            "starting_topography",
+            coord_names=("easting", "northing"),
+        )
+        rmse = utils.rmse(
+            constraint_points.upward - constraint_points.starting_topography
+        )
+        msg = "RMSE at the constraints between the starting and true topography: %s m"
+        log.info(msg, rmse)
+
+        if plot_topography_diff is True:
+            _ = polar_utils.grd_compare(
+                true_topography,
+                starting_topography,
+                plot=True,
+                grid1_name="True topography",
+                grid2_name="Starting topography",
+                robust=True,
+                hist=True,
+                inset=False,
+                verbose="q",
+                title="difference",
+                grounding_line=False,
+                reverse_cpt=True,
+                cmap="rain",
+                points=constraint_points.rename(
+                    columns={"easting": "x", "northing": "y"}
+                ),
+                points_style="x.3c",
+            )
+    else:
+        starting_topography = None
+        constraint_points = None
+
+    if plot_topography is True:
+        # plot the topography
+        fig = maps.plot_grd(
+            true_topography,
+            fig_height=10,
+            title="True topography",
+            reverse_cpt=True,
+            cmap="rain",
+            cbar_label="elevation (m)",
+            frame=["nSWe", "xaf10000", "yaf10000"],
+        )
+        fig.show()
+
+    if density_contrast is not None:
+        if zref is None:
+            zref = true_topography.values.mean()
+        # prisms above zref have positive density contrast and prisms below zref have
+        # negative density contrast
+        density_grid = xr.where(
+            true_topography >= zref,
+            density_contrast,
+            -density_contrast,
+        )
+
+        # create layer of prisms
+        prisms = utils.grids_to_prisms(
+            true_topography,
+            zref,
+            density=density_grid,
+        )
+
+        # make pandas dataframe of locations to calculate gravity
+        # this represents the station locations of a gravity survey
+        # create lists of coordinates
+        coords = vd.grid_coordinates(
+            region=region,
+            spacing=spacing,
+            pixel_register=False,
+            extra_coords=gravity_obs_height,  # survey elevation
+        )
+
+        # grid the coordinates
+        observations = vd.make_xarray_grid(
+            (coords[0], coords[1]),
+            data=coords[2],
+            data_names="upward",
+            dims=("northing", "easting"),
+        ).upward
+
+        grav_df = vd.grid_to_table(observations)
+
+        # resample to half spacing
+        if resample_for_cv is True:
+            grav_df = cross_validation.resample_with_test_points(
+                spacing, grav_df, region
+            )
+        # pylint: disable=duplicate-code
+        grav_df["gravity_anomaly"] = prisms.prism_layer.gravity(
+            coordinates=(
+                grav_df.easting,
+                grav_df.northing,
+                grav_df.upward,
+            ),
+            field="g_z",
+            progressbar=False,
+        )
+        # pylint: enable=duplicate-code
+        # contaminate gravity with random noise
+        grav_df["gravity_anomaly"], _ = contaminate(
+            grav_df.gravity_anomaly,
+            stddev=gravity_noise,
+            percent=False,
+            seed=0,
+        )
+        if plot_gravity is True:
+            # plot the observed gravity
+            fig = maps.plot_grd(
+                grav_df.set_index(["northing", "easting"]).to_xarray().gravity_anomaly,
+                fig_height=10,
+                title="Forward gravity of true topography",
+                cmap="balance+h0",
+                cbar_label="mGal",
+                frame=["nSWe", "xaf10000", "yaf10000"],
+            )
+            fig.show()
+    else:
+        grav_df = None
+
+    return true_topography, starting_topography, constraint_points, grav_df
+
 
 def contaminate_with_long_wavelength_noise(
     grid: xr.DataArray,
