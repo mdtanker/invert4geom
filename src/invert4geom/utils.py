@@ -794,7 +794,6 @@ def create_topography(
     xr.DataArray
         a topography grid
     """
-
     if method == "flat":
         if registration == "g":
             pixel_register = False
@@ -830,44 +829,15 @@ def create_topography(
         coords = (constraints_df.easting, constraints_df.northing)
 
         if dampings is None:
-            dampings = np.logspace(-10, 0, 20)
-
-        # create a cross validated spline with default values
-        spline = vd.SplineCV(dampings=dampings)
-
-        # fit the spline to the constraint points
-        try:
-            spline.fit(
-                coordinates=coords,
-                data=constraints_df.upward,
-            )
-        except ValueError as e:
-            logging.warning(e)
-            spline = vd.Spline()
-            spline.fit(
-                coordinates=coords,
-                data=constraints_df.upward,
-                weights=weights,
-            )
-            return spline.grid(
-                region=region,
-                spacing=spacing,
-            ).scalars
-
-        try:
-            if spline.damping_ in [np.min(dampings), np.max(dampings)]:
-                logging.warning(
-                    "Warning: best damping parameter (%s) for verde.SplineCV() is at "
-                    "the limit of provided values (%s, %s) and thus is likely not a "
-                    "global minimum, expand the range of values with 'dampings' to "
-                    "ensure the best damping value is found.",
-                    spline.damping_,
-                    np.nanmin(dampings),
-                    np.nanmax(dampings),
-                )
-        except TypeError:
-            pass
-
+            dampings = list(np.logspace(-40, 0, 100))
+            dampings.append(None)  # type: ignore [arg-type]
+        # run CV for fitting a spline to the data
+        spline = best_spline_cv(
+            coordinates=coords,
+            data=constraints_df.upward,
+            weights=weights,
+            dampings=dampings,
+        )
         # grid the fitted spline at desired spacing and region
         return spline.grid(
             region=region,
@@ -975,47 +945,42 @@ def best_spline_cv(
     if isinstance(dampings, (float, int)):
         dampings = [dampings]
 
-    # if dampings is None:
-    #     dampings = list(np.logspace(-10, -2, num=9))
-    #     dampings.append(None)
     spline = vd.SplineCV(
         dampings=dampings,
         delayed=delayed,
         force_coords=force_coords,
     )
-    # with warnings.catch_warnings():
-    # warnings.simplefilter("ignore", sp.linalg.LinAlgWarning)
-    # with HiddenPrints():
+
     spline.fit(
         coordinates,
         data,
         weights=weights,
     )
+    if len(dampings) > 1:  # type: ignore [arg-type]
+        try:
+            log.info("Highest score: %s", spline.scores_.max())
+        except AttributeError:
+            log.info("Highest score: %s", max(dask.compute(spline.scores_)[0]))
 
-    try:
-        logging.info("Highest score: %s", spline.scores_.max())
-    except AttributeError:
-        logging.info("Highest score: %s", max(dask.compute(spline.scores_)[0]))
+        log.info("Best damping: %s", spline.damping_)
 
-    logging.info("Best damping: %s", spline.damping_)
+    dampings_without_none = [i for i in dampings if i is not None]  # type: ignore [union-attr]
 
-    try:
-        if len(dampings) > 2 and spline.damping_ in [  # type: ignore [arg-type]
-            np.min(dampings),
-            np.max(dampings),
-        ]:
-            logging.warning(
-                "Warning: best damping parameter (%s) for verde.SplineCV() is at the "
-                "limit of provided values (%s, %s) and thus is likely not a global "
-                "minimum, expand the range of values with 'dampings' to ensure the best"
-                " damping value is found.",
-                spline.damping_,
-                np.nanmin(dampings),
-                np.nanmax(dampings),
-            )
-
-    except TypeError:
+    if spline.damping_ is None:
         pass
+    elif len(dampings) > 2 and spline.damping_ in [  # type: ignore [arg-type]
+        np.min(dampings_without_none),
+        np.max(dampings_without_none),
+    ]:
+        log.warning(
+            "Warning: best damping parameter (%s) for verde.SplineCV() is at the "
+            "limit of provided values (%s, %s) and thus is likely not a global "
+            "minimum, expand the range of values with 'dampings' to ensure the best"
+            " damping value is found.",
+            spline.damping_,
+            np.nanmin(dampings_without_none),
+            np.nanmax(dampings_without_none),
+        )
 
     return spline
 
