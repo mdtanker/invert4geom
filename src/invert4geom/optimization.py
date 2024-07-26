@@ -1432,7 +1432,7 @@ class OptimalEqSourceParams:
                 self.source_depth_limits[1],
             )
         else:
-            source_depth = self.kwargs.get("source_depth", None)
+            source_depth = self.kwargs.get("source_depth", "default")
             kwargs_to_remove.append("source_depth")
 
         if self.block_size_limits is not None:
