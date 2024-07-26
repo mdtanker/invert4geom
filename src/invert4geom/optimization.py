@@ -2277,7 +2277,16 @@ def optimize_regional_filter(
 
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            optuna.visualization.plot_slice(study).show()
+            if optimize_on_true_regional_misfit is True:
+                plotting.combined_slice(
+                    study,
+                    attribute_names=[
+                        "residual constraint score",
+                        "residual amplitude score",
+                    ],
+                ).show()
+            else:
+                optuna.visualization.plot_slice(study).show()
         else:
             p = optuna.visualization.plot_pareto_front(study)
             plotting.remove_df_from_hoverdata(p).show()
@@ -2411,7 +2420,16 @@ def optimize_regional_trend(
 
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            optuna.visualization.plot_slice(study).show()
+            if optimize_on_true_regional_misfit is True:
+                plotting.combined_slice(
+                    study,
+                    attribute_names=[
+                        "residual constraint score",
+                        "residual amplitude score",
+                    ],
+                ).show()
+            else:
+                optuna.visualization.plot_slice(study).show()
         else:
             p = optuna.visualization.plot_pareto_front(study)
             plotting.remove_df_from_hoverdata(p).show()
@@ -2569,7 +2587,18 @@ def optimize_regional_eq_sources(
 
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            optuna.visualization.plot_slice(study).show()
+            if optimize_on_true_regional_misfit is True:
+                for p in best_trial.params:
+                    plotting.combined_slice(
+                        study,
+                        attribute_names=[
+                            "residual constraint score",
+                            "residual amplitude score",
+                        ],
+                        parameter_name=[p],  # type: ignore[arg-type]
+                    ).show()
+            else:
+                optuna.visualization.plot_slice(study).show()
         else:
             p = optuna.visualization.plot_pareto_front(study)
             plotting.remove_df_from_hoverdata(p).show()
@@ -2781,7 +2810,18 @@ def optimize_regional_constraint_point_minimization(
 
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            optuna.visualization.plot_slice(study).show()
+            if optimize_on_true_regional_misfit is True:
+                for p in best_trial.params:
+                    plotting.combined_slice(
+                        study,
+                        attribute_names=[
+                            "residual constraint score",
+                            "residual amplitude score",
+                        ],
+                        parameter_name=[p],  # type: ignore[arg-type]
+                    ).show()
+            else:
+                optuna.visualization.plot_slice(study).show()
         else:
             p = optuna.visualization.plot_pareto_front(study)
             plotting.remove_df_from_hoverdata(p).show()
@@ -2791,9 +2831,7 @@ def optimize_regional_constraint_point_minimization(
                     target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
                     target_name=j,
                 ).show()
-        if len(study.trials[0].params) > 1:
-            optuna.visualization.plot_param_importances(study).show()
-        if isinstance(testing_df, pd.DataFrame) & (plot_grid is True):
+        if plot_grid is True:
             resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
 
     return study, resulting_grav_df, best_trial
@@ -2876,12 +2914,28 @@ def optimize_regional_constraint_point_minimization_kfolds(
 
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            optuna.visualization.plot_slice(study).show()
+            if kwargs.get("optimize_on_true_regional_misfit") is True:
+                for p in best_trial.params:
+                    plotting.combined_slice(
+                        study,
+                        attribute_names=[
+                            "residual constraint score",
+                            "residual amplitude score",
+                        ],
+                        parameter_name=[p],  # type: ignore[arg-type]
+                    ).show()
+
+            else:
+                optuna.visualization.plot_slice(study).show()
         else:
             p = optuna.visualization.plot_pareto_front(study)
             plotting.remove_df_from_hoverdata(p).show()
-        if len(study.trials[0].params) > 1:
-            optuna.visualization.plot_param_importances(study).show()
+            for i, j in enumerate(study.metric_names):
+                optuna.visualization.plot_slice(
+                    study,
+                    target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                    target_name=j,
+                ).show()
         if plot_grid is True:
             resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
 
