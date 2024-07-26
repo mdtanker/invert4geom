@@ -161,7 +161,13 @@ def plot_2_parameter_cv_scores_uneven(
     yi = np.linspace(min(y), max(y))
     xi, yi = np.meshgrid(xi, yi)
 
-    interp = sp.interpolate.CloughTocher2DInterpolator(list(zip(x, y)), z)
+    try:
+        interp = sp.interpolate.CloughTocher2DInterpolator(list(zip(x, y)), z)
+    except ValueError as e:
+        log.error(
+            "Error interpolating value in plot_2_parameter_cv_scores_uneven: %s", e
+        )
+        return
     zi = interp(xi, yi)
 
     # plt.pcolormesh(xi, yi, zi, cmap=cmap, shading='auto')
