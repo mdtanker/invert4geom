@@ -1146,7 +1146,13 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     plot_cv : bool, optional
         Choose whether to plot the cross validation results, by default False
     fname : str, optional
-        filename to save results to, by default None
+        filename and path to use for saving results. If running a single inversion, will
+        save the tuple of inversion results to <name>.pickle. If running a damping
+        CV, will save the study to <fname>_damping_cv_study.pickle and the tuple of the
+        best inversion results to <fname>_damping_cv_results.pickle.If running a
+        density/zref CV, will save the study to <fname>_density_zref_cv_study.pickle and
+        the tuple of the best inversion results to
+        <fname>_density_zref_cv_results.pickle
     kwargs : typing.Any
         keyword arguments for the workflow and inversion, such as
         `starting_topography_kwargs`, `regional_grav_kwargs`, and all the other kwargs
@@ -1167,9 +1173,11 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     starting_topography = kwargs.get("starting_topography", None)
     starting_prisms = kwargs.get("starting_prisms", None)
 
-    # get gravity data
-    grav_df = grav_df.copy()
+    # set file name for saving results with random number between 0 and 999
+    if fname is None:
+        fname = f"tmp_{random.randint(0,999)}"
 
+    log.info("saving all results with root name '%s'", fname)
     if run_damping_cv is True:
         if (
             ("test" in grav_df.columns)
@@ -1387,7 +1395,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             n_trials=damping_cv_trials,
             grid_search=kwargs.get("grid_search", False),
             plot_grids=False,
-            fname=kwargs.get("damping_cv_fname", f"{fname}_damping_cv"),
+            fname=f"{fname}_damping_cv",
             prism_layer=starting_prisms,
             score_as_median=kwargs.get("score_as_median", False),
             plot_cv=plot_cv,
@@ -1426,13 +1434,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         zref=kwargs.get("zref", None),
         n_trials=zref_density_cv_trials,
         starting_topography=starting_topography,
-        regional_grav_kwargs={
-            "regional_method": regional_grav_kwargs.get("regional_method", None),
-            **regional_grav_kwargs,
-        },
-        grid_search=kwargs.get("grid_search", False),
-        fname=kwargs.get("zref_density_cv_fname", f"{fname}_zref_density_cv"),
-        score_as_median=kwargs.get("score_as_median", False),
+        fname=f"{fname}_zref_density_cv",
         plot_cv=plot_cv,
         **inversion_kwargs,
     )
