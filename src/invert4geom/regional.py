@@ -482,6 +482,8 @@ def regional_constraints(
                 spline_damping_values.append(None)
         else:
             spline_damping_values = spline_damping
+        if spline_damping_values is None:
+            spline_damping_values = [None]
         spline = utils.best_spline_cv(
             coordinates=(
                 constraints_df.easting,
