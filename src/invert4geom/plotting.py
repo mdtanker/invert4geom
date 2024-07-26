@@ -603,10 +603,9 @@ def grid_inversion_results(
 
 def plot_inversion_topo_results(
     prisms_ds: xr.Dataset,
-    topo_cmap_perc: float = 1,
     region: tuple[float, float, float, float] | None = None,
     constraints_df: pd.DataFrame | None = None,
-    constraint_size: float = 1,
+    constraint_style: str = "x.3c",
 ) -> None:
     """
     plot the initial and final topography grids from the inversion and their difference
@@ -621,108 +620,39 @@ def plot_inversion_topo_results(
         clip grids to this region before plotting
     constraints_df : pd.DataFrame, optional
         constraint points to include in the plots
-    constraint_size : float, optional
-        size for constraint points, by default 1
+    constraint_style : str, optional
+        pygmt style string for for constraint points, by default 'x.3c'
     """
-    # Check if matplotlib is installed
-    if plt is None:
-        msg = "Missing optional dependency 'matplotlib' required for plotting."
-        raise ImportError(msg)
 
     initial_topo = prisms_ds.starting_topo
 
     final_topo = prisms_ds.topo
 
-    if region is not None:
-        initial_topo = initial_topo.sel(
-            easting=slice(region[0], region[1]),
-            northing=slice(region[2], region[3]),
-        )
-        final_topo = final_topo.sel(
-            easting=slice(region[0], region[1]),
-            northing=slice(region[2], region[3]),
-        )
-
-    dif = initial_topo - final_topo
-
-    robust = True
-
-    topo_lims = []
-    for g in [initial_topo, final_topo]:
-        topo_lims.append(polar_utils.get_min_max(g))
-
-    topo_min = min([i[0] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
-    topo_max = max([i[1] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
-
-    # set figure parameters
-    sub_width = 5
-    nrows, ncols = 1, 3
-
-    # setup subplot figure
-    fig, ax = plt.subplots(
-        nrows=nrows,
-        ncols=ncols,
-        figsize=(sub_width * ncols, sub_width * nrows),
-    )
-
-    initial_topo.plot(
-        ax=ax[0],
-        robust=robust,
-        cmap="gist_earth",
-        vmin=topo_min,
-        vmax=topo_max,
-        cbar_kwargs={
-            "orientation": "horizontal",
-            "anchor": (1, 1),
-            "fraction": 0.05,
-            "pad": 0.04,
-        },
-    )
-    ax[0].set_title("initial topography")
-
-    dif.plot(
-        ax=ax[1],
-        robust=True,
-        cmap="RdBu_r",
-        cbar_kwargs={
-            "orientation": "horizontal",
-            "anchor": (1, 1),
-            "fraction": 0.05,
-            "pad": 0.04,
-        },
-    )
-    rmse = utils.rmse(dif)
-    ax[1].set_title(f"difference, RMSE: {round(rmse,2)}m")
     if constraints_df is not None:
-        ax[1].plot(
-            constraints_df.easting,
-            constraints_df.northing,
-            "k.",
-            markersize=constraint_size,
-        )
-    final_topo.plot(
-        ax=ax[2],
-        robust=robust,
-        cmap="gist_earth",
-        vmin=topo_min,
-        vmax=topo_max,
-        cbar_kwargs={
-            "orientation": "horizontal",
-            "anchor": (1, 1),
-            "fraction": 0.05,
-            "pad": 0.04,
-        },
+        points = constraints_df.rename(columns={"easting": "x", "northing": "y"})
+    else:
+        points = None
+
+    # pylint: disable=duplicate-code
+    _ = polar_utils.grd_compare(
+        initial_topo,
+        final_topo,
+        region=region,
+        plot=True,
+        grid1_name="Initial topography",
+        grid2_name="Inverted topography",
+        robust=True,
+        hist=True,
+        inset=False,
+        verbose="q",
+        title="difference",
+        grounding_line=False,
+        reverse_cpt=True,
+        cmap="rain",
+        points=points,
+        points_style=constraint_style,
     )
-    ax[2].set_title("final topography")
-
-    for a in ax:
-        a.set_xticklabels([])
-        a.set_yticklabels([])
-        a.set_xlabel("")
-        a.set_ylabel("")
-        a.set_aspect("equal")
-
-    fig.tight_layout()
+    # pylint: enable=duplicate-code
 
 
 def plot_inversion_grav_results(
@@ -766,8 +696,10 @@ def plot_inversion_grav_results(
         plot=True,
         grid1_name=f"Initial misfit: RMSE={round(initial_rmse, 2)} mGal",
         grid2_name=f"Final misfit: RMSE={round(final_rmse, 2)} mGal",
-        plot_type="xarray",
-        cmap="RdBu_r",
+        # plot_type="xarray",
+        # cmap="RdBu_r",
+        plot_type="pygmt",
+        cmap="balance+h0",
         robust=True,
         hist=True,
         inset=False,
@@ -775,7 +707,7 @@ def plot_inversion_grav_results(
         title="difference",
         diff_maxabs=True,
         points=points,
-        points_style="x.15c",
+        points_style="x.3c",
     )
 
 
@@ -1112,10 +1044,9 @@ def plot_inversion_results(
     if plot_topo_results is True:
         plot_inversion_topo_results(
             prisms_ds,
-            topo_cmap_perc=kwargs.get("topo_cmap_perc", 1),
             region=grav_region,
             constraints_df=constraints_df,
-            constraint_size=kwargs.get("constraint_size", 1),
+            constraint_style=kwargs.get("constraint_style", "x.3c"),
         )
 
     if plot_grav_results is True:
