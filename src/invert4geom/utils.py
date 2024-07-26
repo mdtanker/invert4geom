@@ -414,6 +414,10 @@ def sample_grids(
     except KeyError:
         df1 = df.copy()
 
+    if "index" in df1.columns:
+        msg = "index column must be removed or renamed before sampling"
+        raise ValueError(msg)
+
     df2 = df1.copy()
 
     # reset the index
