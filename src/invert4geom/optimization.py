@@ -1774,10 +1774,12 @@ class OptimizeRegionalTrend:
         self,
         trend_limits: tuple[int, int],
         optimize_on_true_regional_misfit: bool = False,
+        separate_metrics: bool = False,
         **kwargs: typing.Any,
     ) -> None:
         self.trend_limits = trend_limits
         self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
+        self.separate_metrics = separate_metrics
         self.kwargs = kwargs
 
     def __call__(self, trial: optuna.trial) -> tuple[float, float] | float:
@@ -1817,7 +1819,12 @@ class OptimizeRegionalTrend:
             trial.set_user_attr("residual constraint score", residual_constraint_score)
             trial.set_user_attr("residual amplitude score", residual_amplitude_score)
             return true_reg_score  # type: ignore[return-value]
-        return res_score, reg_score
+
+        if self.separate_metrics is True:
+            return residual_constraint_score, residual_amplitude_score
+
+        # combine the two metrics into one
+        return residual_constraint_score / residual_amplitude_score
 
 
 class OptimizeRegionalFilter:
@@ -1830,10 +1837,12 @@ class OptimizeRegionalFilter:
         self,
         filter_width_limits: tuple[float, float],
         optimize_on_true_regional_misfit: bool = False,
+        separate_metrics: bool = False,
         **kwargs: typing.Any,
     ) -> None:
         self.filter_width_limits = filter_width_limits
         self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
+        self.separate_metrics = separate_metrics
         self.kwargs = kwargs
 
     def __call__(self, trial: optuna.trial) -> float:
@@ -1873,7 +1882,12 @@ class OptimizeRegionalFilter:
             trial.set_user_attr("residual constraint score", residual_constraint_score)
             trial.set_user_attr("residual amplitude score", residual_amplitude_score)
             return true_reg_score  # type: ignore[return-value]
-        return res_score, reg_score  # type: ignore[return-value]
+
+        if self.separate_metrics is True:
+            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
+
+        # combine the two metrics into one
+        return residual_constraint_score / residual_amplitude_score
 
 
 class OptimizeRegionalEqSources:
@@ -1889,12 +1903,14 @@ class OptimizeRegionalEqSources:
         block_size_limits: tuple[float, float] | None = None,
         eq_damping_limits: tuple[float, float] | None = None,
         optimize_on_true_regional_misfit: bool = False,
+        separate_metrics: bool = False,
         **kwargs: typing.Any,
     ) -> None:
         self.source_depth_limits = source_depth_limits
         self.block_size_limits = block_size_limits
         self.eq_damping_limits = eq_damping_limits
         self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
+        self.separate_metrics = separate_metrics
         self.kwargs = kwargs
 
     def __call__(self, trial: optuna.trial) -> float:
@@ -1967,7 +1983,12 @@ class OptimizeRegionalEqSources:
             trial.set_user_attr("residual constraint score", residual_constraint_score)
             trial.set_user_attr("residual amplitude score", residual_amplitude_score)
             return true_reg_score  # type: ignore[return-value]
-        return res_score, reg_score  # type: ignore[return-value]
+
+        if self.separate_metrics is True:
+            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
+
+        # combine the two metrics into one
+        return residual_constraint_score / residual_amplitude_score
 
 
 class OptimizeRegionalConstraintsPointMinimization:
@@ -1993,6 +2014,7 @@ class OptimizeRegionalConstraintsPointMinimization:
         grav_obs_height_limits: tuple[float, float] | None = None,
         # other args
         optimize_on_true_regional_misfit: bool = False,
+        separate_metrics: bool = False,
         progressbar: bool = False,
         **kwargs: typing.Any,
     ) -> None:
@@ -2006,6 +2028,7 @@ class OptimizeRegionalConstraintsPointMinimization:
         self.eq_damping_limits = eq_damping_limits
         self.grav_obs_height_limits = grav_obs_height_limits
         self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
+        self.separate_metrics = separate_metrics
         self.progressbar = progressbar
         self.kwargs = kwargs
 
@@ -2151,7 +2174,12 @@ class OptimizeRegionalConstraintsPointMinimization:
             trial.set_user_attr("residual constraint score", residual_constraint_score)
             trial.set_user_attr("residual amplitude score", residual_amplitude_score)
             return true_reg_score  # type: ignore[no-any-return]
-        return res_score, reg_score  # type: ignore[return-value]
+
+        if self.separate_metrics is True:
+            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
+
+        # combine the two metrics into one
+        return residual_constraint_score / residual_amplitude_score  # type: ignore[no-any-return]
 
 
 def optimize_regional_filter(
@@ -2166,6 +2194,7 @@ def optimize_regional_filter(
     plot: bool = False,
     plot_grid: bool = False,
     optimize_on_true_regional_misfit: bool = False,
+    separate_metrics: bool = False,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal filter width for estimating the
@@ -2209,6 +2238,10 @@ def optimize_regional_filter(
     optimize_on_true_regional_misfit : bool, optional
         if true_regional grid is provide, choose to perform optimization on the RMSE
         between the true regional and the estimated region, by default False
+    separate_metrics : bool, optional
+        if True, return both the residual and regional scores separately, by default
+        False and returns the scores combined with the formula
+        residual constraints score / residual amplitude score
 
     Returns
     -------
@@ -2227,6 +2260,12 @@ def optimize_regional_filter(
         )
 
     if optimize_on_true_regional_misfit is True:
+        if separate_metrics is True:
+            msg = (
+                "either set `optimize_on_true_regional_misfit=True` or "
+                "`separate_metrics=True`, not both"
+            )
+            raise ValueError(msg)
         if true_regional is None:
             msg = (
                 "if optimizing on true regional misfit, must provide true_regional grid"
@@ -2238,14 +2277,23 @@ def optimize_regional_filter(
             load_if_exists=False,
         )
     else:
-        study = optuna.create_study(
-            directions=[
-                "minimize",
-                "maximize",
-            ],
-            sampler=sampler,
-            load_if_exists=False,
-        )
+        if separate_metrics is True:
+            study = optuna.create_study(
+                directions=[
+                    "minimize",
+                    "maximize",
+                ],
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["residual at constraints", "amplitude of residual"])
+        else:
+            study = optuna.create_study(
+                direction="minimize",
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["combined scores"])
 
     # run optimization
     study.optimize(
@@ -2256,6 +2304,7 @@ def optimize_regional_filter(
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            separate_metrics=separate_metrics,
             remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=n_trials,
@@ -2313,6 +2362,7 @@ def optimize_regional_trend(
     plot: bool = False,
     plot_grid: bool = False,
     optimize_on_true_regional_misfit: bool = False,
+    separate_metrics: bool = False,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal trend order for estimating the
@@ -2354,6 +2404,10 @@ def optimize_regional_trend(
     optimize_on_true_regional_misfit : bool, optional
         if true_regional grid is provide, choose to perform optimization on the RMSE
         between the true regional and the estimated region, by default False
+    separate_metrics : bool, optional
+        if True, return both the residual and regional scores separately, by default
+        False and returns the scores combined with the formula
+        residual constraints score / residual amplitude score
 
     Returns
     -------
@@ -2371,6 +2425,12 @@ def optimize_regional_trend(
         )
 
     if optimize_on_true_regional_misfit is True:
+        if separate_metrics is True:
+            msg = (
+                "either set `optimize_on_true_regional_misfit=True` or "
+                "`separate_metrics=True`, not both"
+            )
+            raise ValueError(msg)
         if true_regional is None:
             msg = (
                 "if optimizing on true regional misfit, must provide true_regional grid"
@@ -2382,14 +2442,23 @@ def optimize_regional_trend(
             load_if_exists=False,
         )
     else:
-        study = optuna.create_study(
-            directions=[
-                "minimize",
-                "maximize",
-            ],
-            sampler=sampler,
-            load_if_exists=False,
-        )
+        if separate_metrics is True:
+            study = optuna.create_study(
+                directions=[
+                    "minimize",
+                    "maximize",
+                ],
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["residual at constraints", "amplitude of residual"])
+        else:
+            study = optuna.create_study(
+                direction="minimize",
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["combined scores"])
 
     # run optimization
     study.optimize(
@@ -2400,6 +2469,7 @@ def optimize_regional_trend(
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            separate_metrics=separate_metrics,
             remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         show_progress_bar=True,
@@ -2462,6 +2532,7 @@ def optimize_regional_eq_sources(
     plot: bool = False,
     plot_grid: bool = False,
     optimize_on_true_regional_misfit: bool = False,
+    separate_metrics: bool = False,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal equivalent source parameters for
@@ -2515,6 +2586,10 @@ def optimize_regional_eq_sources(
     optimize_on_true_regional_misfit : bool, optional
         if true_regional grid is provide, choose to perform optimization on the RMSE
         between the true regional and the estimated region, by default False
+    separate_metrics : bool, optional
+        if True, return both the residual and regional scores separately, by default
+        False and returns the scores combined with the formula
+        residual constraints score / residual amplitude score
 
     Returns
     -------
@@ -2533,6 +2608,12 @@ def optimize_regional_eq_sources(
         )
 
     if optimize_on_true_regional_misfit is True:
+        if separate_metrics is True:
+            msg = (
+                "either set `optimize_on_true_regional_misfit=True` or "
+                "`separate_metrics=True`, not both"
+            )
+            raise ValueError(msg)
         if true_regional is None:
             msg = (
                 "if optimizing on true regional misfit, must provide true_regional grid"
@@ -2544,14 +2625,24 @@ def optimize_regional_eq_sources(
             load_if_exists=False,
         )
     else:
-        study = optuna.create_study(
-            directions=[
-                "minimize",
-                "maximize",
-            ],
-            sampler=sampler,
-            load_if_exists=False,
-        )
+        if separate_metrics is True:
+            study = optuna.create_study(
+                directions=[
+                    "minimize",
+                    "maximize",
+                ],
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["residual at constraints", "amplitude of residual"])
+        else:
+            study = optuna.create_study(
+                direction="minimize",
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["combined scores"])
+
     # run optimization
     study.optimize(
         OptimizeRegionalEqSources(
@@ -2566,6 +2657,7 @@ def optimize_regional_eq_sources(
             block_size=block_size,
             eq_damping=eq_damping,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            separate_metrics=separate_metrics,
             remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=n_trials,
@@ -2640,6 +2732,7 @@ def optimize_regional_constraint_point_minimization(
     progressbar: bool = True,
     fold_progressbar: bool = False,
     optimize_on_true_regional_misfit: bool = False,
+    separate_metrics: bool = False,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal hyperparameters for the Constraint
@@ -2722,6 +2815,10 @@ def optimize_regional_constraint_point_minimization(
     optimize_on_true_regional_misfit : bool, optional
         if true_regional grid is provide, choose to perform optimization on the RMSE
         between the true regional and the estimated region, by default False
+    separate_metrics : bool, optional
+        if True, return both the residual and regional scores separately, by default
+        False and returns the scores combined with the formula
+        residual constraints score / residual amplitude score
 
     Returns
     -------
@@ -2740,6 +2837,12 @@ def optimize_regional_constraint_point_minimization(
         )
 
     if optimize_on_true_regional_misfit is True:
+        if separate_metrics is True:
+            msg = (
+                "either set `optimize_on_true_regional_misfit=True` or "
+                "`separate_metrics=True`, not both"
+            )
+            raise ValueError(msg)
         if true_regional is None:
             msg = (
                 "if optimizing on true regional misfit, must provide true_regional grid"
@@ -2751,15 +2854,23 @@ def optimize_regional_constraint_point_minimization(
             load_if_exists=False,
         )
     else:
-        study = optuna.create_study(
-            directions=[
-                "minimize",
-                "maximize",
-            ],
-            sampler=sampler,
-            load_if_exists=False,
-        )
-
+        if separate_metrics is True:
+            study = optuna.create_study(
+                directions=[
+                    "minimize",
+                    "maximize",
+                ],
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["residual at constraints", "amplitude of residual"])
+        else:
+            study = optuna.create_study(
+                direction="minimize",
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["combined scores"])
     if isinstance(training_df, list):
         msg = (
             "training and testing data supplied as lists of dataframe, using them "
@@ -2788,6 +2899,7 @@ def optimize_regional_constraint_point_minimization(
             eq_damping=eq_damping,
             grav_obs_height=grav_obs_height,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+            separate_metrics=separate_metrics,
             remove_starting_grav_mean=remove_starting_grav_mean,
             progressbar=fold_progressbar,
         ),
