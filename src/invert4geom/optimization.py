@@ -1481,6 +1481,7 @@ def optimize_eq_source_params(
     weights: NDArray | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
     plot: bool = False,
+    progressbar: bool = True,
     **kwargs: typing.Any,
 ) -> tuple[optuna.study, hm.EquivalentSources]:
     """
@@ -1510,7 +1511,8 @@ def optimize_eq_source_params(
         specify which Optuna sampler to use, by default None
     plot : bool, optional
         plot the resulting optimization figures, by default False
-
+    progressbar : bool, optional
+        add a progressbar, by default True
     Returns
     -------
     tuple[optuna., hm.EquivalentSources]
@@ -1532,6 +1534,11 @@ def optimize_eq_source_params(
         load_if_exists=False,
     )
 
+    if num_params == 1:
+        callbacks = [warn_limits_better_than_trial_1_param]
+    else:
+        callbacks = [warn_limits_better_than_trial_multi_params]
+
     study.optimize(
         OptimalEqSourceParams(
             source_depth_limits=source_depth_limits,
@@ -1543,8 +1550,8 @@ def optimize_eq_source_params(
             **kwargs,
         ),
         n_trials=n_trials,
-        # callbacks=[logging_callback],
-        show_progress_bar=True,
+        callbacks=callbacks,
+        show_progress_bar=progressbar,
     )
 
     log.info("Best params: %s", study.best_params)
