@@ -23,20 +23,13 @@ from tqdm.autonotebook import tqdm
 
 from invert4geom import cross_validation, inversion, log, plotting, regional, utils
 
-try:
-    import joblib
-except ImportError:
-    joblib = None
+import joblib
 
-try:
-    import psutil
-except ImportError:
-    psutil = None
 
-try:
-    from tqdm_joblib import tqdm_joblib
-except ImportError:
-    tqdm_joblib = None
+import psutil
+
+
+from tqdm_joblib import tqdm_joblib
 
 
 
@@ -234,9 +227,6 @@ def available_cpu_count() -> typing.Any:
 
     # https://github.com/giampaolo/psutil
     try:
-        if psutil is None:
-            msg = "Missing optional dependency 'psutil' required for optimization."
-            raise ImportError(msg)
         return psutil.cpu_count()  # psutil.NUM_CPUS on old versions
     except (ImportError, AttributeError):
         pass
@@ -411,13 +401,6 @@ def optuna_max_cores(
     Set up optuna optimization in parallel splitting up the number of trials over all
     available cores.
     """
-    if joblib is None:
-        msg = "Missing optional dependency 'joblib' required for optimization."
-        raise ImportError(msg)
-
-    if tqdm_joblib is None:
-        msg = "Missing optional dependency 'tqdm_joblib' required for optimization."
-        raise ImportError(msg)
 
     # get available cores (UNIX and Windows)
     # num_cores = len(psutil.Process().cpu_affinity())
@@ -451,13 +434,6 @@ def optuna_1job_per_core(
     """
     Set up optuna optimization in parallel giving each available core 1 trial.
     """
-    if joblib is None:
-        msg = "Missing optional dependency 'joblib' required for optimization."
-        raise ImportError(msg)
-
-    if tqdm_joblib is None:
-        msg = "Missing optional dependency 'tqdm_joblib' required for optimization."
-        raise ImportError(msg)
 
     trials_per_job = 1
     with tqdm_joblib(desc="Optimizing", total=n_trials) as _:
