@@ -231,7 +231,7 @@ def regional_trend(
 
 def regional_eq_sources(
     grav_df: pd.DataFrame,
-    source_depth: float,
+    source_depth: float | str = "default",
     eq_damping: float | None = None,
     block_size: float | None = None,
     grav_obs_height: float | None = None,
