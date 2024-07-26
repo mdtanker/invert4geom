@@ -1475,8 +1475,8 @@ def optimize_eq_source_params(
     data: pd.Series | NDArray,
     points: NDArray | None = None,
     n_trials: int = 100,
-    eq_damping_limits: tuple[float, float] = (0, 10**3),
-    source_depth_limits: tuple[float, float] = (0, 10e6),
+    eq_damping_limits: tuple[float, float] | None = None,
+    source_depth_limits: tuple[float, float] | None = None,
     block_size_limits: tuple[float, float] | None = None,
     weights: NDArray | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
@@ -1558,10 +1558,22 @@ def optimize_eq_source_params(
     log.info("Best trial: %s", study.best_trial.number)
     log.info("Best score: %s", study.best_trial.value)
 
+    best_damping = study.best_params.get("eq_damping", None)
+    if best_damping is None:
+        best_damping = kwargs.get("damping")
+
+    best_source_depth = study.best_params.get("source_depth", None)
+    if best_source_depth is None:
+        best_source_depth = kwargs.get("source_depth", None)
+
+    best_block_size = study.best_params.get("block_size", None)
+    if best_block_size is None:
+        best_block_size = kwargs.get("block_size", None)
+
     eqs = hm.EquivalentSources(
-        damping=study.best_params.get("eq_damping"),
-        depth=study.best_params.get("source_depth"),
-        block_size=study.best_params.get("block_size"),
+        damping=best_damping,
+        depth=best_source_depth,
+        block_size=best_block_size,
         points=points,
     )
     eqs.fit(coordinates, data, weights=weights)
