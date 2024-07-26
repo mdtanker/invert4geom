@@ -105,7 +105,7 @@ def resample_with_test_points(
     # test with this, using same input spacing as original
     # pd.testing.assert_frame_equal(df2, full_res_grav, check_like=True,)
 
-    return df2
+    return df2.dropna()
 
 
 def grav_cv_score(
