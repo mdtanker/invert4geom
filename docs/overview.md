@@ -17,6 +17,7 @@ Typically use cases for these style of inversion are modeling the topography of 
 
 Currently, this package is only intended to perform inversions using right rectangular prisms.
 Other types of volumes, such as tesseroids, are currently not implemented.
+If you have interest in these, please raise an issue in GitHub.
 
 Much of this software was developed as part of my Ph.D. thesis.
 For detailed description of the theory and implementation of this inversion, as well as many synthetic tests and a real-world application to modelling bathymetry, see chapter 3 and 4 of my thesis, available [here](https://doi.org/10.26686/wgtn.24408304).
@@ -24,11 +25,11 @@ The code was originally included in [this GitHub repository](https://github.com/
 
 ## Conventions
 
-This package follows a few conventions which need to be followed for the code to work.
+This package has a few conventions which need to be followed for the code to work.
 1) Coordinates names for gravity data, topography, and _a priori_ constraints need to be projected units (meters) and named `easting`, `northing`, and  `upward`.
 If you use names such as `x`, `y`, and `z`, please rename them.
-2) The gravity misfit data needs to be supplied in a column named `misfit`, however, the observed gravity can be supplied with any column name (e.g. `topo_disturbance`, `FA_grav`) and the column name is provided to various functions with the keyword argument `grav_data_column`.
-3) Similarly, the regional component of the gravity misfit must be supplied in a column named `reg`, and the residual component in a column named `res`.
+2) The observed gravity data, whether its a Free Air anomaly, gravity disturbance, or some other form of anomaly, needs to be in a column called `gravity_anomly` in the gravity dataframe. The forward gravity of your starting model (set equal to 0 if you're starting model is flat) needs to be in a column called `starting_gravity`.
+3) Similarly, the gravity misfit must be in a column called `misfit`, the regional component in a column named `reg`, and the residual component in a column named `res`.
 If you use the regional separation functions in `regional.py`, these names will automatically be used.
 4) Gravity data must be in projected coordinates and gridded!
 If your data is in geographic coordinates (latitude/longitude) and consists of only the observations points, it must be gridded into an Xarray DataArray with projected coordinates. Please see the Python packages `Harmonica` for a geophysically-informed method of gridding discrete gravity data (the Equivalent Source technique), and `Verde` for projecting data.
