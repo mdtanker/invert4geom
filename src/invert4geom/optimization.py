@@ -1458,20 +1458,14 @@ def optimize_inversion_zref_density_contrast_kfolds(
         ]
     }
     # run the inversion workflow
-    log.addFilter(log_filter)
-    final_inversion_results = inversion.run_inversion_workflow(
-        create_starting_prisms=True,
-        starting_prisms_kwargs={
-            "zref": zref,
-            "density_contrast": density_contrast,
-        },
-        calculate_regional_misfit=True,
-        regional_grav_kwargs=regional_grav_kwargs_original,
-        fname=fname,
-        plot_convergence=True,
-        **new_kwargs,
-    )
-    log.removeFilter(log_filter)
+    with utils.log_level(logging.WARN):
+        final_inversion_results = inversion.run_inversion_workflow(
+            create_starting_prisms=True,
+            calculate_regional_misfit=True,
+            regional_grav_kwargs=regional_grav_kwargs_original,
+            plot_convergence=True,
+            **new_kwargs,
+        )
 
     if plot_cv is True:
         if kwargs.get("zref_limits", None) is None:
