@@ -559,9 +559,10 @@ def optimize_inversion_damping(
     grid_search : bool, optional
         search the entire parameter space between damping_limits in n_trial steps, by
         default False
-    fname : str | None, optional
-        file name to save both study and inversion results to as pickle files, by
-        default in format `tmp_{random.randint(0,999)}`.
+    file name to save both study and inversion results to as pickle files, by
+        default fname is `tmp_x_damping_cv where x is a random integer between 0 and
+        999 and will save study to <fname>_study.pickle and tuple of inversion results
+        to <fname>_results.pickle.
     plot_cv : bool, optional
         plot the cross-validation results, by default True
     plot_grids : bool, optional
@@ -610,7 +611,7 @@ def optimize_inversion_damping(
 
     # set file name for saving results with random number between 0 and 999
     if fname is None:
-        fname = f"tmp_{random.randint(0,999)}"
+        fname = f"tmp_{random.randint(0,999)}_damping_cv"
 
     study = optuna.create_study(
         direction="minimize",
@@ -663,19 +664,21 @@ def optimize_inversion_damping(
     with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
         inv_results = pickle.load(f)
 
-    # delete other inversion results
-    for i in range(n_trials):
-        if i == best_trial.number:
-            pass
-        else:
-            pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
-
     # remove if exists
-    pathlib.Path(fname).unlink(missing_ok=True)
+    pathlib.Path(f"{fname}_study.pickle").unlink(missing_ok=True)
+    pathlib.Path(f"{fname}_results.pickle").unlink(missing_ok=True)
 
     # save study to pickle
-    with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+    with pathlib.Path(f"{fname}_study.pickle").open("wb") as f:
         pickle.dump(study, f)
+
+    # save inversion results tuple to pickle
+    with pathlib.Path(f"{fname}_results.pickle").open("wb") as f:
+        pickle.dump(inv_results, f)
+
+    # delete all inversion results
+    for i in range(n_trials):
+        pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
 
     if plot_cv is True:
         plotting.plot_cv_scores(
@@ -1066,8 +1069,10 @@ def optimize_inversion_zref_density_contrast(
         provided limits in intervals set by n_trials (for 1 parameter optimizations), or
         by the square root of n_trials (for 2 parameter optimizations), by default False
     fname : str | None, optional
-        filename to save both the inversion results and study to as pickle files, by
-        default None
+        file name to save both study and inversion results to as pickle files, by
+        default fname is `tmp_x_zref_density_cv where x is a random integer between 0
+        and 999 and will save study to <fname>_study.pickle and tuple of inversion
+        results to <fname>_results.pickle.
     plot_cv : bool, optional
         plot the cross-validation results, by default True
     logx : bool, optional
@@ -1190,7 +1195,7 @@ def optimize_inversion_zref_density_contrast(
 
     # set file name for saving results with random number between 0 and 999
     if fname is None:
-        fname = f"tmp_{random.randint(0,999)}"
+        fname = f"tmp_{random.randint(0,999)}_zref_density_cv"
 
     study = optuna.create_study(
         direction="minimize",
@@ -1299,23 +1304,25 @@ def optimize_inversion_zref_density_contrast(
     log.info("\tparameter: %s", best_trial.params)
     log.info("\tscores: %s", best_trial.values)
 
-    # get best inversion result of each
+    # get best inversion result of each set
     with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
         inv_results = pickle.load(f)
 
-    # delete other inversion results
-    for i in range(n_trials):
-        if i == best_trial.number:
-            pass
-        else:
-            pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
-
     # remove if exists
-    pathlib.Path(fname).unlink(missing_ok=True)
+    pathlib.Path(f"{fname}_study.pickle").unlink(missing_ok=True)
+    pathlib.Path(f"{fname}_results.pickle").unlink(missing_ok=True)
 
     # save study to pickle
-    with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+    with pathlib.Path(f"{fname}_study.pickle").open("wb") as f:
         pickle.dump(study, f)
+
+    # save inversion results tuple to pickle
+    with pathlib.Path(f"{fname}_results.pickle").open("wb") as f:
+        pickle.dump(inv_results, f)
+
+    # delete all inversion results
+    for i in range(n_trials):
+        pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
 
     if plot_cv is True:
         if zref_limits is None:
@@ -1437,10 +1444,6 @@ def optimize_inversion_zref_density_contrast_kfolds(
         zref = kwargs.get("zref")
     if density_contrast is None:
         density_contrast = kwargs.get("density_contrast")
-
-    fname = kwargs.get("fname", None)
-    if fname is not None:
-        fname = f"{fname}_inversion_results"
 
     new_kwargs = {
         key: value
