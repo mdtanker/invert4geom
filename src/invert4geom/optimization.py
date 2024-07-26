@@ -1,6 +1,7 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
 import itertools
+import logging
 import math
 import multiprocessing
 import os
@@ -38,9 +39,6 @@ except ImportError:
     tqdm_joblib = None
 
 
-def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
-    """Used to filter logging."""
-    return False
 
 
 def logging_callback(
@@ -946,14 +944,12 @@ class OptimalInversionZrefDensity:
             # for each fold, run CV
             scores = []
             for i, _ in enumerate(pbar):
-                log.addFilter(log_filter)
-                grav_df = regional.regional_separation(
-                    method=regional_method,
-                    grav_df=grav_df,
-                    constraints_df=training_constraints[i],
-                    **reg_kwargs,
-                )
-                log.removeFilter(log_filter)
+                with utils.log_level(logging.WARN):
+                    grav_df = regional.regional_separation(
+                        grav_df=grav_df,
+                        constraints_df=training_constraints[i],
+                        **reg_kwargs,
+                    )
 
                 new_kwargs = {
                     key: value
@@ -986,13 +982,11 @@ class OptimalInversionZrefDensity:
         else:
             assert isinstance(self.constraints_df, pd.DataFrame)
 
-            log.addFilter(log_filter)
-            grav_df = regional.regional_separation(
-                method=reg_kwargs.pop("regional_method", None),
-                grav_df=grav_df,
-                **reg_kwargs,
-            )
-            log.removeFilter(log_filter)
+            with utils.log_level(logging.WARN):
+                grav_df = regional.regional_separation(
+                    grav_df=grav_df,
+                    **reg_kwargs,
+                )
 
             new_kwargs = {
                 key: value
@@ -1803,16 +1797,7 @@ class OptimizeRegionalTrend:
             self.trend_limits[1],
         )
 
-        log.addFilter(log_filter)
-
-        residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
-            cross_validation.regional_separation_score(
-                method="trend",
-                trend=trend,
-                **self.kwargs,
-            )
-        )
-        log.removeFilter(log_filter)
+        with utils.log_level(logging.WARN):
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -1866,16 +1851,8 @@ class OptimizeRegionalFilter:
             self.filter_width_limits[1],
         )
 
-        log.addFilter(log_filter)
-
-        residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
-            cross_validation.regional_separation_score(
-                method="filter",
-                filter_width=filter_width,
-                **self.kwargs,
-            )
-        )
-        log.removeFilter(log_filter)
+        with utils.log_level(logging.WARN):
+            residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -1965,18 +1942,7 @@ class OptimizeRegionalEqSources:
             if key not in ["source_depth", "block_size", "eq_damping"]
         }
 
-        log.addFilter(log_filter)
-
-        residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
-            cross_validation.regional_separation_score(
-                method="eq_sources",
-                source_depth=source_depth,
-                block_size=block_size,
-                eq_damping=eq_damping,
-                **new_kwargs,
-            )
-        )
-        log.removeFilter(log_filter)
+        with utils.log_level(logging.WARN):
 
         trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
@@ -2127,20 +2093,8 @@ class OptimizeRegionalConstraintsPointMinimization:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
-            log.addFilter(log_filter)
-
-            # for each fold, run CV
-            results = []
-            for i, _ in enumerate(pbar):
-                fold_results = cross_validation.regional_separation_score(
-                    constraints_df=self.training_df[i],
-                    testing_df=self.testing_df[i],
-                    method="constraints",
-                    grid_method=self.grid_method,
-                    **new_kwargs,
-                )
-                results.append(fold_results)
-            log.removeFilter(log_filter)
+            with utils.log_level(logging.WARN):
+                # for each fold, run CV
 
             # get mean of scores of all folds
             residual_constraint_score = np.mean([r[0] for r in results])
@@ -2156,10 +2110,7 @@ class OptimizeRegionalConstraintsPointMinimization:
             assert isinstance(self.training_df, pd.DataFrame)
             assert isinstance(self.testing_df, pd.DataFrame)
 
-            log.addFilter(log_filter)
-
-            residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
-                cross_validation.regional_separation_score(
+            with utils.log_level(logging.WARN):
                     constraints_df=self.training_df,
                     testing_df=self.testing_df,
                     method="constraints",

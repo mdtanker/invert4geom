@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing
 
 import harmonica as hm
@@ -10,11 +11,6 @@ import verde as vd
 from nptyping import NDArray
 
 from invert4geom import cross_validation, log, optimization, utils
-
-
-def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
-    """Used to filter logging."""
-    return False
 
 
 def _check_grav_cols(grav_df: pd.DataFrame) -> None:
@@ -590,20 +586,20 @@ def regional_constraints_cv(
     )
     # print("DF2\n", testing_training_df)
 
-    log.addFilter(log_filter)
-
-    _, grav_df, _ = optimization.optimize_regional_constraint_point_minimization_kfolds(
-        testing_training_df=testing_training_df,
-        n_trials=n_trials,
-        plot=False,
-        plot_grid=False,
-        fold_progressbar=False,
-        separate_metrics=True,
-        remove_starting_grav_mean=remove_starting_grav_mean,
-        progressbar=False,
-        **kwargs,
-    )
-    log.removeFilter(log_filter)
+    with utils.log_level(logging.WARN):
+        _, grav_df, _ = (
+            optimization.optimize_regional_constraint_point_minimization_kfolds(
+                testing_training_df=testing_training_df,
+                n_trials=n_trials,
+                plot=False,
+                plot_grid=False,
+                fold_progressbar=False,
+                separate_metrics=True,
+                remove_starting_grav_mean=remove_starting_grav_mean,
+                progressbar=False,
+                **kwargs,
+            )
+        )
 
     return grav_df
 

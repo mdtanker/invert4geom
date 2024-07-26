@@ -26,12 +26,7 @@ import xarray as xr
 from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 
-from invert4geom import utils
-
-
-def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
-    """Used to filter logging."""
-    return False
+from invert4geom import log, utils
 
 
 def plot_2_parameter_cv_scores(

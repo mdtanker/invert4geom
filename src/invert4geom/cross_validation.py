@@ -1,6 +1,7 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
 import itertools
+import logging
 import pathlib
 import pickle
 import random
@@ -20,11 +21,6 @@ from tqdm.autonotebook import tqdm
 
 import invert4geom
 from invert4geom import inversion, log, plotting, regional, utils
-
-
-def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
-    """Used to filter logging."""
-    return False
 
 
 def resample_with_test_points(
@@ -155,18 +151,15 @@ def grav_cv_score(
     density_contrast = np.fabs(prism_layer.density)
     zref = prism_layer.attrs.get("zref")
 
-    log.addFilter(log_filter)
-
     # make sure dynamic plotting of inversion iterations is off
     kwargs["plot_dynamic_convergence"] = False
-
-    # run inversion
-    results = inversion.run_inversion(
-        grav_df=train,
-        progressbar=False,
-        **kwargs,
-    )
-    log.removeFilter(log_filter)
+    with utils.log_level(logging.WARN):
+        # run inversion
+        results = inversion.run_inversion(
+            grav_df=train,
+            progressbar=False,
+            **kwargs,
+        )
 
     prism_results, _, _, _ = results
 
@@ -421,15 +414,13 @@ def constraints_cv_score(
 
     constraints_df = constraints_df.copy()
 
-    log.addFilter(log_filter)
-
-    # run inversion
-    results = inversion.run_inversion(
-        grav_df=grav_df,
-        progressbar=False,
-        **kwargs,
-    )
-    log.removeFilter(log_filter)
+    with utils.log_level(logging.WARN):
+        # run inversion
+        results = inversion.run_inversion(
+            grav_df=grav_df,
+            progressbar=False,
+            **kwargs,
+        )
 
     prism_results, _, _, _ = results
 

@@ -3,6 +3,7 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 import copy
 import typing
 import warnings
+from contextlib import contextmanager
 
 import dask
 import deprecation
@@ -20,9 +21,17 @@ import invert4geom
 from invert4geom import cross_validation, log
 
 
-def log_filter(record: typing.Any) -> bool:  # noqa: ARG001 # pylint: disable=unused-argument
-    """Used to filter logging."""
-    return False
+@contextmanager
+def log_level(level):  # type: ignore[no-untyped-def]
+    "Run body with logger at a different level"
+    saved_logger_level = log.level
+    log.setLevel(level)
+    try:
+        yield saved_logger_level
+    finally:
+        log.setLevel(saved_logger_level)
+
+
 
 
 def rmse(data: NDArray, as_median: bool = False) -> float:
