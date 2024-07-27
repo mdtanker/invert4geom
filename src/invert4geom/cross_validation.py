@@ -1000,16 +1000,14 @@ def kfold_df_to_lists(
 def eq_sources_score(
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
     data: pd.Series | NDArray,
-    damping: float | None = None,
-    depth: str | float | None = "default",
-    block_size: float | None = None,
-    points: NDArray | None = None,
     delayed: bool = False,
     weights: NDArray | None = None,
+    **kwargs: typing.Any,
 ) -> float:
     """
     Calculate the cross-validation score for fitting gravity data to equivalent sources.
     Uses Verde's cross_val_score function to calculate the score.
+    All kwargs are passed to the harmonica.EquivalentSources class.
 
     Parameters
     ----------
@@ -1017,42 +1015,82 @@ def eq_sources_score(
         tuple of easting, northing, and upward coordinates of the gravity data
     data : pd.Series | NDArray
         the gravity data
-    damping : float | None, optional
-        damping parameter to use in the fitting, by default None
-    depth : str | float | None, optional
-        depth of the sources, positive downward in meters, by default "default"
-    block_size : float | None, optional
-        block size in meters to reduce the gravity data by, by default None
-    points : NDArray | None, optional
-        use to specify point locations, by default None
     delayed : bool, optional
         compute the scores in parallel if True, by default False
     weights : NDArray | None, optional
         optional weight values for each gravity data point, by default None
+
+    Keyword Arguments
+    -----------------
+        damping : None or float
+        The positive damping regularization parameter. Controls how much
+        smoothness is imposed on the estimated coefficients.
+        If None, no regularization is used.
+    points : None or list of arrays (optional)
+        List containing the coordinates of the equivalent point sources.
+        Coordinates are assumed to be in the following order:
+        (``easting``, ``northing``, ``upward``).
+        If None, will place one point source below each observation point at
+        a fixed relative depth below the observation point.
+        Defaults to None.
+    depth : float or "default"
+        Parameter used to control the depth at which the point sources will be
+        located.
+        If a value is provided, each source is located beneath each data point
+        (or block-averaged location) at a depth equal to its elevation minus
+        the ``depth`` value.
+        If set to ``"default"``, the depth of the sources will be estimated as
+        4.5 times the mean distance between first neighboring sources.
+        This parameter is ignored if *points* is specified.
+        Defaults to ``"default"``.
+    block_size: float, tuple = (s_north, s_east) or None
+        Size of the blocks used on block-averaged equivalent sources.
+        If a single value is passed, the blocks will have a square shape.
+        Alternatively, the dimensions of the blocks in the South-North and
+        West-East directions can be specified by passing a tuple.
+        If None, no block-averaging is applied.
+        This parameter is ignored if *points* are specified.
+        Default to None.
+    parallel : bool
+        If True any predictions and Jacobian building is carried out in
+        parallel through Numba's ``jit.prange``, reducing the computation time.
+        If False, these tasks will be run on a single CPU. Default to True.
+    dtype : data-type
+        The desired data-type for the predictions and the Jacobian matrix.
+        Default to ``"float64"``.
 
     Returns
     -------
     float
         a float of the score, the higher the value to better the fit.
     """
+
+    if np.isnan(coordinates).any():
+        msg = "coordinates contain NaN"
+        raise ValueError(msg)
+    if np.isnan(data).any():
+        msg = "data contains is NaN"
+        raise ValueError(msg)
+
     eqs = hm.EquivalentSources(
-        damping=damping,
-        depth=depth,
-        block_size=block_size,
-        points=points,
+        **kwargs,
     )
 
-    return float(
-        np.mean(
-            vd.cross_val_score(
-                eqs,
-                coordinates,
-                data,
-                delayed=delayed,
-                weights=weights,
-            )
+    score = np.mean(
+        vd.cross_val_score(
+            eqs,
+            coordinates,
+            data,
+            delayed=delayed,
+            weights=weights,
         )
     )
+
+    if np.isnan(score):
+        msg = "eq sources score is NaN"
+        raise ValueError(msg)
+
+    return score  # type: ignore[no-any-return]
 
 
 def regional_separation_score(
