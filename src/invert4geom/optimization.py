@@ -1293,14 +1293,14 @@ class OptimalEqSourceParams:
 
     def __init__(
         self,
-        source_depth_limits: tuple[float, float] | None = None,
+        depth_limits: tuple[float, float] | None = None,
         block_size_limits: tuple[float, float] | None = None,
-        eq_damping_limits: tuple[float, float] | None = None,
+        damping_limits: tuple[float, float] | None = None,
         **kwargs: typing.Any,
     ) -> None:
-        self.source_depth_limits = source_depth_limits
+        self.depth_limits = depth_limits
         self.block_size_limits = block_size_limits
-        self.eq_damping_limits = eq_damping_limits
+        self.damping_limits = damping_limits
         self.kwargs = kwargs
 
     def __call__(self, trial: optuna.trial) -> float:
@@ -1315,49 +1315,37 @@ class OptimalEqSourceParams:
         float
             the score of the eq_sources fit
         """
-        kwargs_to_remove = []
-        if self.source_depth_limits is not None:
-            source_depth = trial.suggest_float(
-                "source_depth",
-                self.source_depth_limits[0],
-                self.source_depth_limits[1],
-            )
-        else:
-            source_depth = self.kwargs.get("source_depth", "default")
-            kwargs_to_remove.append("source_depth")
+        # get parameters provided not as limits
+        depth = self.kwargs.pop("depth", "default")
+        block_size = self.kwargs.pop("block_size", None)
+        damping = self.kwargs.pop("damping", None)
 
+        # replace with suggest values if limits provided
+        if self.depth_limits is not None:
+            depth = trial.suggest_float(
+                "depth",
+                self.depth_limits[0],
+                self.depth_limits[1],
+            )
         if self.block_size_limits is not None:
             block_size = trial.suggest_float(
                 "block_size",
                 self.block_size_limits[0],
                 self.block_size_limits[1],
             )
-        else:
-            block_size = self.kwargs.get("block_size", None)
-            kwargs_to_remove.append("block_size")
-
-        if self.eq_damping_limits is not None:
-            eq_damping = trial.suggest_float(
-                "eq_damping",
-                self.eq_damping_limits[0],
-                self.eq_damping_limits[1],
+        if self.damping_limits is not None:
+            damping = trial.suggest_float(
+                "damping",
+                self.damping_limits[0],
+                self.damping_limits[1],
                 log=True,
             )
-        else:
-            eq_damping = self.kwargs.get("eq_damping", None)
-            kwargs_to_remove.append("eq_damping")
-
-        new_kwargs = {
-            key: value
-            for key, value in self.kwargs.items()
-            if key not in kwargs_to_remove
-        }
 
         return cross_validation.eq_sources_score(
-            damping=eq_damping,
-            depth=source_depth,
+            damping=damping,
+            depth=depth,
             block_size=block_size,
-            **new_kwargs,
+            **self.kwargs,
         )
 
 
@@ -1366,8 +1354,8 @@ def optimize_eq_source_params(
     data: pd.Series | NDArray,
     points: NDArray | None = None,
     n_trials: int = 100,
-    eq_damping_limits: tuple[float, float] | None = None,
-    source_depth_limits: tuple[float, float] | None = None,
+    damping_limits: tuple[float, float] | None = None,
+    depth_limits: tuple[float, float] | None = None,
     block_size_limits: tuple[float, float] | None = None,
     weights: NDArray | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
@@ -1390,9 +1378,9 @@ def optimize_eq_source_params(
         specify the coordinates of source points, by default None
     n_trials : int, optional
         number of trials to run, by default 100
-    eq_damping_limits : tuple[float, float], optional
+    damping_limits : tuple[float, float], optional
         damping parameter limits, by default (0, 10**3)
-    source_depth_limits : tuple[float, float], optional
+    depth_limits : tuple[float, float], optional
         source depth limits (positive downwards) in meters, by default (0, 10e6)
     block_size_limits : tuple[float, float] | None, optional
         block size limits in meters, by default None
@@ -1426,24 +1414,19 @@ def optimize_eq_source_params(
         sampler=sampler,
         load_if_exists=False,
     )
-
     # explicitly add the limits as trials
     num_params = 0
-    if source_depth_limits is not None:
-        study.enqueue_trial(
-            {"source_depth": source_depth_limits[0]}, skip_if_exists=True
-        )
-        study.enqueue_trial(
-            {"source_depth": source_depth_limits[1]}, skip_if_exists=True
-        )
+    if depth_limits is not None:
+        study.enqueue_trial({"depth": depth_limits[0]}, skip_if_exists=True)
+        study.enqueue_trial({"depth": depth_limits[1]}, skip_if_exists=True)
         num_params += 1
     if block_size_limits is not None:
         study.enqueue_trial({"block_size": block_size_limits[0]}, skip_if_exists=True)
         study.enqueue_trial({"block_size": block_size_limits[1]}, skip_if_exists=True)
         num_params += 1
-    if eq_damping_limits is not None:
-        study.enqueue_trial({"eq_damping": eq_damping_limits[0]}, skip_if_exists=True)
-        study.enqueue_trial({"eq_damping": eq_damping_limits[1]}, skip_if_exists=True)
+    if damping_limits is not None:
+        study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
+        study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
         num_params += 1
 
     if num_params == 1:
@@ -1453,12 +1436,11 @@ def optimize_eq_source_params(
 
     study.optimize(
         OptimalEqSourceParams(
-            source_depth_limits=source_depth_limits,
+            depth_limits=depth_limits,
             block_size_limits=block_size_limits,
-            eq_damping_limits=eq_damping_limits,
+            damping_limits=damping_limits,
             coordinates=coordinates,
             data=data,
-            points=points,
             **kwargs,
         ),
         n_trials=n_trials,
@@ -1485,12 +1467,27 @@ def optimize_eq_source_params(
         best_source_depth = kwargs.get("source_depth", None)
 
     best_block_size = study.best_params.get("block_size", None)
+    if best_depth is None:
+        best_depth = kwargs.get("depth", "default")
+        if best_depth is None:
+            msg = (
+                "No depth parameter value found in best params or kwargs, setting to "
+                "'default'"
+            )
+            log.warning(msg)
     if best_block_size is None:
         best_block_size = kwargs.get("block_size", None)
+        if best_block_size is None:
+            msg = (
+                "No block size parameter value found in best params or kwargs, setting "
+                "to 'None'"
+            )
+            log.warning(msg)
 
+    # refit EqSources with best parameters
     eqs = hm.EquivalentSources(
         damping=best_damping,
-        depth=best_source_depth,
+        depth=best_depth,
         block_size=best_block_size,
         points=points,
     )
@@ -1640,16 +1637,16 @@ class OptimizeRegionalEqSources:
 
     def __init__(
         self,
-        source_depth_limits: tuple[float, float] | None = None,
+        depth_limits: tuple[float, float] | None = None,
         block_size_limits: tuple[float, float] | None = None,
-        eq_damping_limits: tuple[float, float] | None = None,
+        damping_limits: tuple[float, float] | None = None,
         optimize_on_true_regional_misfit: bool = False,
         separate_metrics: bool = False,
         **kwargs: typing.Any,
     ) -> None:
-        self.source_depth_limits = source_depth_limits
+        self.depth_limits = depth_limits
         self.block_size_limits = block_size_limits
-        self.eq_damping_limits = eq_damping_limits
+        self.damping_limits = damping_limits
         self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
         self.separate_metrics = separate_metrics
         self.kwargs = kwargs
@@ -1667,16 +1664,16 @@ class OptimizeRegionalEqSources:
             the scores
         """
 
-        if self.source_depth_limits is not None:
-            source_depth = trial.suggest_float(
-                "source_depth",
-                self.source_depth_limits[0],
-                self.source_depth_limits[1],
+        if self.depth_limits is not None:
+            depth = trial.suggest_float(
+                "depth",
+                self.depth_limits[0],
+                self.depth_limits[1],
             )
         else:
-            source_depth = self.kwargs.get("source_depth", None)
-            if source_depth is None:
-                msg = "must provide source_depth if source_depth_limits not provided"
+            depth = self.kwargs.get("depth", None)
+            if depth is None:
+                msg = "must provide depth if depth_limits not provided"
                 raise ValueError(msg)
 
         if self.block_size_limits is not None:
@@ -1688,29 +1685,29 @@ class OptimizeRegionalEqSources:
         else:
             block_size = self.kwargs.get("block_size", None)
 
-        if self.eq_damping_limits is not None:
-            eq_damping = trial.suggest_float(
-                "eq_damping",
-                self.eq_damping_limits[0],
-                self.eq_damping_limits[1],
+        if self.damping_limits is not None:
+            damping = trial.suggest_float(
+                "damping",
+                self.damping_limits[0],
+                self.damping_limits[1],
                 log=True,
             )
         else:
-            eq_damping = self.kwargs.get("eq_damping", None)
+            damping = self.kwargs.get("damping", None)
 
         new_kwargs = {
             key: value
             for key, value in self.kwargs.items()
-            if key not in ["source_depth", "block_size", "eq_damping"]
+            if key not in ["depth", "block_size", "damping"]
         }
 
         with utils.log_level(logging.WARN):
             residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
                 cross_validation.regional_separation_score(
                     method="eq_sources",
-                    source_depth=source_depth,
+                    depth=depth,
                     block_size=block_size,
-                    eq_damping=eq_damping,
+                    damping=damping,
                     **new_kwargs,
                 )
             )
@@ -1747,9 +1744,9 @@ class OptimizeRegionalConstraintsPointMinimization:
         # for bi-harmonic spline gridding
         spline_damping_limits: tuple[float, float] | None = None,
         # for eq source gridding
-        source_depth_limits: tuple[float, float] | None = None,
+        depth_limits: tuple[float, float] | None = None,
         block_size_limits: tuple[float, float] | None = None,
-        eq_damping_limits: tuple[float, float] | None = None,
+        damping_limits: tuple[float, float] | None = None,
         grav_obs_height_limits: tuple[float, float] | None = None,
         # other args
         optimize_on_true_regional_misfit: bool = False,
@@ -1762,9 +1759,9 @@ class OptimizeRegionalConstraintsPointMinimization:
         self.grid_method = grid_method
         self.tension_factor_limits = tension_factor_limits
         self.spline_damping_limits = spline_damping_limits
-        self.source_depth_limits = source_depth_limits
+        self.depth_limits = depth_limits
         self.block_size_limits = block_size_limits
-        self.eq_damping_limits = eq_damping_limits
+        self.damping_limits = damping_limits
         self.grav_obs_height_limits = grav_obs_height_limits
         self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
         self.separate_metrics = separate_metrics
@@ -1804,14 +1801,14 @@ class OptimizeRegionalConstraintsPointMinimization:
             )
 
         elif self.grid_method == "eq_sources":
-            if self.source_depth_limits is not None:
-                new_kwargs["source_depth"] = trial.suggest_float(
-                    "source_depth",
-                    self.source_depth_limits[0],
-                    self.source_depth_limits[1],
+            if self.depth_limits is not None:
+                new_kwargs["depth"] = trial.suggest_float(
+                    "depth",
+                    self.depth_limits[0],
+                    self.depth_limits[1],
                 )
             else:
-                new_kwargs["source_depth"] = self.kwargs.get("source_depth", "default")
+                new_kwargs["depth"] = self.kwargs.get("depth", "default")
 
             if self.block_size_limits is not None:
                 new_kwargs["block_size"] = trial.suggest_float(
@@ -1822,15 +1819,15 @@ class OptimizeRegionalConstraintsPointMinimization:
             else:
                 new_kwargs["block_size"] = self.kwargs.get("block_size", None)
 
-            if self.eq_damping_limits is not None:
-                new_kwargs["eq_damping"] = trial.suggest_float(
-                    "eq_damping",
-                    self.eq_damping_limits[0],
-                    self.eq_damping_limits[1],
+            if self.damping_limits is not None:
+                new_kwargs["damping"] = trial.suggest_float(
+                    "damping",
+                    self.damping_limits[0],
+                    self.damping_limits[1],
                     log=True,
                 )
             else:
-                new_kwargs["eq_damping"] = self.kwargs.get("eq_damping", None)
+                new_kwargs["damping"] = self.kwargs.get("damping", None)
 
             if self.grav_obs_height_limits is not None:
                 new_kwargs["grav_obs_height"] = trial.suggest_float(
@@ -2352,12 +2349,12 @@ def optimize_regional_eq_sources(
     remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
-    source_depth_limits: tuple[float, float] | None = None,
-    source_depth: float | None = None,
+    depth_limits: tuple[float, float] | None = None,
+    depth: float | None = None,
     block_size_limits: tuple[float, float] | None = None,
     block_size: float | None = None,
-    eq_damping_limits: tuple[float, float] | None = None,
-    eq_damping: float | None = None,
+    damping_limits: tuple[float, float] | None = None,
+    damping: float | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
     plot: bool = False,
     plot_grid: bool = False,
@@ -2395,18 +2392,18 @@ def optimize_regional_eq_sources(
         optimization optimize on the RMSE, by default None
     n_trials : int, optional
         number of trials to run, by default 100
-    source_depth_limits : tuple[float, float] | None, optional
+    depth_limits : tuple[float, float] | None, optional
         limits to use for source depths, positive down in meters, by default None
-    source_depth : float | None, optional
-        if source_depth_limits not supplied, use this value, by default None
+    depth : float | None, optional
+        if depth_limits not supplied, use this value, by default None
     block_size_limits : tuple[float, float] | None, optional
         limits to use for block size in meters, by default None
     block_size : float | None, optional
         if block_size_limits not supplied, use this value, by default None
-    eq_damping_limits : tuple[float, float] | None, optional
+    damping_limits : tuple[float, float] | None, optional
         limits to use for the damping parameter, by default None
-    eq_damping : float | None, optional
-        if eq_damping_limits not provided, use this value, by default None
+    damping : float | None, optional
+        if damping_limits not provided, use this value, by default None
     sampler : optuna.samplers.BaseSampler | None, optional
         customize the optuna sampler, by default TPE sampler
     plot : bool, optional
@@ -2477,16 +2474,16 @@ def optimize_regional_eq_sources(
     # run optimization
     study.optimize(
         OptimizeRegionalEqSources(
-            source_depth_limits=source_depth_limits,
+            depth_limits=depth_limits,
             block_size_limits=block_size_limits,
-            eq_damping_limits=eq_damping_limits,
+            damping_limits=damping_limits,
             testing_df=testing_df,
             grav_df=grav_df,
             true_regional=true_regional,
             score_as_median=score_as_median,
-            source_depth=source_depth,
+            depth=depth,
             block_size=block_size,
-            eq_damping=eq_damping,
+            damping=damping,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
             separate_metrics=separate_metrics,
             remove_starting_grav_mean=remove_starting_grav_mean,
@@ -2514,7 +2511,7 @@ def optimize_regional_eq_sources(
         # params = list(study.get_trials()[0].params.keys())
         # params_to_enqueue = {}
         # for p in params:
-        #     if p == "eq_damping":
+        #     if p == "damping":
         #         values = study_df.iloc[:len(study_df)//2][f"params_{p}"]
         #         val = np.exp(np.mean(np.log(values)))
         #     else:
@@ -2527,16 +2524,16 @@ def optimize_regional_eq_sources(
         # # re-run the optimization
         # study.optimize(
         #     OptimizeRegionalEqSources(
-        #         source_depth_limits=source_depth_limits,
+        #         depth_limits=depth_limits,
         #         block_size_limits=block_size_limits,
-        #         eq_damping_limits=eq_damping_limits,
+        #         damping_limits=damping_limits,
         #         testing_df=testing_df,
         #         grav_df=grav_df,
         #         true_regional=true_regional,
         #         score_as_median=score_as_median,
-        #         source_depth=source_depth,
+        #         depth=depth,
         #         block_size=block_size,
-        #         eq_damping=eq_damping,
+        #         damping=damping,
         #         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         #         separate_metrics=separate_metrics,
         #         remove_starting_grav_mean=remove_starting_grav_mean,
@@ -2597,12 +2594,12 @@ def optimize_regional_constraint_point_minimization(
     n_trials: int = 100,
     tension_factor_limits: tuple[float, float] = (0, 1),
     spline_damping_limits: tuple[float, float] | None = None,
-    source_depth_limits: tuple[float, float] | None = None,
-    source_depth: float | None = None,
+    depth_limits: tuple[float, float] | None = None,
+    depth: float | None = None,
     block_size_limits: tuple[float, float] | None = None,
     block_size: float | None = None,
-    eq_damping_limits: tuple[float, float] | None = None,
-    eq_damping: float | None = None,
+    damping_limits: tuple[float, float] | None = None,
+    damping: float | None = None,
     grav_obs_height_limits: tuple[float, float] | None = None,
     grav_obs_height: float | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
@@ -2662,19 +2659,19 @@ def optimize_regional_constraint_point_minimization(
         limits to use for the PyGMT tension factor gridding, by default (0, 1)
     spline_damping_limits : tuple[float, float] | None, optional
         limits to use for the Verde bi-harmonic spline damping, by default None
-    source_depth_limits : tuple[float, float] | None, optional
+    depth_limits : tuple[float, float] | None, optional
         limits to use for the equivalent sources' depths, by default None
-    source_depth : float | None, optional
-        if source_depth_limits are not supplied, use this value, by default None
+    depth : float | None, optional
+        if depth_limits are not supplied, use this value, by default None
     block_size_limits : tuple[float, float] | None, optional
         limits to use for the block size for fitting equivalent sources, by default None
     block_size : float | None, optional
         if block_size_limits are not supplied, use this value, by default None
-    eq_damping_limits : tuple[float, float] | None, optional
+    damping_limits : tuple[float, float] | None, optional
         limits to use for the damping value for fitting equivalent sources, by default
         None
-    eq_damping : float | None, optional
-        if eq_damping_limits are not provided, use this value, by default None
+    damping : float | None, optional
+        if damping_limits are not provided, use this value, by default None
     grav_obs_height_limits : tuple[float, float] | None, optional
         limits to use for the gravity observation height for fitting equivalent sources,
         by default None
@@ -2773,13 +2770,13 @@ def optimize_regional_constraint_point_minimization(
             score_as_median=score_as_median,
             tension_factor_limits=tension_factor_limits,
             spline_damping_limits=spline_damping_limits,
-            source_depth_limits=source_depth_limits,
+            depth_limits=depth_limits,
             block_size_limits=block_size_limits,
-            eq_damping_limits=eq_damping_limits,
+            damping_limits=damping_limits,
             grav_obs_height_limits=grav_obs_height_limits,
-            source_depth=source_depth,
+            depth=depth,
             block_size=block_size,
-            eq_damping=eq_damping,
+            damping=damping,
             grav_obs_height=grav_obs_height,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
             separate_metrics=separate_metrics,
@@ -2830,13 +2827,13 @@ def optimize_regional_constraint_point_minimization(
         #         score_as_median=score_as_median,
         #         tension_factor_limits=tension_factor_limits,
         #         spline_damping_limits=spline_damping_limits,
-        #         source_depth_limits=source_depth_limits,
+        #         depth_limits=depth_limits,
         #         block_size_limits=block_size_limits,
-        #         eq_damping_limits=eq_damping_limits,
+        #         damping_limits=damping_limits,
         #         grav_obs_height_limits=grav_obs_height_limits,
-        #         source_depth=source_depth,
+        #         depth=depth,
         #         block_size=block_size,
-        #         eq_damping=eq_damping,
+        #         damping=damping,
         #         grav_obs_height=grav_obs_height,
         #         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         #         separate_metrics=separate_metrics,
@@ -2952,11 +2949,8 @@ def optimize_regional_constraint_point_minimization_kfolds(
         remove_starting_grav_mean=kwargs.get("remove_starting_grav_mean", False),
         # hyperparameters
         tension_factor=best_trial.params.get("tension_factor", None),
-        spline_damping=best_trial.params.get("spline_damping", None),
-        source_depth=best_trial.params.get(
-            "source_depth", kwargs.get("source_depth", "default")
-        ),
-        eq_damping=best_trial.params.get("eq_damping", kwargs.get("eq_damping", None)),
+        depth=best_trial.params.get("depth", kwargs.get("depth", "default")),
+        damping=best_trial.params.get("damping", kwargs.get("damping", None)),
         block_size=best_trial.params.get("block_size", kwargs.get("block_size", None)),
         grav_obs_height=best_trial.params.get(
             "grav_obs_height", kwargs.get("grav_obs_height", None)

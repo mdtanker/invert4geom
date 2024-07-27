@@ -232,8 +232,8 @@ def regional_trend(
 
 def regional_eq_sources(
     grav_df: pd.DataFrame,
-    source_depth: float | str = "default",
-    eq_damping: float | None = None,
+    depth: float | str = "default",
+    damping: float | None = None,
     block_size: float | None = None,
     grav_obs_height: float | None = None,
     regional_shift: float = 0,
@@ -248,9 +248,9 @@ def regional_eq_sources(
     grav_df : pd.DataFrame
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "starting_gravity".
-    source_depth : float
+    depth : float
         depth of each source relative to the data elevation
-    eq_damping : float | None, optional
+    damping : float | None, optional
         smoothness to impose on estimated coefficients, by default None
     block_size : float | None, optional
         block reduce the data to speed up, by default None
@@ -292,8 +292,8 @@ def regional_eq_sources(
     else:
         # create set of deep sources
         eqs = hm.EquivalentSources(
-            depth=source_depth,
-            damping=eq_damping,
+            depth=depth,
+            damping=damping,
             block_size=block_size,
         )
 
@@ -324,14 +324,8 @@ def regional_constraints(
     constraints_df: pd.DataFrame,
     tension_factor: float = 1,
     registration: str = "g",
-    constraints_block_size: float | None = None,
-    grid_method: str = "verde",
-    spline_damping: float | None = None,
-    spline_cv: bool = False,
-    spline_damping_values: NDArray | None = None,
-    source_depth: float | None = None,
-    eq_damping: float | None = None,
-    eq_cv: bool = False,
+    depth: float | None = None,
+    damping: float | None = None,
     block_size: float | None = None,
     eq_points: list[NDArray] | None = None,
     constraints_weights_column: str | None = None,
@@ -360,15 +354,10 @@ def regional_constraints(
         between "verde", "pygmt", or "eq_sources", by default "verde"
     spline_damping : typing.Any | None, optional
         damping values used if `grid_method` is "verde", by default None
-    spline_cv : bool, optional
-        use cross-validation to find the best damping value, by default False
-    spline_damping_values : NDArray | None, optional
-        damping values used if `grid_method` is "verde" for a cross-validation of
-        damping values, by default None
-    source_depth : float | None, optional
+    depth : float | None, optional
         depth of each source relative to the data elevation, positive downwards in
         meters, by default None
-    eq_damping : float | None, optional
+    damping : float | None, optional
         damping values used if `grid_method` is "eq_sources", by default None
     eq_cv : bool, optional
         use cross-validation to find the best equivalent source parameters, by default
@@ -525,18 +514,16 @@ def regional_constraints(
             _, eqs = optimization.optimize_eq_source_params(
                 coordinates=coords,
                 data=constraints_df.sampled_grav,
+                # kwargs
                 weights=weights,
-                progressbar=False,
-                n_trials=100,
-                eq_damping_limits=(1e-20, 10),
-                source_depth="default",
-                block_size=None,
+                depth=depth,
+                damping=damping,
             )
         else:
             # create set of deep sources
             eqs = hm.EquivalentSources(
-                depth=source_depth,
-                damping=eq_damping,
+                depth=depth,
+                damping=damping,
                 block_size=block_size,
                 points=eq_points,
             )
