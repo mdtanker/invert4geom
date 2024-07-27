@@ -1793,8 +1793,8 @@ class OptimizeRegionalConstraintsPointMinimization:
             if self.spline_damping_limits is None:
                 msg = "if grid_method is 'verde' must provide spline_damping_limits"
                 raise ValueError(msg)
-            new_kwargs["spline_damping"] = trial.suggest_float(
-                "spline_damping",
+            new_kwargs["spline_dampings"] = trial.suggest_float(
+                "spline_dampings",
                 self.spline_damping_limits[0],
                 self.spline_damping_limits[1],
                 log=True,
@@ -2949,6 +2949,7 @@ def optimize_regional_constraint_point_minimization_kfolds(
         remove_starting_grav_mean=kwargs.get("remove_starting_grav_mean", False),
         # hyperparameters
         tension_factor=best_trial.params.get("tension_factor", None),
+        spline_dampings=best_trial.params.get("spline_dampings", None),
         depth=best_trial.params.get("depth", kwargs.get("depth", "default")),
         damping=best_trial.params.get("damping", kwargs.get("damping", None)),
         block_size=best_trial.params.get("block_size", kwargs.get("block_size", None)),
