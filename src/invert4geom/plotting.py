@@ -161,7 +161,7 @@ def plot_2_parameter_cv_scores_uneven(
     zi = interp(xi, yi)
 
     # plt.pcolormesh(xi, yi, zi, cmap=cmap, shading='auto')
-    plt.contourf(xi, yi, zi, 30, cmap=cmap, shading="auto")
+    plt.contourf(xi, yi, zi, 30, cmap=cmap)
     plt.colorbar().set_label("Scores")
 
     plt.plot(

@@ -696,14 +696,9 @@ class OptimalInversionZrefDensity:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
-            log.info(
-                "Performing Zref/Density CV with constraints split into test/train"
-            )
             # for each fold, run CV
             scores = []
             for i, _ in enumerate(pbar):
-                log.info("beginning fold %s of %s")
-
                 with utils.log_level(logging.WARN):
                     grav_df = regional.regional_separation(
                         grav_df=grav_df,
@@ -1160,8 +1155,9 @@ def optimize_inversion_zref_density_contrast_kfolds(
     fold, the training constraints are used for the regional separation and the testing
     constraints are used for scoring. This is only useful if the regional separation
     technique you supply via `regional_grav_kwargs` uses constraints points
-    for the estimations, such as constraint point minimization. If using 20 sets of
-    density and zref values, and use 5 folds, this will run 100 inversions. It is more
+    for the estimations, such as constraint point minimization
+    (method='constraints_cv' or method='constraints'). If using 20 sets of density and
+    zref values, and use 5 folds, this will run 100 inversions. It is more
     efficient, but less accurate, to simple use a different regional estimation
     technique, which doesn't require constraint points, to find the optimal zref and
     density values. Then use these again in another inversion with the desired regional

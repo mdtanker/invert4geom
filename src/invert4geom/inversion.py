@@ -1254,7 +1254,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 "must provide zref_density_cv_trials if run_zref_or_density_cv is True"
             )
             raise ValueError(msg)
-        if run_kfolds_zref_or_density_cv is True:  # noqa: SIM102
+        if run_kfolds_zref_or_density_cv is True:
             if kfolds_zref_or_density_cv_kwargs is None:
                 msg = (
                     "kfolds_zref_or_density_cv_kwargs must be provided if performing "
@@ -1543,7 +1543,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         _, inversion_results = (
             optimization.optimize_inversion_zref_density_contrast_kfolds(
                 testing_training_constraints_df=split_df,
-                fold_progress_bar=True,
+                fold_progressbar=True,
                 **zref_density_parameters,
             )
         )
