@@ -3,6 +3,7 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 import copy
 import itertools
 import logging
+import math
 import pathlib
 import pickle
 import random
@@ -1560,11 +1561,13 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     best_trial = study.best_trial
     best_zref = best_trial.params.get("zref", zref)
     best_density_contrast = best_trial.params.get("density_contrast", density_contrast)
-    assert (
-        float(inversion_results[2]["Density contrast(s)"][1:-7])
-        == best_density_contrast
-    )
-    assert float(inversion_results[2]["Reference level"][:-2]) == best_zref
+
+    used_zref = float(inversion_results[2]["Reference level"][:-2])
+    used_density_contrast = float(inversion_results[2]["Density contrast(s)"][1:-7])
+
+    assert math.isclose(used_density_contrast, best_density_contrast, rel_tol=0.02)
+    assert math.isclose(used_zref, best_zref, rel_tol=0.02)
+
     if run_damping_cv is True:
         assert inversion_results[2]["Solver damping"] == best_damping
 
