@@ -1377,12 +1377,10 @@ class OptimalEqSourceParams:
 def optimize_eq_source_params(
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
     data: pd.Series | NDArray,
-    points: NDArray | None = None,
     n_trials: int = 100,
     damping_limits: tuple[float, float] | None = None,
     depth_limits: tuple[float, float] | None = None,
     block_size_limits: tuple[float, float] | None = None,
-    weights: NDArray | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
     plot: bool = False,
     progressbar: bool = True,
@@ -1390,7 +1388,10 @@ def optimize_eq_source_params(
 ) -> tuple[optuna.study, hm.EquivalentSources]:
     """
     Use Optuna to find the optimal parameters for fitting equivalent sources to gravity
-    data.
+    data. The 3 parameters are damping, depth, and block size. Any or all of these can
+    be optimized at the same time. Provide upper and lower limits for each parameter,
+    or if you don't want to optimize a parameter, provide a constant value of the
+    parameter in the kwargs.
 
     Parameters
     ----------
@@ -1399,8 +1400,6 @@ def optimize_eq_source_params(
         observation locations.
     data : pd.Series | NDArray
         gravity data values
-    points : NDArray | None, optional
-        specify the coordinates of source points, by default None
     n_trials : int, optional
         number of trials to run, by default 100
     damping_limits : tuple[float, float], optional
@@ -1409,8 +1408,6 @@ def optimize_eq_source_params(
         source depth limits (positive downwards) in meters, by default (0, 10e6)
     block_size_limits : tuple[float, float] | None, optional
         block size limits in meters, by default None
-    weights : NDArray | None, optional
-        weights for the gravity data, typically 1/(uncertainty**2), by default None
     sampler : optuna.samplers.BaseSampler | None, optional
         specify which Optuna sampler to use, by default None
     plot : bool, optional
@@ -1418,7 +1415,12 @@ def optimize_eq_source_params(
     progressbar : bool, optional
         add a progressbar, by default True
     kwargs : typing.Any
-        additional keyword arguments to pass to OptimalEqSourceParams.
+        additional keyword arguments to pass to `OptimalEqSourceParams`, which are
+        passed to `eq_sources_score`. These can include parameters to pass to
+        `hm.EquivalentSources`; "damping", "points", "depth", "block_size", "parallel",
+        and "dtype", or parameters to pass to `vd.cross_val_score`; "delayed", or
+        "weights".
+
     Returns
     -------
     tuple[optuna., hm.EquivalentSources]
@@ -1459,6 +1461,13 @@ def optimize_eq_source_params(
     else:
         callbacks = [warn_limits_better_than_trial_multi_params]
 
+    if num_params == 0:
+        msg = (
+            "No parameters to optimize, must provide at least one set of limits for "
+            "damping, depth, or block size."
+        )
+        raise ValueError(msg)
+
     study.optimize(
         OptimalEqSourceParams(
             depth_limits=depth_limits,
@@ -1484,14 +1493,15 @@ def optimize_eq_source_params(
     best_damping = best_trial.params.get("damping", None)
     best_depth = best_trial.params.get("depth", None)
     best_block_size = best_trial.params.get("block_size", None)
+
     if best_damping is None:
-        best_damping = kwargs.get("damping")
-
-    best_source_depth = study.best_params.get("source_depth", None)
-    if best_source_depth is None:
-        best_source_depth = kwargs.get("source_depth", None)
-
-    best_block_size = study.best_params.get("block_size", None)
+        best_damping = kwargs.get("damping", None)
+        if best_damping is None:
+            msg = (
+                "No damping parameter value found in best params or kwargs, setting to "
+                "'None'"
+            )
+            log.warning(msg)
     if best_depth is None:
         best_depth = kwargs.get("depth", "default")
         if best_depth is None:
@@ -1514,9 +1524,11 @@ def optimize_eq_source_params(
         damping=best_damping,
         depth=best_depth,
         block_size=best_block_size,
-        points=points,
+        points=kwargs.pop("points", None),
+        parallel=kwargs.pop("parallel", True),
+        dtype=kwargs.pop("dtype", "float64"),
     )
-    eqs.fit(coordinates, data, weights=weights)
+    eqs.fit(coordinates, data, weights=kwargs.pop("weights", None))
 
     if plot is True:
         plotting.plot_optuna_figures(
