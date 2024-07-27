@@ -237,7 +237,7 @@ def regional_eq_sources(
     block_size: float | None = None,
     grav_obs_height: float | None = None,
     regional_shift: float = 0,
-    eq_cv: bool = False,
+    cv: bool = False,
     weights_column: str | None = None,
 ) -> pd.DataFrame:
     """
@@ -259,9 +259,12 @@ def regional_eq_sources(
         use the data height from grav_df.
     regional_shift : float, optional
         shift to add to the regional field, by default 0
-    eq_cv : bool, optional
+    cv : bool, optional
         use cross-validation to find the best equivalent source parameters, by default
-        False
+        False, provide dictionary `cv_kwargs` which is passed to
+        `optimize_eq_source_params` and can contain: "n_trials", "damping_limits",
+        "depth_limits", "block_size_limits", "sampler", "plot", "progressbar",
+        "parallel", "dtype", or "delayed".
     weights_column: str | None, optional
         column name for weighting values of each gravity point.
     Returns
@@ -280,7 +283,7 @@ def regional_eq_sources(
 
     weights = None if weights_column is None else grav_df[weights_column]
 
-    if eq_cv is True:
+    if cv is True:
         _, eqs = optimization.optimize_eq_source_params(
             coordinates=coords,
             data=grav_df.misfit,
@@ -327,10 +330,12 @@ def regional_constraints(
     spline_dampings: float | list[float] | None = None,
     depth: float | None = None,
     damping: float | None = None,
+    cv: bool = False,
     block_size: float | None = None,
     eq_points: list[NDArray] | None = None,
     constraints_weights_column: str | None = None,
     grav_obs_height: float | None = None,
+    cv_kwargs: dict[str, typing.Any] | None = None,
     regional_shift: float = 0,
 ) -> pd.DataFrame:
     """
@@ -354,19 +359,20 @@ def regional_constraints(
         meters, by default None
     damping : float | None, optional
         damping values used if `grid_method` is "eq_sources", by default None
-    eq_cv : bool, optional
-        use cross-validation to find the best equivalent source parameters, by default
-        False
+    cv : bool, optional
+        use cross-validation to find the best equivalent source parameters, by
+        default False, provide dictionary `cv_kwargs` which is passed to
+        `optimization.optimize_eq_source_params` and can contain: "n_trials",
+        "damping_limits", "depth_limits", "block_size_limits", and "progressbar".
     block_size : float | None, optional
         block size used if `grid_method` is "eq_sources", by default None
     eq_points : list[NDArray] | None, optional
         specify source locations for equivalent source fitting, by default None
-    constraints_weights_column : str | None, optional
-       column name for weighting values of each constraint point. Used if
-       `constraint_block_size` is not None or if `grid_method` is "verde", by default
-       None
     grav_obs_height : float, optional
         Observation height to use if `grid_method` is "eq_sources", by default None
+    cv_kwargs : dict[str, typing.Any] | None, optional
+        additional keyword arguments for the cross-validation optimization of
+        equivalent source parameters, by default
     regional_shift : float, optional
         shift to add to the regional field, by default 0
 
@@ -485,12 +491,7 @@ def regional_constraints(
             constraints_df.northing,
             np.ones_like(constraints_df.easting) * grav_obs_height,
         )
-        if constraints_weights_column is None:
-            weights = None
-        else:
-            weights = constraints_df[constraints_weights_column]
-
-        if eq_cv is True:
+        if cv is True:
             _, eqs = optimization.optimize_eq_source_params(
                 coordinates=coords,
                 data=constraints_df.sampled_grav,
@@ -498,6 +499,7 @@ def regional_constraints(
                 weights=weights,
                 depth=depth,
                 damping=damping,
+                **cv_kwargs,  # type: ignore[arg-type]
             )
         else:
             # create set of deep sources
