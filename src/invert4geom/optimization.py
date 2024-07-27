@@ -31,6 +31,31 @@ warnings.simplefilter(
     category=optuna.exceptions.ExperimentalWarning,
 )
 
+
+def _warn_parameter_at_limits(
+    trial: optuna.trial.FrozenTrial,
+) -> None:
+    """
+    Warn if any best parameter values are at their limits
+
+    Parameters
+    ----------
+    trial : optuna.trial.FrozenTrial
+       optuna trial, most likely should be the best trial.
+    """
+    for k, v in trial.params.items():
+        dist = trial.distributions.get(k)
+        lims = (dist.high, dist.low)
+        if v in lims:
+            log.warning(
+                "Best %s value (%s) is at the limit of provided values "
+                "%s and thus is likely not a global minimum, expand the range of "
+                "values tested to ensure the best parameter value is found.",
+                k,
+                v,
+                lims,
+            )
+
 def logging_callback(
     study: optuna.study.Study,
     frozen_trial: optuna.trial.FrozenTrial,
@@ -643,19 +668,8 @@ def optimize_inversion_damping(
 
     best_trial = study.best_trial
 
-    if best_trial.params.get("damping") in damping_limits:
-        log.warning(
-            "Best damping value (%s) is at the limit of provided values "
-            "(%s) and thus is likely not a global minimum, expand the range of "
-            "values tested to ensure the best parameter value is found.",
-            best_trial.params.get("damping"),
-            damping_limits,
-        )
-
-    log.info("Trial with lowest score: ")
-    log.info("\ttrial number: %s", best_trial.number)
-    log.info("\tparameter: %s", best_trial.params)
-    log.info("\tscores: %s", best_trial.values)
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
 
     # get best inversion result of each set
     with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
@@ -1289,28 +1303,8 @@ def optimize_inversion_zref_density_contrast(
 
     best_trial = study.best_trial
 
-    if zref_limits is not None:  # noqa: SIM102
-        if best_trial.params.get("zref") in zref_limits:
-            log.warning(
-                "Best zref value (%s) is at the limit of provided values (%s) and "
-                "thus is likely not a global minimum, expand the range of values "
-                "tested to ensure the best parameter value is found.",
-                best_trial.params.get("zref"),
-                zref_limits,
-            )
-    if density_contrast_limits is not None:  # noqa: SIM102
-        if best_trial.params.get("density_contrast") in density_contrast_limits:
-            log.warning(
-                "Best density contrast value (%s) is at the limit of provided values "
-                "(%s) and thus is likely not a global minimum, expand the range of "
-                "values tested to ensure the best parameter value is found.",
-                best_trial.params.get("density_contrast"),
-                density_contrast_limits,
-            )
-    log.info("Trial with lowest score: ")
-    log.info("\ttrial number: %s", best_trial.number)
-    log.info("\tparameter: %s", best_trial.params)
-    log.info("\tscores: %s", best_trial.values)
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
 
     # get best inversion result of each set
     with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
@@ -1446,6 +1440,9 @@ def optimize_inversion_zref_density_contrast_kfolds(
     )
 
     best_trial = study.best_trial
+
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
 
     # redo inversion with best parameters
     zref = best_trial.params.get("zref", None)
@@ -1706,11 +1703,14 @@ def optimize_eq_source_params(
         show_progress_bar=progressbar,
     )
 
-    log.info("Best params: %s", study.best_params)
-    log.info("Best trial: %s", study.best_trial.number)
-    log.info("Best score: %s", study.best_trial.value)
+    best_trial = study.best_trial
 
-    best_damping = study.best_params.get("eq_damping", None)
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
+
+    best_damping = best_trial.params.get("damping", None)
+    best_depth = best_trial.params.get("depth", None)
+    best_block_size = best_trial.params.get("block_size", None)
     if best_damping is None:
         best_damping = kwargs.get("damping")
 
@@ -2336,10 +2336,8 @@ def optimize_regional_filter(
 
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
-    log.info("Trial with lowest residual at constraint points: ")
-    log.info("\ttrial number: %s", best_trial.number)
-    log.info("\tparameter: %s", best_trial.params)
-    log.info("\tscores: %s", best_trial.values)
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -2543,10 +2541,8 @@ def optimize_regional_trend(
 
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
-    log.info("Trial with lowest residual at constraint points: ")
-    log.info("\ttrial number: %s", best_trial.number)
-    log.info("\tparameter: %s", best_trial.params)
-    log.info("\tscores: %s", best_trial.values)
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -2780,10 +2776,8 @@ def optimize_regional_eq_sources(
 
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
-    log.info("Trial with lowest residual at constraint points: ")
-    log.info("\ttrial number: %s", best_trial.number)
-    log.info("\tparameter: %s", best_trial.params)
-    log.info("\tscores: %s", best_trial.values)
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -3081,10 +3075,8 @@ def optimize_regional_constraint_point_minimization(
 
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
-    log.info("Trial with lowest residual at constraint points: ")
-    log.info("\ttrial number: %s", best_trial.number)
-    log.info("\tparameter: %s", best_trial.params)
-    log.info("\tscores: %s", best_trial.values)
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -3165,6 +3157,9 @@ def optimize_regional_constraint_point_minimization_kfolds(
     )
 
     log.debug("K-Folds CPM finished")
+
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
 
     # redo regional sep with all data (not 1 fold) to get resulting df
     resulting_grav_df = regional.regional_separation(
