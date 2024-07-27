@@ -1445,15 +1445,11 @@ def optimize_inversion_zref_density_contrast_kfolds(
         for key, value in kwargs.items()
         if key
         not in [
-            "zref",
-            "density_contrast",
             "progressbar",
-            "results_fname",
             "prism_layer",
             "density_contrast_limits",
             "zref_limits",
             "n_trials",
-            "fname",
             "grid_search",
         ]
     }
