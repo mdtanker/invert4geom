@@ -333,6 +333,9 @@ def regional_eq_sources(
 def regional_constraints(
     grav_df: pd.DataFrame,
     constraints_df: pd.DataFrame,
+    grid_method: str = "eq_sources",
+    constraints_block_size: float | None = None,
+    constraints_weights_column: str | None = None,
     tension_factor: float = 1,
     registration: str = "g",
     spline_dampings: float | list[float] | None = None,
@@ -340,14 +343,18 @@ def regional_constraints(
     damping: float | None = None,
     cv: bool = False,
     block_size: float | None = None,
-    eq_points: list[NDArray] | None = None,
-    constraints_weights_column: str | None = None,
+    points: list[NDArray] | None = None,
     grav_obs_height: float | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
     regional_shift: float = 0,
 ) -> pd.DataFrame:
     """
-    separate the regional field by sampling and re-gridding at the constraint points
+    Separate the regional field by sampling and re-gridding the gravity misfit at
+    points of known topography (constraint points). The re-gridding can be done with:
+    1. Tensioned minimum curvature with PyGMT, using `grid_method` "pygmt", 2.
+    Bi-Harmonica splines with Verde, using `grid_method` "verde", or 3. Equivalent
+    Sources with Harmonica, using `grid_method` "eq_sources". Optionally, a dc-shift can
+    be added to the calculated regional with `regional_shift`.
 
     Parameters
     ----------
@@ -356,6 +363,16 @@ def regional_constraints(
         "starting_gravity".
     constraints_df : pd.DataFrame
         dataframe of constraints with columns "easting", "northing", and "upward".
+    grid_method : str, optional
+        method used to grid the sampled gravity data at the constraint points. Choose
+        between "verde", "pygmt", or "eq_sources", by default "eq_sources"
+    constraints_block_size : float | None, optional
+        size of block used in a block-mean reduction of the constraints points, by
+        default None
+    constraints_weights_column : str | None, optional
+       column name for weighting values of each constraint point. Used if
+       `constraint_block_size` is not None or if `grid_method` is "verde" or
+       "eq_sources", by default None
     tension_factor : float, optional
         Tension factor used if `grid_method` is "pygmt", by default 1
     registration : str, optional
@@ -374,7 +391,7 @@ def regional_constraints(
         "damping_limits", "depth_limits", "block_size_limits", and "progressbar".
     block_size : float | None, optional
         block size used if `grid_method` is "eq_sources", by default None
-    eq_points : list[NDArray] | None, optional
+    points : list[NDArray] | None, optional
         specify source locations for equivalent source fitting, by default None
     grav_obs_height : float, optional
         Observation height to use if `grid_method` is "eq_sources", by default None
@@ -401,9 +418,6 @@ def regional_constraints(
     _check_grav_cols(grav_df)
     constraints_df = constraints_df.copy()
 
-    region = vd.get_region((grav_df.easting, grav_df.northing))
-    spacing = utils.get_spacing(grav_df)
-
     grav_df["misfit"] = grav_df.gravity_anomaly - grav_df.starting_gravity
 
     # grid the grav_df data
@@ -420,22 +434,23 @@ def regional_constraints(
     )
     log.debug("sampled constraints: %s", constraints_df.describe())
 
+    # drop rows with NaN values
     constraints_df = constraints_df[constraints_df.sampled_grav.notna()]
 
-    if constraints_block_size is not None:
-        # get weighted mean gravity value of constraint points in each cell
-        if constraints_weights_column is None:
-            weights = None
-            uncertainty = False
-        else:
-            weights = constraints_df[constraints_weights_column]
-            uncertainty = True
+    # get weights for each constraint point
+    if constraints_weights_column is None:
+        weights = None
+        uncertainty = False
+    else:
+        weights = constraints_df[constraints_weights_column]
+        uncertainty = True
 
+    # get weighted mean gravity value of constraint points in each cell
+    if constraints_block_size is not None:
         blockmean = vd.BlockMean(
             spacing=constraints_block_size,
             uncertainty=uncertainty,
         )
-
         coordinates, data, weights = blockmean.filter(
             coordinates=(
                 constraints_df["easting"],
@@ -454,13 +469,17 @@ def regional_constraints(
             data_cols = {"sampled_grav": data, constraints_weights_column: weights}
         # merge dicts and create dataframe
         constraints_df = pd.DataFrame(data=coord_cols | data_cols)
-
+    ###
+    ###
+    # Tensioned minimum curvature with PyGMT
+    ###
+    ###
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
         regional_grav = pygmt.surface(
             data=constraints_df[["easting", "northing", "sampled_grav"]],
-            region=region,
-            spacing=spacing,
+            region=vd.get_region((grav_df.easting, grav_df.northing)),
+            spacing=utils.get_spacing(grav_df),
             registration=registration,
             tension=tension_factor,
             verbose="q",
@@ -468,11 +487,16 @@ def regional_constraints(
         # sample the resulting grid and add to grav_df dataframe
         grav_df = utils.sample_grids(
             df=grav_df,
-            grid=regional_grav + regional_shift,
+            grid=regional_grav,
             sampled_name="reg",
             coord_names=("easting", "northing"),
             verbose="q",
         )
+    ###
+    ###
+    # Bi-Harmonica splines with Verde
+    ###
+    ###
     elif grid_method == "verde":
         spline = utils.best_spline_cv(
             coordinates=(
@@ -484,12 +508,14 @@ def regional_constraints(
             dampings=spline_dampings,
         )
         # predict fitted grid at gravity points
-        grav_df["reg"] = (
-            spline.predict(
-                (grav_df.easting, grav_df.northing),
-            )
-            + regional_shift
+        grav_df["reg"] = spline.predict(
+            (grav_df.easting, grav_df.northing),
         )
+    ###
+    ###
+    # Equivalent Sources with Harmonica
+    ###
+    ###
     elif grid_method == "eq_sources":
         if grav_obs_height is None:
             msg = "if grid_method is 'eq_sources`, must provide grav_obs_height"
@@ -507,6 +533,7 @@ def regional_constraints(
                 weights=weights,
                 depth=depth,
                 damping=damping,
+                block_size=block_size,
                 **cv_kwargs,  # type: ignore[arg-type]
             )
         else:
@@ -515,9 +542,8 @@ def regional_constraints(
                 depth=depth,
                 damping=damping,
                 block_size=block_size,
-                points=eq_points,
+                points=points,
             )
-
             # fit the source coefficients to the data
             eqs.fit(
                 coords,
@@ -526,20 +552,18 @@ def regional_constraints(
             )
 
         # predict sources at gravity points
-        grav_df["reg"] = (
-            eqs.predict(
-                (
-                    grav_df.easting,
-                    grav_df.northing,
-                    np.ones_like(grav_df.northing) * grav_obs_height,
-                ),
-            )
-            + regional_shift
+        grav_df["reg"] = eqs.predict(
+            (
+                grav_df.easting,
+                grav_df.northing,
+                np.ones_like(grav_df.northing) * grav_obs_height,
+            ),
         )
     else:
         msg = "invalid string for grid_method"
         raise ValueError(msg)
 
+    grav_df["reg"] += regional_shift
     grav_df["res"] = grav_df.misfit - grav_df.reg
     return grav_df
 
