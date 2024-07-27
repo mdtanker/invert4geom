@@ -2,27 +2,18 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 
 import typing
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 import pandas as pd
-
 import plotly
-
-from IPython.display import clear_output
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-
-
-
-import seaborn as sns
-
-
 import pyvista
-
-
 import scipy as sp
+import seaborn as sns
 import verde as vd
 import xarray as xr
+from IPython.display import clear_output
 from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 
@@ -54,7 +45,6 @@ def plot_2_parameter_cv_scores(
         matplotlib colormap for scores, by default "viridis"
     """
     sns.set_theme()
-
 
     if cmap is None:
         cmap = sns.color_palette("mako", as_cmap=True)
@@ -231,7 +221,6 @@ def plot_cv_scores(
 
     sns.set_theme()
 
-
     df0 = pd.DataFrame({"scores": scores, "parameters": parameters})
     df = df0.sort_values(by="parameters")
 
@@ -284,8 +273,6 @@ def plot_convergence(
     """
 
     sns.set_theme()
-
-
 
     # get misfit data at end of each iteration
     cols = [s for s in results.columns.to_list() if "_final_misfit" in s]
@@ -392,8 +379,6 @@ def plot_dynamic_convergence(
     """
 
     sns.set_theme()
-
-
 
     clear_output(wait=True)
 
@@ -710,7 +695,6 @@ def plot_inversion_iteration_results(
     constraint_size : float, optional
         size for constraint points, by default 1
     """
-
 
     misfit_grids, topo_grids, corrections_grids = grids
 
@@ -1066,7 +1050,6 @@ def show_prism_layers(
         'thickness', or choose 'constant' to have each layer colored by a unique color
         use kwarg `colors` to alter these colors, by default is "density"
     """
-
 
     # Plot with pyvista
     plotter = pyvista.Plotter(
