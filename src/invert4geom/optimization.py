@@ -26,6 +26,10 @@ from tqdm_joblib import tqdm_joblib
 
 from invert4geom import cross_validation, inversion, log, plotting, regional, utils
 
+warnings.simplefilter(
+    "ignore",
+    category=optuna.exceptions.ExperimentalWarning,
+)
 
 def logging_callback(
     study: optuna.study.Study,
