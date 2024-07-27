@@ -1261,6 +1261,13 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                     "internal kfolds CV"
                 )
                 raise ValueError(msg)
+        else:
+            if "constraints_df" in regional_grav_kwargs:
+                msg = (
+                    "if performing density/zref CV, it's best to not use constraints "
+                    "in the regional separation"
+                )
+                log.warning(msg)
         if density_contrast_limits is None:
             assert density_contrast is not None
         if zref_limits is None:
