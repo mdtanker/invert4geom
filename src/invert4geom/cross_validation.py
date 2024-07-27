@@ -114,8 +114,9 @@ def grav_cv_score(
 ) -> tuple[float, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]:
     """
     Find the score, represented by the root mean (or median) squared error (RMSE),
-    between the testing gravity data, and the predict gravity data after and
-    inversion. Follows methods of :footcite:t:`uiedafast2017`.
+    between the testing gravity data, and the predict gravity data after an
+    inversion. Follows methods of :footcite:t:`uiedafast2017`. Used in
+    `optimization.optimize_inversion_damping()`.
 
     Parameters
     ----------
@@ -389,7 +390,8 @@ def constraints_cv_score(
     """
     Find the score, represented by the root mean squared error (RMSE), between the
     constraint point elevation, and the inverted topography at the constraint points.
-    Follows methods of :footcite:t:`uiedafast2017`.
+    Follows methods of :footcite:t:`uiedafast2017`. Used in
+    `optimization.optimize_inversion_zref_density_contrast()`.
 
     Parameters
     ----------
