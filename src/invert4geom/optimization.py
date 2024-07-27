@@ -1459,6 +1459,8 @@ def optimize_inversion_zref_density_contrast_kfolds(
             create_starting_prisms=True,
             calculate_regional_misfit=True,
             regional_grav_kwargs=regional_grav_kwargs_original,
+            zref=zref,
+            density_contrast=density_contrast,
             plot_convergence=True,
             **new_kwargs,
         )
