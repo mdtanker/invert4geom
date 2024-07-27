@@ -1208,7 +1208,6 @@ def optimize_inversion_zref_density_contrast_kfolds(
 
     regional_grav_kwargs = regional_grav_kwargs_original.copy()
     regional_grav_kwargs.pop("constraints_df", None)
-
     regional_grav_kwargs["constraints_df"] = train_dfs
 
     # warn if using regional method which doesn't require constraints
@@ -1238,9 +1237,9 @@ def optimize_inversion_zref_density_contrast_kfolds(
     density_contrast = best_trial.params.get("density_contrast", None)
 
     if zref is None:
-        zref = kwargs.get("zref")
+        zref = kwargs.pop("zref")
     if density_contrast is None:
-        density_contrast = kwargs.get("density_contrast")
+        density_contrast = kwargs.pop("density_contrast")
 
     new_kwargs = {
         key: value
