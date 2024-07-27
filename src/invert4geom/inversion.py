@@ -1565,6 +1565,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         == best_density_contrast
     )
     assert float(inversion_results[2]["Reference level"][:-2]) == best_zref
-    assert inversion_results[2]["Solver damping"] == best_damping
+    if run_damping_cv is True:
+        assert inversion_results[2]["Solver damping"] == best_damping
 
     return inversion_results
