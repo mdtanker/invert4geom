@@ -235,10 +235,12 @@ def regional_eq_sources(
     depth: float | str = "default",
     damping: float | None = None,
     block_size: float | None = None,
+    points: list[NDArray] | None = None,
     grav_obs_height: float | None = None,
     regional_shift: float = 0,
     cv: bool = False,
     weights_column: str | None = None,
+    cv_kwargs: dict[str, typing.Any] | None = None,
 ) -> pd.DataFrame:
     """
     separate the regional field by estimating deep equivalent sources
@@ -254,6 +256,8 @@ def regional_eq_sources(
         smoothness to impose on estimated coefficients, by default None
     block_size : float | None, optional
         block reduce the data to speed up, by default None
+    points : list[NDArray] | None, optional
+        specify source locations for equivalent source fitting, by default None
     grav_obs_height: float, optional
         Observation height to use predicting the eq sources, by default None and will
         use the data height from grav_df.
@@ -287,10 +291,13 @@ def regional_eq_sources(
         _, eqs = optimization.optimize_eq_source_params(
             coordinates=coords,
             data=grav_df.misfit,
+            # kwargs
+            points=points,
             weights=weights,
-            progressbar=True,
-            n_trials=10,
-            eq_damping_limits=(1e-3, 1e3),
+            depth=depth,
+            damping=damping,
+            block_size=block_size,
+            **cv_kwargs,  # type: ignore[arg-type]
         )
     else:
         # create set of deep sources
@@ -298,6 +305,7 @@ def regional_eq_sources(
             depth=depth,
             damping=damping,
             block_size=block_size,
+            points=points,
         )
 
         # fit the source coefficients to the data
