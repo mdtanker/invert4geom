@@ -56,6 +56,25 @@ def _warn_parameter_at_limits(
                 lims,
             )
 
+
+def _log_optuna_results(
+    trial: optuna.trial.FrozenTrial,
+) -> None:
+    """
+    Log the results of an optuna trial
+
+    Parameters
+    ----------
+    trial : optuna.trial.FrozenTrial
+        optuna trial
+    """
+
+    log.info("Trial with best score: ")
+    log.info("\ttrial number: %s", trial.number)
+    log.info("\tparameter: %s", trial.params)
+    log.info("\tscores: %s", trial.values)
+
+
 def logging_callback(
     study: optuna.study.Study,
     frozen_trial: optuna.trial.FrozenTrial,
@@ -670,6 +689,9 @@ def optimize_inversion_damping(
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
+
+    # log the results of the best trial
+    _log_optuna_results(best_trial)
 
     # get best inversion result of each set
     with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
@@ -1306,6 +1328,9 @@ def optimize_inversion_zref_density_contrast(
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
 
+    # log the results of the best trial
+    _log_optuna_results(best_trial)
+
     # get best inversion result of each set
     with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
         inv_results = pickle.load(f)
@@ -1707,6 +1732,9 @@ def optimize_eq_source_params(
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
+
+    # log the results of the best trial
+    _log_optuna_results(best_trial)
 
     best_damping = best_trial.params.get("damping", None)
     best_depth = best_trial.params.get("depth", None)
@@ -2339,6 +2367,9 @@ def optimize_regional_filter(
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
 
+    # log the results of the best trial
+    _log_optuna_results(best_trial)
+
     resulting_grav_df = best_trial.user_attrs.get("results")
 
     if plot is True:
@@ -2543,6 +2574,9 @@ def optimize_regional_trend(
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
+
+    # log the results of the best trial
+    _log_optuna_results(best_trial)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -2778,6 +2812,9 @@ def optimize_regional_eq_sources(
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
+
+    # log the results of the best trial
+    _log_optuna_results(best_trial)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
@@ -3077,6 +3114,9 @@ def optimize_regional_constraint_point_minimization(
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
+
+    # log the results of the best trial
+    _log_optuna_results(best_trial)
 
     resulting_grav_df = best_trial.user_attrs.get("results")
 
