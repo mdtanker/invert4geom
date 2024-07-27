@@ -324,6 +324,7 @@ def regional_constraints(
     constraints_df: pd.DataFrame,
     tension_factor: float = 1,
     registration: str = "g",
+    spline_dampings: float | list[float] | None = None,
     depth: float | None = None,
     damping: float | None = None,
     block_size: float | None = None,
@@ -346,13 +347,7 @@ def regional_constraints(
         Tension factor used if `grid_method` is "pygmt", by default 1
     registration : str, optional
        grid registration used if `grid_method` is "pygmt",, by default "g"
-    constraints_block_size : float | None, optional
-        size of block used in a block-mean reduction of the constraints points, by
-        default None
-    grid_method : str, optional
-        method used to grid the sampled gravity data at the constraint points. Choose
-        between "verde", "pygmt", or "eq_sources", by default "verde"
-    spline_damping : typing.Any | None, optional
+    spline_dampings : float | list[float] | None, optional
         damping values used if `grid_method` is "verde", by default None
     depth : float | None, optional
         depth of each source relative to the data elevation, positive downwards in
@@ -465,21 +460,6 @@ def regional_constraints(
             verbose="q",
         )
     elif grid_method == "verde":
-        if constraints_weights_column is None:
-            weights = None
-        else:
-            weights = constraints_df[constraints_weights_column]
-        if spline_cv is True:
-            if spline_damping is not None:
-                msg = "can't supply `spline_damping` if `spline_cv` is True."
-                raise ValueError(msg)
-            if spline_damping_values is None:
-                spline_damping_values = list(np.logspace(-40, 0, 100))
-                spline_damping_values.append(None)
-        else:
-            spline_damping_values = spline_damping
-        if spline_damping_values is None:
-            spline_damping_values = [None]
         spline = utils.best_spline_cv(
             coordinates=(
                 constraints_df.easting,
@@ -487,7 +467,7 @@ def regional_constraints(
             ),
             data=constraints_df.sampled_grav,
             weights=weights,
-            dampings=spline_damping_values,
+            dampings=spline_dampings,
         )
         # predict fitted grid at gravity points
         grav_df["reg"] = (
