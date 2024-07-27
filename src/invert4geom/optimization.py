@@ -1034,6 +1034,16 @@ def optimize_inversion_zref_density_contrast(
                 },
             )
 
+    # warn if using constraints
+    if ("constraints_df" in regional_grav_kwargs) & (  # type: ignore[operator]
+        isinstance(constraints_df, pd.DataFrame)
+    ):
+        msg = (
+            "if performing density/zref CV, it's best to not use constraints "
+            "in the regional separation"
+        )
+        log.warning(msg)
+
     # run optimization
     with warnings.catch_warnings():
         warnings.filterwarnings(
@@ -1188,12 +1198,28 @@ def optimize_inversion_zref_density_contrast_kfolds(
 
     regional_grav_kwargs_original = kwargs.pop("regional_grav_kwargs", None).copy()
 
-    regional_grav_kwargs = regional_grav_kwargs_original.copy()
+    if "constraints_df" not in regional_grav_kwargs_original:
+        msg = (
+            "must still provide constraints_df to regional_grav_kwargs to use for "
+            "regional separation after the cross-validation once the optimal "
+            "parameters have been found"
+        )
+        raise ValueError(msg)
 
+    regional_grav_kwargs = regional_grav_kwargs_original.copy()
     regional_grav_kwargs.pop("constraints_df", None)
 
     regional_grav_kwargs["constraints_df"] = train_dfs
 
+    # warn if using regional method which doesn't require constraints
+    if regional_grav_kwargs.get("method") != "constraints_cv":
+        msg = (
+            "Performing a K-Fold density/zref CV which is significantly slower than a "
+            "normal CV. This is only needed if the regional separation method utilizes "
+            "constraints. Please use the non-K-fold function "
+            "`optimize_inversion_zref_density_contrast`."
+        )
+        log.warning(msg)
     study, _ = optimize_inversion_zref_density_contrast(
         constraints_df=test_dfs,
         fold_progressbar=fold_progressbar,
