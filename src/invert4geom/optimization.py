@@ -14,24 +14,17 @@ import typing
 import warnings
 
 import harmonica as hm
+import joblib
 import numpy as np
 import optuna
 import pandas as pd
+import psutil
 import xarray as xr
 from nptyping import NDArray
 from tqdm.autonotebook import tqdm
-
-from invert4geom import cross_validation, inversion, log, plotting, regional, utils
-
-import joblib
-
-
-import psutil
-
-
 from tqdm_joblib import tqdm_joblib
 
-
+from invert4geom import cross_validation, inversion, log, plotting, regional, utils
 
 
 def logging_callback(
@@ -921,9 +914,14 @@ class OptimalInversionZrefDensity:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
+            log.info(
+                "Performing Zref/Density CV with constraints split into test/train"
+            )
             # for each fold, run CV
             scores = []
             for i, _ in enumerate(pbar):
+                log.info("beginning fold %s of %s")
+
                 with utils.log_level(logging.WARN):
                     grav_df = regional.regional_separation(
                         grav_df=grav_df,
@@ -1027,7 +1025,13 @@ def optimize_inversion_zref_density_contrast(
     or both at the same time. Provide upper and low limits for each parameter, number of
     trials and let Optuna choose the best parameter values for each trial or use a grid
     search to test all values between the limits in intervals of n_trials. The results
-    are saved to a pickle file with the best inversion results and the study.
+    are saved to a pickle file with the best inversion results and the study. If you
+    want to use a regional separation technique which utilizes constraints, such as
+    constraint point minimization, separate the constraints into testing and training
+    sets, and supply the training set to `regional_grav_kwargs` and the testing set to
+    `constraints_df` to use for scoring. If you want to automatically perform a K-Folds
+    CV for regional separation, use the function
+    `optimize_inversion_zref_density_contrast_kfolds`.
 
     Parameters
     ----------
@@ -1384,11 +1388,19 @@ def optimize_inversion_zref_density_contrast_kfolds(
     Perform a cross validation for the optimal zref and density contrast values same as
     function `optimize_inversion_zref_density_contrast`, but pass a dataframe of
     constraint points which contains folds of testing and training data (generated with
-    `cross_validation.split_test_train`) so for each iteration of the zref/density cross
-    validation, the regional separation is performed with 1 training fold, and the
-    scoring is performed with 1 testing fold. This is only useful if the regional
-    separation technique you supply via `regional_grav_kwargs` uses constraints points
-    for the estimations, such as constraint point minimization.
+    `cross_validation.split_test_train`). For each set of zref/density values, perform
+    a regional separation and inversion for each of the K folds in the constraints
+    dataframe. After all K folds are inverted, the mean of the K folds scores will be
+    the score for that set of parameters. Repeat this for all parameters. Within each
+    fold, the training constraints are used for the regional separation and the testing
+    constraints are used for scoring. This is only useful if the regional separation
+    technique you supply via `regional_grav_kwargs` uses constraints points
+    for the estimations, such as constraint point minimization. If using 20 sets of
+    density and zref values, and use 5 folds, this will run 100 inversions. It is more
+    efficient, but less accurate, to simple use a different regional estimation
+    technique, which doesn't require constraint points, to find the optimal zref and
+    density values. Then use these again in another inversion with the desired regional
+    separation technique.
 
     Parameters
     ----------
@@ -1453,7 +1465,7 @@ def optimize_inversion_zref_density_contrast_kfolds(
             "grid_search",
         ]
     }
-    # run the inversion workflow
+    # run the inversion workflow with the new best parameters
     with utils.log_level(logging.WARN):
         final_inversion_results = inversion.run_inversion_workflow(
             create_starting_prisms=True,
