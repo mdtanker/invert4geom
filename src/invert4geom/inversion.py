@@ -148,7 +148,7 @@ def jacobian_annular(
     return jac
 
 
-def prism_properties(
+def _prism_properties(
     prisms_layer: xr.Dataset,
     method: str = "itertools",
 ) -> NDArray:
@@ -357,7 +357,7 @@ def jacobian(
         # get prisms info in following format, 3 methods:
         # ((west, east, south, north, bottom, top), density)
         assert prisms_layer is not None
-        prisms_properties = prism_properties(
+        prisms_properties = _prism_properties(
             prisms_layer,
             method=prisms_properties_method,
         )
@@ -1333,7 +1333,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             )
             raise ValueError(msg)
 
-        with utils.log_level(logging.WARN):
+        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             # create the starting topography
             starting_topography = utils.create_topography(
                 **starting_topography_kwargs,
@@ -1462,7 +1462,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         log.info("running individual inversion")
 
         if inversion_kwargs.get("plot_dynamic_convergence", False) is True:
-            with utils.log_level(logging.WARN):
+            with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                 inversion_results = run_inversion(
                     grav_df=grav_df,
                     prism_layer=starting_prisms,
