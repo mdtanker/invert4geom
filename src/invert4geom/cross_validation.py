@@ -1131,6 +1131,12 @@ def regional_separation_score(
     true_regional = kwargs.pop("true_regional", None)
     remove_starting_grav_mean = kwargs.pop("remove_starting_grav_mean", False)
 
+    if method == "constraints_cv":
+        msg = (
+            "method `constraints_cv` internally calculated regional separation scores "
+            "so it should not be used here."
+        )
+        raise ValueError(msg)
     df_anomalies = regional.regional_separation(
         method=method,
         grav_df=grav_df,
