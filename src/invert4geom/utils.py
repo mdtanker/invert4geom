@@ -796,10 +796,10 @@ def create_topography(
     method: str,
     region: tuple[float, float, float, float],
     spacing: float,
+    dampings: list[float] | None,
     registration: str = "g",
     upwards: float | None = None,
     constraints_df: pd.DataFrame | None = None,
-    dampings: list[float] | None = None,
     weights: pd.Series | NDArray | None = None,
 ) -> xr.DataArray:
     """
@@ -814,15 +814,14 @@ def create_topography(
         region of the grid
     spacing : float
         spacing of the grid
+    dampings : list[float] | None
+        damping values to use in spline cross validation for method "spline"
     registration : str, optional
         choose between gridline "g" or pixel "p" registration, by default "g"
     upwards : float | None, optional
         constant value to use for method "flat", by default None
     constraints_df : pd.DataFrame | None, optional
         dataframe with column 'upwards' to use for method "splines", by default None
-    dampings : list[float] | None, optional
-        damping values to use in spline cross validation for method "spline", by
-        default None
     weights : pd.Series | NDArray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
@@ -866,9 +865,6 @@ def create_topography(
             raise ValueError(msg)
         coords = (constraints_df.easting, constraints_df.northing)
 
-        if dampings is None:
-            dampings = list(np.logspace(-40, 0, 100))
-            dampings.append(None)  # type: ignore [arg-type]
         # run CV for fitting a spline to the data
         spline = best_spline_cv(
             coordinates=coords,
@@ -994,7 +990,7 @@ def best_spline_cv(
     dampings = kwargs.pop("dampings", None)
 
     # if single damping value provided, convert to list
-    if isinstance(dampings, list):
+    if isinstance(dampings, typing.Iterable):
         pass
     else:
         dampings = [dampings]
