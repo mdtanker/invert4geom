@@ -1232,9 +1232,6 @@ def plot_optuna_figures(
     if plot_history:
         optuna.visualization.plot_optimization_history(study).show()
 
-    # if params is None:
-    #     params = [k for k, v in study.get_trials()[0].params.items()]
-
     if plot_slice:
         for i, j in enumerate(target_names):
             optuna.visualization.plot_slice(
@@ -1249,7 +1246,9 @@ def plot_optuna_figures(
                 target_name="Execution time",
             ).show()
 
-    if plot_importance:
+    if plot_importance and (
+        len([k for k, v in study.get_trials()[0].params.items()]) > 1
+    ):
         optuna.visualization.plot_param_importances(study).show()
 
 
