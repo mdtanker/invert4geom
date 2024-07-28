@@ -68,6 +68,66 @@ def _log_optuna_results(
     log.info("\tscores: %s", trial.values)
 
 
+def _create_regional_separation_study(
+    optimize_on_true_regional_misfit: bool,
+    separate_metrics: bool,
+    sampler: optuna.samplers.BaseSampler,
+    true_regional: xr.DataArray | None = None,
+) -> optuna.study.Study:
+    """
+    Creates a study, sets directions and metric names based on the input parameters.
+
+    Parameters
+    ----------
+    optimize_on_true_regional_misfit : bool
+        choose to optimize on the true regional misfit instead of the residual misfit at
+        constraints and the residual misfit amplitude.
+    separate_metrics : bool
+        choose to optimize on the residual misfit at constraints and the residual misfit
+        amplitude as separate metrics, as opposed to them as a ratio.
+    sampler : optuna.samplers.BaseSampler
+        sampler object
+    true_regional : xr.DataArray | None, optional
+        grid of true regional values, by default None
+
+    Returns
+    -------
+    optuna.study.Study
+        return a study object with direction, sampler, and metric names set.
+    """
+    if optimize_on_true_regional_misfit is True:
+        if true_regional is None:
+            msg = (
+                "if optimizing on true regional misfit, must provide true_regional grid"
+            )
+            raise ValueError(msg)
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=sampler,
+            load_if_exists=False,
+        )
+        study.set_metric_names(["difference with true regional"])
+    else:
+        if separate_metrics is True:
+            study = optuna.create_study(
+                directions=[
+                    "minimize",
+                    "maximize",
+                ],
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["residual at constraints", "amplitude of residual"])
+        else:
+            study = optuna.create_study(
+                direction="minimize",
+                sampler=sampler,
+                load_if_exists=False,
+            )
+            study.set_metric_names(["combined scores"])
+    return study
+
+
 def logging_callback(
     study: optuna.study.Study,
     frozen_trial: optuna.trial.FrozenTrial,
@@ -2037,36 +2097,13 @@ def optimize_regional_filter(
             seed=10,
         )
 
-    if optimize_on_true_regional_misfit is True:
-        if true_regional is None:
-            msg = (
-                "if optimizing on true regional misfit, must provide true_regional grid"
-            )
-            raise ValueError(msg)
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=sampler,
-            load_if_exists=False,
-        )
-        study.set_metric_names(["difference with true regional"])
-    else:
-        if separate_metrics is True:
-            study = optuna.create_study(
-                directions=[
-                    "minimize",
-                    "maximize",
-                ],
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["residual at constraints", "amplitude of residual"])
-        else:
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["combined scores"])
+    # create study and set directions / metric names depending on optimization type
+    study = _create_regional_separation_study(
+        optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        separate_metrics=separate_metrics,
+        sampler=sampler,
+        true_regional=true_regional,
+    )
 
     # run optimization
     study.optimize(
@@ -2200,36 +2237,13 @@ def optimize_regional_trend(
             seed=10,
         )
 
-    if optimize_on_true_regional_misfit is True:
-        if true_regional is None:
-            msg = (
-                "if optimizing on true regional misfit, must provide true_regional grid"
-            )
-            raise ValueError(msg)
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=sampler,
-            load_if_exists=False,
-        )
-        study.set_metric_names(["difference with true regional"])
-    else:
-        if separate_metrics is True:
-            study = optuna.create_study(
-                directions=[
-                    "minimize",
-                    "maximize",
-                ],
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["residual at constraints", "amplitude of residual"])
-        else:
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["combined scores"])
+    # create study and set directions / metric names depending on optimization type
+    study = _create_regional_separation_study(
+        optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        separate_metrics=separate_metrics,
+        sampler=sampler,
+        true_regional=true_regional,
+    )
 
     # run optimization
     study.optimize(
@@ -2382,36 +2396,13 @@ def optimize_regional_eq_sources(
             seed=10,
         )
 
-    if optimize_on_true_regional_misfit is True:
-        if true_regional is None:
-            msg = (
-                "if optimizing on true regional misfit, must provide true_regional grid"
-            )
-            raise ValueError(msg)
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=sampler,
-            load_if_exists=False,
-        )
-        study.set_metric_names(["difference with true regional"])
-    else:
-        if separate_metrics is True:
-            study = optuna.create_study(
-                directions=[
-                    "minimize",
-                    "maximize",
-                ],
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["residual at constraints", "amplitude of residual"])
-        else:
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["combined scores"])
+    # create study and set directions / metric names depending on optimization type
+    study = _create_regional_separation_study(
+        optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        separate_metrics=separate_metrics,
+        sampler=sampler,
+        true_regional=true_regional,
+    )
 
     # run optimization
     study.optimize(
@@ -2609,42 +2600,13 @@ def optimize_regional_constraint_point_minimization(
             seed=10,
         )
 
-    if optimize_on_true_regional_misfit is True:
-        if true_regional is None:
-            msg = (
-                "if optimizing on true regional misfit, must provide true_regional grid"
-            )
-            raise ValueError(msg)
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=sampler,
-            load_if_exists=False,
-        )
-        study.set_metric_names(["difference with true regional"])
-    else:
-        if separate_metrics is True:
-            study = optuna.create_study(
-                directions=[
-                    "minimize",
-                    "maximize",
-                ],
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["residual at constraints", "amplitude of residual"])
-        else:
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["combined scores"])
-    if isinstance(training_df, list):
-        msg = (
-            "training and testing data supplied as lists of dataframes, using them "
-            "for a K-Folds cross validation"
-        )
-        log.info(msg)
+    # create study and set directions / metric names depending on optimization type
+    study = _create_regional_separation_study(
+        optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
+        separate_metrics=separate_metrics,
+        sampler=sampler,
+        true_regional=true_regional,
+    )
 
     log.debug("separate_metrics: %s", separate_metrics)
     log.debug("optimize_on_true_regional_misfit: %s", optimize_on_true_regional_misfit)
