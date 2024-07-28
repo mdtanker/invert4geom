@@ -104,7 +104,7 @@ def load_synthetic_model(
             coord_names=("easting", "northing"),
         )
 
-        with utils.log_level(logging.WARN):
+        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             # grid the sampled values using verde
             starting_topography = utils.create_topography(
                 method="splines",

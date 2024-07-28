@@ -154,7 +154,7 @@ def grav_cv_score(
 
     # make sure dynamic plotting of inversion iterations is off
     kwargs["plot_dynamic_convergence"] = False
-    with utils.log_level(logging.WARN):
+    with utils._log_level(logging.WARN):  # pylint: disable=protected-access
         # run inversion
         results = inversion.run_inversion(
             grav_df=train,
@@ -416,7 +416,7 @@ def constraints_cv_score(
 
     constraints_df = constraints_df.copy()
 
-    with utils.log_level(logging.WARN):
+    with utils._log_level(logging.WARN):  # pylint: disable=protected-access
         # run inversion
         results = inversion.run_inversion(
             grav_df=grav_df,

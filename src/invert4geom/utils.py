@@ -22,7 +22,7 @@ from invert4geom import cross_validation, log
 
 
 @contextmanager
-def log_level(level):  # type: ignore[no-untyped-def]
+def _log_level(level):  # type: ignore[no-untyped-def]
     "Run body with logger at a different level"
     saved_logger_level = log.level
     log.setLevel(level)

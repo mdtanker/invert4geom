@@ -128,7 +128,7 @@ def _create_regional_separation_study(
     return study
 
 
-def logging_callback(
+def _logging_callback(
     study: optuna.study.Study,
     frozen_trial: optuna.trial.FrozenTrial,
 ) -> None:
@@ -168,7 +168,7 @@ def logging_callback(
             )
 
 
-def warn_limits_better_than_trial_1_param(
+def _warn_limits_better_than_trial_1_param(
     study: optuna.study.Study,
     trial: optuna.trial.FrozenTrial,
 ) -> None:
@@ -227,7 +227,7 @@ def warn_limits_better_than_trial_1_param(
             pass
 
 
-def warn_limits_better_than_trial_multi_params(
+def _warn_limits_better_than_trial_multi_params(
     study: optuna.study.Study,
     trial: optuna.trial.FrozenTrial,
 ) -> None:
@@ -483,7 +483,7 @@ def optimize_inversion_damping(
                 **kwargs,
             ),
             n_trials=n_trials,
-            callbacks=[warn_limits_better_than_trial_1_param],
+            callbacks=[_warn_limits_better_than_trial_1_param],
             show_progress_bar=True,
         )
 
@@ -761,7 +761,7 @@ class OptimalInversionZrefDensity:
             # for each fold, run CV
             scores = []
             for i, _ in enumerate(pbar):
-                with utils.log_level(logging.WARN):
+                with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                     grav_df = regional.regional_separation(
                         grav_df=grav_df,
                         constraints_df=training_constraints[i],
@@ -799,7 +799,7 @@ class OptimalInversionZrefDensity:
         else:
             assert isinstance(self.constraints_df, pd.DataFrame)
 
-            with utils.log_level(logging.WARN):
+            with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                 grav_df = regional.regional_separation(
                     grav_df=grav_df,
                     **reg_kwargs,
@@ -1129,7 +1129,7 @@ def optimize_inversion_zref_density_contrast(
                 **kwargs,
             ),
             n_trials=n_trials,
-            callbacks=[warn_limits_better_than_trial_multi_params],
+            callbacks=[_warn_limits_better_than_trial_multi_params],
             show_progress_bar=True,
         )
 
@@ -1318,7 +1318,7 @@ def optimize_inversion_zref_density_contrast_kfolds(
         ]
     }
     # run the inversion workflow with the new best parameters
-    with utils.log_level(logging.WARN):
+    with utils._log_level(logging.WARN):  # pylint: disable=protected-access
         final_inversion_results = inversion.run_inversion_workflow(
             create_starting_prisms=True,
             calculate_regional_misfit=True,
@@ -1520,9 +1520,9 @@ def optimize_eq_source_params(
         num_params += 1
 
     if num_params == 1:
-        callbacks = [warn_limits_better_than_trial_1_param]
+        callbacks = [_warn_limits_better_than_trial_1_param]
     else:
-        callbacks = [warn_limits_better_than_trial_multi_params]
+        callbacks = [_warn_limits_better_than_trial_multi_params]
 
     if num_params == 0:
         msg = (
@@ -1643,7 +1643,7 @@ class OptimizeRegionalTrend:
             self.trend_limits[1],
         )
 
-        with utils.log_level(logging.WARN):
+        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
                 cross_validation.regional_separation_score(
                     method="trend",
@@ -1704,7 +1704,7 @@ class OptimizeRegionalFilter:
             self.filter_width_limits[1],
         )
 
-        with utils.log_level(logging.WARN):
+        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
                 cross_validation.regional_separation_score(
                     method="filter",
@@ -1801,7 +1801,7 @@ class OptimizeRegionalEqSources:
             if key not in ["depth", "block_size", "damping"]
         }
 
-        with utils.log_level(logging.WARN):
+        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
                 cross_validation.regional_separation_score(
                     method="eq_sources",
@@ -1961,7 +1961,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
-            with utils.log_level(logging.WARN):
+            with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                 # for each fold, run CV
                 results = []
                 for i, _ in enumerate(pbar):
