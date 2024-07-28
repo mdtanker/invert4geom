@@ -499,8 +499,8 @@ def zref_density_optimal_parameter(
     density_contrast_values : list[float] | None, optional
         Density contrast values to test, by default None
     starting_topography_kwargs : dict[str, typing.Any] | None, optional
-        region and spacing used to create a flat starting topography for each zref
-        value, by default None.
+        region, spacing and dampings used to create a flat starting topography for each
+        zref value, by default None.
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
         Keywords used to calculate the regional field, by default None. If method is
         `constraints` for constraint point minimization, must separate the constraints
@@ -553,8 +553,9 @@ def zref_density_optimal_parameter(
         log.warning(msg)
         if starting_topography_kwargs is None:
             msg = (
-                "must provide `starting_topography_kwargs` with items `region` and "
-                "`spacing` to create the starting topography for each zref level."
+                "must provide `starting_topography_kwargs` with items `region` "
+                "`spacing`, and `dampings` to create the starting topography for each "
+                "zref level."
             )
             raise ValueError(msg)
 
@@ -600,6 +601,7 @@ def zref_density_optimal_parameter(
         if starting_topography is None:
             starting_topo = utils.create_topography(
                 method="flat",
+                dampings=starting_topography_kwargs.get("dampings"),  # type: ignore[union-attr]
                 region=starting_topography_kwargs.get("region"),  # type: ignore[union-attr, arg-type]
                 spacing=starting_topography_kwargs.get("spacing"),  # type: ignore[union-attr, arg-type]
                 upwards=zref,

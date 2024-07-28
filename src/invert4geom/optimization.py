@@ -636,8 +636,9 @@ class OptimalInversionZrefDensity:
             log.warning(msg)
             if self.starting_topography_kwargs is None:
                 msg = (
-                    "must provide `starting_topography_kwargs` with items `region` and "
-                    "`spacing` to create the starting topography for each zref level."
+                    "must provide `starting_topography_kwargs` with items `region` "
+                    "`spacing`, and `dampings` to create the starting topography for "
+                    "each zref level."
                 )
                 raise ValueError(msg)
 
@@ -687,6 +688,7 @@ class OptimalInversionZrefDensity:
         if self.starting_topography is None:
             starting_topo = utils.create_topography(
                 method="flat",
+                dampings=self.starting_topography_kwargs.get("dampings"),  # type: ignore[union-attr]
                 region=self.starting_topography_kwargs.get("region"),  # type: ignore[union-attr,arg-type]
                 spacing=self.starting_topography_kwargs.get("spacing"),  # type: ignore[union-attr,arg-type]
                 upwards=zref,
@@ -882,7 +884,8 @@ def optimize_inversion_zref_density_contrast(
         number of trials, if grid_search is True, needs to be a perfect square and >=16.
     starting_topography : xr.DataArray | None, optional
         a starting topography grid used to create the prisms layers. If not provided,
-        must provide region and spacing to starting_topography_kwargs, by default None
+        must provide region, spacing and dampings to starting_topography_kwargs, by
+        default None
     zref_limits : tuple[float, float] | None, optional
         upper and lower limits for the reference level, in meters, by default None
     density_contrast_limits : tuple[float, float] | None, optional
