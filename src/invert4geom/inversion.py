@@ -1190,9 +1190,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     zref_density_cv_trials = kwargs.pop("zref_density_cv_trials", None)
     density_contrast_limits = kwargs.pop("density_contrast_limits", None)
     zref_limits = kwargs.pop("zref_limits", None)
-    split_kwargs = kwargs.pop(
-        "split_kwargs", None
-    )
+    split_kwargs = kwargs.pop("split_kwargs", None)
     data_spacing = kwargs.pop("grav_spacing", None)
     inversion_region = kwargs.pop("inversion_region", None)
     damping_limits = kwargs.pop("damping_limits", (0.001, 1))
@@ -1257,8 +1255,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         if run_kfolds_zref_or_density_cv is True:
             if split_kwargs is None:
                 msg = (
-                    "split_kwargs must be provided if performing "
-                    "internal kfolds CV"
+                    "split_kwargs must be provided if performing " "internal kfolds CV"
                 )
                 raise ValueError(msg)
         else:
