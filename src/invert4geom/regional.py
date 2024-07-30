@@ -291,7 +291,6 @@ def regional_eq_sources(
         _, eqs = optimization.optimize_eq_source_params(
             coordinates=coords,
             data=grav_df.misfit,
-            # kwargs
             points=points,
             weights=weights,
             depth=depth,

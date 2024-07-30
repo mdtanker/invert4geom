@@ -128,7 +128,7 @@ def dummy_jacobian() -> NDArray:
     """
     grav = dummy_df()
     prisms_layer = dummy_prism_layer_flat()
-    prisms_properties = inversion.prism_properties(prisms_layer, method="itertools")
+    prisms_properties = inversion._prism_properties(prisms_layer, method="itertools")
     jac = np.empty(
         (len(grav), prisms_layer.top.size),
         dtype=np.float64,
@@ -149,7 +149,7 @@ def dummy_jacobian_square() -> NDArray:
     """
     grav = dummy_df_big()
     prisms_layer = dummy_prism_layer_flat()
-    prisms_properties = inversion.prism_properties(prisms_layer, method="itertools")
+    prisms_properties = inversion._prism_properties(prisms_layer, method="itertools")
     jac = np.empty(
         (len(grav), prisms_layer.top.size),
         dtype=np.float64,
@@ -337,12 +337,12 @@ def test_jacobian_annular():
 
 def test_prism_properties():
     """
-    test the prism_properties function
+    test the _prism_properties function
     """
     prisms_layer = dummy_prism_layer()
-    itertools_result = inversion.prism_properties(prisms_layer, method="itertools")
-    forloops_result = inversion.prism_properties(prisms_layer, method="forloops")
-    generator_result = inversion.prism_properties(prisms_layer, method="generator")
+    itertools_result = inversion._prism_properties(prisms_layer, method="itertools")
+    forloops_result = inversion._prism_properties(prisms_layer, method="forloops")
+    generator_result = inversion._prism_properties(prisms_layer, method="generator")
     # test that the prism properties are the same with 3 methods
     np.array_equal(itertools_result, forloops_result)
     np.array_equal(itertools_result, generator_result)
@@ -352,11 +352,11 @@ def test_prism_properties():
 
 def test_prism_properties_error():
     """
-    test the prism_properties function raises the correct error
+    test the _prism_properties function raises the correct error
     """
     prisms_layer = dummy_prism_layer()
     with pytest.raises(ValueError, match="method must be"):
-        inversion.prism_properties(prisms_layer, method="wrong_input")
+        inversion._prism_properties(prisms_layer, method="wrong_input")
 
 
 @pytest.mark.use_numba()
@@ -366,7 +366,7 @@ def test_jacobian_prism():
     """
     grav = dummy_df()
     prisms_layer = dummy_prism_layer()
-    prisms_properties = inversion.prism_properties(prisms_layer, method="itertools")
+    prisms_properties = inversion._prism_properties(prisms_layer, method="itertools")
     jac = np.empty(
         (len(grav), prisms_layer.top.size),
         dtype=np.float64,
