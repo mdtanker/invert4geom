@@ -1162,7 +1162,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     kwargs : typing.Any
         keyword arguments for the workflow and inversion, such as
         `starting_topography_kwargs`, `regional_grav_kwargs`,
-        `kfolds_zref_or_density_cv_kwargs` and all the other kwargs
+        `split_kwargs` and all the other kwargs
         supplied to `run_inversion`.
 
     Returns
@@ -1190,8 +1190,8 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     zref_density_cv_trials = kwargs.pop("zref_density_cv_trials", None)
     density_contrast_limits = kwargs.pop("density_contrast_limits", None)
     zref_limits = kwargs.pop("zref_limits", None)
-    kfolds_zref_or_density_cv_kwargs = kwargs.pop(
-        "kfolds_zref_or_density_cv_kwargs", None
+    split_kwargs = kwargs.pop(
+        "split_kwargs", None
     )
     data_spacing = kwargs.pop("grav_spacing", None)
     inversion_region = kwargs.pop("inversion_region", None)
@@ -1255,9 +1255,9 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             )
             raise ValueError(msg)
         if run_kfolds_zref_or_density_cv is True:
-            if kfolds_zref_or_density_cv_kwargs is None:
+            if split_kwargs is None:
                 msg = (
-                    "kfolds_zref_or_density_cv_kwargs must be provided if performing "
+                    "split_kwargs must be provided if performing "
                     "internal kfolds CV"
                 )
                 raise ValueError(msg)
