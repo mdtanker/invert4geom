@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import typing
 
 import harmonica as hm
@@ -583,19 +582,34 @@ def regional_constraints(
 
 def regional_constraints_cv(
     constraints_df: pd.DataFrame,
-    n_trials: int,
-    remove_starting_grav_mean: bool = False,
-    split_method: str = "KFold",
-    split_spacing: float | tuple[float, float] | None = None,
-    split_shape: tuple[float, float] | None = None,
-    n_splits: int = 5,
-    random_state: int = 10,
+    split_kwargs: dict[str, typing.Any] | None = None,
     **kwargs: typing.Any,
 ) -> pd.DataFrame:
     """
-    separate the regional field by sampling and re-gridding at the constraint points
-    using cross-validation to find the best parameters
+    This is a convenience function to wrap
+    `optimization.optimize_regional_constraint_point_minimization`. It takes a full
+    constraints dataframe and dictionary `split_kwargs`, to split the constraints into
+    testing and training sets (with K-folds), uses these folds in a K-Folds
+    hyperparameter optimization to find the set of parameter values which estimates the
+    best regional field. It then uses the optimal parameter values and all of the
+    constraint points to re-calculate the best regional field. All kwargs are passed to
+    the function :func:`optimization.optimize_regional_constraint_point_minimization`.
+
+    Parameters
+    ----------
+    constraints_df : pd.DataFrame
+        dataframe of un-separated constraints
+    split_kwargs : dict[str, typing.Any] | None, optional
+        kwargs to be passed to `split_test_train`, by default None
+    **kwargs : typing.Any
+        kwargs to be passed to `optimize_regional_constraint_point_minimization`
+
+    Returns
+    -------
+    pd.DataFrame
+        a gravity dataframe with new columns 'misfit', 'reg', and 'res'.
     """
+
     log.debug("starting regional_constraints_cv")
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
@@ -607,29 +621,14 @@ def regional_constraints_cv(
 
     testing_training_df = cross_validation.split_test_train(
         df,
-        method=split_method,
-        spacing=split_spacing,
-        shape=split_shape,
-        n_splits=n_splits,
-        random_state=random_state,
-        plot=False,
+        **split_kwargs,  # type: ignore[arg-type]
     )
     log.debug("cv constraints split: %s", testing_training_df.describe())
 
-    with utils.log_level(logging.WARN):
-        _, grav_df, _ = (
-            optimization.optimize_regional_constraint_point_minimization_kfolds(
-                testing_training_df=testing_training_df,
-                n_trials=n_trials,
-                plot=False,
-                plot_grid=False,
-                fold_progressbar=False,
-                separate_metrics=True,
-                remove_starting_grav_mean=remove_starting_grav_mean,
-                progressbar=False,
-                **kwargs,
-            )
-        )
+    _, grav_df, _ = optimization.optimize_regional_constraint_point_minimization(
+        testing_training_df=testing_training_df,
+        **kwargs,
+    )
 
     return grav_df
 
