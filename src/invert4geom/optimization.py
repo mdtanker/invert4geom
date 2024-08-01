@@ -805,8 +805,13 @@ def optimize_inversion_damping(
 class OptimalInversionZrefDensity:
     """
     Objective function to use in an Optuna optimization for finding the optimal values
-    for zref and or density contrast values for a gravity inversion. Used within
-    function `optimize_inversion_zref_density_contrast()`.
+    for zref and or density contrast values for a gravity inversion. This class is used
+    within the function `optimize_inversion_zref_density_contrast`. If using constraint
+    point minimization for the regional separation, split constraints into testing and
+    training sets and provide the testing set to argument `constraints_df` and the
+    training set to the `constraints_df` argument of `regional_grav_kwargs`. To perform
+    K-folds cross-validation, provide lists of constraints dataframes to the parameters
+    where each dataframe in each list corresponds to fold.
     """
 
     def __init__(
@@ -814,26 +819,27 @@ class OptimalInversionZrefDensity:
         fname: str,
         grav_df: pd.DataFrame,
         constraints_df: pd.DataFrame | list[pd.DataFrame],
+        regional_grav_kwargs: dict[str, typing.Any],
         zref: float | None = None,
         zref_limits: tuple[float, float] | None = None,
         density_contrast_limits: tuple[float, float] | None = None,
         density_contrast: float | None = None,
         starting_topography: xr.DataArray | None = None,
         starting_topography_kwargs: dict[str, typing.Any] | None = None,
-        regional_grav_kwargs: dict[str, typing.Any] | None = None,
         progressbar: bool = True,
         **kwargs: typing.Any,
     ) -> None:
         self.fname = fname
         self.grav_df = grav_df
         self.constraints_df = constraints_df
+        self.regional_grav_kwargs = regional_grav_kwargs
         self.zref_limits = zref_limits
         self.density_contrast_limits = density_contrast_limits
         self.zref = zref
         self.density_contrast = density_contrast
         self.starting_topography = starting_topography
         self.starting_topography_kwargs = starting_topography_kwargs
-        self.regional_grav_kwargs = regional_grav_kwargs
+
         self.progressbar = progressbar
         self.kwargs = kwargs
 
@@ -918,48 +924,6 @@ class OptimalInversionZrefDensity:
                 )
                 raise ValueError(msg)
 
-        # raise warning about using constraint point minimization for regional
-        # estimation
-        if (
-            (self.regional_grav_kwargs is not None)
-            and (self.regional_grav_kwargs.get("method") == "constraints")
-            and (
-                len(self.regional_grav_kwargs.get("constraints_df"))  # type: ignore[arg-type]
-                == len(self.constraints_df)
-            )
-        ):
-            msg = (
-                "Using constraint point minimization technique for regional field "
-                "estimation. This is not recommended as the constraint points are used "
-                "for the density / reference level cross-validation scoring, which "
-                "biases the scoring. Consider using a different method for regional "
-                "field estimation, or separate constraints in training and testing "
-                "sets and provide the training set to `regional_grav_kwargs` and the "
-                "testing set to `constraints_df` to use for scoring."
-            )
-            log.warning(msg)
-
-        # raise warning about using constraint points for regional estimation
-        # if self.regional_grav_kwargs is not None:
-        #     if self.regional_grav_kwargs.get("method") == "constant":
-        #         if self.regional_grav_kwargs.get("constraints_df", None) is not None:
-        #             if len(
-        #                 self.regional_grav_kwargs.get("constraints_df", None)
-        #             ) == len(self.constraints_df):
-        #                 msg = (
-        #                     "Using constraint points for estimating a constant "
-        #                     "regional field.This is not recommended as the constraint"
-        #                     "points are used for the density / reference level "
-        #                     "cross-validation scoring, which biases the scoring. "
-        #                     "Consider using a constant value not determined from the "
-        #                     "constraints, a different method for regional field "
-        #                     "estimation, or separate constraints in training and "
-        #                     "testing sets and provide the training set to "
-        #                     "`regional_grav_kwargs` and the testing set to "
-        #                     "`constraints_df` to use for scoring."
-        #                 )
-        #                 log.warning(msg)
-
         # make flat starting topo at zref if not provided
         if self.starting_topography is None:
             starting_topo = utils.create_topography(
@@ -1000,80 +964,32 @@ class OptimalInversionZrefDensity:
         )
         # pylint: enable=duplicate-code
         # calculate regional field
-        reg_kwargs = self.regional_grav_kwargs.copy()  # type: ignore[union-attr]
+        reg_kwargs = self.regional_grav_kwargs.copy()
 
-        if isinstance(self.constraints_df, list):
-            training_constraints = reg_kwargs.pop("constraints_df", None)
-            testing_constraints = self.constraints_df
-
-            if training_constraints is None:
-                pass
-            elif isinstance(training_constraints, pd.DataFrame):
-                msg = (
-                    "must provide a list of training constraints dataframes for "
-                    "cross-validation to parameter `constraints_df` of "
-                    "`regional_grav_kwargs`."
-                )
-                raise ValueError(msg)
-
-            # get list of folds
-            folds = [
-                list(df.columns[df.columns.str.startswith("fold_")])[0]  # noqa: RUF015
-                for df in self.constraints_df
-            ]
-
-            # progressbar for folds
-            if self.progressbar is True:
-                pbar = tqdm(
-                    folds,
-                    desc="Regional Estimation CV folds",
-                )
-            elif self.progressbar is False:
-                pbar = folds
-            else:
-                msg = "progressbar must be a boolean"  # type: ignore[unreachable]
-                raise ValueError(msg)
-
-            # for each fold, run CV
-            scores = []
-            for i, _ in enumerate(pbar):
-                with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-                    grav_df = regional.regional_separation(
-                        grav_df=grav_df,
-                        constraints_df=training_constraints[i],
-                        **reg_kwargs,
-                    )
-
-                new_kwargs = {
-                    key: value
-                    for key, value in kwargs.items()
-                    if key
-                    not in [
-                        "zref",
-                        "density_contrast",
-                        "progressbar",
-                        "results_fname",
-                        "prism_layer",
-                    ]
-                }
-
-                trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
-
-                # run cross validation
-                score, _ = cross_validation.constraints_cv_score(
-                    grav_df=grav_df,
-                    constraints_df=testing_constraints[i],
-                    results_fname=trial.user_attrs.get("fname"),
-                    prism_layer=starting_prisms,
-                    **new_kwargs,
-                )
-                scores.append(score)
-
-            # get mean of scores of all folds
-            score = np.mean(scores)
-
-        else:
-            assert isinstance(self.constraints_df, pd.DataFrame)
+        constraints_warning = (
+            "Using constraint point minimization technique for regional field "
+            "estimation. This is not recommended as the constraint points are used "
+            "for the density / reference level cross-validation scoring, which "
+            "biases the scoring. Consider using a different method for regional "
+            "field estimation, or separate constraints in training and testing "
+            "sets and provide the training set to `regional_grav_kwargs` and the "
+            "testing set to `constraints_df` to use for scoring."
+        )
+        log.debug("prism model created and forward gravity calculated")
+        ###
+        ###
+        # Single optimization
+        ###
+        ###
+        if isinstance(self.constraints_df, pd.DataFrame):
+            log.debug("running single optimization")
+            # raise warning about using constraint point minimization for regional
+            # estimation
+            if (reg_kwargs.get("method") in ["constraints", "constraints_cv"]) and (
+                len(reg_kwargs.get("constraints_df")) == len(self.constraints_df)  # type: ignore[arg-type]
+            ):
+                assert isinstance(reg_kwargs.get("constraints_df"), pd.DataFrame)
+                log.warning(constraints_warning)
 
             with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                 grav_df = regional.regional_separation(
@@ -1097,13 +1013,108 @@ class OptimalInversionZrefDensity:
             trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
             # run cross validation
-            score, _ = cross_validation.constraints_cv_score(
+            score, results = cross_validation.constraints_cv_score(
                 grav_df=grav_df,
                 constraints_df=self.constraints_df,
                 results_fname=trial.user_attrs.get("fname"),
                 prism_layer=starting_prisms,
                 **new_kwargs,
             )
+            # log the termination reason
+            log.debug(
+                "Trial %s termination reason: %s",
+                trial.number,
+                results[2]["Termination reason"],
+            )
+        ###
+        ###
+        # K-Folds optimization
+        ###
+        ###
+        else:
+            log.debug("running k-folds optimization")
+
+            training_constraints = reg_kwargs.pop("constraints_df", None)
+            testing_constraints = self.constraints_df
+
+            if training_constraints is None:
+                msg = (
+                    "must provide training constraints dataframes for regional "
+                    "separation"
+                )
+                raise ValueError(msg)
+            if isinstance(training_constraints, pd.DataFrame):
+                msg = (
+                    "must provide a list of training constraints dataframes for "
+                    "cross-validation to parameter `constraints_df` of "
+                    "`regional_grav_kwargs`."
+                )
+                raise ValueError(msg)
+
+            assert len(training_constraints) == len(testing_constraints)
+
+            # get list of folds
+            folds = testing_constraints
+
+            # progressbar for folds
+            if self.progressbar is True:
+                pbar = tqdm(
+                    folds,
+                    desc="Regional Estimation CV folds",
+                )
+            elif self.progressbar is False:
+                pbar = folds
+            else:
+                msg = "progressbar must be a boolean"  # type: ignore[unreachable]
+                raise ValueError(msg)
+
+            log.debug("Running %s folds", len(folds))
+            # log.debug(testing_constraints)
+            # log.debug(training_constraints)
+            # for each fold, run CV
+            scores = []
+            for i, _ in enumerate(pbar):
+                log.debug(training_constraints[i])
+                with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+                    grav_df = regional.regional_separation(
+                        grav_df=grav_df,
+                        constraints_df=training_constraints[i],
+                        **reg_kwargs,
+                    )
+                log.debug(grav_df)
+                new_kwargs = {
+                    key: value
+                    for key, value in kwargs.items()
+                    if key
+                    not in [
+                        "zref",
+                        "density_contrast",
+                        "progressbar",
+                        "results_fname",
+                        "prism_layer",
+                    ]
+                }
+
+                trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
+
+                # run cross validation
+                score, results = cross_validation.constraints_cv_score(
+                    grav_df=grav_df,
+                    constraints_df=testing_constraints[i],
+                    results_fname=trial.user_attrs.get("fname"),
+                    prism_layer=starting_prisms,
+                    **new_kwargs,
+                )
+                scores.append(score)
+
+                # log the termination reason
+                log.debug(
+                    "Trial %s termination reason: %s",
+                    trial.number,
+                    results[2]["Termination reason"],
+                )
+            # get mean of scores of all folds
+            score = np.mean(scores)
 
         return score
 
@@ -1134,20 +1145,38 @@ def optimize_inversion_zref_density_contrast(
     optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
 ]:
     """
-    Use Optuna to find the optimal zref and or density contrast values for a gravity
-    inversion. The optimization aims to minimize the cross-validation score, represented
-    by the root mean (or median) squared error (RMSE), between points of known
-    topography and the inverted topography. Follows methods of
+    Run an Optuna optimization to find the optimal zref and or density contrast values
+    for a gravity inversion. The optimization aims to minimize the cross-validation
+    score, represented by the root mean (or median) squared error (RMSE), between
+    points of known topography and the inverted topography. Follows methods of
     :footcite:t:`uiedafast2017`. This can optimize for either zref, density contrast,
     or both at the same time. Provide upper and low limits for each parameter, number of
     trials and let Optuna choose the best parameter values for each trial or use a grid
     search to test all values between the limits in intervals of n_trials. The results
-    are saved to a pickle file with the best inversion results and the study. If you
-    want to use a regional separation technique which utilizes constraints, such as
-    constraint point minimization, separate the constraints into testing and training
-    sets, and supply the training set to `regional_grav_kwargs` and the testing set to
-    `constraints_df` to use for scoring. If you want to automatically perform a K-Folds
-    CV for regional separation, use the function
+    are saved to a pickle file with the best inversion results and the study. Since each
+    new set of zref and density values changes the starting model, for each set of
+    parameters this function re-calculates the starting gravity, the gravity misfit
+    and its regional and residual components. `regional_grav_kwargs` are passed to
+    `regional.regional_separation`. Once the optimal parameters are found, the regional
+    separation and inversion are performed again and saved to <fname>_results.pickle and
+    the study is saved to <fname>_study.pickle.
+    The constraint point minimization regional separation technique uses constraints
+    points to estimate the regional field, and since constraints are used to calculating
+    the scoring metric of this function, the constraints need to be separated into
+    training (regional estimation) and testing (scoring) sets. To do this, supply the
+    training constraints to`regional_grav_kwargs` via `method="constraint"` or
+    `method="constraint_cv"` and `constraints_df`, and the testing constraints to this
+    function as `constraints_df`.
+    Typically there are not many constraints and omitting some of them from the training
+    set will significantly impact the regional estimation. To help with this, we can use
+    a K-Folds approach, where for each set of parameter values, we perform this entire
+    procedure K times, each time with a different separation of training and testing
+    points, called a fold. The score associated with that parameter set is the mean of
+    the K scores. Once the optimal parameter values are found, we then repeat the
+    inversion using all of the constraints in the regional estimation. For a K-folds
+    approach, supply lists of dataframes containing only each fold's testing or training
+    points to the two `constraints_df` arguments. To automatically perform the
+    test/train split and K-folds optimization, you can also use the convenience function
     `optimize_inversion_zref_density_contrast_kfolds`.
 
     Parameters
@@ -1174,9 +1203,10 @@ def optimize_inversion_zref_density_contrast(
         if density_contrast_limits not provided, must provide a constant density
         contrast value, by default None
     starting_topography_kwargs : dict[str, typing.Any] | None, optional
-        dictionary with region and spacing arguments used to create a flat starting
-        topography at each zref value if starting_topography not provided, by default
-        None
+        dictionary with key: value pairs of "region":tuple[float, float, float, float].
+        "spacing":float, and "dampings":float | list[float] | None, used to create
+        a flat starting topography at each zref value if starting_topography not
+        provided, by default None
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
         dictionary with kwargs to supply to `regional.regional_separation()`, by default
         None
@@ -1339,13 +1369,30 @@ def optimize_inversion_zref_density_contrast(
         storage=storage,
     )
 
-    # explicitly add the limits as trials
+    # explicitly add the limits 2 intermediate points as trials
+    if zref_limits is not None:
+        zref_quarter_range = (zref_limits[1] - zref_limits[0]) / 4
+    if density_contrast_limits is not None:
+        density_quarter_range = (
+            density_contrast_limits[1] - density_contrast_limits[0]
+        ) / 4
+
     if zref_limits is None:
         study.enqueue_trial({"density_contrast": density_contrast_limits[0]})  # type: ignore[index]
         study.enqueue_trial({"density_contrast": density_contrast_limits[1]})  # type: ignore[index]
+        if grid_search is False:
+            study.enqueue_trial(
+                {"density_contrast": density_contrast_limits[0] + density_quarter_range}  # type: ignore[index] # pylint: disable=possibly-used-before-assignment
+            )
+            study.enqueue_trial(
+                {"density_contrast": density_contrast_limits[1] - density_quarter_range}  # type: ignore[index]
+            )
     elif density_contrast_limits is None:
         study.enqueue_trial({"zref": zref_limits[0]})
         study.enqueue_trial({"zref": zref_limits[1]})
+        if grid_search is False:
+            study.enqueue_trial({"zref": zref_limits[0] + zref_quarter_range})  # pylint: disable=possibly-used-before-assignment
+            study.enqueue_trial({"zref": zref_limits[1] - zref_quarter_range})
     else:
         if grid_search is True:
             a = range(int(np.sqrt(n_trials)))
@@ -1364,6 +1411,7 @@ def optimize_inversion_zref_density_contrast(
                     },
                 )
         else:
+            # add outside 4 corners
             study.enqueue_trial(
                 {
                     "zref": zref_limits[0],
@@ -1388,16 +1436,35 @@ def optimize_inversion_zref_density_contrast(
                     "density_contrast": density_contrast_limits[1],
                 },
             )
-
-    # warn if using constraints
-    if ("constraints_df" in regional_grav_kwargs) & (  # type: ignore[operator]
-        isinstance(constraints_df, pd.DataFrame)
-    ):
-        msg = (
-            "if performing density/zref CV, it's best to not use constraints "
-            "in the regional separation"
-        )
-        log.warning(msg)
+            # add inside 4 corners
+            study.enqueue_trial(
+                {
+                    "zref": zref_limits[0] + zref_quarter_range,
+                    "density_contrast": density_contrast_limits[0]
+                    + density_quarter_range,
+                },
+            )
+            study.enqueue_trial(
+                {
+                    "zref": zref_limits[0] + zref_quarter_range,
+                    "density_contrast": density_contrast_limits[1]
+                    - density_quarter_range,
+                },
+            )
+            study.enqueue_trial(
+                {
+                    "zref": zref_limits[1] - zref_quarter_range,
+                    "density_contrast": density_contrast_limits[0]
+                    + density_quarter_range,
+                },
+            )
+            study.enqueue_trial(
+                {
+                    "zref": zref_limits[1] - zref_quarter_range,
+                    "density_contrast": density_contrast_limits[1]
+                    - density_quarter_range,
+                },
+            )
 
     # run optimization
     with warnings.catch_warnings():
@@ -1437,21 +1504,77 @@ def optimize_inversion_zref_density_contrast(
     # log the results of the best trial
     _log_optuna_results(best_trial)
 
-    # get best inversion result of each set
-    with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
-        inv_results = pickle.load(f)
+    # combine testing and training to get a full constraints dataframe
+    reg_constraints = regional_grav_kwargs.pop("constraints_df", None)  # type: ignore[union-attr]
+    if isinstance(constraints_df, pd.DataFrame):
+        constraints_df = (
+            pd.concat([constraints_df, reg_constraints])
+            .drop_duplicates(subset=["easting", "northing", "upward"])
+            .sort_index()
+        )
+    else:
+        constraints_df = (
+            pd.concat(constraints_df + reg_constraints)
+            .drop_duplicates(subset=["easting", "northing", "upward"])
+            .sort_index()
+        )
+    # add to regional grav kwargs
+    if reg_constraints is not None:
+        regional_grav_kwargs["constraints_df"] = constraints_df  # type: ignore[index]
+
+    # redo inversion with best parameters
+    best_zref = best_trial.params.get("zref", zref)
+    best_density_contrast = best_trial.params.get("density_contrast", density_contrast)
+
+    if starting_topography_kwargs is not None:
+        starting_topography_kwargs["upwards"] = best_zref
+    new_kwargs = {
+        key: value
+        for key, value in kwargs.items()
+        if key
+        not in [
+            "progressbar",
+            "prism_layer",
+            "density_contrast_limits",
+            "zref_limits",
+            "n_trials",
+            "grid_search",
+            "parallel",
+            "constraints_df",
+        ]
+    }
+    # run the inversion workflow with the new best parameters
+    with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        create_starting_topography = True if starting_topography is None else False  # noqa: SIM210  # pylint: disable=simplifiable-if-expression
+        final_inversion_results = inversion.run_inversion_workflow(
+            grav_df=grav_df,
+            create_starting_topography=create_starting_topography,
+            create_starting_prisms=True,
+            starting_topography=starting_topography,
+            starting_topography_kwargs=starting_topography_kwargs,
+            regional_grav_kwargs=regional_grav_kwargs,
+            calculate_regional_misfit=True,
+            zref=best_zref,
+            density_contrast=best_density_contrast,
+            plot_convergence=True,
+            fname=fname,
+            **new_kwargs,
+        )
+
+    used_zref = float(final_inversion_results[2]["Reference level"][:-2])
+    used_density_contrast = float(
+        final_inversion_results[2]["Density contrast(s)"][1:-7]
+    )
+
+    assert math.isclose(used_density_contrast, best_density_contrast, rel_tol=0.02)
+    assert math.isclose(used_zref, best_zref, rel_tol=0.02)
 
     # remove if exists
     pathlib.Path(f"{fname}_study.pickle").unlink(missing_ok=True)
-    pathlib.Path(f"{fname}_results.pickle").unlink(missing_ok=True)
 
     # save study to pickle
     with pathlib.Path(f"{fname}_study.pickle").open("wb") as f:
         pickle.dump(study, f)
-
-    # save inversion results tuple to pickle
-    with pathlib.Path(f"{fname}_results.pickle").open("wb") as f:
-        pickle.dump(inv_results, f)
 
     # delete all inversion results
     for i in range(n_trials):
@@ -1502,46 +1625,51 @@ def optimize_inversion_zref_density_contrast(
                     ),
                 )
 
-    return study, inv_results
+    return study, final_inversion_results
 
 
 def optimize_inversion_zref_density_contrast_kfolds(
-    testing_training_constraints_df: pd.DataFrame,
-    plot_cv: bool = True,
-    fold_progressbar: bool = True,
+    constraints_df: pd.DataFrame,
+    split_kwargs: dict[str, typing.Any] | None = None,
     **kwargs: typing.Any,
 ) -> tuple[
     optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
 ]:
     """
-    Perform a cross validation for the optimal zref and density contrast values same as
+    Perform an optimization for zref and density contrast values same as
     function `optimize_inversion_zref_density_contrast`, but pass a dataframe of
-    constraint points which contains folds of testing and training data (generated with
-    `cross_validation.split_test_train`). For each set of zref/density values, perform
-    a regional separation and inversion for each of the K folds in the constraints
-    dataframe. After all K folds are inverted, the mean of the K folds scores will be
-    the score for that set of parameters. Repeat this for all parameters. Within each
-    fold, the training constraints are used for the regional separation and the testing
-    constraints are used for scoring. This is only useful if the regional separation
-    technique you supply via `regional_grav_kwargs` uses constraints points
-    for the estimations, such as constraint point minimization
-    (method='constraints_cv' or method='constraints'). If using 20 sets of density and
-    zref values, and use 5 folds, this will run 100 inversions. It is more
+    constraint points and `split_kwargs` which are both passed `split_test_train` create
+    K-folds of testing and training constraints. For each set of zref/density values,
+    regional separation and inversion are performed for each of the K-folds in the
+    constraints dataframe. The score for each parameter set will be the mean of the
+    K-folds scores.
+    This then repeats for all parameters. Within each parameter set and fold, the
+    training constraints are used for the regional separation and the testing
+    constraints are used for scoring. This optimization performs a total number of
+    inversions equal to  K-folds * number of parameter sets. For 20 parameter sets and 5
+    K-folds, this is 100 inversions. This extra computational expense is only useful if
+    the regional separation technique you supply via `regional_grav_kwargs` uses
+    constraints points for the estimations, such as constraint point minimization
+    (method='constraints_cv' or method='constraints'). It is more
     efficient, but less accurate, to simple use a different regional estimation
     technique, which doesn't require constraint points, to find the optimal zref and
     density values. Then use these again in another inversion with the desired regional
-    separation technique.
+    separation technique. Using the regional method of "constraints" will simply use the
+    training points and supplied `grid_method` parameter values to calculate a regional
+    field. Using the regional method of "constraints_cv" will take the training points
+    and split these into a secondary set of training and testing points. These will be
+    used internally in the regional separation to find the optimal `grid_method`
+    parameters.
 
     Parameters
     ----------
-    testing_training_constraints_df : pd.DataFrame
-        dataframe of constraints with columns "fold_x" for x folds, with values of
-        'test' or 'train'.
-    plot_cv : bool, optional
-        plot the density and/or zref parameters values and the resulting scores, by
-        default True
-    fold_progressbar : bool, optional
-        add a progressbar for each fold, by default True
+    constraints_df
+        constraints dataframe with columns "easting", "northing", and "upward".
+    split_kwargs : dict[str, typing.Any] | None, optional
+        kwargs to be passed to `split_test_train` for splitting constraints_df into
+        test and train sets, by default None
+    **kwargs : typing.Any
+        kwargs to be passed to `optimize_inversion_zref_density_contrast`
 
     Returns
     -------
@@ -1549,124 +1677,39 @@ def optimize_inversion_zref_density_contrast_kfolds(
     tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float] ]
         returns the optuna study, and a tuple of the best inversion results.
     """
-    test_dfs, train_dfs = cross_validation.kfold_df_to_lists(
-        testing_training_constraints_df
+    # drop any existing fold columns
+    df = constraints_df.copy()
+    df = df[df.columns.drop(list(df.filter(regex="fold_")))]
+
+    # split into test and training sets
+    testing_training_df = cross_validation.split_test_train(
+        df,
+        **split_kwargs,  # type: ignore[arg-type]
     )
 
-    kwargs.pop("plot_cv", False)
+    # get list of training and testing dataframes
+    test_dfs, train_dfs = cross_validation.kfold_df_to_lists(testing_training_df)
+    log.info("Constraints split into %s folds", len(test_dfs))
 
-    regional_grav_kwargs_original = kwargs.pop("regional_grav_kwargs", None).copy()
+    # for i in range(len(test_dfs)):
+    # log.info("points in fold %s train set:", len(train_dfs[i]))
+    # log.info("point in fold %s test set:", len(test_dfs[i]))
 
-    if "constraints_df" not in regional_grav_kwargs_original:
-        msg = (
-            "must still provide constraints_df to regional_grav_kwargs to use for "
-            "regional separation after the cross-validation once the optimal "
-            "parameters have been found"
-        )
+    regional_grav_kwargs = kwargs.pop("regional_grav_kwargs", None)
+
+    if regional_grav_kwargs is None:
+        msg = "must provide regional_grav_kwargs"
         raise ValueError(msg)
 
-    regional_grav_kwargs = regional_grav_kwargs_original.copy()
-    regional_grav_kwargs.pop("constraints_df", None)
     regional_grav_kwargs["constraints_df"] = train_dfs
 
-    # warn if using regional method which doesn't require constraints
-    if regional_grav_kwargs.get("method") != "constraints_cv":
-        msg = (
-            "Performing a K-Fold density/zref CV which is significantly slower than a "
-            "normal CV. This is only needed if the regional separation method utilizes "
-            "constraints. Please use the non-K-fold function "
-            "`optimize_inversion_zref_density_contrast`."
-        )
-        log.warning(msg)
-    study, _ = optimize_inversion_zref_density_contrast(
+    study, inversion_results = optimize_inversion_zref_density_contrast(
         constraints_df=test_dfs,
-        fold_progressbar=fold_progressbar,
         regional_grav_kwargs=regional_grav_kwargs,
-        plot_cv=False,
         **kwargs,
     )
 
-    best_trial = study.best_trial
-
-    # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
-
-    # redo inversion with best parameters
-    zref = best_trial.params.get("zref", None)
-    density_contrast = best_trial.params.get("density_contrast", None)
-
-    if zref is None:
-        zref = kwargs.pop("zref")
-    if density_contrast is None:
-        density_contrast = kwargs.pop("density_contrast")
-
-    new_kwargs = {
-        key: value
-        for key, value in kwargs.items()
-        if key
-        not in [
-            "progressbar",
-            "prism_layer",
-            "density_contrast_limits",
-            "zref_limits",
-            "n_trials",
-            "grid_search",
-        ]
-    }
-    # run the inversion workflow with the new best parameters
-    with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-        final_inversion_results = inversion.run_inversion_workflow(
-            create_starting_prisms=True,
-            calculate_regional_misfit=True,
-            regional_grav_kwargs=regional_grav_kwargs_original,
-            zref=zref,
-            density_contrast=density_contrast,
-            plot_convergence=True,
-            **new_kwargs,
-        )
-
-    if plot_cv is True:
-        if kwargs.get("zref_limits", None) is None:
-            plotting.plot_cv_scores(
-                study.trials_dataframe().value.values,
-                study.trials_dataframe().params_density_contrast.values,
-                param_name="Density contrast (kg/m$^3$)",
-                plot_title="Density contrast Cross-validation",
-            )
-        elif kwargs.get("density_contrast_limits", None) is None:
-            plotting.plot_cv_scores(
-                study.trials_dataframe().value.values,
-                study.trials_dataframe().params_zref.values,
-                param_name="Reference level (m)",
-                plot_title="Reference level Cross-validation",
-            )
-        else:
-            if kwargs.get("grid_search", False) is True:
-                parameter_pairs = list(
-                    zip(
-                        study.trials_dataframe().params_zref,
-                        study.trials_dataframe().params_density_contrast,
-                    )
-                )
-                plotting.plot_2_parameter_cv_scores(
-                    study.trials_dataframe().value.values,
-                    parameter_pairs,
-                    param_names=("Reference level (m)", "Density contrast (kg/m$^3$)"),
-                )
-            else:
-                plotting.plot_2_parameter_cv_scores_uneven(
-                    study,
-                    param_names=(
-                        "params_zref",
-                        "params_density_contrast",
-                    ),
-                    plot_param_names=(
-                        "Reference level (m)",
-                        "Density contrast (kg/m$^3$)",
-                    ),
-                )
-
-    return study, final_inversion_results
+    return study, inversion_results
 
 
 class OptimalEqSourceParams:
