@@ -396,7 +396,9 @@ def regional_constraints(
         Observation height to use if `grid_method` is "eq_sources", by default None
     cv_kwargs : dict[str, typing.Any] | None, optional
         additional keyword arguments for the cross-validation optimization of
-        equivalent source parameters, by default
+        equivalent source parameters, by default None. Can contain: "n_trials",
+        "damping_limits", "depth_limits", "block_size_limits", "points", "sampler",
+        "plot", "progressbar", "parallel", "fname", "dtype", or "delayed".
     regional_shift : float, optional
         shift to add to the regional field, by default 0
 
@@ -420,12 +422,12 @@ def regional_constraints(
     grav_df["misfit"] = grav_df.gravity_anomaly - grav_df.starting_gravity
 
     # grid the grav_df data
-    grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray().misfit
+    grav_grid = grav_df.set_index(["northing", "easting"]).to_xarray()
 
     # sample gravity at constraint points
     constraints_df = utils.sample_grids(
         df=constraints_df,
-        grid=grav_grid,
+        grid=grav_grid.misfit,
         sampled_name="sampled_grav",
         coord_names=("easting", "northing"),
         no_skip=True,
@@ -517,14 +519,26 @@ def regional_constraints(
     ###
     elif grid_method == "eq_sources":
         if grav_obs_height is None:
-            msg = "if grid_method is 'eq_sources`, must provide grav_obs_height"
-            raise ValueError(msg)
+            grav_obs_height = grav_df.upward
+        else:
+            grav_obs_height = np.ones_like(grav_df.easting) * grav_obs_height
+
+        # sample gravity observation height at constraint points
+        constraints_df = utils.sample_grids(
+            df=constraints_df,
+            grid=grav_grid.upward,
+            sampled_name="sampled_grav_height",
+            coord_names=("easting", "northing"),
+            no_skip=True,
+            verbose="q",
+        )
         coords = (
             constraints_df.easting,
             constraints_df.northing,
-            np.ones_like(constraints_df.easting) * grav_obs_height,
+            constraints_df.sampled_grav_height,
         )
         if cv is True:
+            # eqs = utils.best_equivalent_source_damping(
             _, eqs = optimization.optimize_eq_source_params(
                 coordinates=coords,
                 data=constraints_df.sampled_grav,
@@ -550,12 +564,12 @@ def regional_constraints(
                 weights=weights,
             )
 
-        # predict sources at gravity points
+        # predict sources at gravity points and chosen height for upward continuation
         grav_df["reg"] = eqs.predict(
             (
                 grav_df.easting,
                 grav_df.northing,
-                np.ones_like(grav_df.northing) * grav_obs_height,
+                grav_obs_height,  # either grav_df.upward or user-set constant value
             ),
         )
     else:
