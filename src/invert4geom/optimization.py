@@ -3,16 +3,22 @@ from __future__ import annotations  # pylint: disable=too-many-lines
 import itertools
 import logging
 import math
+import multiprocessing
+import os
 import pathlib
 import pickle
 import random
+import re
+import subprocess
 import typing
 import warnings
 
 import harmonica as hm
+import joblib
 import numpy as np
 import optuna
 import pandas as pd
+import psutil
 import xarray as xr
 from nptyping import NDArray
 from tqdm.autonotebook import tqdm
@@ -23,6 +29,236 @@ warnings.simplefilter(
     "ignore",
     category=optuna.exceptions.ExperimentalWarning,
 )
+
+
+def available_cpu_count() -> typing.Any:
+    """
+    Number of available virtual or physical CPUs on this system, i.e.
+    user/real as output by time(1) when called with an optimally scaling
+    userspace-only program
+
+    Adapted from https://stackoverflow.com/a/1006301/18686384
+    """
+
+    # cpuset
+    # cpuset may restrict the number of *available* processors
+    try:
+        # m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", open("/proc/self/status").read())
+        with pathlib.Path("/proc/self/status").open(encoding="utf8") as f:
+            m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", f.read())
+        if m:
+            res = bin(int(m.group(1).replace(",", ""), 16)).count("1")
+            if res > 0:
+                return res
+    except OSError:
+        pass
+
+    # Python 2.6+
+    try:
+        return multiprocessing.cpu_count()
+    except (ImportError, NotImplementedError):
+        pass
+
+    # https://github.com/giampaolo/psutil
+    try:
+        return psutil.cpu_count()  # psutil.NUM_CPUS on old versions
+    except (ImportError, AttributeError):
+        pass
+
+    # POSIX
+    try:
+        res = int(os.sysconf("SC_NPROCESSORS_ONLN"))
+
+        if res > 0:
+            return res
+    except (AttributeError, ValueError):
+        pass
+
+    # Windows
+    try:
+        res = int(os.environ["NUMBER_OF_PROCESSORS"])
+
+        if res > 0:
+            return res
+    except (KeyError, ValueError):
+        pass
+
+    # BSD
+    try:
+        with subprocess.Popen(
+            ["sysctl", "-n", "hw.ncpu"], stdout=subprocess.PIPE
+        ) as sysctl:
+            # sysctl = subprocess.Popen(["sysctl", "-n", "hw.ncpu"],
+            # stdout=subprocess.PIPE)
+            sc_std_out = sysctl.communicate()[0]
+            res = int(sc_std_out)
+
+        if res > 0:
+            return res
+    except (OSError, ValueError):
+        pass
+
+    # Linux
+    try:
+        # res = open("/proc/cpuinfo").read().count("processor\t:")
+        with pathlib.Path("/proc/cpuinfo").open(encoding="utf8") as f:
+            res = f.read().count("processor\t:")
+
+        if res > 0:
+            return res
+    except OSError:
+        pass
+
+    # Solaris
+    try:
+        pseudo_devices = os.listdir("/devices/pseudo/")
+        res = 0
+        for pds in pseudo_devices:
+            if re.match(r"^cpuid@[0-9]+$", pds):
+                res += 1
+
+        if res > 0:
+            return res
+    except OSError:
+        pass
+
+    # Other UNIXes (heuristic)
+    try:
+        try:
+            # dmesg = open("/var/run/dmesg.boot").read()
+            with pathlib.Path("/var/run/dmesg.boot").open(encoding="utf8") as f:
+                dmesg = f.read()
+            # dmesg = pathlib.Path("/var/run/dmesg.boot").open().read()
+        except OSError:
+            with subprocess.Popen(["dmesg"], stdout=subprocess.PIPE) as dmesg_process:
+                # dmesg_process = subprocess.Popen(["dmesg"], stdout=subprocess.PIPE)
+                dmesg = dmesg_process.communicate()[0]  # type: ignore[assignment]
+
+        res = 0
+        while "\ncpu" + str(res) + ":" in dmesg:
+            res += 1
+
+        if res > 0:
+            return res
+    except OSError:
+        pass
+
+    msg = "Can not determine number of CPUs on this system"
+    raise Exception(msg)  # pylint: disable=broad-exception-raised
+
+
+def run_optuna(
+    study: optuna.study.Study,
+    objective: typing.Callable[..., float],
+    n_trials: int,
+    storage: optuna.storages.BaseStorage | None = None,
+    maximize_cpus: bool = True,
+    parallel: bool = False,
+    progressbar: bool | None = None,
+    callbacks: typing.Any | None = None,
+) -> optuna.study.Study:
+    """
+    Run optuna optimization, optionally in parallel. Pre-define the study, and objective
+    function, and if parallel is True, the storage (preferably with JournalStorage) and
+    study name.
+    """
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # set up parallel processing and run optimization
+    if parallel is True:
+        if progressbar is None:
+            progressbar = False
+        if storage is None:
+            msg = "if running in parallel, must provide an Optuna storage object"
+            raise ValueError(msg)
+        study_name = study.study_name
+
+        def optimize_study(
+            study_name: str,
+            storage: optuna.storages.BaseStorage,
+            objective: typing.Callable[..., float],
+            n_trials: int,
+        ) -> None:
+            study = optuna.load_study(study_name=study_name, storage=storage)
+            optuna.logging.set_verbosity(optuna.logging.WARN)
+            study.optimize(
+                objective,
+                n_trials=n_trials,
+            )
+
+        _optuna_set_cores(
+            n_trials=n_trials,
+            optimize_study=optimize_study,
+            study_name=study_name,
+            storage=storage,
+            objective=objective,
+            max_cores=maximize_cpus,
+        )
+
+        # reload the study
+        return optuna.load_study(
+            study_name=study_name,
+            storage=storage,
+        )
+
+    # run in normal, non-parallel mode
+    if progressbar is None:
+        progressbar = True
+    study.optimize(
+        objective,
+        n_trials=n_trials,
+        callbacks=callbacks,
+        show_progress_bar=progressbar,
+    )
+
+    return study
+
+
+def _optuna_set_cores(
+    n_trials: int,
+    optimize_study: typing.Callable[..., None],
+    study_name: str,
+    storage: typing.Any,
+    objective: typing.Callable[..., float],
+    max_cores: bool = True,
+) -> None:
+    """
+    Set up optuna optimization in parallel splitting up the number of trials over either
+    all available cores or giving each available core 1 trial.
+    """
+    if max_cores:
+        # get available cores (UNIX and Windows)
+        # num_cores = len(psutil.Process().cpu_affinity())
+        num_cores = available_cpu_count()
+
+        # set trials per job
+        trials_per_job = math.ceil(n_trials / num_cores)
+
+        # set number of jobs
+        n_jobs = num_cores if n_trials >= num_cores else n_trials
+    else:
+        trials_per_job = 1
+        n_jobs = int(n_trials / trials_per_job)
+    log.info(
+        "Running %s trials with %s jobs with up to %s trials per job",
+        n_trials,
+        n_jobs,
+        trials_per_job,
+    )
+    try:
+        joblib.Parallel(n_jobs=n_jobs)(
+            joblib.delayed(optimize_study)(
+                study_name,
+                storage,
+                objective,
+                n_trials=trials_per_job,
+            )
+            for i in range(n_trials)
+        )
+    except FileNotFoundError:
+        log.exception("FileNotFoundError occurred in parallel optimization")
+        pathlib.Path(f"{study_name}.log.lock").unlink(missing_ok=True)
+        pathlib.Path(f"{study_name}.lock").unlink(missing_ok=True)
 
 
 def _warn_parameter_at_limits(
