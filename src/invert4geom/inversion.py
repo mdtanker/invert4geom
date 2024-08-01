@@ -1254,9 +1254,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             raise ValueError(msg)
         if run_kfolds_zref_or_density_cv is True:
             if split_kwargs is None:
-                msg = (
-                    "split_kwargs must be provided if performing " "internal kfolds CV"
-                )
+                msg = "split_kwargs must be provided if performing internal kfolds CV"
                 raise ValueError(msg)
         else:
             if "constraints_df" in regional_grav_kwargs:
