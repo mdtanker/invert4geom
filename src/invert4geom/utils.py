@@ -1080,6 +1080,138 @@ def best_spline_cv(
     return spline
 
 
+def best_equivalent_source_damping(
+    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
+    data: pd.Series | NDArray,
+    delayed: bool = False,
+    weights: pd.Series | NDArray | None = None,
+    **kwargs: typing.Any,
+) -> hm.EquivalentSources:
+    """
+    Find the best damping parameter for a hm.EquivalentSource() fit. All kwargs are
+    passed to  the hm.EquivalentSource class.
+
+    Parameters
+    ----------
+    coordinates : tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray]
+        tuple of easting, northing, and upward coordinates of the gravity data
+    data : pd.Series | NDArray
+        the gravity data
+    delayed : bool, optional
+        compute the scores in parallel if True, by default False
+    weights : NDArray | None, optional
+        optional weight values for each gravity data point, by default None
+
+    Keyword Arguments
+    -----------------
+        damping : None or float
+        The positive damping regularization parameter. Controls how much
+        smoothness is imposed on the estimated coefficients.
+        If None, no regularization is used.
+    points : None or list of arrays (optional)
+        List containing the coordinates of the equivalent point sources.
+        Coordinates are assumed to be in the following order:
+        (``easting``, ``northing``, ``upward``).
+        If None, will place one point source below each observation point at
+        a fixed relative depth below the observation point.
+        Defaults to None.
+    depth : float or "default"
+        Parameter used to control the depth at which the point sources will be
+        located.
+        If a value is provided, each source is located beneath each data point
+        (or block-averaged location) at a depth equal to its elevation minus
+        the ``depth`` value.
+        If set to ``"default"``, the depth of the sources will be estimated as
+        4.5 times the mean distance between first neighboring sources.
+        This parameter is ignored if *points* is specified.
+        Defaults to ``"default"``.
+    block_size: float, tuple = (s_north, s_east) or None
+        Size of the blocks used on block-averaged equivalent sources.
+        If a single value is passed, the blocks will have a square shape.
+        Alternatively, the dimensions of the blocks in the South-North and
+        West-East directions can be specified by passing a tuple.
+        If None, no block-averaging is applied.
+        This parameter is ignored if *points* are specified.
+        Default to None.
+    parallel : bool
+        If True any predictions and Jacobian building is carried out in
+        parallel through Numba's ``jit.prange``, reducing the computation time.
+        If False, these tasks will be run on a single CPU. Default to True.
+    dtype : data-type
+        The desired data-type for the predictions and the Jacobian matrix.
+        Default to ``"float64"``.
+
+    Returns
+    -------
+    hm.EquivalentSources
+        the best fitted equivalent sources
+    """
+
+    dampings = kwargs.pop("dampings", None)
+    kwargs.pop("damping", None)
+    # if single damping value provided, convert to list
+    if isinstance(dampings, typing.Iterable):
+        pass
+    else:
+        dampings = [dampings]
+    # pylint: disable=duplicate-code
+    if np.isnan(coordinates).any():
+        msg = "coordinates contain NaN"
+        raise ValueError(msg)
+    if np.isnan(data).any():
+        msg = "data contains is NaN"
+        raise ValueError(msg)
+
+    scores = []
+    for d in dampings:
+        eqs = hm.EquivalentSources(
+            damping=d,
+            **kwargs,
+        )
+
+        score = np.mean(
+            vd.cross_val_score(
+                eqs,
+                coordinates,
+                data,
+                delayed=delayed,
+                weights=weights,
+            )
+        )
+        # pylint: enable=duplicate-code
+        scores.append(score)
+
+    if delayed:
+        scores = dask.compute(scores)[0]
+    else:
+        pass
+
+    best = np.argmax(scores)
+    log.info("Best EqSources score: %s", scores[best])
+    log.info("Best damping: %s", dampings[best])
+
+    return hm.EquivalentSources(damping=dampings[best]).fit(
+        coordinates, data, weights=weights
+    )
+
+    dampings_without_none = [i for i in dampings if i is not None]
+
+    if dampings[best] is None:
+        pass
+    elif len(dampings) > 2 and dampings[best] in [
+        np.min(dampings_without_none),
+        np.max(dampings_without_none),
+    ]:
+        log.warning(
+            "Best damping value (%s) is at the limit of provided values (%s, %s) and "
+            "thus is likely not a global minimum, expand the range of values test to "
+            "ensure the best parameter value value is found.",
+            dampings[best],
+            np.nanmin(dampings_without_none),
+            np.nanmax(dampings_without_none),
+        )
+
+
 @deprecation.deprecated(  # type: ignore[misc]
     deprecated_in="0.8.0",
     removed_in="0.14.0",
