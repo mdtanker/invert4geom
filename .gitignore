@@ -160,3 +160,6 @@ Thumbs.db
 *.pickle
 *.log
 *.lock
+
+# tmp data folders
+tmp/
