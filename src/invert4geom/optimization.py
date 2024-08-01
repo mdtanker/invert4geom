@@ -309,7 +309,9 @@ def _create_regional_separation_study(
     separate_metrics: bool,
     sampler: optuna.samplers.BaseSampler,
     true_regional: xr.DataArray | None = None,
-) -> optuna.study.Study:
+    parallel: bool = True,
+    fname: str | None = None,
+) -> tuple[optuna.study.Study, optuna.storages.BaseStorage]:
     """
     Creates a study, sets directions and metric names based on the input parameters.
 
@@ -325,43 +327,59 @@ def _create_regional_separation_study(
         sampler object
     true_regional : xr.DataArray | None, optional
         grid of true regional values, by default None
-
+    parallel : bool, optional
+        inform whether the study should be run in run in parallel, by default True. If
+        True, uses file storage, which slows down the optimization, but allows for
+        running in parallel.
+    fname : str | None, optional
+        file name to save the study to, by default None
     Returns
     -------
-    optuna.study.Study
-        return a study object with direction, sampler, and metric names set.
+    tuple[optuna.study.Study, optuna.storages.BaseStorage]
+        return a study object with direction, sampler, and metric names set, and if
+        parallel is True, an optuna storage object.
     """
+    direction = None
+    directions = None
+
+    if fname is None:
+        fname = f"tmp_{random.randint(0,999)}"
+    if parallel:
+        pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
+        pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
+        pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
+        storage = JournalStorage(JournalFileStorage(f"{fname}.log"))
+    else:
+        storage = None
+
     if optimize_on_true_regional_misfit is True:
         if true_regional is None:
             msg = (
                 "if optimizing on true regional misfit, must provide true_regional grid"
             )
             raise ValueError(msg)
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=sampler,
-            load_if_exists=False,
-        )
-        study.set_metric_names(["difference with true regional"])
+        direction = "minimize"
+        metric_names = ["difference with true regional"]
+        log.info("optimizing on minimizing the true regional misfit")
     else:
         if separate_metrics is True:
-            study = optuna.create_study(
-                directions=[
-                    "minimize",
-                    "maximize",
-                ],
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["residual at constraints", "amplitude of residual"])
+            directions = ["minimize", "maximize"]
+            metric_names = ["residual at constraints", "amplitude of residual"]
         else:
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-            )
-            study.set_metric_names(["combined scores"])
-    return study
+            direction = "minimize"
+            metric_names = ["combined scores"]
+
+    study = optuna.create_study(
+        direction=direction,
+        directions=directions,
+        sampler=sampler,
+        study_name=fname,
+        storage=storage,
+        load_if_exists=False,
+    )
+    study.set_metric_names(metric_names)
+
+    return study, storage
 
 
 def _logging_callback(
@@ -604,6 +622,8 @@ def optimize_inversion_damping(
     plot_grids: bool = False,
     logx: bool = True,
     logy: bool = True,
+    progressbar: bool = True,
+    parallel: bool = False,
     **kwargs: typing.Any,
 ) -> tuple[
     optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
@@ -638,7 +658,8 @@ def optimize_inversion_damping(
     grid_search : bool, optional
         search the entire parameter space between damping_limits in n_trial steps, by
         default False
-    file name to save both study and inversion results to as pickle files, by
+    fname : str, optional
+        file name to save both study and inversion results to as pickle files, by
         default fname is `tmp_x_damping_cv where x is a random integer between 0 and
         999 and will save study to <fname>_study.pickle and tuple of inversion results
         to <fname>_results.pickle.
@@ -651,6 +672,10 @@ def optimize_inversion_damping(
         make x axis of CV result plot on log scale, by default True
     logy : bool, optional
         make y axis of CV result plot on log scale, by default True
+    progressbar : bool, optional
+        add a progressbar, by default True
+    parallel : bool, optional
+        run the optimization in parallel, by default False
 
     Returns
     -------
@@ -692,10 +717,20 @@ def optimize_inversion_damping(
     if fname is None:
         fname = f"tmp_{random.randint(0,999)}_damping_cv"
 
+    if parallel:
+        pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
+        pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
+        pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
+        storage = JournalStorage(JournalFileStorage(f"{fname}.log"))
+    else:
+        storage = None
+
     study = optuna.create_study(
         direction="minimize",
         sampler=sampler,
         load_if_exists=False,
+        study_name=fname,
+        storage=storage,
     )
 
     # explicitly add the limits as trials
@@ -708,20 +743,25 @@ def optimize_inversion_damping(
         warnings.filterwarnings(
             "ignore", message="logei_candidates_func is experimental"
         )
-        study.optimize(
-            OptimalInversionDamping(
-                damping_limits=damping_limits,
-                rmse_as_median=score_as_median,
-                training_data=training_df,
-                testing_data=testing_df,
-                fname=fname,
-                plot_grids=plot_grids,
-                **kwargs,
-            ),
-            n_trials=n_trials,
-            callbacks=[_warn_limits_better_than_trial_1_param],
-            show_progress_bar=True,
-        )
+        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+            study = run_optuna(
+                study=study,
+                storage=storage,
+                objective=OptimalInversionDamping(
+                    damping_limits=damping_limits,
+                    rmse_as_median=score_as_median,
+                    training_data=training_df,
+                    testing_data=testing_df,
+                    fname=fname,
+                    plot_grids=plot_grids,
+                    **kwargs,
+                ),
+                n_trials=n_trials,
+                callbacks=[_warn_limits_better_than_trial_1_param],
+                maximize_cpus=True,
+                parallel=parallel,
+                progressbar=progressbar,
+            )
 
     best_trial = study.best_trial
 
@@ -1086,6 +1126,8 @@ def optimize_inversion_zref_density_contrast(
     plot_cv: bool = True,
     logx: bool = False,
     logy: bool = False,
+    progressbar: bool = True,
+    parallel: bool = False,
     fold_progressbar: bool = True,
     **kwargs: typing.Any,
 ) -> tuple[
@@ -1159,6 +1201,10 @@ def optimize_inversion_zref_density_contrast(
         use a log scale for the cross-validation plot x-axis, by default False
     logy : bool, optional
         use a log scale for the cross-validation plot y-axis, by default False
+    progressbar : bool, optional
+        add a progressbar, by default True
+    parallel : bool, optional
+        run the optimization in parallel, by default False
     fold_progressbar : bool, optional
         show a progress bar for each fold of the constraint-point minimization
         cross-validation, by default True
@@ -1277,10 +1323,20 @@ def optimize_inversion_zref_density_contrast(
     if fname is None:
         fname = f"tmp_{random.randint(0,999)}_zref_density_cv"
 
+    if parallel:
+        pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
+        pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
+        pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
+        storage = JournalStorage(JournalFileStorage(f"{fname}.log"))
+    else:
+        storage = None
+
     study = optuna.create_study(
         direction="minimize",
         sampler=sampler,
         load_if_exists=False,
+        study_name=fname,
+        storage=storage,
     )
 
     # explicitly add the limits as trials
@@ -1348,8 +1404,10 @@ def optimize_inversion_zref_density_contrast(
         warnings.filterwarnings(
             "ignore", message="logei_candidates_func is experimental"
         )
-        study.optimize(
-            OptimalInversionZrefDensity(
+        study = run_optuna(
+            study=study,
+            storage=storage,
+            objective=OptimalInversionZrefDensity(
                 grav_df=grav_df,
                 constraints_df=constraints_df,
                 zref_limits=zref_limits,
@@ -1358,15 +1416,17 @@ def optimize_inversion_zref_density_contrast(
                 density_contrast=density_contrast,
                 starting_topography=starting_topography,
                 starting_topography_kwargs=starting_topography_kwargs,
-                regional_grav_kwargs=regional_grav_kwargs,
+                regional_grav_kwargs=regional_grav_kwargs,  # type: ignore[arg-type]
                 rmse_as_median=score_as_median,
                 fname=fname,
                 progressbar=fold_progressbar,
                 **kwargs,
             ),
             n_trials=n_trials,
-            callbacks=[_warn_limits_better_than_trial_multi_params],
-            show_progress_bar=True,
+            # callbacks=[_warn_limits_better_than_trial_multi_params],
+            maximize_cpus=True,
+            parallel=parallel,
+            progressbar=progressbar,
         )
 
     best_trial = study.best_trial
@@ -1683,6 +1743,8 @@ def optimize_eq_source_params(
     sampler: optuna.samplers.BaseSampler | None = None,
     plot: bool = False,
     progressbar: bool = True,
+    parallel: bool = False,
+    fname: str | None = None,
     **kwargs: typing.Any,
 ) -> tuple[optuna.study, hm.EquivalentSources]:
     """
@@ -1713,6 +1775,10 @@ def optimize_eq_source_params(
         plot the resulting optimization figures, by default False
     progressbar : bool, optional
         add a progressbar, by default True
+    parallel : bool, optional
+        run the optimization in parallel, by default False
+    fname : str | None, optional
+        file name to save the study to, by default None
     kwargs : typing.Any
         additional keyword arguments to pass to `OptimalEqSourceParams`, which are
         passed to `eq_sources_score`. These can include parameters to pass to
@@ -1734,12 +1800,25 @@ def optimize_eq_source_params(
             seed=10,
         )
 
+    study_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
+
+    if parallel:
+        pathlib.Path(f"{study_fname}.log").unlink(missing_ok=True)
+        pathlib.Path(f"{study_fname}.lock").unlink(missing_ok=True)
+        pathlib.Path(f"{study_fname}.log.lock").unlink(missing_ok=True)
+        storage = JournalStorage(JournalFileStorage(f"{study_fname}.log"))
+    else:
+        storage = None
+
     # create study
     study = optuna.create_study(
         direction="maximize",
         sampler=sampler,
         load_if_exists=False,
+        study_name=study_fname,
+        storage=storage,
     )
+
     # explicitly add the limits as trials
     num_params = 0
     if depth_limits is not None:
@@ -1767,19 +1846,26 @@ def optimize_eq_source_params(
         )
         raise ValueError(msg)
 
-    study.optimize(
-        OptimalEqSourceParams(
-            depth_limits=depth_limits,
-            block_size_limits=block_size_limits,
-            damping_limits=damping_limits,
-            coordinates=coordinates,
-            data=data,
-            **kwargs,
-        ),
-        n_trials=n_trials,
-        callbacks=callbacks,
-        show_progress_bar=progressbar,
-    )
+    log.debug("starting eq_source parameter optimization")
+    # ignore skLearn LinAlg warnings
+    with (utils.environ(PYTHONWARNINGS="ignore")) and (utils.DuplicateFilter(log)):  # type: ignore[no-untyped-call, truthy-bool]
+        study = run_optuna(
+            study=study,
+            storage=storage,
+            objective=OptimalEqSourceParams(
+                depth_limits=depth_limits,
+                block_size_limits=block_size_limits,
+                damping_limits=damping_limits,
+                coordinates=coordinates,
+                data=data,
+                **kwargs,
+            ),
+            n_trials=n_trials,
+            callbacks=callbacks,
+            maximize_cpus=True,
+            parallel=parallel,
+            progressbar=progressbar,
+        )
 
     best_trial = study.best_trial
 
@@ -1828,6 +1914,15 @@ def optimize_eq_source_params(
         dtype=kwargs.pop("dtype", "float64"),
     )
     eqs.fit(coordinates, data, weights=kwargs.pop("weights", None))
+
+    # save study
+    if study_fname is not None:
+        # remove if exists
+        pathlib.Path(f"{study_fname}.pickle").unlink(missing_ok=True)
+
+        # save study to pickle
+        with pathlib.Path(f"{study_fname}.pickle").open("wb") as f:
+            pickle.dump(study, f)
 
     if plot is True:
         plotting.plot_optuna_figures(
@@ -2272,6 +2367,8 @@ def optimize_regional_filter(
     plot_grid: bool = False,
     optimize_on_true_regional_misfit: bool = False,
     separate_metrics: bool = True,
+    progressbar: bool = True,
+    parallel: bool = False,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal filter width for estimating the
@@ -2319,6 +2416,10 @@ def optimize_regional_filter(
         if False, returns the scores combined with the formula
         residual_constraints_score / residual_amplitude_score, by default is True and
         returns both the residual and regional scores separately.
+    progressbar : bool, optional
+        add a progressbar, by default True
+    parallel : bool, optional
+        run the optimization in parallel, by default False
 
     Returns
     -------
@@ -2337,7 +2438,7 @@ def optimize_regional_filter(
         )
 
     # create study and set directions / metric names depending on optimization type
-    study = _create_regional_separation_study(
+    study, storage = _create_regional_separation_study(
         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         separate_metrics=separate_metrics,
         sampler=sampler,
@@ -2345,8 +2446,10 @@ def optimize_regional_filter(
     )
 
     # run optimization
-    study.optimize(
-        OptimizeRegionalFilter(
+    study = run_optuna(
+        study=study,
+        storage=storage,
+        objective=OptimizeRegionalFilter(
             filter_width_limits=filter_width_limits,
             testing_df=testing_df,
             grav_df=grav_df,
@@ -2357,7 +2460,8 @@ def optimize_regional_filter(
             remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=n_trials,
-        show_progress_bar=True,
+        progressbar=progressbar,
+        parallel=parallel,
     )
 
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
@@ -2415,6 +2519,8 @@ def optimize_regional_trend(
     plot_grid: bool = False,
     optimize_on_true_regional_misfit: bool = False,
     separate_metrics: bool = True,
+    progressbar: bool = True,
+    parallel: bool = False,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal trend order for estimating the
@@ -2460,6 +2566,10 @@ def optimize_regional_trend(
         if False, returns the scores combined with the formula
         residual_constraints_score / residual_amplitude_score, by default is True and
         returns both the residual and regional scores separately.
+    progressbar : bool, optional
+        add a progressbar, by default True
+    parallel : bool, optional
+        run the optimization in parallel, by default False
 
     Returns
     -------
@@ -2477,7 +2587,7 @@ def optimize_regional_trend(
         )
 
     # create study and set directions / metric names depending on optimization type
-    study = _create_regional_separation_study(
+    study, storage = _create_regional_separation_study(
         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         separate_metrics=separate_metrics,
         sampler=sampler,
@@ -2485,8 +2595,10 @@ def optimize_regional_trend(
     )
 
     # run optimization
-    study.optimize(
-        OptimizeRegionalTrend(
+    study = run_optuna(
+        study=study,
+        storage=storage,
+        objective=OptimizeRegionalTrend(  # type: ignore[arg-type]
             trend_limits=trend_limits,
             testing_df=testing_df,
             grav_df=grav_df,
@@ -2496,8 +2608,10 @@ def optimize_regional_trend(
             separate_metrics=separate_metrics,
             remove_starting_grav_mean=remove_starting_grav_mean,
         ),
-        show_progress_bar=True,
         n_trials=len(list(range(trend_limits[0], trend_limits[1] + 1))),
+        maximize_cpus=True,
+        parallel=parallel,
+        progressbar=progressbar,
     )
 
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
@@ -2561,6 +2675,8 @@ def optimize_regional_eq_sources(
     plot_grid: bool = False,
     optimize_on_true_regional_misfit: bool = False,
     separate_metrics: bool = True,
+    progressbar: bool = True,
+    parallel: bool = False,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal equivalent source parameters for
@@ -2618,6 +2734,10 @@ def optimize_regional_eq_sources(
         if False, returns the scores combined with the formula
         residual_constraints_score / residual_amplitude_score, by default is True and
         returns both the residual and regional scores separately.
+    progressbar : bool, optional
+        add a progressbar, by default True
+    parallel : bool, optional
+        run the optimization in parallel, by default False
 
     Returns
     -------
@@ -2636,7 +2756,7 @@ def optimize_regional_eq_sources(
         )
 
     # create study and set directions / metric names depending on optimization type
-    study = _create_regional_separation_study(
+    study, storage = _create_regional_separation_study(
         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         separate_metrics=separate_metrics,
         sampler=sampler,
@@ -2644,8 +2764,10 @@ def optimize_regional_eq_sources(
     )
 
     # run optimization
-    study.optimize(
-        OptimizeRegionalEqSources(
+    study = run_optuna(
+        study=study,
+        storage=storage,
+        objective=OptimizeRegionalEqSources(
             depth_limits=depth_limits,
             block_size_limits=block_size_limits,
             damping_limits=damping_limits,
@@ -2661,7 +2783,9 @@ def optimize_regional_eq_sources(
             remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=n_trials,
-        show_progress_bar=True,
+        maximize_cpus=True,
+        parallel=parallel,
+        progressbar=progressbar,
     )
 
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
@@ -2736,6 +2860,9 @@ def optimize_regional_constraint_point_minimization(
     fold_progressbar: bool = False,
     optimize_on_true_regional_misfit: bool = False,
     separate_metrics: bool = True,
+    progressbar: bool = True,
+    parallel: bool = False,
+    fname: str | None = None,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal hyperparameters for the Constraint
@@ -2822,6 +2949,12 @@ def optimize_regional_constraint_point_minimization(
         if False, returns the scores combined with the formula
         residual_constraints_score / residual_amplitude_score, by default is True and
         returns both the residual and regional scores separately.
+    progressbar : bool, optional
+        add a progressbar, by default True
+    parallel : bool, optional
+        run the optimization in parallel, by default False
+    fname : str | None, optional
+        file name to save the study to, by default None
 
     Returns
     -------
@@ -2839,23 +2972,26 @@ def optimize_regional_constraint_point_minimization(
             seed=10,
         )
 
+    results_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
+
     # create study and set directions / metric names depending on optimization type
-    study = _create_regional_separation_study(
+    study, storage = _create_regional_separation_study(
         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        parallel=parallel,
+        fname=results_fname,
     )
 
     log.debug("separate_metrics: %s", separate_metrics)
     log.debug("optimize_on_true_regional_misfit: %s", optimize_on_true_regional_misfit)
 
     # run optimization
-    study.optimize(
-        OptimizeRegionalConstraintsPointMinimization(
-            training_df=training_df,
-            testing_df=testing_df,
-            grid_method=grid_method,
+    study = run_optuna(
+        study=study,
+        storage=storage,
+        objective=OptimizeRegionalConstraintsPointMinimization(
             grav_df=grav_df,
             constraints_weights_column=constraints_weights_column,
             true_regional=true_regional,
@@ -2876,7 +3012,9 @@ def optimize_regional_constraint_point_minimization(
             progressbar=fold_progressbar,
         ),
         n_trials=n_trials,
-        show_progress_bar=progressbar,
+        maximize_cpus=True,
+        parallel=parallel,
+        progressbar=progressbar,
     )
 
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
