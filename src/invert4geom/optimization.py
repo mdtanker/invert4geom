@@ -1983,7 +1983,6 @@ class OptimizeRegionalTrend:
                 )
             )
 
-        trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
 
         if self.optimize_on_true_regional_misfit is True:
@@ -2044,7 +2043,6 @@ class OptimizeRegionalFilter:
                 )
             )
 
-        trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
 
         if self.optimize_on_true_regional_misfit is True:
@@ -2143,7 +2141,6 @@ class OptimizeRegionalEqSources:
                 )
             )
 
-        trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
 
         if self.optimize_on_true_regional_misfit is True:
@@ -2339,7 +2336,6 @@ class OptimizeRegionalConstraintsPointMinimization:
             self.optimize_on_true_regional_misfit,
         )
 
-        trial.set_user_attr("results", df)
         trial.set_user_attr("true_reg_score", true_reg_score)
 
         if self.optimize_on_true_regional_misfit is True:
@@ -2478,7 +2474,13 @@ def optimize_regional_filter(
     # log the results of the best trial
     _log_optuna_results(best_trial)
 
-    resulting_grav_df = best_trial.user_attrs.get("results")
+    # redo the regional separation with ALL constraint points
+    resulting_grav_df = regional.regional_separation(
+        method="filter",
+        filter_width=best_trial.params["filter_width"],
+        grav_df=grav_df,
+        remove_starting_grav_mean=remove_starting_grav_mean,
+    )
 
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
@@ -2493,8 +2495,7 @@ def optimize_regional_filter(
             else:
                 optuna.visualization.plot_slice(study).show()
         else:
-            p = optuna.visualization.plot_pareto_front(study)
-            plotting.remove_df_from_hoverdata(p).show()
+            optuna.visualization.plot_pareto_front(study).show()
             for i, j in enumerate(study.metric_names):
                 optuna.visualization.plot_slice(
                     study,
@@ -2628,7 +2629,13 @@ def optimize_regional_trend(
     # log the results of the best trial
     _log_optuna_results(best_trial)
 
-    resulting_grav_df = best_trial.user_attrs.get("results")
+    # redo the regional separation with ALL constraint points
+    resulting_grav_df = regional.regional_separation(
+        method="trend",
+        trend=best_trial.params["trend"],
+        grav_df=grav_df,
+        remove_starting_grav_mean=remove_starting_grav_mean,
+    )
 
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
@@ -2643,8 +2650,7 @@ def optimize_regional_trend(
             else:
                 optuna.visualization.plot_slice(study).show()
         else:
-            p = optuna.visualization.plot_pareto_front(study)
-            plotting.remove_df_from_hoverdata(p).show()
+            optuna.visualization.plot_pareto_front(study).show()
             for i, j in enumerate(study.metric_names):
                 optuna.visualization.plot_slice(
                     study,
@@ -2802,8 +2808,24 @@ def optimize_regional_eq_sources(
     # log the results of the best trial
     _log_optuna_results(best_trial)
 
-    resulting_grav_df = best_trial.user_attrs.get("results")
-
+    # get optimal hyperparameter values
+    depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
+    damping = best_trial.params.get("damping", kwargs.pop("damping", None))
+    block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))
+    grav_obs_height = best_trial.params.get(
+        "grav_obs_height",
+        kwargs.pop("grav_obs_height", None),
+    )
+    # redo the regional separation with ALL constraint points
+    resulting_grav_df = regional.regional_separation(
+        method="eq_sources",
+        depth=depth,
+        damping=damping,
+        block_size=block_size,
+        grav_obs_height=grav_obs_height,
+        grav_df=grav_df,
+        **kwargs,
+    )
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
             if optimize_on_true_regional_misfit is True:
@@ -2819,8 +2841,7 @@ def optimize_regional_eq_sources(
             else:
                 optuna.visualization.plot_slice(study).show()
         else:
-            p = optuna.visualization.plot_pareto_front(study)
-            plotting.remove_df_from_hoverdata(p).show()
+            optuna.visualization.plot_pareto_front(study).show()
             for i, j in enumerate(study.metric_names):
                 optuna.visualization.plot_slice(
                     study,
@@ -3114,27 +3135,29 @@ def optimize_regional_constraint_point_minimization_kfolds(
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
 
-    # redo regional sep with all data (not 1 fold) to get resulting df
+    # redo the regional separation with ALL constraint points
     resulting_grav_df = regional.regional_separation(
         method="constraints",
-        grav_df=kwargs.get("grav_df"),
-        constraints_df=testing_training_df,
-        registration=kwargs.get("registration", "g"),
-        constraints_block_size=kwargs.get("constraints_block_size", None),
-        eq_points=kwargs.get("eq_points", None),
-        constraints_weights_column=kwargs.get("constraints_weights_column", None),
-        grid_method=kwargs.get("grid_method"),
-        remove_starting_grav_mean=kwargs.get("remove_starting_grav_mean", False),
-        # hyperparameters
-        tension_factor=best_trial.params.get("tension_factor", None),
-        spline_dampings=best_trial.params.get("spline_dampings", None),
-        depth=best_trial.params.get("depth", kwargs.get("depth", "default")),
-        damping=best_trial.params.get("damping", kwargs.get("damping", None)),
-        block_size=best_trial.params.get("block_size", kwargs.get("block_size", None)),
-        grav_obs_height=best_trial.params.get(
-            "grav_obs_height", kwargs.get("grav_obs_height", None)
-        ),
+        grav_df=grav_df,
+        constraints_df=constraints_df,
+        grid_method=grid_method,
+        tension_factor=tension_factor,
+        spline_dampings=spline_dampings,
+        depth=depth,
+        damping=damping,
+        block_size=block_size,
+        grav_obs_height=grav_obs_height,
+        **kwargs,
     )
+
+    # save study
+    if results_fname is not None:
+        # remove if exists
+        pathlib.Path(f"{results_fname}_study.pickle").unlink(missing_ok=True)
+
+        # save study to pickle
+        with pathlib.Path(f"{results_fname}_study.pickle").open("wb") as f:
+            pickle.dump(study, f)
 
     if plot is True:
         if study._is_multi_objective() is False:  # pylint: disable=protected-access
@@ -3148,12 +3171,10 @@ def optimize_regional_constraint_point_minimization_kfolds(
                         ],
                         parameter_name=[p],  # type: ignore[arg-type]
                     ).show()
-
             else:
                 optuna.visualization.plot_slice(study).show()
         else:
-            p = optuna.visualization.plot_pareto_front(study)
-            plotting.remove_df_from_hoverdata(p).show()
+            optuna.visualization.plot_pareto_front(study).show()
             for i, j in enumerate(study.metric_names):
                 optuna.visualization.plot_slice(
                     study,
