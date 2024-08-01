@@ -32,6 +32,9 @@ license = {file = "LICENSE"}
 keywords = ["inversion", "gravity", "geometry", "density", "Moho", "sediment", "geophysics", "geology", "geoscience"]
 
 dependencies = [
+###
+# core
+###
   "numpy",
   "pandas",
   "xarray",
@@ -43,15 +46,23 @@ dependencies = [
   "polartoolkit",
   "numba",
   "scipy",
-  "nptyping",
   "numba_progress",
   "tqdm",
   "pygmt",
   "dask",
+  "deprecation",
+  "nptyping",
+###
+# optimization
+###
   "optuna>=3.1.0", # need JournalStorage
   "optuna-integration",
   "botorch>=0.4.0",
-  "deprecation",
+  "joblib",
+  "psutil",
+###
+# visualization
+###
   "pyvista",
   "trame",
   "ipywidgets",
