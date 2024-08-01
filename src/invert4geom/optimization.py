@@ -454,7 +454,7 @@ def _warn_limits_better_than_trial_1_param(
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
         if trial.values[0] > max(lower_limit_score, upper_limit_score):
-            log.warning(
+            log.info(
                 msg,
                 trial.number,
                 trial.params,
@@ -469,7 +469,7 @@ def _warn_limits_better_than_trial_1_param(
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
         if trial.values[0] < min(lower_limit_score, upper_limit_score):
-            log.warning(
+            log.info(
                 msg,
                 trial.number,
                 trial.params,
@@ -522,7 +522,7 @@ def _warn_limits_better_than_trial_multi_params(
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
         if trial.values[0] > max(scores):
-            log.warning(
+            log.info(
                 msg,
                 trial.number,
                 trial.params,
@@ -535,7 +535,7 @@ def _warn_limits_better_than_trial_multi_params(
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
         if trial.values[0] < min(scores):
-            log.warning(
+            log.info(
                 msg,
                 trial.number,
                 trial.params,
