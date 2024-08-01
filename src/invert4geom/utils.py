@@ -1,6 +1,7 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
 import copy
+import os
 import typing
 import warnings
 from contextlib import contextmanager
@@ -31,6 +32,24 @@ def _log_level(level):  # type: ignore[no-untyped-def]
     finally:
         log.setLevel(saved_logger_level)
 
+
+@contextmanager
+def environ(**env):  # type: ignore[no-untyped-def] # pylint: disable=missing-function-docstring
+    """temporarily set/reset an environment variable"""
+    originals = {k: os.environ.get(k) for k in env}
+    for k, val in env.items():
+        if val is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = val
+    try:
+        yield
+    finally:
+        for k, val in originals.items():
+            if val is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = val
 
 def _check_constraints_inside_gravity_region(
     constraints_df: pd.DataFrame,
