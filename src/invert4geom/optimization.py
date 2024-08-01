@@ -21,9 +21,17 @@ import pandas as pd
 import psutil
 import xarray as xr
 from nptyping import NDArray
+from optuna.storages import JournalFileStorage, JournalStorage
 from tqdm.autonotebook import tqdm
 
-from invert4geom import cross_validation, inversion, log, plotting, regional, utils
+from invert4geom import (
+    cross_validation,
+    inversion,
+    log,
+    plotting,
+    regional,
+    utils,
+)
 
 warnings.simplefilter(
     "ignore",
@@ -2024,7 +2032,7 @@ class OptimizeRegionalTrend:
         )
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-            residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
+            residual_constraint_score, residual_amplitude_score, true_reg_score, _ = (
                 cross_validation.regional_separation_score(
                     method="trend",
                     trend=trend,
@@ -2084,7 +2092,7 @@ class OptimizeRegionalFilter:
         )
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-            residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
+            residual_constraint_score, residual_amplitude_score, true_reg_score, _ = (
                 cross_validation.regional_separation_score(
                     method="filter",
                     filter_width=filter_width,
