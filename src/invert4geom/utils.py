@@ -51,6 +51,31 @@ def environ(**env):  # type: ignore[no-untyped-def] # pylint: disable=missing-fu
             else:
                 os.environ[k] = val
 
+
+class DuplicateFilter:
+    """
+    Filters away duplicate log messages.
+    Adapted from https://stackoverflow.com/a/60462619/18686384
+    """
+
+    def __init__(self, logger):  # type: ignore[no-untyped-def]
+        self.msgs = set()
+        self.logger = logger
+
+    def filter(self, record):  # type: ignore[no-untyped-def] # pylint: disable=missing-function-docstring
+        msg = str(record.msg)
+        is_duplicate = msg in self.msgs
+        if not is_duplicate:
+            self.msgs.add(msg)
+        return not is_duplicate
+
+    def __enter__(self):  # type: ignore[no-untyped-def]
+        self.logger.addFilter(self)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
+        self.logger.removeFilter(self)
+
+
 def _check_constraints_inside_gravity_region(
     constraints_df: pd.DataFrame,
     grav_df: pd.DataFrame,
