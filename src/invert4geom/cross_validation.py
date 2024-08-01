@@ -6,6 +6,7 @@ import pathlib
 import pickle
 import random
 import typing
+import warnings
 
 import deprecation
 import harmonica as hm
@@ -1080,18 +1081,41 @@ def eq_sources_score(
         **kwargs,
     )
 
-    score = np.mean(
-        vd.cross_val_score(
-            eqs,
-            coordinates,
-            data,
-            delayed=delayed,
-            weights=weights,
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", category=sklearn.exceptions.UndefinedMetricWarning
         )
-    )
+        score = np.nan
+        n_splits = 5
+        while np.isnan(score):
+            score = np.mean(
+                vd.cross_val_score(
+                    eqs,
+                    coordinates,
+                    data,
+                    delayed=delayed,
+                    weights=weights,
+                    cv=sklearn.model_selection.KFold(
+                        n_splits=n_splits,
+                        shuffle=True,
+                        random_state=0,
+                    ),
+                )
+            )
+            if (n_splits == 5) and (np.isnan(score)):
+                msg = (
+                    "eq sources score is NaN, reduce n_splits (5) by 1 until "
+                    "scoring metric is defined"
+                )
+                log.warning(msg)
+
+            n_splits -= 1
 
     if np.isnan(score):
-        msg = "eq sources score is NaN"
+        msg = (
+            "score is still NaN after reduce n_splits, makes sure you're supplying "
+            "enough points for the equivalent sources"
+        )
         raise ValueError(msg)
 
     return score  # type: ignore[no-any-return]
