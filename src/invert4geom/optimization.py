@@ -1923,29 +1923,35 @@ def optimize_eq_source_params(
     best_block_size = best_trial.params.get("block_size", None)
 
     if best_damping is None:
-        best_damping = kwargs.get("damping", None)
-        if best_damping is None:
+        try:
+            best_damping = kwargs["damping"]
+        except KeyError:
             msg = (
                 "No damping parameter value found in best params or kwargs, setting to "
                 "'None'"
             )
             log.warning(msg)
+            best_damping = None
     if best_depth is None:
-        best_depth = kwargs.get("depth", "default")
-        if best_depth is None:
+        try:
+            best_depth = kwargs["depth"]
+        except KeyError:
             msg = (
                 "No depth parameter value found in best params or kwargs, setting to "
                 "'default'"
             )
             log.warning(msg)
+            best_depth = "default"
     if best_block_size is None:
-        best_block_size = kwargs.get("block_size", None)
-        if best_block_size is None:
+        try:
+            best_block_size = kwargs["block_size"]
+        except KeyError:
             msg = (
                 "No block size parameter value found in best params or kwargs, setting "
                 "to 'None'"
             )
             log.warning(msg)
+            best_block_size = None
 
     # refit EqSources with best parameters
     eqs = hm.EquivalentSources(
@@ -2112,6 +2118,7 @@ class OptimizeRegionalEqSources:
         depth_limits: tuple[float, float] | None = None,
         block_size_limits: tuple[float, float] | None = None,
         damping_limits: tuple[float, float] | None = None,
+        grav_obs_height_limits: tuple[float, float] | None = None,
         optimize_on_true_regional_misfit: bool = False,
         separate_metrics: bool = True,
         **kwargs: typing.Any,
@@ -2119,6 +2126,7 @@ class OptimizeRegionalEqSources:
         self.depth_limits = depth_limits
         self.block_size_limits = block_size_limits
         self.damping_limits = damping_limits
+        self.grav_obs_height_limits = grav_obs_height_limits
         self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
         self.separate_metrics = separate_metrics
         self.kwargs = kwargs
@@ -2167,19 +2175,29 @@ class OptimizeRegionalEqSources:
         else:
             damping = self.kwargs.get("damping", None)
 
+        if self.grav_obs_height_limits is not None:
+            grav_obs_height = trial.suggest_float(
+                "grav_obs_height",
+                self.grav_obs_height_limits[0],
+                self.grav_obs_height_limits[1],
+            )
+        else:
+            grav_obs_height = self.kwargs.get("grav_obs_height", None)
+
         new_kwargs = {
             key: value
             for key, value in self.kwargs.items()
-            if key not in ["depth", "block_size", "damping"]
+            if key not in ["depth", "block_size", "damping", "grav_obs_height"]
         }
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-            residual_constraint_score, residual_amplitude_score, true_reg_score, df = (
+            residual_constraint_score, residual_amplitude_score, true_reg_score, _ = (
                 cross_validation.regional_separation_score(
                     method="eq_sources",
                     depth=depth,
                     block_size=block_size,
                     damping=damping,
+                    grav_obs_height=grav_obs_height,
                     **new_kwargs,
                 )
             )
@@ -2708,15 +2726,12 @@ def optimize_regional_eq_sources(
     testing_df: pd.DataFrame,
     grav_df: pd.DataFrame,
     score_as_median: bool = False,
-    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
     depth_limits: tuple[float, float] | None = None,
-    depth: float | None = None,
     block_size_limits: tuple[float, float] | None = None,
-    block_size: float | None = None,
     damping_limits: tuple[float, float] | None = None,
-    damping: float | None = None,
+    grav_obs_height_limits: tuple[float, float] | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
     plot: bool = False,
     plot_grid: bool = False,
@@ -2724,6 +2739,7 @@ def optimize_regional_eq_sources(
     separate_metrics: bool = True,
     progressbar: bool = True,
     parallel: bool = False,
+    **kwargs: typing.Any,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal equivalent source parameters for
@@ -2746,9 +2762,6 @@ def optimize_regional_eq_sources(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
-    remove_starting_grav_mean : bool, optional
-        remove the mean of the starting gravity data before estimating the regional.
-        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xr.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -2758,16 +2771,12 @@ def optimize_regional_eq_sources(
         number of trials to run, by default 100
     depth_limits : tuple[float, float] | None, optional
         limits to use for source depths, positive down in meters, by default None
-    depth : float | None, optional
-        if depth_limits not supplied, use this value, by default None
     block_size_limits : tuple[float, float] | None, optional
         limits to use for block size in meters, by default None
-    block_size : float | None, optional
-        if block_size_limits not supplied, use this value, by default None
     damping_limits : tuple[float, float] | None, optional
         limits to use for the damping parameter, by default None
-    damping : float | None, optional
-        if damping_limits not provided, use this value, by default None
+    grav_obs_height_limits : tuple[float, float] | None, optional
+        limits to use for the gravity observation height in meters, by default None
     sampler : optuna.samplers.BaseSampler | None, optional
         customize the optuna sampler, by default TPE sampler
     plot : bool, optional
@@ -2785,6 +2794,8 @@ def optimize_regional_eq_sources(
         add a progressbar, by default True
     parallel : bool, optional
         run the optimization in parallel, by default False
+    kwargs : typing.Any
+        additional keyword arguments to pass to the regional.regional_separation
 
     Returns
     -------
@@ -2818,16 +2829,14 @@ def optimize_regional_eq_sources(
             depth_limits=depth_limits,
             block_size_limits=block_size_limits,
             damping_limits=damping_limits,
+            grav_obs_height_limits=grav_obs_height_limits,
             testing_df=testing_df,
             grav_df=grav_df,
             true_regional=true_regional,
             score_as_median=score_as_median,
-            depth=depth,
-            block_size=block_size,
-            damping=damping,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
             separate_metrics=separate_metrics,
-            remove_starting_grav_mean=remove_starting_grav_mean,
+            **kwargs,
         ),
         n_trials=n_trials,
         maximize_cpus=True,
