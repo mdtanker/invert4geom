@@ -633,27 +633,54 @@ def plot_inversion_grav_results(
     else:
         points = None
 
-    _ = polar_utils.grd_compare(
+    dif, initial, final = polar_utils.grd_compare(
         initial_misfit,
         final_misfit,
+    )
+    robust = True
+    diff_maxabs = vd.maxabs(polar_utils.get_min_max(dif, robust=robust))
+    initial_maxabs = vd.maxabs(polar_utils.get_min_max(initial, robust=robust))
+    final_maxabs = vd.maxabs(polar_utils.get_min_max(final, robust=robust))
+    fig = maps.plot_grd(
+        initial,
         fig_height=fig_height,
         region=region,
-        plot=True,
-        grid1_name=f"Initial misfit: RMSE={round(initial_rmse, 2)} mGal",
-        grid2_name=f"Final misfit: RMSE={round(final_rmse, 2)} mGal",
-        # plot_type="xarray",
-        # cmap="RdBu_r",
-        plot_type="pygmt",
         cmap="balance+h0",
-        robust=True,
+        # robust=True,
+        cpt_lims=(-initial_maxabs, initial_maxabs),
         hist=True,
-        inset=False,
-        verbose="q",
-        title="difference",
-        diff_maxabs=True,
+        cbar_label="mGal",
+        title=f"Initial misfit: RMSE:{round(initial_rmse, 2)} mGal",
         points=points,
-        points_style="x.3c",
     )
+    fig = maps.plot_grd(
+        dif,
+        fig=fig,
+        origin_shift="xshift",
+        fig_height=fig_height,
+        region=region,
+        cmap="balance+h0",
+        cpt_lims=(-diff_maxabs, diff_maxabs),
+        hist=True,
+        cbar_label="mGal",
+        title=f"difference: RMSE:{round(utils.rmse(dif), 2)} mGal",
+        points=points,
+    )
+    fig = maps.plot_grd(
+        final,
+        fig=fig,
+        origin_shift="xshift",
+        fig_height=fig_height,
+        region=region,
+        cmap="balance+h0",
+        # robust=True,
+        cpt_lims=(-final_maxabs, final_maxabs),
+        hist=True,
+        cbar_label="mGal",
+        title=f"Final misfit: RMSE:{round(final_rmse, 2)} mGal",
+        points=points,
+    )
+    fig.show()
 
 
 def plot_inversion_iteration_results(
