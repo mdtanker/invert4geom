@@ -1152,13 +1152,14 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     plot_cv : bool, optional
         Choose whether to plot the cross validation results, by default False
     fname : str, optional
-        filename and path to use for saving results. If running a single inversion, will
-        save the tuple of inversion results to <name>.pickle. If running a damping
+        filename and path to use for saving results. If running a damping
         CV, will save the study to <fname>_damping_cv_study.pickle and the tuple of the
-        best inversion results to <fname>_damping_cv_results.pickle.If running a
+        best inversion results to <fname>_damping_cv_results.pickle. If running a
         density/zref CV, will save the study to <fname>_density_zref_cv_study.pickle and
         the tuple of the best inversion results to
-        <fname>_density_zref_cv_results.pickle
+        <fname>_density_zref_cv_results.pickle. The final inversion result for all
+        methods will be saved to <fname>_results.pickle, by default will be "tmp_<x>"
+        where x is a random integer between 0 and 999.
     kwargs : typing.Any
         keyword arguments for the workflow and inversion, such as
         `starting_topography_kwargs`, `regional_grav_kwargs`,
@@ -1462,7 +1463,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                     grav_df=grav_df,
                     prism_layer=starting_prisms,
                     progressbar=False,
-                    results_fname=fname,
+                    results_fname=f"{fname}_results",
                     **inversion_kwargs,
                 )
         else:
@@ -1470,7 +1471,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 grav_df=grav_df,
                 prism_layer=starting_prisms,
                 progressbar=False,
-                results_fname=fname,
+                results_fname=f"{fname}_results",
                 **inversion_kwargs,
             )
         return inversion_results
@@ -1498,6 +1499,12 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         # use the best damping parameter if performing zref/density CV
         best_damping = study.best_params.get("damping")
         inversion_kwargs["solver_damping"] = best_damping
+
+        # save inversion results to pickle
+        pathlib.Path(f"{fname}_results.pickle").unlink(missing_ok=True)
+        with pathlib.Path(f"{fname}_results.pickle").open("wb") as f:
+            pickle.dump(inversion_results, f)
+        log.info("results saved to %s.pickle", f"{fname}_results.pickle")
 
         assert best_damping == inversion_results[2]["Solver damping"]
 
@@ -1558,6 +1565,12 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
                 **zref_density_parameters,
             )
         )
+
+    # save inversion results to pickle
+    pathlib.Path(f"{fname}_results.pickle").unlink(missing_ok=True)
+    with pathlib.Path(f"{fname}_results.pickle").open("wb") as f:
+        pickle.dump(inversion_results, f)
+    log.info("results saved to %s", f"{fname}_results.pickle")
 
     # ensure final inversion used the best parameters
     best_trial = study.best_trial
