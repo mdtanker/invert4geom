@@ -815,7 +815,7 @@ def create_topography(
     method: str,
     region: tuple[float, float, float, float],
     spacing: float,
-    dampings: list[float] | None,
+    dampings: list[float] | None = None,
     registration: str = "g",
     upwards: float | None = None,
     constraints_df: pd.DataFrame | None = None,
@@ -833,8 +833,9 @@ def create_topography(
         region of the grid
     spacing : float
         spacing of the grid
-    dampings : list[float] | None
-        damping values to use in spline cross validation for method "spline"
+    dampings : list[float] | None, optional
+        damping values to use in spline cross validation for method "spline", by default
+        None
     registration : str, optional
         choose between gridline "g" or pixel "p" registration, by default "g"
     upwards : float | None, optional
@@ -892,10 +893,12 @@ def create_topography(
             dampings=dampings,
         )
         # grid the fitted spline at desired spacing and region
-        return spline.grid(
+        grid = spline.grid(
             region=region,
             spacing=spacing,
         ).scalars
+
+        return grid.assign_attrs(damping=spline.damping_)
 
     msg = "method must be 'flat' or 'splines'"
     raise ValueError(msg)
