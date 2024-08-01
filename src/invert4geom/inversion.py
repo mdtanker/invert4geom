@@ -1147,8 +1147,8 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         density_values`, by default False
     run_kfolds_zref_or_density_cv : bool, optional
         Choose whether to run internal kfolds cross validation for zref or density, if
-        True, must provide kfolds kwargs with `kfolds_zref_or_density_cv_kwargs`, by
-        default False
+        True, must provide kwargs for splitting constraints into test/train points with
+        `split_kwargs`, by default False
     plot_cv : bool, optional
         Choose whether to plot the cross validation results, by default False
     fname : str, optional
@@ -1423,6 +1423,10 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
             log.warning(msg)
         log.debug("calculating regional misfit")
         log.debug("regional_grav_kwargs: %s", regional_grav_kwargs)
+
+        # pop out grav_df if in regional_grav_kwargs
+        regional_grav_kwargs.pop("grav_df", None)
+
         grav_df = regional.regional_separation(
             grav_df=grav_df,
             **regional_grav_kwargs,
@@ -1544,15 +1548,11 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
     # density/Zref CV
     if run_kfolds_zref_or_density_cv is True:
         log.info("running internal K-folds CV for regional separation")
-        # separate constraints into test/training folds
-        split_df = cross_validation.split_test_train(
-            constraints_df,
-            **kfolds_zref_or_density_cv_kwargs,
-        )
-        _, inversion_results = (
+        study, inversion_results = (
             optimization.optimize_inversion_zref_density_contrast_kfolds(
-                testing_training_constraints_df=split_df,
+                constraints_df=constraints_df,
                 fold_progressbar=True,
+                split_kwargs=split_kwargs,
                 **zref_density_parameters,
             )
         )
