@@ -1263,6 +1263,9 @@ def optimize_inversion_zref_density_contrast(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
+    if regional_grav_kwargs is not None:
+        regional_grav_kwargs = regional_grav_kwargs.copy()
+
     # if sampler not provided, use BoTorch as default unless grid_search is True
     if sampler is None:
         if grid_search is True:
@@ -1689,6 +1692,8 @@ def optimize_inversion_zref_density_contrast_kfolds(
     df = constraints_df.copy()
     df = df[df.columns.drop(list(df.filter(regex="fold_")))]
 
+    kwargs = kwargs.copy()
+
     # split into test and training sets
     testing_training_df = cross_validation.split_test_train(
         df,
@@ -1750,10 +1755,11 @@ class OptimalEqSourceParams:
         float
             the score of the eq_sources fit
         """
+        kwargs = self.kwargs.copy()
         # get parameters provided not as limits
-        depth = self.kwargs.pop("depth", "default")
-        block_size = self.kwargs.pop("block_size", None)
-        damping = self.kwargs.pop("damping", None)
+        depth = kwargs.pop("depth", "default")
+        block_size = kwargs.pop("block_size", None)
+        damping = kwargs.pop("damping", None)
 
         # replace with suggest values if limits provided
         if self.depth_limits is not None:
@@ -1780,7 +1786,7 @@ class OptimalEqSourceParams:
             damping=damping,
             depth=depth,
             block_size=block_size,
-            **self.kwargs,
+            **kwargs,
         )
 
 
@@ -1844,6 +1850,7 @@ def optimize_eq_source_params(
     """
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
+    kwargs = kwargs.copy()
     # if sampler not provided, used TPE as default
     if sampler is None:
         sampler = optuna.samplers.TPESampler(
@@ -2814,6 +2821,8 @@ def optimize_regional_eq_sources(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
+    kwargs = kwargs.copy()
+
     # if sampler not provided, use TPE as default
     if sampler is None:
         sampler = optuna.samplers.TPESampler(
@@ -3034,6 +3043,8 @@ def optimize_regional_constraint_point_minimization(
     """
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    kwargs = kwargs.copy()
 
     # if sampler not provided, use TPE as default
     if sampler is None:
