@@ -329,6 +329,7 @@ Now, when submitting a PR, `RTD` will automatically build the docs and update th
 
 ## Release Checklist
 * re-run any relevant notebooks
+* add any new dependencies to the binder env
 * check docs are building correctly using the GitHub actions link within the PR
 * merge the PR
 * wait for `PyPI` to publish the new version [here](https://pypi.python.org/pypi/invert4geom)
