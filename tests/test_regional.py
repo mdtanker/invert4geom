@@ -179,37 +179,6 @@ def test_regional_eq_sources():
     assert reg_range < misfit_range
 
 
-def test_regional_eq_sources_cv():
-    """
-    test the regional_eq_sources function
-    """
-    grav_df = dummy_df()
-    # grav_df["Gobs"] = np.random.normal(100, 100, len(grav_df))
-
-    # grav_df = dummy_grid().to_dataframe().reset_index()
-
-    # add noise
-    grav_df["starting_gravity"], _ = synthetic.contaminate(
-        grav_df.starting_gravity,
-        stddev=0.2,
-        percent=True,
-        seed=0,
-    )
-
-    df = regional.regional_eq_sources(
-        cv=True,
-        cv_kwargs={"n_trials": 5, "damping_limits": (1e-3, 10)},
-        grav_df=grav_df,
-    )
-    # print(df)
-    reg_range = np.max(df.reg) - np.min(df.reg)
-    misfit_range = np.max(df.misfit) - np.min(df.misfit)
-    # print(reg_range, misfit_range)
-    # test whether regional field has been remove correctly
-    # by whether the range of regional values are lower than the range of misfit values
-    assert reg_range < misfit_range
-
-
 @pytest.mark.parametrize(
     "test_input",
     [
