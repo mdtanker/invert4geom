@@ -1191,10 +1191,6 @@ def best_equivalent_source_damping(
     log.info("Best EqSources score: %s", scores[best])
     log.info("Best damping: %s", dampings[best])
 
-    return hm.EquivalentSources(damping=dampings[best]).fit(
-        coordinates, data, weights=weights
-    )
-
     dampings_without_none = [i for i in dampings if i is not None]
 
     if dampings[best] is None:
@@ -1211,6 +1207,10 @@ def best_equivalent_source_damping(
             np.nanmin(dampings_without_none),
             np.nanmax(dampings_without_none),
         )
+
+    return hm.EquivalentSources(damping=dampings[best]).fit(
+        coordinates, data, weights=weights
+    )
 
 
 @deprecation.deprecated(  # type: ignore[misc]
