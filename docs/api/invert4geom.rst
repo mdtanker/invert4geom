@@ -18,4 +18,5 @@ Submodules
    invert4geom.plotting
    invert4geom.regional
    invert4geom.synthetic
+   invert4geom.uncertainty
    invert4geom.utils

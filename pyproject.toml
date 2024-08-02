@@ -70,6 +70,10 @@ dependencies = [
   "seaborn",
   "ipython",
   "plotly",
+###
+# uncertainty
+###
+  "UQpy",
 ]
 
 [project.optional-dependencies]
