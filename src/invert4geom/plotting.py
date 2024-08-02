@@ -8,6 +8,7 @@ import numpy as np
 import optuna
 import pandas as pd
 import plotly
+import plotly.io as pio
 import pyvista
 import scipy as sp
 import seaborn as sns
@@ -18,6 +19,12 @@ from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 
 from invert4geom import log, utils
+
+# This ensures Plotly output works in multiple places:
+# plotly_mimetype: VS Code notebook UI
+# notebook: "Jupyter: Export to HTML" command in VS Code
+# See https://plotly.com/python/renderers/#multiple-renderers
+pio.renderers.default = "plotly_mimetype+notebook"
 
 
 def plot_2_parameter_cv_scores(
@@ -1281,50 +1288,74 @@ def plot_optuna_figures(
 
 def plot_stochastic_results(
     stats_ds: xr.Dataset,
-    constraints_df: pd.DataFrame | None = None,
-    title: str | None = None,
+    points: pd.DataFrame | None = None,
+    region: tuple[float, float, float, float] | None = None,
+    **kwargs: typing.Any,
 ) -> None:
     """
-    Plot the standard deviation (uncertainty) and mean of the stochastic inversion
-    results. Optionally, plot the constraints as well.
+    Plot the (weighted) standard deviation (uncertainty) and mean of the stochastic
+    ensemble. Optionally, plot points as well.
 
     Parameters
     ----------
     stats_ds : xr.Dataset
         dataset with the merged inversion results, generate from function
         `uncertainty.model_ensemble_stats`.
-    constraints_df : pd.DataFrame | None, optional
-        dataframe with constraint points, by default None
-    title : str | None, optional
-        title for plots, by default None
+    points : pd.DataFrame | None, optional
+        dataframe with points to plot, by default None
+
+    Keyword Arguments
+    -----------------
+    cmap : str, optional
+        colormap to use for the ensemble mean, by default "rain"
+    unit : str, optional
+        unit of the data, by default "m"
+    reverse_cpt : bool, optional
+        reverse the ensemble mean colormap, by default True
+    label : str, optional
+        label for the colorbar, by default "ensemble mean"
+    points_label : str, optional
+        label for the points, by default None
+    fig_height : float, optional
+        height of the figure, by default 12
     """
-    cmap = "rain"
-    unit = "m"
-    reverse_cpt = True
-    label = "inverted bed"
+    cmap = kwargs.get("cmap", "viridis")
+    unit = kwargs.get("unit", "m")
+    reverse_cpt = kwargs.get("reverse_cpt", True)
+    label = kwargs.get("label", "ensemble mean")
+    points_label = kwargs.get("points_label", None)
+    fig_height = kwargs.get("fig_height", 12)
 
     try:
         stdev = stats_ds.weighted_stdev
+        weighted = "weighted"
     except AttributeError:
-        stdev = stats_ds.z_std
+        stdev = stats_ds.z_stdev
+        weighted = ""
+
+    if region is not None:
+        stdev = stdev.sel(
+            easting=slice(region[0], region[1]),
+            northing=slice(region[2], region[3]),
+        )
 
     fig = maps.plot_grd(
         stdev,
-        cmap="inferno",
-        reverse_cpt=True,
+        fig_height=fig_height,
+        cmap="thermal",
         robust=True,
         hist=True,
-        cbar_label=f"{label}: weighted standard deviation, {unit}",
-        title=title,
+        cbar_label=f"{label}: {weighted} standard deviation, {unit}",
+        title="Ensemble uncertainty",
     )
-    if constraints_df is not None:
+    if points is not None:
         fig.plot(
-            x=constraints_df.easting,
-            y=constraints_df.northing,
+            x=points.easting,
+            y=points.northing,
             fill="black",
             style="x.3c",
             pen="1p",
-            label="Topographic constraints",
+            label=points_label,
         )
         fig.legend()
 
@@ -1333,25 +1364,32 @@ def plot_stochastic_results(
     except AttributeError:
         mean = stats_ds.z_mean
 
+    if region is not None:
+        mean = mean.sel(
+            easting=slice(region[0], region[1]),
+            northing=slice(region[2], region[3]),
+        )
+
     fig = maps.plot_grd(
         mean,
+        fig_height=fig_height,
         cmap=cmap,
         reverse_cpt=reverse_cpt,
         robust=True,
         hist=True,
-        cbar_label=f"{label}: weighted mean, {unit}",
-        title=title,
+        cbar_label=f"{label}: {weighted} mean ({unit})",
+        title="Ensemble mean",
         fig=fig,
         origin_shift="xshift",
     )
-    if constraints_df is not None:
+    if points is not None:
         fig.plot(
-            x=constraints_df.easting,
-            y=constraints_df.northing,
+            x=points.easting,
+            y=points.northing,
             fill="black",
             style="x.3c",
             pen="1p",
-            label="Topographic constraints",
+            label=points_label,
         )
         fig.legend()
 
