@@ -1033,6 +1033,7 @@ def best_spline_cv(
     vd.Spline
         the spline which best fits the data
     """
+    kwargs = kwargs.copy()
 
     dampings = kwargs.pop("dampings", None)
 
@@ -1146,7 +1147,7 @@ def best_equivalent_source_damping(
     hm.EquivalentSources
         the best fitted equivalent sources
     """
-
+    kwargs = kwargs.copy()
     dampings = kwargs.pop("dampings", None)
     kwargs.pop("damping", None)
     # if single damping value provided, convert to list
