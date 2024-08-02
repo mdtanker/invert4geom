@@ -21,9 +21,9 @@ from invert4geom import inversion, log, plotting, regional, utils
 
 def create_lhc(
     n_samples: int,
-    parameter_dict: dict,
+    parameter_dict: dict[str, dict[str, typing.Any]],
     random_state: int = 1,
-) -> dict[typing.Any]:
+) -> dict[str, dict[str, typing.Any]]:
     """
     Given some parameter values and their expected distributions, create a Latin
     Hypercube with a given number of samples.
@@ -639,10 +639,10 @@ def full_workflow_uncertainty_loop(
                 kwargs[k] = v["sampled_values"][i]
         if sampled_starting_topography_parameter_dict is not None:
             for k, v in sampled_starting_topography_parameter_dict.items():
-                starting_topography_kwargs[k] = v["sampled_values"][i]
+                starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
         if sampled_regional_misfit_parameter_dict is not None:
             for k, v in sampled_regional_misfit_parameter_dict.items():
-                regional_grav_kwargs[k] = v["sampled_values"][i]
+                regional_grav_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
 
         # define what needs to be done depending on what parameters are sampled
         if sample_gravity is True:
@@ -680,10 +680,10 @@ def full_workflow_uncertainty_loop(
             )
 
         # get results
-        prism_df, grav_df, params, _ = inv_results
+        prism_df, grav_df, params, _ = inv_results  # type: ignore[assignment]
 
         # add run number to the parameter values
-        params["run_num"] = i
+        params["run_num"] = i  # type: ignore[call-overload]
 
         # save results
         with pathlib.Path(f"{fname}_params.pickle").open("ab") as file:
@@ -718,12 +718,12 @@ def full_workflow_uncertainty_loop(
             except EOFError:
                 break
 
-    return (params, grav_dfs, prism_dfs)
+    return (params, grav_dfs, prism_dfs)  # type: ignore[return-value]
 
 
 def model_ensemble_stats(
     dataset: xr.Dataset,
-    weights: list | NDArray = None,
+    weights: list[float] | NDArray | None = None,
     region: tuple[float, float, float, float] | None = None,
 ) -> xr.Dataset:
     """
@@ -868,7 +868,7 @@ def merged_stats(
         weighted standard deviation of the ensemble of inverted topographies.
     """
     # unpack results
-    _, grav_dfs, prism_dfs = results
+    _, grav_dfs, prism_dfs = results  # type: ignore[misc]
 
     # get merged dataset
     merged = merge_simulation_results(
