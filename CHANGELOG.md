@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
+
+## v0.8.0 (2024-08-02)
 ### 💥 Breaking Changes
 * change equivalent source param names
 
@@ -202,7 +203,6 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * pre-commit fixes ([`e596e12`](https://github.com/mdtanker/invert4geom/commit/e596e12498a7f7b028bb2f9e99839c535c594b52))
 * misc style fixes and missing imports ([`7ff25a4`](https://github.com/mdtanker/invert4geom/commit/7ff25a40a3fa10c19908617666f9fb9fad0f64d5))
 * pre-commit fixes ([`ea59410`](https://github.com/mdtanker/invert4geom/commit/ea59410bea2bed62f93a59460449040baa88f6bf))
-
 
 ## v0.7.0 (2024-06-26)
 ### 💥 Breaking Changes
