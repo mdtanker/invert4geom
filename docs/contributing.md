@@ -71,7 +71,12 @@ or
 ### Building docs
 You can build the docs using:
 ```bash
-    nox -s docs -- --serve
+    nox -s docs
+```
+
+or if you don't want them to automatically update
+```bash
+    nox -s docs --non-interactive
 ```
 
 ## What Can I Do?
@@ -257,12 +262,6 @@ You can build the docs using, but this will require pandoc to be install on your
 
 ```bash
 nox -s docs
-```
-
-You can see a preview with:
-
-```bash
-nox -s docs -- --serve
 ```
 
 #### Automatically build the docs

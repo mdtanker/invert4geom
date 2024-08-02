@@ -5,6 +5,6 @@
 name: gallery
 ---
 bishop_basement_model
-uieda_et_al_2015_synthetic
-uieda_et_al_2015_CRUST1
+uieda_et_al_2017_synthetic
+uieda_et_al_2017_CRUST1
 ```
