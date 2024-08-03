@@ -40,19 +40,19 @@ def grav_column_der(
 
     Parameters
     ----------
-    grav_easting, grav_northing, grav_upward : NDArray
+    grav_easting, grav_northing, grav_upward : numpy.ndarray
         coordinates of gravity observation points.
-    prism_easting, prism_northing, prism_top : NDArray
+    prism_easting, prism_northing, prism_top : numpy.ndarray
         coordinates of prism's center in northing, easting, and upward directions,
         respectively
     prism_spacing : float
         resolution of prism layer in meters
-    prism_density : NDArray
+    prism_density : numpy.ndarray
         density of prisms, in kg/m^3
 
     Returns
     -------
-    NDArray
+    numpy.ndarray
         array of vertical derivative of gravity at observation point for series of
         prisms
 
@@ -111,21 +111,21 @@ def jacobian_annular(
 
     Parameters
     ----------
-    grav_easting, grav_northing, grav_upward : NDArray
+    grav_easting, grav_northing, grav_upward : numpy.ndarray
         coordinates of gravity observation points
-    prism_easting, prism_northing, prism_top : NDArray
+    prism_easting, prism_northing, prism_top : numpy.ndarray
         coordinates of prism's center in northing, easting, and upward directions,
         respectively
-    prism_density : NDArray
+    prism_density : numpy.ndarray
         density of prisms, in kg/m^3
     prism_spacing : float
         resolution of prism layer in meters
-    jac : NDArray
+    jac : numpy.ndarray
         empty jacobian matrix with a row per gravity observation and a column per prism
 
     Returns
     -------
-    NDArray
+    numpy.ndarray
         returns a jacobian matrix of shape (number of gravity points, number of prisms)
 
     References
@@ -157,14 +157,14 @@ def _prism_properties(
 
     Parameters
     ----------
-    prisms_layer : xr.Dataset
+    prisms_layer : xarray.Dataset
        harmonica prism layer
     method : str, optional
         choice of method to extract properties, by default "itertools"
 
     Returns
     -------
-    NDArray
+    numpy.ndarray
         array of prism properties
     """
 
@@ -226,20 +226,20 @@ def jacobian_prism(
 
     Parameters
     ----------
-    prisms_properties : NDArray
+    prisms_properties : numpy.ndarray
         array of prism properties of shape (number of prisms, 7) with the 7 entries for
         each prism being: west, east, south, north, bottom, top, density
-    grav_easting, grav_northing,grav_upward : NDArray
+    grav_easting, grav_northing,grav_upward : numpy.ndarray
         coordinates of gravity observation points.
     delta : float
         thickness in meters of small prisms used to calculate vertical derivative
-    jac : NDArray
+    jac : numpy.ndarray
         empty jacobian matrix with a row per gravity observation and a column per prism
 
     Returns
     -------
-    NDArray
-        returns a NDArray of shape (number of gravity points, number of prisms)
+    numpy.ndarray
+        returns a numpy.ndarray of shape (number of gravity points, number of prisms)
     """
 
     # Build a small prism on top of existing prism (thickness equal to delta)
@@ -281,13 +281,13 @@ def jacobian(
     deriv_type : str
         choose between "annulus" and "prisms" methods of calculating the vertical
         derivative of gravity of a prism
-    coordinates : pd.DataFrame
+    coordinates : pandas.DataFrame
         coordinate dataframe of gravity observation points with columns "easting",
         "northing", "upward"
-    empty_jac : NDArray, optional
+    empty_jac : numpy.ndarray, optional
         optionally provide an empty jacobian matrix of shape (number of gravity
         observations x number of prisms), by default None
-    prisms_layer : xr.Dataset, optional
+    prisms_layer : xarray.Dataset, optional
         harmonica prism layer, by default None
     prism_spacing : float, optional
         resolution of prism layer, by default None
@@ -298,7 +298,7 @@ def jacobian(
 
     Returns
     -------
-    NDArray
+    numpy.ndarray
         a filled out jacobian matrix
     """
 
@@ -395,19 +395,19 @@ def solver(
 
     Parameters
     ----------
-    jac : NDArray
+    jac : numpy.ndarray
         input jacobian matrix with a row per gravity observation, and a column per
         prisms.
-    residuals : NDArray
+    residuals : numpy.ndarray
         array of gravity residuals
     damping : float | None, optional
         positive damping (Tikhonov 0th order) regularization
-    solver_type : {'scipy least squares'} optional
+    solver_type : str, optional
         choose which solving method to use, by default "scipy least squares"
 
     Returns
     -------
-    NDArray
+    numpy.ndarray
         array of correction values to apply to each prism.
     """
 
@@ -567,25 +567,19 @@ def update_l2_norms(
         l2 norm of the residual gravity misfit
     Returns
     -------
-    tuple[float, float]
-        updated l2 norm and delta l2 norm
+    updated_l2_norm : float
+        the updated l2 norm
+    updated_delta_l2_norm : float
+        the updated delta l2 norm
     """
 
-    # square-root of RMSE is the L-2 norm
+    # square-root of current RMSE is the updated L-2 norm
     updated_l2_norm = np.sqrt(current_rmse)
 
+    # updated delta l2 norm is the ratio of the last l2 norm to the current l2 norm
     updated_delta_l2_norm = last_l2_norm / updated_l2_norm
 
-    # update the l2_norm
-    last_l2_norm = updated_l2_norm
-
-    # updated the delta l2_norm
-    delta_l2_norm = updated_delta_l2_norm
-
-    return (
-        last_l2_norm,
-        delta_l2_norm,
-    )
+    return updated_l2_norm, updated_delta_l2_norm
 
 
 def end_inversion(
@@ -623,9 +617,10 @@ def end_inversion(
 
     Returns
     -------
-    tuple[bool, list[str]]
-        first term is a boolean of whether or not to end the inversion, second term is a
-        list of termination reasons.
+    end : bool
+        whether or not to end the inversion
+    termination_reason : list[str]
+        a list of termination reasons
     """
     end = False
     termination_reason = []
@@ -709,18 +704,18 @@ def update_gravity_and_misfit(
 
     Parameters
     ----------
-    gravity_df : pd.DataFrame
+    gravity_df : pandas.DataFrame
         gravity dataframe with gravity observation coordinate columns ('easting',
         'northing'), a gravity data column 'gravity_anomaly', and a regional gravity
         column ('reg').
-    prisms_ds : xr.Dataset
+    prisms_ds : xarray.Dataset
         harmonica prism layer
     iteration_number : int
         iteration number to use in updated column names
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         a gravity dataframe with 2 new columns, one for the iterations forward gravity
         and one for the iterations residual misfit.
     """
@@ -781,11 +776,11 @@ def run_inversion(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         dataframe with gravity data and coordinates, must have columns
         "gravity_anomaly", "misfit", "res" and "reg", and coordinate columns "easting"
         and "northing".
-    prism_layer : xr.Dataset
+    prism_layer : xarray.Dataset
         starting prism layer
     max_iterations : int
         the maximum allowed iterations, inclusive and starting at 1
@@ -805,9 +800,9 @@ def run_inversion(
         solver type to use, by default "scipy least squares"
     solver_damping : float | None, optional
         damping parameter for regularization of the solver, by default None
-    upper_confining_layer : xr.DataArray | None, optional
+    upper_confining_layer : xarray.DataArray | None, optional
         topographic layer to use as upper limit for inverted topography, by default None
-    lower_confining_layer : xr.DataArray | None, optional
+    lower_confining_layer : xarray.DataArray | None, optional
         topographic layer to use as lower limit for inverted topography, by default None
     apply_weighting_grid : bool, optional
         use "weighting_grid" to scale surface corrections grid, by
@@ -823,11 +818,15 @@ def run_inversion(
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
-        prisms_df: pd.DataFrame, prism properties for each iteration,
-        gravity: pd.DataFrame, gravity anomalies for each iteration,
-        params: dict, Properties of the inversion such as kwarg values,
-        elapsed_time: float, time in seconds for the inversion to run
+    prisms_df : pandas.DataFrame
+        prism properties for each iteration, including columns `starting_topo` for the
+        unchanged starting topography model and `topo` for the updated topography model
+    gravity : pandas.DataFrame
+        gravity anomalies for each iteration
+    params : dict
+        Properties of the inversion such as kwarg values
+    elapsed_time : float
+        time in seconds for the inversion to run
     """
     cols = [
         "easting",
@@ -849,7 +848,9 @@ def run_inversion(
 
     gravity = copy.deepcopy(grav_df)
 
-    # extract variables from starting prism layer
+    # use prism layer to re-create starting topography model and save it as variables
+    # 'starting_topo', which remains unchanged, and 'topo', which is updated at the end
+    # of each iteration. Also extract the prism spacing.
     (
         prisms_df,
         prisms_ds,
@@ -1121,13 +1122,13 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity dataframe with gravity data, must have coordinate columns 'easting', and
         'northing'. It must also have a gravity data column 'gravity_anomaly'.
         Optionally should have columns 'starting_gravity', 'misfit', 'reg', 'res'.
     create_starting_topography : bool, optional
         Choose whether to create starting topography model. If True, must provide
-        `starting_topography_kwargs`, if False must provide `starting_topography by
+        `starting_topography_kwargs`, if False must provide `starting_topography` by
         default False
     create_starting_prisms : bool, optional
         Choose whether to create starting prisms model. If False, must provide prisms
@@ -1168,11 +1169,15 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
-        prisms_df: pd.DataFrame, prism properties for each iteration,
-        gravity: pd.DataFrame, gravity anomalies for each iteration,
-        params: dict, Properties of the inversion such as kwarg values,
-        elapsed_time: float, time in seconds for the inversion to run
+    prisms_df : pandas.DataFrame
+        prism properties for each iteration, including columns `starting_topo` for the
+        unchanged starting topography model and `topo` for the updated topography model
+    gravity : pandas.DataFrame
+        gravity anomalies for each iteration
+    params : dict
+        Properties of the inversion such as kwarg values
+    elapsed_time : float
+        time in seconds for the inversion to run
     """
 
     kwargs = kwargs.copy()

@@ -39,7 +39,7 @@ def resample_with_test_points(
     ----------
     data_spacing : float
         full spacing size which will be halved
-    data : pd.DataFrame
+    data : pandas.DataFrame
         dataframe with coordinate columns "easting" and "northing", all other columns
         will be sampled at new grid spacing
     region : tuple[float, float, float, float]
@@ -48,7 +48,7 @@ def resample_with_test_points(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         a new dataframe with new column "test" of booleans which shows whether each row
         is a testing or training point.
     """
@@ -121,9 +121,9 @@ def grav_cv_score(
 
     Parameters
     ----------
-    training_data : pd.DataFrame
+    training_data : pandas.DataFrame
        rows of the gravity data frame which are just the training data
-    testing_data : pd.DataFrame
+    testing_data : pandas.DataFrame
         rows of the gravity data frame which are just the testing data
     rmse_as_median : bool, optional
         calculate the RMSE as the median as opposed to the mean, by default False
@@ -132,13 +132,16 @@ def grav_cv_score(
         True
     plot : bool, optional
         choose to plot the observed and predicted data grids, and their difference,
-        located at the testing points, by default False
+        located at the testing points, by
+        default False
 
     Returns
     -------
-    tuple[float, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]
-        a score, represented by the root mean squared error, between the testing gravity
-        data and the predicted gravity data, and a tuple of the inversion results.
+    score : float
+        the root mean squared error, between the testing gravity data and the predicted
+        gravity data
+    results : tuple[pandas.DataFrame, pandas.DataFrame, dict[str, typing.Any], float]
+        a tuple of the inversion results.
 
     References
     ----------
@@ -253,9 +256,9 @@ def grav_optimal_parameter(
 
     Parameters
     ----------
-    training_data : pd.DataFrame
+    training_data : pandas.DataFrame
         just the training data rows
-    testing_data : pd.DataFrame
+    testing_data : pandas.DataFrame
         just the testing data rows
     param_to_test : tuple[str, list[float]]
         first value is a string of the parameter that is being tested, and the second
@@ -274,7 +277,7 @@ def grav_optimal_parameter(
 
     Returns
     -------
-    tuple[ tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float],
+    tuple[ tuple[pandas.DataFrame, pandas.DataFrame, dict[str, typing.Any], float],
         float, float, list[float], list[float], ]
         the inversion results, the optimal parameter value, the score associated with
         it, the parameter values and the scores for each parameter value
@@ -396,19 +399,21 @@ def constraints_cv_score(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
        gravity dataframe with columns "res", "reg", and "gravity_anomaly"
-    constraints_df : pd.DataFrame
+    constraints_df : pandas.DataFrame
         constraints dataframe with columns "easting", "northing", and "upward"
     rmse_as_median : bool, optional
         calculate the RMSE as the median of the , as opposed to the mean, by default
         False
+
     Returns
     -------
-    tuple[float, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]
-        a score, represented by the root mean squared error, between the constraint
-        point elevation and the inverted topography at the constraint points, and a
-        tuple of the inversion results.
+    score : float
+        the root mean squared error, between the constraint point elevation and the
+        inverted topography at the constraint points
+    results : tuple[pandas.DataFrame, pandas.DataFrame, dict[str, typing.Any], float]
+        a tuple of the inversion results.
 
     References
     ----------
@@ -484,14 +489,14 @@ def zref_density_optimal_parameter(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         dataframe with gravity data and coordinates, must have coordinate columns
         "easting", "northing", and "upward", and gravity data column "gravity_anomaly"
-    constraints_df : pd.DataFrame
+    constraints_df : pandas.DataFrame
         dataframe with points where the topography of interest has been previously
         measured, to be used for score, must have coordinate columns "easting",
         "northing", and "upward".
-    starting_topography : xr.DataArray | None, optional
+    starting_topography : xarray.DataArray | None, optional
         starting topography to use to create the starting prism model. If not provided,
         will make a flat surface at each provided zref value using the region and
         spacing values provided in starting_topography_kwargs.
@@ -519,7 +524,7 @@ def zref_density_optimal_parameter(
 
     Returns
     -------
-    tuple[ tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float],
+    tuple[ tuple[pandas.DataFrame, pandas.DataFrame, dict[str, typing.Any], float],
         float, float, float, list[typing.Any], list[float], ]
         the inversion results, the optimal parameter value, the score associated with
         it, the parameter values and the scores for each parameter value
@@ -755,7 +760,7 @@ def random_split_test_train(
 
     Parameters
     ----------
-    data_df : pd.DataFrame
+    data_df : pandas.DataFrame
         data to be split, must have columns "easting" and "northing".
     test_size : float, optional
         decimal percentage of points to put in the testing set, by default 0.3
@@ -766,7 +771,7 @@ def random_split_test_train(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         dataframe with a new column "test" which is a boolean value of whether the row
         is in the training or testing set.
     """
@@ -847,7 +852,7 @@ def split_test_train(
 
     Parameters
     ----------
-    data_df : pd.DataFrame
+    data_df : pandas.DataFrame
         dataframe with coordinate columns "easting" and "northing"
     method : str
         choose between "LeaveOneOut" or "KFold" methods.
@@ -864,10 +869,9 @@ def split_test_train(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         a dataset with a new column for each fold in the form fold_0, fold_1 etc., with
         the value "train" or "test"
-
     """
     df = data_df.copy()
 
@@ -977,14 +981,16 @@ def kfold_df_to_lists(
 
     Parameters
     ----------
-    df : pd.DataFrame
+    df : pandas.DataFrame
         dataframe with fold columns in the form fold_0, fold_1 etc., as output by
         function `split_test_train()`.
 
     Returns
     -------
-    tuple[list[pd.DataFrame], list[pd.DataFrame]]
-        a list of testing dataframes and a list of training dataframes
+    test_dfs : list[pandas.DataFrame]
+        a list of testing dataframes for each fold
+    train_dfs : list[pandas.DataFrame]
+        a list of training dataframes for each fold
     """
     # get list of fold column names
     folds = list(df.columns[df.columns.str.startswith("fold_")])
@@ -1003,7 +1009,7 @@ def kfold_df_to_lists(
 
 
 def eq_sources_score(
-    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray],
+    coordinates: tuple[NDArray, NDArray, NDArray],
     data: pd.Series | NDArray,
     delayed: bool = False,
     weights: NDArray | None = None,
@@ -1016,29 +1022,29 @@ def eq_sources_score(
 
     Parameters
     ----------
-    coordinates : tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray]
+    coordinates : tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]
         tuple of easting, northing, and upward coordinates of the gravity data
-    data : pd.Series | NDArray
+    data : pandas.Series | numpy.ndarray
         the gravity data
     delayed : bool, optional
         compute the scores in parallel if True, by default False
-    weights : NDArray | None, optional
+    weights : numpy.ndarray | None, optional
         optional weight values for each gravity data point, by default None
 
     Keyword Arguments
     -----------------
-        damping : None or float
+    damping : float | None
         The positive damping regularization parameter. Controls how much
         smoothness is imposed on the estimated coefficients.
         If None, no regularization is used.
-    points : None or list of arrays (optional)
+    points : list[numpy.ndarray] | None
         List containing the coordinates of the equivalent point sources.
         Coordinates are assumed to be in the following order:
         (``easting``, ``northing``, ``upward``).
         If None, will place one point source below each observation point at
         a fixed relative depth below the observation point.
         Defaults to None.
-    depth : float or "default"
+    depth : float | str
         Parameter used to control the depth at which the point sources will be
         located.
         If a value is provided, each source is located beneath each data point
@@ -1048,7 +1054,7 @@ def eq_sources_score(
         4.5 times the mean distance between first neighboring sources.
         This parameter is ignored if *points* is specified.
         Defaults to ``"default"``.
-    block_size: float, tuple = (s_north, s_east) or None
+    block_size: float | tuple[float, float] | None
         Size of the blocks used on block-averaged equivalent sources.
         If a single value is passed, the blocks will have a square shape.
         Alternatively, the dimensions of the blocks in the South-North and
@@ -1060,7 +1066,7 @@ def eq_sources_score(
         If True any predictions and Jacobian building is carried out in
         parallel through Numba's ``jit.prange``, reducing the computation time.
         If False, these tasks will be run on a single CPU. Default to True.
-    dtype : data-type
+    dtype : str
         The desired data-type for the predictions and the Jacobian matrix.
         Default to ``"float64"``.
 
@@ -1133,7 +1139,7 @@ def regional_separation_score(
 
     Parameters
     ----------
-    testing_df : pd.DataFrame
+    testing_df : pandas.DataFrame
         dataframe containing a priori measurements of the topography of interest with
         columns "upward", "easting", and "northing"
     score_as_median : bool, optional
@@ -1144,8 +1150,15 @@ def regional_separation_score(
 
     Returns
     -------
-    tuple[float, float, float|None, pd.DataFrame]
-        the score and the resulting dataframe of regional and residual gravity
+    residual_constraint_score : float
+        the RMS of the residual at constraint points
+    residual_amplitude_score : float
+        the RMS of the residuals amplitude at all grid points
+    true_reg_score : float | None
+        the RMSE between the true regional field and the estimated field, if provided,
+        otherwise None
+    df_anomalies : pandas.DataFrame
+        the dataframe of the regional and residual gravity anomalies
     """
 
     # pull out kwargs

@@ -18,7 +18,7 @@ def _check_grav_cols(grav_df: pd.DataFrame) -> None:
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity dataframe
     """
     cols = [
@@ -43,19 +43,19 @@ def regional_constant(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "starting_gravity".
     constant : float
         shift to apply to the data
-    constraints_df : pd.DataFrame
+    constraints_df : pandas.DataFrame
         a dataframe of constraint points with columns easting and northing.
     regional_shift : float, optional
         shift to add to the regional field, by default 0
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
     log.debug("starting regional_constant")
@@ -129,7 +129,7 @@ def regional_filter(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "starting_gravity".
     filter_width : float
@@ -139,7 +139,7 @@ def regional_filter(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
     log.debug("starting regional_filter")
@@ -193,7 +193,7 @@ def regional_trend(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "starting_gravity".
     trend : int
@@ -203,7 +203,7 @@ def regional_trend(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
     log.debug("starting regional_trend")
@@ -246,7 +246,7 @@ def regional_eq_sources(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "starting_gravity".
     depth : float
@@ -255,7 +255,7 @@ def regional_eq_sources(
         smoothness to impose on estimated coefficients, by default None
     block_size : float | None, optional
         block reduce the data to speed up, by default None
-    points : list[NDArray] | None, optional
+    points : list[numpy.ndarray] | None, optional
         specify source locations for equivalent source fitting, by default None
     grav_obs_height: float, optional
         Observation height to use predicting the eq sources, by default None and will
@@ -272,7 +272,7 @@ def regional_eq_sources(
         column name for weighting values of each gravity point.
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
     log.debug("starting regional_eq_sources")
@@ -356,10 +356,10 @@ def regional_constraints(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "starting_gravity".
-    constraints_df : pd.DataFrame
+    constraints_df : pandas.DataFrame
         dataframe of constraints with columns "easting", "northing", and "upward".
     grid_method : str, optional
         method used to grid the sampled gravity data at the constraint points. Choose
@@ -389,7 +389,7 @@ def regional_constraints(
         "damping_limits", "depth_limits", "block_size_limits", and "progressbar".
     block_size : float | None, optional
         block size used if `grid_method` is "eq_sources", by default None
-    points : list[NDArray] | None, optional
+    points : list[numpy.ndarray] | None, optional
         specify source locations for equivalent source fitting, by default None
     grav_obs_height : float, optional
         Observation height to use if `grid_method` is "eq_sources", by default None
@@ -403,7 +403,7 @@ def regional_constraints(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
     log.debug("starting regional_constraints")
@@ -593,11 +593,11 @@ def regional_constraints_cv(
     hyperparameter optimization to find the set of parameter values which estimates the
     best regional field. It then uses the optimal parameter values and all of the
     constraint points to re-calculate the best regional field. All kwargs are passed to
-    the function :func:`optimization.optimize_regional_constraint_point_minimization`.
+    the function :func:`.optimize_regional_constraint_point_minimization`
 
     Parameters
     ----------
-    constraints_df : pd.DataFrame
+    constraints_df : pandas.DataFrame
         dataframe of un-separated constraints
     split_kwargs : dict[str, typing.Any] | None, optional
         kwargs to be passed to `split_test_train`, by default None
@@ -606,7 +606,7 @@ def regional_constraints_cv(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         a gravity dataframe with new columns 'misfit', 'reg', and 'res'.
     """
 
@@ -648,7 +648,7 @@ def regional_separation(
     method : str
         choose method to apply; one of "constant", "filter", "trend",
         "eq_sources", "constraints" or "constraints_cv".
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "starting_gravity".
     remove_starting_grav_mean : bool, optional
@@ -659,7 +659,7 @@ def regional_separation(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
     grav_df = grav_df.copy()

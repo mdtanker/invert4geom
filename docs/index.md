@@ -55,7 +55,7 @@ user_guide/index.md
 :maxdepth: 2
 :hidden:
 :caption: 📖 Reference documentation
-api/invert4geom
+autoapi/invert4geom/index
 citing.md
 changelog.md
 references.rst
@@ -97,7 +97,7 @@ Start a discussion on GitHub!
 :::{grid-item-card} {octicon}`file-badge` Reference documentation
 :text-align: center
 A list of modules and functions
-```{button-ref} api/invert4geom
+```{button-ref} autoapi/invert4geom/index
     :click-parent:
     :color: primary
     :outline:

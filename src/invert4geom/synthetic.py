@@ -71,8 +71,14 @@ def load_synthetic_model(
 
     Returns
     -------
-    tuple[xr.DataArray, xr.DataArray, pd.DataFrame, pd.DataFrame]
-        tuple of: true topography, starting topography, constraint points, gravity data
+    true_topography : xarray.DataArray
+        the true topography
+    starting_topography : xarray.DataArray
+        the starting topography
+    constraint_points : pandas.DataFrame
+        the constraint points
+    grav_df : pandas.DataFrame
+        the gravity data
     """
 
     buffer_region = vd.pad_region(region, buffer) if buffer != 0 else region
@@ -253,7 +259,7 @@ def contaminate_with_long_wavelength_noise(
 
     Parameters
     ----------
-    grid : xr.DataArray
+    grid : xarray.DataArray
         Grid to contaminate
     coarsen_factor : float, optional
         Factor to coarsen the data by, by default 2
@@ -262,7 +268,7 @@ def contaminate_with_long_wavelength_noise(
 
     Returns
     -------
-    xr.DataArray
+    xarray.DataArray
         Contaminated grid
     """
 
@@ -321,7 +327,7 @@ def load_bishop_model(
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         Dataset with variables "basement_topo", "moho_topo", and "gravity".
     """
 
@@ -379,7 +385,7 @@ def gaussian2d(
 
     Parameters
     ----------
-    x, y : NDArray
+    x, y : numpy.ndarray
         Coordinates at which to calculate the Gaussian function
     sigma_x, sigma_y : float
         Standard deviation in the x and y directions
@@ -391,7 +397,7 @@ def gaussian2d(
 
     Returns
     -------
-    NDArray
+    numpy.ndarray
         Gaussian function evaluated at *x*, *y*
 
     Notes
@@ -438,7 +444,7 @@ def synthetic_topography_simple(
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         synthetic topography dataset
     """
     if registration == "g":
@@ -575,7 +581,7 @@ def synthetic_topography_regional(
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         synthetic topography dataset
     """
 
@@ -668,7 +674,7 @@ def contaminate(
 
     Parameters
     ----------
-    data : NDArray | list[NDArray]
+    data : numpy.ndarray | list[numpy.ndarray]
         data to contaminate, can be a single array, or a list of arrays.
     stddev : float | list[float]
         standard deviation of the Gaussian noise that will be added to
@@ -688,8 +694,11 @@ def contaminate(
 
     Returns
     -------
-    tuple[NDArray | list[NDArray], float | list[float]]
-        a tuple of (contaminated data, standard deviations).
+    contam : numpy.ndarray | list[numpy.ndarray]
+        contaminated data. If *data* is a list, will return a list of arrays.
+    stddev : float | list[float]
+        standard deviation of the Gaussian noise added to the data. If *stddev* is a
+        list, will return a list of floats.
 
     Notes
     -----

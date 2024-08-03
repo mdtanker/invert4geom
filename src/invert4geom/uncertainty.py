@@ -104,7 +104,7 @@ def randomly_sample_data(
     ----------
     seed : int
         random number generator seed
-    data_df : pd.DataFrame
+    data_df : pandas.DataFrame
         dataframe with columns `data_col` and `uncert_col`
     data_col : str
         name of data column to sample
@@ -113,7 +113,7 @@ def randomly_sample_data(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         dataframe with data column updated with sampled values
     """
     # create random generator
@@ -158,15 +158,14 @@ def starting_topography_uncertainty(
         show the results, by default True
     plot_region : tuple[float, float, float, float] | None, optional
         clip the plot to a region, by default None
-    true_topography : xr.DataArray | None, optional
+    true_topography : xarray.DataArray | None, optional
         if the true topography is known, will make a plot comparing the results, by
         default None
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of topographies.
-
     """
     kwargs = kwargs.copy()
     constraints_df = kwargs.pop("constraints_df", None)
@@ -317,13 +316,13 @@ def regional_misfit_uncertainty(
         show the results, by default True
     plot_region : tuple[float, float, float, float] | None, optional
         clip the plot to a region, by default None
-    true_regional : xr.DataArray | None, optional
+    true_regional : xarray.DataArray | None, optional
         if the true regional misfit is known, will make a plot comparing the results, by
         default None
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of regional gravity
     """
     kwargs = kwargs.copy()
@@ -497,39 +496,46 @@ def full_workflow_uncertainty_loop(
     runs : int
         number of inversion workflows to run
     fname : str | None, optional
-        _description_, by default None
+        file name to use as root to save each inversions results to, by default None and
+        is set to "tmp_{random.randint(0,999)}_stochastic_ensemble".
     sample_gravity : bool, optional
-        _description_, by default False
+        choose to randomly sample the gravity data from a normal distribution with a
+        mean of each data value and a standard deviation given by the column "uncert",
+        by default False
     sample_constraints : bool, optional
-        _description_, by default False
+        choose to randomly sample the constraint elevations from a normal distribution
+        with a mean of each data value and a standard deviation given by the column
+        "uncert", by default False
     starting_topography_parameter_dict : dict[str, typing.Any] | None, optional
-        _description_, by default None
+        parameters with their uncertainty distributions used for creating the starting
+        topography model, by default None
     regional_misfit_parameter_dict : dict[str, typing.Any] | None, optional
-        _description_, by default None
+        parameters with their uncertainty distributions used for estimating the regional
+        component of the gravity misfit, by default None
     parameter_dict : dict[str, typing.Any] | None, optional
-        _description_, by default None
+        parameters with their uncertainty distributions used in the inversion workflow,
+        by default None
     create_starting_topography : bool, optional
-        _description_, by default False
+        choose to recreate the starting topography model, by default False
     create_starting_prisms : bool, optional
-        _description_, by default False
+        choose to recreate the starting prism model, by default False
     calculate_starting_gravity : bool, optional
-        _description_, by default False
+        choose to recalculate the starting gravity, by default False
     calculate_regional_misfit : bool, optional
-        _description_, by default False
+        choose to recalculate the regional gravity, by default False
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
-        _description_, by default None
+        kwargs passed to :func:`.regional.regional_separation`, by default None
     starting_topography_kwargs : dict[str, typing.Any] | None, optional
-        _description_, by default None
+        kwargs passed to :func:`.utils.create_topography`, by default None
 
     Returns
     -------
-    tuple[dict[str, typing.Any], list[pd.DataFrame], list[pd.DataFrame]]
-        _description_
-
-    Raises
-    ------
-    ValueError
-        _description_
+    params : list[dict[str, typing.Any]]
+        list of inversion parameters dictionaries with added key for the run number
+    grav_dfs : list[pandas.DataFrame]
+        list of gravity dataframes from each inversion run
+    prism_dfs : list[pandas.DataFrame]
+        list of prism dataframes from each inversion run
     """
     kwargs = kwargs.copy()
 
@@ -732,9 +738,9 @@ def model_ensemble_stats(
 
     Parameters
     ----------
-    dataset : xr.Dataset
+    dataset : xarray.Dataset
         dataset to perform cell-wise statistics on
-    weights : list | NDArray, optional
+    weights : list | numpy.ndarray, optional
         weights to use in statistic calculations for each inversion topography, by
         default None
     region : tuple[float, float, float, float], optional
@@ -742,7 +748,7 @@ def model_ensemble_stats(
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         Dataset with variables for the mean, standard deviation, weighted mean, and
         weighted standard deviation of the ensemble of inverted topographies.
     """
@@ -814,12 +820,12 @@ def merge_simulation_results(
 
     Parameters
     ----------
-    grids : list[xr.DataArray]
+    grids : list[xarray.DataArray]
         list of xarray grids
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         dataset with a variable for each grid, with the variable
         name in the format "run_<number>".
     """
@@ -850,7 +856,7 @@ def merged_stats(
     plot : bool, optional
         show the resulting weighted mean and weighted standard deviation of the
         inversion ensemble, by default True
-    constraints_df : pd.DataFrame, optional
+    constraints_df : pandas.DataFrame, optional
         dataframe of constraint points to use for weighting the cell-wise statistics and
         for plotting , by default None
     weight_by : str, optional
@@ -863,7 +869,7 @@ def merged_stats(
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         Dataset with variables for the mean, standard deviation, weighted mean, and
         weighted standard deviation of the ensemble of inverted topographies.
     """

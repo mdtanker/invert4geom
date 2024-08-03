@@ -55,6 +55,8 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     # nptyping
     # numba_progress
+    "sklearn": ("https://scikit-learn.org/stable/", None),
+    "dask": ("https://docs.dask.org/en/stable/", None),
     # "tqdm": ("https://tqdm.github.io/", None),
     "pygmt": ("https://www.pygmt.org/latest/", None),
     #
@@ -74,6 +76,12 @@ intersphinx_mapping = {
 nitpick_ignore = [
     ("py:class", "_io.StringIO"),
     ("py:class", "_io.BytesIO"),
+    ("py:class", "optional"),
+    ("py:class", "optuna.trial"),
+    ("py:class", "optuna.study"),
+    ("py:class", "optuna.storages.BaseStorage"),
+    ("py:class", "plotly.graph_objects.Figure"),
+    ("py:class", "Ellipsis"),
 ]
 
 always_document_param_types = True
@@ -82,14 +90,6 @@ add_function_parentheses = False
 
 # API doc configuration
 # -----------------------------------------------------------------------------
-# autosummary_generate = True
-# autodoc_default_options = {
-#     "members": True,
-#     "show-inheritance": True,
-# }
-# apidoc_module_dir = '../src/invert4geom'
-# apidoc_excluded_paths = ['tests']
-# apidoc_separate_modules = False
 autoapi_dirs = ["../src/invert4geom"]
 autoapi_type = "python"
 autoapi_add_toctree_entry = False
@@ -98,8 +98,6 @@ autodoc_typehints = "description"
 # HTML output configuration
 # -----------------------------------------------------------------------------
 html_title = f'{project} <span class="project-version">{version}</span>'
-# html_logo = "_static/harmonica-logo.png"
-# html_favicon = "_static/favicon.png"
 html_last_updated_fmt = "%b %d, %Y"
 html_copy_source = True
 html_show_sourcelink = True

@@ -269,7 +269,7 @@ def plot_convergence(
 
     Parameters
     ----------
-    results : pd.DataFrame
+    results : pandas.DataFrame
         gravity result dataframe
     params : dict[str, typing.Any]
         inversion parameters output from function `run_inversion()`
@@ -507,17 +507,21 @@ def grid_inversion_results(
         list of topography variable names in the prism dataset
     corrections : list[str]
         list of correction variable names in the prism dataset
-    prisms_ds : xr.Dataset
+    prisms_ds : xarray.Dataset
         resulting dataset of prism layer from the inversion
-    grav_results : pd.DataFrame
+    grav_results : pandas.DataFrame
         resulting dataframe of gravity data from the inversion
     region : tuple[float, float, float, float]
         region to use for gridding in format (xmin, xmax, ymin, ymax)
 
     Returns
     -------
-    tuple[list[xr.DataArray], list[xr.DataArray], list[xr.DataArray]]
-        lists of misfit, topography, and correction grids
+    misfit_grids : list[xarray.DataArray]
+        list of misfit grids
+    topo_grids : list[xarray.DataArray]
+        list of topography grids
+    corrections_grids : list[xarray.DataArray]
+        list of correction grids
     """
     misfit_grids = []
     for m in misfits:
@@ -557,13 +561,13 @@ def plot_inversion_topo_results(
 
     Parameters
     ----------
-    prisms_ds : xr.Dataset
+    prisms_ds : xarray.Dataset
         dataset resulting from inversion
     topo_cmap_perc : float, optional
         value to multiple min and max values by for colorscale, by default 1
     region : tuple[float, float, float, float], optional
         clip grids to this region before plotting
-    constraints_df : pd.DataFrame, optional
+    constraints_df : pandas.DataFrame, optional
         constraint points to include in the plots
     constraint_style : str, optional
         pygmt style string for for constraint points, by default 'x.3c'
@@ -615,13 +619,13 @@ def plot_inversion_grav_results(
 
     Parameters
     ----------
-    grav_results : pd.DataFrame
+    grav_results : pandas.DataFrame
         resulting dataframe of gravity data from the inversion
     region : tuple[float, float, float, float]
         region to use for gridding in format (xmin, xmax, ymin, ymax)
     iterations : list[int]
         list of all the iteration numbers
-    constraints_df : pd.DataFrame, optional
+    constraints_df : pandas.DataFrame, optional
         constraint points to include in the plots
     fig_height : float, optional
         height of the figure, by default 12
@@ -708,11 +712,12 @@ def plot_inversion_iteration_results(
 
     Parameters
     ----------
-    grids : tuple[list[xr.DataArray], list[xr.DataArray], list[xr.DataArray]]
+    grids : tuple[list[xarray.DataArray], list[xarray.DataArray],
+        list[xarray.DataArray]]
         lists of misfit, topography, and correction grids
-    grav_results : pd.DataFrame
+    grav_results : pandas.DataFrame
         gravity dataframe resulting from the inversion
-    topo_results : pd.DataFrame
+    topo_results : pandas.DataFrame
         topography dataframe resulting from the inversion
     parameters : dict[str, typing.Any]
         inversion parameters resulting from the inversion
@@ -724,7 +729,7 @@ def plot_inversion_iteration_results(
         value to multiply the max and min colorscale values by, by default 1
     corrections_cmap_perc : float, optional
         value to multiply the max and min colorscale values by, by default 1
-    constraints_df : pd.DataFrame, optional
+    constraints_df : pandas.DataFrame, optional
         constraint points to include in the plots
     constraint_size : float, optional
         size for constraint points, by default 1
@@ -923,9 +928,9 @@ def plot_inversion_results(
 
     Parameters
     ----------
-    grav_results : pd.DataFrame | str
+    grav_results : pandas.DataFrame | str
         gravity results dataframe or filename
-    topo_results : pd.DataFrame | str
+    topo_results : pandas.DataFrame | str
         topography results dataframe or filename
     parameters : dict[str, typing.Any] | str
         inversion parameters dictionary or filename
@@ -939,7 +944,7 @@ def plot_inversion_results(
         plot the topography results, by default True
     plot_grav_results : bool, optional
         plot the gravity results, by default True
-    constraints_df : pd.DataFrame, optional
+    constraints_df : pandas.DataFrame, optional
         constraint points to include in the plots
     """
     # if results are given as filenames (strings), load them
@@ -1046,7 +1051,7 @@ def add_light(
     ----------
     plotter : pyvista.Plotter
         pyvista plotter object
-    prisms : xr.Dataset
+    prisms : xarray.Dataset
         harmonica prisms layer
     """
 
@@ -1075,7 +1080,7 @@ def show_prism_layers(
 
     Parameters
     ----------
-    prisms : list | xr.Dataset
+    prisms : list | xarray.Dataset
         either a single harmonica prism layer of list of layers,
     cmap : str, optional
         matplotlib colorscale to use, by default "viridis"
@@ -1298,10 +1303,10 @@ def plot_stochastic_results(
 
     Parameters
     ----------
-    stats_ds : xr.Dataset
+    stats_ds : xarray.Dataset
         dataset with the merged inversion results, generate from function
         `uncertainty.model_ensemble_stats`.
-    points : pd.DataFrame | None, optional
+    points : pandas.DataFrame | None, optional
         dataframe with points to plot, by default None
 
     Keyword Arguments

@@ -319,7 +319,7 @@ def _create_regional_separation_study(
     true_regional: xr.DataArray | None = None,
     parallel: bool = True,
     fname: str | None = None,
-) -> tuple[optuna.study.Study, optuna.storages.BaseStorage]:
+) -> tuple[optuna.study.Study, optuna.storages.BaseStorage | None]:
     """
     Creates a study, sets directions and metric names based on the input parameters.
 
@@ -333,7 +333,7 @@ def _create_regional_separation_study(
         amplitude as separate metrics, as opposed to them as a ratio.
     sampler : optuna.samplers.BaseSampler
         sampler object
-    true_regional : xr.DataArray | None, optional
+    true_regional : xarray.DataArray | None, optional
         grid of true regional values, by default None
     parallel : bool, optional
         inform whether the study should be run in run in parallel, by default True. If
@@ -341,11 +341,13 @@ def _create_regional_separation_study(
         running in parallel.
     fname : str | None, optional
         file name to save the study to, by default None
+
     Returns
     -------
-    tuple[optuna.study.Study, optuna.storages.BaseStorage]
-        return a study object with direction, sampler, and metric names set, and if
-        parallel is True, an optuna storage object.
+    study : optuna.study.Study
+        return a study object with direction, sampler, and metric names set
+    storage : optuna.storages.BaseStorage | None
+        return an optuna storage object if parallel is True, otherwise None
     """
     direction = None
     directions = None
@@ -649,9 +651,9 @@ def optimize_inversion_damping(
 
     Parameters
     ----------
-    training_df : pd.DataFrame
+    training_df : pandas.DataFrame
         rows of the gravity data frame which are just the training data
-    testing_df : pd.DataFrame
+    testing_df : pandas.DataFrame
         rows of the gravity data frame which are just the testing data
     n_trials : int
         number of damping values to try
@@ -668,7 +670,7 @@ def optimize_inversion_damping(
         default False
     fname : str, optional
         file name to save both study and inversion results to as pickle files, by
-        default fname is `tmp_x_damping_cv where x is a random integer between 0 and
+        default fname is `tmp_x_damping_cv` where x is a random integer between 0 and
         999 and will save study to <fname>_study.pickle and tuple of inversion results
         to <fname>_results.pickle.
     plot_cv : bool, optional
@@ -687,9 +689,12 @@ def optimize_inversion_damping(
 
     Returns
     -------
-    tuple[optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]]
-        a tuple of the completed optuna study and a tuple of the inversion results:
-        topography dataframe, gravity dataframe, parameter values and elapsed time.
+    study : optuna.study
+        the completed optuna study
+    inv_results : tuple[pandas.DataFrame, pandas.DataFrame, dict[str, typing.Any], \
+            float]
+        a tuple of the inversion results: topography dataframe, gravity dataframe,
+        parameter values and elapsed time.
     """
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
@@ -1189,15 +1194,15 @@ def optimize_inversion_zref_density_contrast(
 
     Parameters
     ----------
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity data frame with columns `easting`, `northing`, `upward`, and
         `gravity_anomaly`
-    constraints_df : pd.DataFrame or list[pd.DataFrame]
+    constraints_df : pandas.DataFrame or list[pandas.DataFrame]
         constraints data frame with columns `easting`, `northing`, and `upward`, or list
         of dataframes for each fold of a cross-validation
     n_trials : int
         number of trials, if grid_search is True, needs to be a perfect square and >=16.
-    starting_topography : xr.DataArray | None, optional
+    starting_topography : xarray.DataArray | None, optional
         a starting topography grid used to create the prisms layers. If not provided,
         must provide region, spacing and dampings to starting_topography_kwargs, by
         default None
@@ -1230,7 +1235,7 @@ def optimize_inversion_zref_density_contrast(
         by the square root of n_trials (for 2 parameter optimizations), by default False
     fname : str | None, optional
         file name to save both study and inversion results to as pickle files, by
-        default fname is `tmp_x_zref_density_cv where x is a random integer between 0
+        default fname is `tmp_x_zref_density_cv` where x is a random integer between 0
         and 999 and will save study to <fname>_study.pickle and tuple of inversion
         results to <fname>_results.pickle.
     plot_cv : bool, optional
@@ -1249,11 +1254,12 @@ def optimize_inversion_zref_density_contrast(
 
     Returns
     -------
-    tuple[
-        optuna.study,
-        tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float] ]
-        a tuple of the completed optuna study and a tuple of the inversion results:
-        topography dataframe, gravity dataframe, parameter values and elapsed time.
+    study : optuna.study
+        the completed optuna study
+    final_inversion_results : tuple[pandas.DataFrame, pandas.DataFrame, dict[str, \
+            typing.Any], float]
+        a tuple of the inversion results: topography dataframe, gravity dataframe,
+        parameter values and elapsed time.
     """
 
     if "test" in grav_df.columns:
@@ -1684,9 +1690,11 @@ def optimize_inversion_zref_density_contrast_kfolds(
 
     Returns
     -------
-    tuple[ optuna.study,
-    tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float] ]
-        returns the optuna study, and a tuple of the best inversion results.
+    study : optuna.study
+        the completed optuna study
+    inversion_results : tuple[pandas.DataFrame, pandas.DataFrame, dict[str, \
+            typing.Any], float]]
+        tuple of the best inversion results.
     """
     # drop any existing fold columns
     df = constraints_df.copy()
@@ -1813,10 +1821,11 @@ def optimize_eq_source_params(
 
     Parameters
     ----------
-    coordinates : tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray]
+    coordinates : tuple[pandas.Series | numpy.ndarray, pandas.Series | numpy.ndarray, \
+            pandas.Series | numpy.ndarray]
         tuple of coordinates in the order (easting, northing, upward) for the gravity
         observation locations.
-    data : pd.Series | NDArray
+    data : pandas.Series | numpy.ndarray
         gravity data values
     n_trials : int, optional
         number of trials to run, by default 100
@@ -1839,14 +1848,16 @@ def optimize_eq_source_params(
     kwargs : typing.Any
         additional keyword arguments to pass to `OptimalEqSourceParams`, which are
         passed to `eq_sources_score`. These can include parameters to pass to
-        `hm.EquivalentSources`; "damping", "points", "depth", "block_size", "parallel",
-        and "dtype", or parameters to pass to `vd.cross_val_score`; "delayed", or
-        "weights".
+        `harmonica.EquivalentSources`; "damping", "points", "depth", "block_size",
+        "parallel", and "dtype", or parameters to pass to `vd.cross_val_score`;
+        "delayed", or "weights".
 
     Returns
     -------
-    tuple[optuna., hm.EquivalentSources]
-        a tuple of the resulting Optuna study and the fitted equivalent sources model
+    study : optuna.study
+        the completed optuna study
+    eqs : harmonica.EquivalentSources
+        the fitted equivalent sources model
     """
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
@@ -2452,10 +2463,10 @@ def optimize_regional_filter(
 
     Parameters
     ----------
-    testing_df : pd.DataFrame
+    testing_df : pandas.DataFrame
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity dataframe with columns "easting", "northing", "reg", and
         `gravity_anomaly`.
     filter_width_limits : tuple[float, float]
@@ -2466,7 +2477,7 @@ def optimize_regional_filter(
     remove_starting_grav_mean : bool, optional
         remove the mean of the starting gravity data before estimating the regional.
         Useful to mitigate effects of poorly-chosen zref value. By default False
-    true_regional : xr.DataArray | None, optional
+    true_regional : xarray.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
         for each trial, or set `optimize_on_true_regional_misfit=True` to have the
@@ -2493,9 +2504,12 @@ def optimize_regional_filter(
 
     Returns
     -------
-    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
-        the completed Optuna study, the resulting gravity dataframe of the best trial,
-        and the best trial itself.
+    study : optuna.study,
+        the completed Optuna study
+    resulting_grav_df : pandas.DataFrame
+        the resulting gravity dataframe of the best trial
+    best_trial : optuna.trial.FrozenTrial
+        the best trial
     """
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
@@ -2609,10 +2623,10 @@ def optimize_regional_trend(
 
     Parameters
     ----------
-    testing_df : pd.DataFrame
+    testing_df : pandas.DataFrame
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity dataframe with columns "easting", "northing", "reg" and
         `gravity_anomaly`.
     trend_limits : tuple[int, int]
@@ -2623,7 +2637,7 @@ def optimize_regional_trend(
     remove_starting_grav_mean : bool, optional
         remove the mean of the starting gravity data before estimating the regional.
         Useful to mitigate effects of poorly-chosen zref value. By default False
-    true_regional : xr.DataArray | None, optional
+    true_regional : xarray.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
         for each trial, or set `optimize_on_true_regional_misfit=True` to have the
@@ -2648,9 +2662,12 @@ def optimize_regional_trend(
 
     Returns
     -------
-    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
-        the completed Optuna study, the resulting gravity dataframe of the best trial,
-        and the best trial itself.
+    study : optuna.study,
+        the completed Optuna study
+    resulting_grav_df : pandas.DataFrame
+        the resulting gravity dataframe of the best trial
+    best_trial : optuna.trial.FrozenTrial
+        the best trial
     """
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
@@ -2768,16 +2785,16 @@ def optimize_regional_eq_sources(
 
     Parameters
     ----------
-    testing_df : pd.DataFrame
+    testing_df : pandas.DataFrame
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity dataframe with columns "easting", "northing", "reg", and
         `gravity_anomaly`.
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
-    true_regional : xr.DataArray | None, optional
+    true_regional : xarray.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
         for each trial, or set `optimize_on_true_regional_misfit=True` to have the
@@ -2814,9 +2831,12 @@ def optimize_regional_eq_sources(
 
     Returns
     -------
-    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
-        the completed Optuna study, the resulting gravity dataframe of the best trial,
-        and the best trial itself.
+    study : optuna.study,
+        the completed Optuna study
+    resulting_grav_df : pandas.DataFrame
+        the resulting gravity dataframe of the best trial
+    best_trial : optuna.trial.FrozenTrial
+        the best trial
     """
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
@@ -2971,7 +2991,7 @@ def optimize_regional_constraint_point_minimization(
 
     Parameters
     ----------
-    testing_training_df : pd.DataFrame
+    testing_training_df : pandas.DataFrame
         constraints dataframe with columns "easting", "northing", "upward", and a column
         for each fold in the format "fold_0", "fold_1", etc. This can be created with
         function `cross_validation.split_test_train()`. Each fold column should have
@@ -2983,7 +3003,7 @@ def optimize_regional_constraint_point_minimization(
         constraint point minimization method to use, choose between "verde" for
         bi-harmonic spline gridding, "pygmt" for tensioned minimum curvature gridding,
         or "eq_sources" for equivalent sources gridding.
-    grav_df : pd.DataFrame
+    grav_df : pandas.DataFrame
         gravity dataframe with columns "easting", "northing", "reg", and
         "gravity_anomaly".
     n_trials : int
@@ -3021,7 +3041,7 @@ def optimize_regional_constraint_point_minimization(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
-    true_regional : xr.DataArray | None, optional
+    true_regional : xarray.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
         for each trial, or set `optimize_on_true_regional_misfit=True` to have the
@@ -3037,9 +3057,12 @@ def optimize_regional_constraint_point_minimization(
 
     Returns
     -------
-    tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]
-        the completed Optuna study, the resulting gravity dataframe of the best trial,
-        and the best trial itself.
+    study : optuna.study,
+        the completed Optuna study
+    resulting_grav_df : pandas.DataFrame
+        the resulting gravity dataframe of the best trial
+    best_trial : optuna.trial.FrozenTrial
+        the best trial
     """
 
     optuna.logging.set_verbosity(optuna.logging.WARN)

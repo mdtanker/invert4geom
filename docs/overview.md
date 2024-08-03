@@ -36,61 +36,69 @@ If your data is in geographic coordinates (latitude/longitude) and consists of o
 
 ## Modules
 
-**Invert4Geom** consists of 7 modules:
+**Invert4Geom** consists of 8 modules:
 
 ### Inversion
 
-This contains the core tools for performing the inversion.
-These tools allow for creating the Jacobian matrix, performing the least squares solution, running the inversion, determining when to end the inversion, and updating the misfit and gravity values between each iteration.
+The {mod}`.inversion` module contains the core tools for performing the inversion.
+These tools allow for creating the Jacobian matrix, performing the least squares solution, running the inversion, determining when to end the inversion, and updating the misfit and gravity values between each iteration. The core function for running an inversion is {func}`~.inversion.run_inversion`. A function is also provided ({func}`~.inversion.run_inversion_workflow`) which allows the entire inversion workflow to be run from one function. This workflow includes creating the starting topography, creating the starting prism model, calculating for the forward gravity of the prism model, calculating the misfit and regional/residual components, running a standard inversion, or running cross-validation for determining the optimal damping, reference level, or density contrast values.
 
-## Cross Validation
+### Cross Validation
 
-This module contains the code necessary for performing the various cross-validation routines.
-These routines are split into 2 categories; _gravity_ and _constraints_ cross validation.
+The {mod}`.cross_validation` module contains the code necessary for calculating cross-validation scores. This include scores for regional separation ({func}`~.cross_validation.regional_separation_score`), fitting equivalent sources ({func}`~.cross_validation.eq_sources_score`), inversion performance based on gravity data ({func}`~.cross_validation.grav_cv_score`) and based on constraint points ({func}`~.cross_validation.constraints_cv_score`). These scores are used in the {mod}`.optimization` module for hyperparameter optimization for regional separation parameters, damping, reference level, and density contrast values.
+It also contains functions for separating data into testing and training sets ({func}`~.cross_validation.resample_with_test_points`, {func}`~.cross_validation.random_split_test_train`) and K-folds ({func}`~.cross_validation.split_test_train`).
 
-### Gravity cross validations
 
-The _gravity cross validations_ are those which split the gravity data into testing and training sets, perform the inversion with the training set, and compare the forward gravity of the inverted topography with the un-used testing data.
-This is a Generalized Cross Validation, specifically a hold-out cross-validation, as described in [Uieda & Barbosa (2017)](https://academic.oup.com/gji/article-lookup/doi/10.1093/gji/ggw390).
-This is used here for estimated the optimal regularization damping parameter during the inversion.
+### Regional
 
-### Constraint cross validations
-
-The _constraint cross validations_ are those which use _apriori_ points of known elevation of the surface of in interest to determine optimal inversion
-parameters.
-The inversion is performed without including these constraint points, and the inverted surface is compared with the elevations of these constraints points to give a score.
-This style of validation is used here for estimating the optimal reference level and density contrast of the surface of interest.
-
-## Regional
-
-This module contains tools for estimating the regional gravity field.
+The {mod}`.regional` module contains tools for estimating the regional gravity field.
 In many styles of inversions, the regional component of the gravity misfit should be removed to help isolate the gravity effects of the layer of interest.
 This is common in inversions for topography, bathymetry, or sedimentary basins.
 We provide several methods of estimating the regional component.
 
-1. Low pass filtering the data, 2) fitting a surface to the data with a user defined trend, 3) fitting a set of deep equivalent sources to the data and    predicting the gravity effect of those sources, and 4) using _apriori_ constraints to determine the regional field, by assuming the residual component is low at the those points.
+1) Using a constant value for the regional field ({func}`~.regional.regional_constant`)
+2) Low pass filtering the data ({func}`~.regional.regional_filter`)
+3) fitting a surface to the data with a user defined trend ({func}`~.regional.regional_trend`)
+4) fitting a set of deep equivalent sources to the data and predicting the gravity effect of those sources ({func}`~.regional.regional_eq_sources`)
+5) using _apriori_ constraints to determine the regional field, by assuming the residual component is low at the those points ({func}`~.regional.regional_constraints`)
 
-## Optimization
+The optimal parameter values associated with this functions; filter width, trend order, source depth, damping values, and various gridding parameters, can all be chosen via hyperparameter optimization routines within the {mod}`.optimization` module.
 
-Functions for performing optimizations.
-This uses the package _Optuna_ which given a parameter space, an objective function, and a sampling routine, will perform optimization to minimize (or maximize) the object function.
-This is used in the **Regional** module for finding the optimal regional separation methods.
+### Optimization
 
-## Plotting
+The {mod}`.optimization` module contains tools for performing hyperparameter optimizations using the Python package {mod}`optuna`. The main optimizations we provide are:
 
-Various function for plotting maps and graphs used throughout the other modules.
+**Fitting equivalent sources**
+* {func}`~.optimization.optimize_eq_source_params`
 
-## Utils
+**Regional field estimation parameters**
+* {func}`~.optimization.optimize_regional_filter`
+* {func}`~.optimization.optimize_regional_trend`
+* {func}`~.optimization.optimize_regional_eq_sources`
+* {func}`~.optimization.optimize_regional_constraint_point_minimization`
 
-Utilities used throughout the other modules.
+**Inversion parameters**
+* {func}`~.optimization.optimize_inversion_damping`
+* {func}`~.optimization.optimize_inversion_zref_density_contrast`
+* {func}`~.optimization.optimize_inversion_zref_density_contrast_kfolds`
 
-## Synthetic
+### Uncertainty
 
-This module has tools for creating synthetic topography and contaminating data with random Gaussian noise.
-This is mostly used in testing and in the User Guide notebooks.
+The {mod}`.uncertainty` module contains the tools needed for performing stochastic uncertainty analyses of various portions Invert4Geom. This includes estimating the uncertainty of
+1) creating a topography model from interpolation of *a priori* measurements of topography ({func}`~.uncertainty.starting_topography_uncertainty`)
+2) the regional component of gravity misfit ({func}`~.uncertainty.regional_misfit_uncertainty`)
+3) the final inverted topography model ({func}`~.uncertainty.full_workflow_uncertainty_loop`)
 
-## Uncertainty
+The stochastic approach works be performing the tasks (interpolation, regional estimation, or inversion) a range of time, each with slightly different chosen parameter values or input data values. This results in an ensemble of results. The cell-wise standard deviation (optionally weighted) is used as an estimate for uncertainty of the result.
 
-This module contains the tools needed for performing a stochastic uncertainty analysis on the inversion.
-This works be performing many inversions, each with slightly different chosen parameter values or input data values, and comparing the results.
-Input data is sampled from a distributions of its estimated uncertainty, and input parameter values are sampled using a Latin Hypercube approach.
+### Plotting
+
+The {mod}`.plotting` module contains various function for plotting maps and graphs used throughout the other modules.
+
+### Utils
+
+The {mod}`.utils` module contains functions which are primarily used throughout the other modules.
+
+### Synthetic
+
+The {mod}`.synthetic` module has tools for creating synthetic topography and contaminating data with random Gaussian noise. This is mostly used in testing and in the User Guide notebooks.

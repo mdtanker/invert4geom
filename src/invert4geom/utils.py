@@ -114,7 +114,7 @@ def rmse(data: NDArray, as_median: bool = False) -> float:
 
     Parameters
     ----------
-    data : NDArray
+    data : numpy.ndarray
         input data
     as_median : bool, optional
         choose to give root median squared error instead, by default False
@@ -142,7 +142,7 @@ def nearest_grid_fill(
 
     Parameters
     ----------
-    grid : xr.DataArray
+    grid : xarray.DataArray
         grid with missing values
     method : str, optional
         choose method of filling, by default "verde"
@@ -151,7 +151,7 @@ def nearest_grid_fill(
         by default None
     Returns
     -------
-    xr.DataArray
+    xarray.DataArray
         filled grid
     """
 
@@ -208,7 +208,7 @@ def filter_grid(
 
     Parameters
     ----------
-    grid : xr.DataArray
+    grid : xarray.DataArray
         grid to filter the values of
     filter_width : float, optional
         width of the filter in meters, by default None
@@ -220,9 +220,8 @@ def filter_grid(
 
     Returns
     -------
-    xr.DataArray
+    xarray.DataArray
         a filtered grid
-
     """
     # get coordinate names
     original_dims = list(grid.sizes.keys())
@@ -308,9 +307,9 @@ def dist_nearest_points(
 
     Parameters
     ----------
-    targets : pd.DataFrame
+    targets : pandas.DataFrame
         contains the coordinates of the targets
-    data : pd.DataFrame | xr.DataArray | xr.Dataset
+    data : pandas.DataFrame | xarray.DataArray | xarray.Dataset
         the grid data, in either gridded or tabular form
     coord_names : tuple[str, str] | None, optional
         the names of the coordinates for both the targets and the data, by default None
@@ -360,7 +359,7 @@ def normalize_xarray(
 
     Parameters
     ----------
-    da : xr.DataArray
+    da : xarray.DataArray
         grid to normalize
     low : float, optional
         lower value for normalization, by default 0
@@ -369,7 +368,7 @@ def normalize_xarray(
 
     Returns
     -------
-    xr.DataArray
+    xarray.DataArray
         a normalized grid
     """
     # min_val = da.values.min()
@@ -402,9 +401,9 @@ def normalized_mindist(
 
     Parameters
     ----------
-    points : pd.DataFrame
+    points : pandas.DataFrame
         coordinates of the points
-    grid : xr.DataArray
+    grid : xarray.DataArray
         gridded data to find min dists for each grid cell
     low : float | None, optional
         lower value for normalization, by default None
@@ -418,7 +417,7 @@ def normalized_mindist(
 
     Returns
     -------
-    xr.DataArray
+    xarray.DataArray
         grid of normalized minimum distances
     """
 
@@ -476,17 +475,17 @@ def sample_grids(
 
     Parameters
     ----------
-    df : pd.DataFrame
+    df : pandas.DataFrame
         Dataframe containing columns 'x', 'y', or columns with names defined by kwarg
         "coord_names".
-    grid : str or xr.DataArray
-        Grid to sample, either file name or xr.DataArray
+    grid : str or xarray.DataArray
+        Grid to sample, either file name or xarray.DataArray
     sampled_name : str,
         Name for sampled column
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         Dataframe with new column (sampled_name) of sample values from (grid)
     """
 
@@ -543,20 +542,25 @@ def extract_prism_data(
     xr.DataArray,
 ]:
     """
-    extract necessary info from starting prism layer, adds variables 'topo' and
-    'starting_topo' to prism layer dataset (prisms_ds), converts it into dataframe
-    (prisms_df), gets the prism spacing (spacing) from prisms_ds, and creates a grid of
-    the starting topography (topo_grid) from the tops and bottoms of the prism layer.
+    extract the grid spacing from the starting prism layer and adds variables 'topo' and
+    'starting_topo', which are the both the starting topography elevation.
+    'starting_topo' remains unchanged, while 'topo' is updated at each iteration.
 
     Parameters
     ----------
-    prism_layer : xr.Dataset
+    prism_layer : xarray.Dataset
        starting model prism layer
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.Dataset, float, xr.DataArray]
-        prisms_df, prisms_ds, spacing, topo_grid
+    prisms_df : pandas.DataFrame
+        dataframe of prism layer
+    prisms_ds : xarray.Dataset
+        prism layer with added variables 'topo' and 'starting_topo'
+    spacing : float
+        spacing of prisms
+    topo_grid : xarray.DataArray
+        grid of starting topography
     """
 
     prisms_ds = copy.deepcopy(prism_layer.load())
@@ -580,7 +584,7 @@ def get_spacing(prisms_df: pd.DataFrame) -> float:
 
     Parameters
     ----------
-    prisms_df : pd.DataFrame
+    prisms_df : pandas.DataFrame
         dataframe of harmonica prism layer
 
     Returns
@@ -601,16 +605,16 @@ def sample_bounding_surfaces(
 
     Parameters
     ----------
-    prisms_df : pd.DataFrame
+    prisms_df : pandas.DataFrame
         dataframe of prism properties
-    upper_confining_layer : xr.DataArray | None, optional
+    upper_confining_layer : xarray.DataArray | None, optional
         layer which the inverted topography should always be below, by default None
-    lower_confining_layer : xr.DataArray | None, optional
+    lower_confining_layer : xarray.DataArray | None, optional
         layer which the inverted topography should always be above, by default None
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         a dataframe with added columns 'upper_bounds' and 'lower_bounds', which are the
         sampled values of the supplied confining grids.
     """
@@ -645,7 +649,7 @@ def enforce_confining_surface(
 
     Parameters
     ----------
-    prisms_df : pd.DataFrame
+    prisms_df : pandas.DataFrame
         prism layer dataframe with optional 'upper_bounds' or 'lower_bounds' columns,
         and current iteration's topography.
     iteration_number : int
@@ -653,7 +657,7 @@ def enforce_confining_surface(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         a dataframe with added column 'iter_{iteration_number}_correction
     """
 
@@ -715,14 +719,14 @@ def apply_surface_correction(
 
     Parameters
     ----------
-    prisms_df : pd.DataFrame
+    prisms_df : pandas.DataFrame
         dataframe of prism properties
     iteration_number : int
         the iteration number, starting at 1 not 0
 
     Returns
     -------
-    tuple[pd.DataFrame, xr.DataArray]
+    tuple[pandas.DataFrame, xarray.DataArray]
         updated prisms dataframe and correction grid
     """
 
@@ -755,14 +759,14 @@ def update_prisms_ds(
 
     Parameters
     ----------
-    prisms_ds : xr.Dataset
+    prisms_ds : xarray.Dataset
         harmonica prism layer
-    correction_grid : xr.DataArray
+    correction_grid : xarray.DataArray
         grid of corrections to apply to the prism layer
 
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
         updated prism layer with new tops, bottoms, topo, and densities
     """
 
@@ -803,16 +807,16 @@ def add_updated_prism_properties(
 
     Parameters
     ----------
-    prisms_df : pd.DataFrame
+    prisms_df : pandas.DataFrame
         dataframe of prism properties
-    prisms_ds : xr.Dataset
+    prisms_ds : xarray.Dataset
         dataset of prism properties
     iteration_number : int
         the iteration number, starting at 1 not 0
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         updated prism dataframe with new tops, bottoms, topo, and densities
     """
 
@@ -865,15 +869,15 @@ def create_topography(
         choose between gridline "g" or pixel "p" registration, by default "g"
     upwards : float | None, optional
         constant value to use for method "flat", by default None
-    constraints_df : pd.DataFrame | None, optional
+    constraints_df : pandas.DataFrame | None, optional
         dataframe with column 'upwards' to use for method "splines", by default None
-    weights : pd.Series | NDArray | None, optional
+    weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
 
     Returns
     -------
-    xr.DataArray
+    xarray.DataArray
         a topography grid
     """
     if method == "flat":
@@ -940,12 +944,12 @@ def grids_to_prisms(
 
     Parameters
     ----------
-    surface : xr.DataArray
+    surface : xarray.DataArray
         data to use for prism surface
-    reference : float | xr.DataArray
+    reference : float | xarray.DataArray
         data or constant to use for prism reference, if value is below surface, prism
         will be inverted
-    density : float | int | xr.DataArray
+    density : float | int | xarray.DataArray
         data or constant to use for prism densities, should be in the form of a density
         contrast across a surface (i.e. between air and rock).
     input_coord_names : tuple[str, str], optional
@@ -953,7 +957,7 @@ def grids_to_prisms(
         ["easting", "northing"]
     Returns
     -------
-    xr.Dataset
+    xarray.Dataset
        a prisms layer with assigned densities
     """
 
@@ -998,31 +1002,32 @@ def best_spline_cv(
 
     Parameters
     ----------
-    coordinates : tuple[pd.Series  |  NDArray, pd.Series  |  NDArray]
+    coordinates : tuple[pandas.Series  |  numpy.ndarray, pandas.Series  |  \
+            numpy.ndarray]
         easting and northing coordinates of the data
-    data : pd.Series | NDArray
+    data : pandas.Series | numpy.ndarray
         data for fitting the spline to
-    weights : pd.Series | NDArray | None, optional
+    weights : pandas.Series | numpy.ndarray | None, optional
         if not None, then the weights assigned to each data point. Typically, this
         should be 1 over the data uncertainty squared, by default None
 
     Keyword Arguments
     -----------------
-    dampings : list[float | None] | float | None, optional
+    dampings : float | None
         The positive damping regularization parameter. Controls how much smoothness is
         imposed on the estimated forces. If None, no regularization is used, by default
         None
-    force_coords : bool, optional
+    force_coords : bool
         The easting and northing coordinates of the point forces. If None (default),
         then will be set to the data coordinates.
-    cv : None or cross-validation generator
+    cv : None | cross-validation generator
         Any scikit-learn cross-validation generator. If not given, will use the
         default set by :func:`verde.cross_val_score`.
     delayed : bool
-        If True, will use :func:`dask.delayed` to dispatch computations and
-        allow mod:`dask` to execute the grid search in parallel (see note
+        If True, will use :func:`dask.delayed.delayed` to dispatch computations and
+        allow :mod:`dask` to execute the grid search in parallel (see note
         above).
-    scoring : None, str, or callable
+    scoring : None | str | Callable
         The scoring function (or name of a function) used for cross-validation.
         Must be known to scikit-learn. See the description of *scoring* in
         :func:`sklearn.model_selection.cross_val_score` for details. If None,
@@ -1030,7 +1035,7 @@ def best_spline_cv(
 
     Returns
     -------
-    vd.Spline
+    verde.Spline
         the spline which best fits the data
     """
     kwargs = kwargs.copy()
@@ -1089,34 +1094,35 @@ def best_equivalent_source_damping(
     **kwargs: typing.Any,
 ) -> hm.EquivalentSources:
     """
-    Find the best damping parameter for a hm.EquivalentSource() fit. All kwargs are
-    passed to  the hm.EquivalentSource class.
+    Find the best damping parameter for a harmonica.EquivalentSource() fit. All kwargs
+    are passed to the harmonica.EquivalentSource class.
 
     Parameters
     ----------
-    coordinates : tuple[pd.Series | NDArray, pd.Series | NDArray, pd.Series | NDArray]
+    coordinates : tuple[pandas.Series | numpy.ndarray, pandas.Series | numpy.ndarray, \
+            pandas.Series | numpy.ndarray]
         tuple of easting, northing, and upward coordinates of the gravity data
-    data : pd.Series | NDArray
+    data : pandas.Series | numpy.ndarray
         the gravity data
     delayed : bool, optional
         compute the scores in parallel if True, by default False
-    weights : NDArray | None, optional
+    weights : numpy.ndarray | None, optional
         optional weight values for each gravity data point, by default None
 
     Keyword Arguments
     -----------------
-        damping : None or float
+    damping : float | None
         The positive damping regularization parameter. Controls how much
         smoothness is imposed on the estimated coefficients.
         If None, no regularization is used.
-    points : None or list of arrays (optional)
+    points : list[numpy.ndarray] | None
         List containing the coordinates of the equivalent point sources.
         Coordinates are assumed to be in the following order:
         (``easting``, ``northing``, ``upward``).
         If None, will place one point source below each observation point at
         a fixed relative depth below the observation point.
         Defaults to None.
-    depth : float or "default"
+    depth : float or str
         Parameter used to control the depth at which the point sources will be
         located.
         If a value is provided, each source is located beneath each data point
@@ -1126,7 +1132,7 @@ def best_equivalent_source_damping(
         4.5 times the mean distance between first neighboring sources.
         This parameter is ignored if *points* is specified.
         Defaults to ``"default"``.
-    block_size: float, tuple = (s_north, s_east) or None
+    block_size: float | tuple[float, float] | None
         Size of the blocks used on block-averaged equivalent sources.
         If a single value is passed, the blocks will have a square shape.
         Alternatively, the dimensions of the blocks in the South-North and
@@ -1138,13 +1144,13 @@ def best_equivalent_source_damping(
         If True any predictions and Jacobian building is carried out in
         parallel through Numba's ``jit.prange``, reducing the computation time.
         If False, these tasks will be run on a single CPU. Default to True.
-    dtype : data-type
+    dtype : str
         The desired data-type for the predictions and the Jacobian matrix.
         Default to ``"float64"``.
 
     Returns
     -------
-    hm.EquivalentSources
+    harmonica.EquivalentSources
         the best fitted equivalent sources
     """
     kwargs = kwargs.copy()
