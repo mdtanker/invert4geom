@@ -20,7 +20,7 @@ remove:
 	mamba remove --name $(PROJECT) --all
 
 conda_install:
-	mamba create --name $(PROJECT) --yes --force --channel conda-forge $(PROJECT)
+	mamba create --name $(PROJECT) --yes --force --channel conda-forge $(PROJECT) pytest pytest-cov
 
 ####
 ####
