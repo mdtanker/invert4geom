@@ -3,4 +3,4 @@ channels:
   - conda-forge
 dependencies:
   - python==3.11
-  - invert4geom==0.7
+  - invert4geom==0.8
