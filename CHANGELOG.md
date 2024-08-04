@@ -8,6 +8,7 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 * add test deps to conda_install for testing conda releases ([`c44d59b`](https://github.com/mdtanker/invert4geom/commit/c44d59ba2dceddfa15d48b2f9dd2315a20e2b304))
 * update binder env to `v0.8` ([`8d9d294`](https://github.com/mdtanker/invert4geom/commit/8d9d29410d4b406070fcb2316673530b9cff7d61))
 ### 📖 Documentation
+* add missing docstring ([`50591e3`](https://github.com/mdtanker/invert4geom/commit/50591e3a809c94c4d78851417515a79d51c6fa89))
 * fix issues with autoapi and typehints. ([`af93c02`](https://github.com/mdtanker/invert4geom/commit/af93c024f023c5967ab70cd2909ee67cf8f24194))
 
 
