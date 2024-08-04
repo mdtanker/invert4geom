@@ -204,7 +204,7 @@ def filter_grid(
     filt_type: str = "lowpass",
 ) -> xr.DataArray:
     """
-    _summary_
+    Apply a spatial filter to a grid.
 
     Parameters
     ----------
