@@ -3,6 +3,10 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
+## Unreleased
+### 🧰 Chores / Maintenance
+* update binder env ([`bf45857`](https://github.com/mdtanker/invert4geom/commit/bf45857ed75b03c153f9ca04d2485d5b43490330))
+
 
 ## v0.8.1 (2024-08-05)
 ### 🧰 Chores / Maintenance
