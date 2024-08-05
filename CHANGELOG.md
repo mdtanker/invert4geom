@@ -5,6 +5,7 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 
 ## Unreleased
 ### 🧰 Chores / Maintenance
+* fix binder env ([`1066cc6`](https://github.com/mdtanker/invert4geom/commit/1066cc6fc56bd01f21cd5bb6e2d9173894092225))
 * update binder env ([`bf45857`](https://github.com/mdtanker/invert4geom/commit/bf45857ed75b03c153f9ca04d2485d5b43490330))
 
 
