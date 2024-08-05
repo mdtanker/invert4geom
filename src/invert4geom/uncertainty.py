@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import UQpy
 import xarray as xr
-from nptyping import NDArray
+from numpy.typing import NDArray
 from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 from UQpy.sampling import LatinHypercubeSampling as LHS

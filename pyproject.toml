@@ -51,7 +51,6 @@ dependencies = [
   "pygmt",
   "dask",
   "deprecation",
-  "nptyping",
 ###
 # optimization
 ###

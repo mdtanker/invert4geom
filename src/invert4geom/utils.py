@@ -15,7 +15,7 @@ import pygmt
 import verde as vd
 import xarray as xr
 import xrft
-from nptyping import NDArray
+from numpy.typing import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 import invert4geom

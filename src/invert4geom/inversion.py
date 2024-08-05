@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import scipy as sp
 import xarray as xr
-from nptyping import NDArray
+from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
 
 from invert4geom import cross_validation, log, optimization, plotting, regional, utils

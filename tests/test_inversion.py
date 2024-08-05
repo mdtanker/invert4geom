@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import verde as vd
 import xarray as xr
-from nptyping import NDArray
+from numpy.typing import NDArray
 
 from invert4geom import inversion
 

@@ -53,7 +53,6 @@ intersphinx_mapping = {
     "polartoolkit": ("https://polartoolkit.readthedocs.io/en/latest/", None),
     "numba": ("https://numba.pydata.org/numba-doc/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
-    # nptyping
     # numba_progress
     "sklearn": ("https://scikit-learn.org/stable/", None),
     "dask": ("https://docs.dask.org/en/stable/", None),

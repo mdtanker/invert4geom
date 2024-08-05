@@ -15,7 +15,7 @@ import pandas as pd
 import sklearn
 import verde as vd
 import xarray as xr
-from nptyping import NDArray
+from numpy.typing import NDArray
 from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm

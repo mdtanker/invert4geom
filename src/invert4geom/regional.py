@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pygmt
 import verde as vd
-from nptyping import NDArray
+from numpy.typing import NDArray
 
 from invert4geom import cross_validation, log, optimization, utils
 

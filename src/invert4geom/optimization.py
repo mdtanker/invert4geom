@@ -20,7 +20,7 @@ import optuna
 import pandas as pd
 import psutil
 import xarray as xr
-from nptyping import NDArray
+from numpy.typing import NDArray
 from optuna.storages import JournalFileStorage, JournalStorage
 from tqdm.autonotebook import tqdm
 
