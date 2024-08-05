@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
+
+## v0.8.1 (2024-08-05)
 ### 🧰 Chores / Maintenance
 * add test deps to conda_install for testing conda releases ([`c44d59b`](https://github.com/mdtanker/invert4geom/commit/c44d59ba2dceddfa15d48b2f9dd2315a20e2b304))
 * update binder env to `v0.8` ([`8d9d294`](https://github.com/mdtanker/invert4geom/commit/8d9d29410d4b406070fcb2316673530b9cff7d61))
@@ -12,7 +13,6 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 * fix issues with autoapi and typehints. ([`af93c02`](https://github.com/mdtanker/invert4geom/commit/af93c024f023c5967ab70cd2909ee67cf8f24194))
 ### 🐛 Bug Fixes
 * remove nptyping as dependency ([`d2534d0`](https://github.com/mdtanker/invert4geom/commit/d2534d083759f8769c42c1979054aa3b6a94aa5f))
-
 
 ## v0.8.0 (2024-08-02)
 ### 💥 Breaking Changes
