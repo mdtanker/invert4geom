@@ -10,6 +10,8 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 ### 📖 Documentation
 * add missing docstring ([`50591e3`](https://github.com/mdtanker/invert4geom/commit/50591e3a809c94c4d78851417515a79d51c6fa89))
 * fix issues with autoapi and typehints. ([`af93c02`](https://github.com/mdtanker/invert4geom/commit/af93c024f023c5967ab70cd2909ee67cf8f24194))
+### 🐛 Bug Fixes
+* remove nptyping as dependency ([`d2534d0`](https://github.com/mdtanker/invert4geom/commit/d2534d083759f8769c42c1979054aa3b6a94aa5f))
 
 
 ## v0.8.0 (2024-08-02)
