@@ -470,6 +470,8 @@ def regional_constraints(
             data_cols = {"sampled_grav": data, constraints_weights_column: weights}
         # merge dicts and create dataframe
         constraints_df = pd.DataFrame(data=coord_cols | data_cols)
+
+        constraints_df = constraints_df.dropna(how="any")
     ###
     ###
     # Tensioned minimum curvature with PyGMT
