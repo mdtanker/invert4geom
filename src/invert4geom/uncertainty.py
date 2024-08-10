@@ -9,13 +9,11 @@ import typing
 
 import numpy as np
 import pandas as pd
-import UQpy
 import xarray as xr
 from numpy.typing import NDArray
 from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
-from UQpy.sampling import LatinHypercubeSampling as LHS
-from UQpy.sampling.stratified_sampling.latin_hypercube_criteria import Centered
+from UQpy import distributions, sampling
 
 from invert4geom import inversion, log, plotting, regional, utils
 
@@ -57,17 +55,17 @@ def create_lhc(
     dists = {}
     for k, v in param_dict.items():
         if v["distribution"] == "uniform":
-            dists[k] = UQpy.distributions.Uniform(loc=v["loc"], scale=v["scale"])
+            dists[k] = distributions.Uniform(loc=v["loc"], scale=v["scale"])
         elif v["distribution"] == "normal":
-            dists[k] = UQpy.distributions.Normal(loc=v["loc"], scale=v["scale"])
+            dists[k] = distributions.Normal(loc=v["loc"], scale=v["scale"])
         else:
             msg = "Unknown distribution type: %s"
             raise ValueError(msg, v["distribution"])
 
     # make latin hyper cube
-    lhc = LHS(
+    lhc = sampling.LatinHypercubeSampling(
         distributions=[v for k, v in dists.items()],
-        criterion=Centered(),
+        criterion=sampling.stratified_sampling.latin_hypercube_criteria.Centered(),
         random_state=np.random.RandomState(random_state),  # pylint: disable=no-member
         nsamples=n_samples,
     )
