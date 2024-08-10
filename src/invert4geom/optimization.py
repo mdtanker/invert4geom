@@ -20,6 +20,7 @@ import numpy as np
 import optuna
 import pandas as pd
 import psutil
+import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
 from optuna.storages import JournalFileStorage, JournalStorage
@@ -1765,6 +1766,14 @@ class OptimalEqSourceParams:
         kwargs = copy.deepcopy(self.kwargs)
         # get parameters provided not as limits
         depth = kwargs.pop("depth", "default")
+        # calculate 4.5 times the mean distance between points
+        if depth == "default":
+            depth = np.mean(
+                vd.median_distance(
+                    (kwargs.get("coordinates")[0], kwargs.get("coordinates")[1]),  # type: ignore[unused-ignore, index]
+                    k_nearest=1,
+                )
+            )
         block_size = kwargs.pop("block_size", None)
         damping = kwargs.pop("damping", None)
 
@@ -1963,10 +1972,14 @@ def optimize_eq_source_params(
         except KeyError:
             msg = (
                 "No depth parameter value found in best params or kwargs, setting to "
-                "'default'"
+                "'default' (4.5 times mean distance between points)"
             )
             log.warning(msg)
             best_depth = "default"
+    if best_depth == "default":
+        best_depth = np.mean(
+            vd.median_distance((coordinates[0], coordinates[1]), k_nearest=1)
+        )
     if best_block_size is None:
         try:
             best_block_size = kwargs["block_size"]
@@ -2320,15 +2333,6 @@ class OptimizeRegionalConstraintsPointMinimization:
             )
 
         elif self.grid_method == "eq_sources":
-            if self.depth_limits is not None:
-                new_kwargs["depth"] = trial.suggest_float(
-                    "depth",
-                    self.depth_limits[0],
-                    self.depth_limits[1],
-                )
-            else:
-                new_kwargs["depth"] = self.kwargs.get("depth", "default")
-
             if self.block_size_limits is not None:
                 new_kwargs["block_size"] = trial.suggest_float(
                     "block_size",
@@ -2362,6 +2366,24 @@ class OptimizeRegionalConstraintsPointMinimization:
             raise ValueError(msg)
 
         if isinstance(self.training_df, pd.DataFrame):
+            if self.depth_limits is not None:
+                new_kwargs["depth"] = trial.suggest_float(
+                    "depth",
+                    self.depth_limits[0],
+                    self.depth_limits[1],
+                )
+            else:
+                eq_depth = self.kwargs.get("depth", "default")
+                if eq_depth == "default":
+                    # calculate 4.5 times the mean distance between points
+                    eq_depth = np.mean(
+                        vd.median_distance(
+                            (self.training_df.easting, self.training_df.northing),
+                            k_nearest=1,
+                        )
+                    )
+                new_kwargs["depth"] = eq_depth
+
             with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                 (
                     residual_constraint_score,
@@ -2397,6 +2419,27 @@ class OptimizeRegionalConstraintsPointMinimization:
                 # for each fold, run CV
                 results = []
                 for i, _ in enumerate(pbar):
+                    if self.depth_limits is not None:
+                        new_kwargs["depth"] = trial.suggest_float(
+                            "depth",
+                            self.depth_limits[0],
+                            self.depth_limits[1],
+                        )
+                    else:
+                        eq_depth = self.kwargs.get("depth", "default")
+                        if eq_depth == "default":
+                            # calculate 4.5 times the mean distance between points
+                            eq_depth = np.mean(
+                                vd.median_distance(
+                                    (
+                                        self.training_df[i].easting,
+                                        self.training_df[i].northing,
+                                    ),
+                                    k_nearest=1,
+                                )
+                            )
+                        new_kwargs["depth"] = eq_depth
+
                     fold_results = cross_validation.regional_separation_score(
                         constraints_df=self.training_df[i],
                         testing_df=self.testing_df[i],
@@ -2896,6 +2939,11 @@ def optimize_regional_eq_sources(
 
     # get optimal hyperparameter values
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
+    if depth == "default":
+        # calculate 4.5 times the mean distance between points
+        depth = np.mean(
+            vd.median_distance((grav_df.easting, grav_df.northing), k_nearest=1)
+        )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
     block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))
     grav_obs_height = best_trial.params.get(
@@ -3197,6 +3245,13 @@ def optimize_regional_constraint_point_minimization(
     tension_factor = best_trial.params.get("tension_factor", None)
     spline_dampings = best_trial.params.get("spline_dampings", None)
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
+    if depth == "default":
+        # calculate 4.5 times the mean distance between points
+        depth = np.mean(
+            vd.median_distance(
+                (constraints_df.easting, constraints_df.northing), k_nearest=1
+            )
+        )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
     block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))
     grav_obs_height = best_trial.params.get(
