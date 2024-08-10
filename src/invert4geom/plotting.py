@@ -1,5 +1,6 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
+import copy
 import typing
 
 import matplotlib as mpl
@@ -737,7 +738,7 @@ def plot_inversion_iteration_results(
 
     misfit_grids, topo_grids, corrections_grids = grids
 
-    params = parameters.copy()
+    params = copy.deepcopy(parameters)
 
     # set figure parameters
     sub_width = 5

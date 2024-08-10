@@ -1,5 +1,6 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
+import copy
 import itertools
 import logging
 import math
@@ -845,7 +846,7 @@ class OptimalInversionZrefDensity:
         self.fname = fname
         self.grav_df = grav_df
         self.constraints_df = constraints_df
-        self.regional_grav_kwargs = regional_grav_kwargs
+        self.regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
         self.zref_limits = zref_limits
         self.density_contrast_limits = density_contrast_limits
         self.zref = zref
@@ -880,7 +881,7 @@ class OptimalInversionZrefDensity:
             msg = f"`grav_df` needs all the following columns: {cols}"
             raise ValueError(msg)
 
-        kwargs = self.kwargs.copy()
+        kwargs = copy.deepcopy(self.kwargs)
 
         if kwargs.get("apply_weighting_grid", None) is True:
             msg = (
@@ -977,7 +978,7 @@ class OptimalInversionZrefDensity:
         )
         # pylint: enable=duplicate-code
         # calculate regional field
-        reg_kwargs = self.regional_grav_kwargs.copy()
+        reg_kwargs = copy.deepcopy(self.regional_grav_kwargs)
 
         constraints_warning = (
             "Using constraint point minimization technique for regional field "
@@ -1268,9 +1269,8 @@ def optimize_inversion_zref_density_contrast(
         ), "test column contains True value, not needed except for during damping CV"
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
-
     if regional_grav_kwargs is not None:
-        regional_grav_kwargs = regional_grav_kwargs.copy()
+        regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
 
     # if sampler not provided, use BoTorch as default unless grid_search is True
     if sampler is None:
@@ -1641,7 +1641,6 @@ def optimize_inversion_zref_density_contrast(
                         "Density contrast (kg/m$^3$)",
                     ),
                 )
-
     return study, final_inversion_results
 
 
@@ -1700,7 +1699,7 @@ def optimize_inversion_zref_density_contrast_kfolds(
     df = constraints_df.copy()
     df = df[df.columns.drop(list(df.filter(regex="fold_")))]
 
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
 
     # split into test and training sets
     testing_training_df = cross_validation.split_test_train(
@@ -1763,7 +1762,7 @@ class OptimalEqSourceParams:
         float
             the score of the eq_sources fit
         """
-        kwargs = self.kwargs.copy()
+        kwargs = copy.deepcopy(self.kwargs)
         # get parameters provided not as limits
         depth = kwargs.pop("depth", "default")
         block_size = kwargs.pop("block_size", None)
@@ -1861,7 +1860,7 @@ def optimize_eq_source_params(
     """
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
     # if sampler not provided, used TPE as default
     if sampler is None:
         sampler = optuna.samplers.TPESampler(
@@ -2301,7 +2300,7 @@ class OptimizeRegionalConstraintsPointMinimization:
             the scores
         """
 
-        new_kwargs = self.kwargs.copy()
+        new_kwargs = copy.deepcopy(self.kwargs)
 
         if self.grid_method == "pygmt":
             new_kwargs["tension_factor"] = trial.suggest_float(
@@ -2841,7 +2840,7 @@ def optimize_regional_eq_sources(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
 
     # if sampler not provided, use TPE as default
     if sampler is None:
@@ -3067,7 +3066,7 @@ def optimize_regional_constraint_point_minimization(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
 
     # if sampler not provided, use TPE as default
     if sampler is None:

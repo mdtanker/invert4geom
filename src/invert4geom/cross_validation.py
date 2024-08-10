@@ -1,5 +1,6 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
+import copy
 import itertools
 import logging
 import pathlib
@@ -639,11 +640,11 @@ def zref_density_optimal_parameter(
         )
         # pylint: enable=duplicate-code
         # calculate regional field
-        reg_kwargs = regional_grav_kwargs.copy()  # type: ignore[union-attr]
+        reg_kwargs = copy.deepcopy(regional_grav_kwargs)
 
         grav_df = regional.regional_separation(
             grav_df=grav_df,
-            **reg_kwargs,
+            **reg_kwargs,  # type: ignore[arg-type]
         )
 
         # update starting model in kwargs
@@ -1162,7 +1163,7 @@ def regional_separation_score(
     """
 
     # pull out kwargs
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
     method = kwargs.pop("method")
     grav_df = kwargs.pop("grav_df")
     true_regional = kwargs.pop("true_regional", None)
