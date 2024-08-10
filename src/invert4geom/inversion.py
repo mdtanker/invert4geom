@@ -842,6 +842,11 @@ def run_inversion(
 
     utils._check_gravity_inside_topography_region(grav_df, prism_layer)  # pylint: disable=protected-access
 
+    # check no nans in gravity df
+    if grav_df.res.isnull().values.any():
+        msg = "gravity dataframe contains NaN values in the 'res' column"
+        raise ValueError(msg)
+
     log.info("starting inversion")
 
     time_start = time.perf_counter()
