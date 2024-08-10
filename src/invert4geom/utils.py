@@ -90,7 +90,7 @@ def _check_constraints_inside_gravity_region(
             "Some constraints are outside the region of the gravity data. "
             "This may result in unexpected behavior."
         )
-        raise ValueError(msg)
+        log.warning(msg)
 
 
 def _check_gravity_inside_topography_region(
