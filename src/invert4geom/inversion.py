@@ -34,9 +34,9 @@ def grav_column_der(
     prism_density: NDArray,
 ) -> NDArray:
     """
-        Function to calculate the vertical derivate of the gravitational acceleration at
-        an observation point caused by a right, rectangular prism. Approximated with
-        Hammer's annulus approximation :footcite:p:`mccubbineairborne2016`.
+    Function to calculate the vertical derivate of the gravitational acceleration at
+    an observation point caused by a right, rectangular prism. Approximated with
+    Hammer's annulus approximation :footcite:p:`mccubbineairborne2016`.
 
     Parameters
     ----------
