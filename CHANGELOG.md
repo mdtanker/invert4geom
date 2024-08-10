@@ -3,6 +3,12 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
+## Unreleased
+### 📦️ Build
+* add pooch and scikit-learn as dependencies ([`8bebf45`](https://github.com/mdtanker/invert4geom/commit/8bebf4545ad816fddc25d59d91dcc578019c86ca))
+### 🧰 Chores / Maintenance
+* update binder env to `v0.9` ([`0307bd9`](https://github.com/mdtanker/invert4geom/commit/0307bd9f38c5f20d83eeab8e73c9e5dd0b1f5f4e))
+
 
 ## v0.9.0 (2024-08-10)
 ### 📦️ Build
