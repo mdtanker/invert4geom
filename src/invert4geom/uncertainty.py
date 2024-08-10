@@ -1,5 +1,6 @@
 from __future__ import annotations  # pylint: disable=too-many-lines
 
+import copy
 import logging
 import pathlib
 import pickle
@@ -50,7 +51,7 @@ def create_lhc(
         nested dictionary with parameter names, distribution specifics, and sampled
         values
     """
-    param_dict = parameter_dict.copy()
+    param_dict = copy.deepcopy(parameter_dict)
 
     # create distributions for parameters
     dists = {}
@@ -167,7 +168,7 @@ def starting_topography_uncertainty(
     xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of topographies.
     """
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
     constraints_df = kwargs.pop("constraints_df", None)
 
     if constraints_df is None:
@@ -325,7 +326,7 @@ def regional_misfit_uncertainty(
     xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of regional gravity
     """
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
     constraints_df = kwargs.pop("constraints_df", None)
     grav_df = kwargs.pop("grav_df", None)
 
@@ -537,7 +538,9 @@ def full_workflow_uncertainty_loop(
     prism_dfs : list[pandas.DataFrame]
         list of prism dataframes from each inversion run
     """
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
+    if regional_grav_kwargs is not None:
+        regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(

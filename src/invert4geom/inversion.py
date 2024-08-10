@@ -1180,7 +1180,7 @@ def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
         time in seconds for the inversion to run
     """
 
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
     grav_df = grav_df.copy()
 
     # get kwargs

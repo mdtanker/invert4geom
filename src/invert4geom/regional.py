@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import typing
 
 import harmonica as hm
@@ -665,7 +666,7 @@ def regional_separation(
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
 
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
 
     if remove_starting_grav_mean is True:
         regional_shift = np.nanmean(grav_df.starting_gravity)

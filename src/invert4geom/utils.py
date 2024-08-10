@@ -1038,7 +1038,7 @@ def best_spline_cv(
     verde.Spline
         the spline which best fits the data
     """
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
 
     dampings = kwargs.pop("dampings", None)
 
@@ -1153,7 +1153,7 @@ def best_equivalent_source_damping(
     harmonica.EquivalentSources
         the best fitted equivalent sources
     """
-    kwargs = kwargs.copy()
+    kwargs = copy.deepcopy(kwargs)
     dampings = kwargs.pop("dampings", None)
     kwargs.pop("damping", None)
     # if single damping value provided, convert to list
