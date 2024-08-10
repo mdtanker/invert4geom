@@ -614,6 +614,7 @@ def plot_inversion_grav_results(
     iterations: list[int],
     constraints_df: pd.DataFrame | None = None,
     fig_height: float = 12,
+    constraint_style: str = "x.3c",
 ) -> None:
     """
     plot the initial and final misfit grids from the inversion and their difference
@@ -630,6 +631,8 @@ def plot_inversion_grav_results(
         constraint points to include in the plots
     fig_height : float, optional
         height of the figure, by default 12
+    constraint_style : str, optional
+        pygmt style string for for constraint points, by default 'x.3c'
     """
 
     grid = grav_results.set_index(["northing", "easting"]).to_xarray()
@@ -664,6 +667,7 @@ def plot_inversion_grav_results(
         cbar_label="mGal",
         title=f"Initial misfit: RMSE:{round(initial_rmse, 2)} mGal",
         points=points,
+        points_style=constraint_style,
     )
     fig = maps.plot_grd(
         dif,
@@ -677,6 +681,7 @@ def plot_inversion_grav_results(
         cbar_label="mGal",
         title=f"difference: RMSE:{round(utils.rmse(dif), 2)} mGal",
         points=points,
+        points_style=constraint_style,
     )
     fig = maps.plot_grd(
         final,
@@ -691,6 +696,7 @@ def plot_inversion_grav_results(
         cbar_label="mGal",
         title=f"Final misfit: RMSE:{round(final_rmse, 2)} mGal",
         points=points,
+        points_style=constraint_style,
     )
     fig.show()
 
@@ -1038,6 +1044,7 @@ def plot_inversion_results(
             iterations,
             constraints_df=constraints_df,
             fig_height=kwargs.get("fig_height", 12),
+            constraint_style=kwargs.get("constraint_style", "x.3c"),
         )
 
 
