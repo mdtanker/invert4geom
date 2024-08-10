@@ -51,6 +51,8 @@ dependencies = [
   "pygmt",
   "dask",
   "deprecation",
+  "pooch",
+  "scikit-learn",
 ###
 # optimization
 ###
