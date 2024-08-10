@@ -4,9 +4,26 @@ Automatically updated by
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
 ## Unreleased
+### 📦️ Build
+* increase min supported botorch version to include logie_candidates_func ([`1491b24`](https://github.com/mdtanker/invert4geom/commit/1491b2438f4cc63a81377cf7d29799582e9f9530))
+* restrict scipy to below `v1.14` until UQpy import issue is fixed ([`474e5b5`](https://github.com/mdtanker/invert4geom/commit/474e5b58c38c4f7c564aa021fb057c111e67da16))
 ### 🧰 Chores / Maintenance
 * fix binder env ([`1066cc6`](https://github.com/mdtanker/invert4geom/commit/1066cc6fc56bd01f21cd5bb6e2d9173894092225))
 * update binder env ([`bf45857`](https://github.com/mdtanker/invert4geom/commit/bf45857ed75b03c153f9ca04d2485d5b43490330))
+### 📖 Documentation
+* fix notebook error ([`f7783e2`](https://github.com/mdtanker/invert4geom/commit/f7783e22614675839286159e2bc42572d4603ef7))
+* unindent docstring ([`e0715d6`](https://github.com/mdtanker/invert4geom/commit/e0715d63071ee543f8c53170708162d1da207d0d))
+### 🚀 Features
+* add `constraint_style` to plotting inversion grav resutls ([`c062b43`](https://github.com/mdtanker/invert4geom/commit/c062b4365b529d3fd76c280f2a968eb0bc5eb3af))
+### 🐛 Bug Fixes
+* raise error for NaNs in gravity dataframe ([`3ca5cca`](https://github.com/mdtanker/invert4geom/commit/3ca5cca879071af6701072772e742f2a02ac9e44))
+* drop nans in constraints_df in `regional_constraints` ([`6ee2b6b`](https://github.com/mdtanker/invert4geom/commit/6ee2b6b29feebbea0931509f455e9cf28f38cb1a))
+* add warning for missing `split_kwargs` argument ([`ef96fd9`](https://github.com/mdtanker/invert4geom/commit/ef96fd9dcfc00572076f04e4e3e546025621d579))
+* use `copy.deepcopy()` for all dictionaries inside functions ([`10df82f`](https://github.com/mdtanker/invert4geom/commit/10df82f7e6db1b7748b49b1e678765e2b905f2d1))
+* `warn` instead of `raise error` for constraints outside of gravity data ([`08a60b4`](https://github.com/mdtanker/invert4geom/commit/08a60b45662823668954ce98d3ca247395caf356))
+###  🎨 Refactor
+* manually calculate `default` eq source depth until harmonica `v0.7` is released. ([`aeb675a`](https://github.com/mdtanker/invert4geom/commit/aeb675acafc185f1e5a7bcd17fb86e0c518005a3))
+* simplify UQpy import ([`783d3dc`](https://github.com/mdtanker/invert4geom/commit/783d3dcd08770b8eb95a134e7742d5382d14b1b7))
 
 
 ## v0.8.1 (2024-08-05)
