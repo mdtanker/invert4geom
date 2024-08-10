@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
+
+## v0.9.0 (2024-08-10)
 ### 📦️ Build
 * increase min supported botorch version to include logie_candidates_func ([`1491b24`](https://github.com/mdtanker/invert4geom/commit/1491b2438f4cc63a81377cf7d29799582e9f9530))
 * restrict scipy to below `v1.14` until UQpy import issue is fixed ([`474e5b5`](https://github.com/mdtanker/invert4geom/commit/474e5b58c38c4f7c564aa021fb057c111e67da16))
@@ -24,7 +25,6 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 ###  🎨 Refactor
 * manually calculate `default` eq source depth until harmonica `v0.7` is released. ([`aeb675a`](https://github.com/mdtanker/invert4geom/commit/aeb675acafc185f1e5a7bcd17fb86e0c518005a3))
 * simplify UQpy import ([`783d3dc`](https://github.com/mdtanker/invert4geom/commit/783d3dcd08770b8eb95a134e7742d5382d14b1b7))
-
 
 ## v0.8.1 (2024-08-05)
 ### 🧰 Chores / Maintenance
