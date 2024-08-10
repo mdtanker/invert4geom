@@ -620,9 +620,13 @@ def regional_constraints_cv(
     df = constraints_df.copy()
     df = df[df.columns.drop(list(df.filter(regex="fold_")))]
 
+    if split_kwargs is None:
+        msg = "need to provide split_kwargs"
+        raise ValueError(msg)
+
     testing_training_df = cross_validation.split_test_train(
         df,
-        **split_kwargs,  # type: ignore[arg-type]
+        **split_kwargs,
     )
     log.debug("cv constraints split: %s", testing_training_df.describe())
 
