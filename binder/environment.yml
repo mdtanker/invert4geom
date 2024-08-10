@@ -6,4 +6,4 @@ dependencies:
   - geopandas==0.14
   - pip
   - pip:
-    - invert4geom==0.8.1
+    - invert4geom==0.9
