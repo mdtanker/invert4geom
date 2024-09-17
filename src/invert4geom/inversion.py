@@ -940,8 +940,8 @@ def run_inversion(
         # log correction values
         log.info(
             "Layer correction median: %s m, RMSE:%s m",
-            round(np.median(surface_correction), 4),
-            round(utils.rmse(surface_correction), 4),
+            round(np.median(surface_correction), 6),
+            round(utils.rmse(surface_correction), 6),
         )
 
         # add corrections to prisms_df
@@ -995,7 +995,7 @@ def run_inversion(
 
         # update the misfit RMSE
         updated_rmse = utils.rmse(gravity[f"iter_{iteration}_final_misfit"])
-        log.info("updated misfit RMSE: %s", round(updated_rmse, 4))
+        log.info("updated misfit RMSE: %s", round(updated_rmse, 6))
         final_rmse = updated_rmse
 
         # update the l2 and delta l2 norms
@@ -1010,11 +1010,11 @@ def run_inversion(
         delta_l2_norms.append(delta_l2_norm)
 
         log.info(
-            "updated L2-norm: %s, tolerance: %s", round(l2_norm, 4), l2_norm_tolerance
+            "updated L2-norm: %s, tolerance: %s", round(l2_norm, 6), l2_norm_tolerance
         )
         log.info(
             "updated delta L2-norm : %s, tolerance: %s",
-            round(delta_l2_norm, 4),
+            round(delta_l2_norm, 6),
             delta_l2_norm_tolerance,
         )
 
@@ -1552,7 +1552,6 @@ def run_inversion_workflow(
         plot_cv=plot_cv,
         **inversion_kwargs,
     )
-
     utils._check_constraints_inside_gravity_region(constraints_df, grav_df)  # pylint: disable=protected-access
     # if chosen, run an internal K-folds CV for regional separation within the
     # density/Zref CV
