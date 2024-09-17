@@ -51,7 +51,7 @@ repos:
     rev: "v4.6.0"
     hooks:
       - id: check-added-large-files
-        exclude: ^docs/gallery/bishop_basement_model.ipynb
+        exclude: ^(docs/examples/bishop_basement_model.ipynb|docs/tutorial/05_density_optimization.ipynb|docs/tutorial/06_reference_level_optimization.ipynb|docs/examples/uieda_et_al_2017_CRUST1.ipynb|docs/quickstart.ipynb|docs/tutorial/02_simple_inversion.ipynb|docs/tutorial/08_combining_it_all.ipynb)
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-symlinks

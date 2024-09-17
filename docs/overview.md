@@ -1,4 +1,4 @@
-# 🔎 Overview
+# Overview
 
 `Invert4geom` provides a series of tools for conducting a specific style of gravity inversion.
 Many gravity inversions aim to model the density distribution of the subsurface.
@@ -28,7 +28,7 @@ The code was originally included in [this GitHub repository](https://github.com/
 This package has a few conventions which need to be followed for the code to work.
 1) Coordinates names for gravity data, topography, and _a priori_ constraints need to be projected units (meters) and named `easting`, `northing`, and  `upward`.
 If you use names such as `x`, `y`, and `z`, please rename them.
-2) The observed gravity data, whether its a Free Air anomaly, gravity disturbance, or some other form of anomaly, needs to be in a column called `gravity_anomly` in the gravity dataframe. The forward gravity of your starting model (set equal to 0 if you're starting model is flat) needs to be in a column called `starting_gravity`.
+2) The observed gravity data, whether its a Free Air anomaly, gravity disturbance, or some other form of anomaly, needs to be in a column called `gravity_anomaly` in the gravity dataframe. The forward gravity of your starting model (set equal to 0 if you're starting model is flat) needs to be in a column called `starting_gravity`.
 3) Similarly, the gravity misfit must be in a column called `misfit`, the regional component in a column named `reg`, and the residual component in a column named `res`.
 If you use the regional separation functions in `regional.py`, these names will automatically be used.
 4) Gravity data must be in projected coordinates and gridded!

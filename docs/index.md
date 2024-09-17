@@ -45,10 +45,29 @@ how you can contribute to the project.
 ```{toctree}
 :maxdepth: 1
 :hidden:
+:caption: 🚀 Getting started
 overview
 install
-gallery/index.md
-user_guide/index.md
+quickstart
+citing
+```
+
+```{toctree}
+:hidden:
+:caption: 🚶 Tutorials
+tutorial/index.md
+```
+
+```{toctree}
+:hidden:
+:caption: 📚 How-To Guides
+how_to/index.md
+```
+
+```{toctree}
+:hidden:
+:caption: 📂 Examples
+examples/index.md
 ```
 
 ```{toctree}
@@ -56,7 +75,6 @@ user_guide/index.md
 :hidden:
 :caption: 📖 Reference documentation
 autoapi/invert4geom/index
-citing.md
 changelog.md
 references.rst
 ```
@@ -74,7 +92,7 @@ Source code on GitHub <https://github.com/mdtanker/invert4geom>
 :::{grid-item-card} {octicon}`rocket` Getting started?
 :text-align: center
 New to Invert4geom? Start here!
-```{button-ref} overview
+```{button-ref} quickstart
     :click-parent:
     :color: primary
     :outline:
