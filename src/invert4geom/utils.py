@@ -948,7 +948,10 @@ def create_topography(
             spacing=spacing,
         ).scalars
 
-        return grid.assign_attrs(damping=spline.damping_)
+        try:
+            return grid.assign_attrs(damping=spline.damping_)
+        except AttributeError:
+            return grid.assign_attrs(damping=None)
 
     msg = "method must be 'flat' or 'splines'"
     raise ValueError(msg)
@@ -1089,21 +1092,23 @@ def best_spline_cv(
 
     dampings_without_none = [i for i in dampings if i is not None]
 
-    if spline.damping_ is None:
+    try:
+        if spline.damping_ is None:
+            pass
+        elif len(dampings) > 2 and spline.damping_ in [
+            np.min(dampings_without_none),
+            np.max(dampings_without_none),
+        ]:
+            log.warning(
+                "Best damping value (%s) is at the limit of provided values (%s, %s) "
+                "and thus is likely not a global minimum, expand the range of values "
+                "test to ensure the best parameter value value is found.",
+                spline.damping_,
+                np.nanmin(dampings_without_none),
+                np.nanmax(dampings_without_none),
+            )
+    except AttributeError:
         pass
-    elif len(dampings) > 2 and spline.damping_ in [
-        np.min(dampings_without_none),
-        np.max(dampings_without_none),
-    ]:
-        log.warning(
-            "Best damping value (%s) is at the limit of provided values (%s, %s) and "
-            "thus is likely not a global minimum, expand the range of values test to "
-            "ensure the best parameter value value is found.",
-            spline.damping_,
-            np.nanmin(dampings_without_none),
-            np.nanmax(dampings_without_none),
-        )
-
     return spline
 
 
