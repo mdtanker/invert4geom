@@ -849,6 +849,7 @@ def create_topography(
     upwards: float | None = None,
     constraints_df: pd.DataFrame | None = None,
     weights: pd.Series | NDArray | None = None,
+    weights_col: str | None = None,
 ) -> xr.DataArray:
     """
     Create a grid of topography data from either the interpolation of point data or
@@ -874,6 +875,9 @@ def create_topography(
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
+    weights : str | None, optional
+        instead of passing the weights, pass the name of the column containing the
+        weights, by default None
 
     Returns
     -------
@@ -913,6 +917,9 @@ def create_topography(
             msg = "constraints_df must be provided if method is `splines`"
             raise ValueError(msg)
         coords = (constraints_df.easting, constraints_df.northing)
+
+        if weights_col is not None:
+            weights = constraints_df[weights_col]
 
         # run CV for fitting a spline to the data
         spline = best_spline_cv(
