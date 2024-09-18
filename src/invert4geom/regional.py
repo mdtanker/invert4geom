@@ -538,7 +538,6 @@ def regional_constraints(
             constraints_df.northing,
             constraints_df.sampled_grav_height,
         )
-
         if depth == "default":
             depth = 4.5 * np.mean(
                 vd.median_distance(
