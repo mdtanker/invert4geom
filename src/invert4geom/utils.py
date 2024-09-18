@@ -918,6 +918,20 @@ def create_topography(
             raise ValueError(msg)
         coords = (constraints_df.easting, constraints_df.northing)
 
+        if len(constraints_df) == 1:
+            # create grid of coordinates
+            (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+                region=region,
+                spacing=spacing,
+            )
+            # make flat topography of value = upwards
+            return vd.make_xarray_grid(
+                (x, y),
+                np.ones_like(x) * constraints_df.upward.values,
+                data_names="upward",
+                dims=("northing", "easting"),
+            ).upward
+
         if weights_col is not None:
             weights = constraints_df[weights_col]
 
