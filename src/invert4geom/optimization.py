@@ -945,6 +945,7 @@ class OptimalInversionZrefDensity:
         ###
         if isinstance(self.constraints_df, pd.DataFrame):
             log.debug("running single optimization")
+
             # raise warning about using constraint point minimization for regional
             # estimation
             if (reg_kwargs.get("method") in ["constraints", "constraints_cv"]) and (
@@ -952,6 +953,24 @@ class OptimalInversionZrefDensity:
             ):
                 assert isinstance(reg_kwargs.get("constraints_df"), pd.DataFrame)
                 log.warning(constraints_warning)
+            # create starting topography model if not provided
+            if self.starting_topography is None:
+                msg = (
+                    "starting_topography not provided, creating a starting topography "
+                    "model with the supplied starting_topography_kwargs"
+                )
+                log.info(msg)
+                if starting_topography_kwargs is None:
+                    msg = (
+                        "must provide `starting_topography_kwargs` to be passed to the "
+                        "function `utils.create_topography`."
+                    )
+                    raise ValueError(msg)
+                if starting_topography_kwargs["method"] == "flat":
+                    msg = "using zref to create a flat starting topography model"
+                    log.info(msg)
+                    starting_topography_kwargs["upwards"] = zref
+
             # create starting topography model if not provided
             if self.starting_topography is None:
                 msg = (
@@ -1639,6 +1658,7 @@ def optimize_inversion_zref_density_contrast(
     # run the inversion workflow with the new best parameters
     with utils._log_level(logging.WARN):  # pylint: disable=protected-access
         create_starting_topography = True if starting_topography is None else False  # noqa: SIM210  # pylint: disable=simplifiable-if-expression
+
         final_inversion_results = inversion.run_inversion_workflow(
             grav_df=grav_df,
             create_starting_topography=create_starting_topography,
