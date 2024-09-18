@@ -2492,6 +2492,7 @@ def optimize_regional_filter(
     separate_metrics: bool = True,
     progressbar: bool = True,
     parallel: bool = False,
+    fname: str | None = None,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal filter width for estimating the
@@ -2543,6 +2544,8 @@ def optimize_regional_filter(
         add a progressbar, by default True
     parallel : bool, optional
         run the optimization in parallel, by default False
+    fname : str | None, optional
+        file name to save the study to, by default None
 
     Returns
     -------
@@ -2563,12 +2566,15 @@ def optimize_regional_filter(
             seed=10,
         )
 
+    results_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
+
     # create study and set directions / metric names depending on optimization type
     study, storage = _create_regional_separation_study(
         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        fname=results_fname,
     )
 
     # run optimization
@@ -2652,6 +2658,7 @@ def optimize_regional_trend(
     separate_metrics: bool = True,
     progressbar: bool = True,
     parallel: bool = False,
+    fname: str | None = None,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal trend order for estimating the
@@ -2701,6 +2708,8 @@ def optimize_regional_trend(
         add a progressbar, by default True
     parallel : bool, optional
         run the optimization in parallel, by default False
+    fname : str | None, optional
+        file name to save the study to, by default None
 
     Returns
     -------
@@ -2720,12 +2729,15 @@ def optimize_regional_trend(
             seed=10,
         )
 
+    results_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
+
     # create study and set directions / metric names depending on optimization type
     study, storage = _create_regional_separation_study(
         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        fname=results_fname,
     )
 
     # run optimization
@@ -2813,6 +2825,7 @@ def optimize_regional_eq_sources(
     separate_metrics: bool = True,
     progressbar: bool = True,
     parallel: bool = False,
+    fname: str | None = None,
     **kwargs: typing.Any,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
@@ -2868,6 +2881,8 @@ def optimize_regional_eq_sources(
         add a progressbar, by default True
     parallel : bool, optional
         run the optimization in parallel, by default False
+    fname : str | None, optional
+        file name to save the study to, by default None
     kwargs : typing.Any
         additional keyword arguments to pass to the regional.regional_separation
 
@@ -2892,12 +2907,15 @@ def optimize_regional_eq_sources(
             seed=10,
         )
 
+    results_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
+
     # create study and set directions / metric names depending on optimization type
     study, storage = _create_regional_separation_study(
         optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        fname=results_fname,
     )
 
     # run optimization
@@ -2950,7 +2968,7 @@ def optimize_regional_eq_sources(
         "grav_obs_height",
         kwargs.pop("grav_obs_height", None),
     )
-    # redo the regional separation with ALL constraint points
+    # redo the regional separation with best parameters
     resulting_grav_df = regional.regional_separation(
         method="eq_sources",
         depth=depth,
