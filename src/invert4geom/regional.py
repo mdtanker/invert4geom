@@ -338,7 +338,7 @@ def regional_constraints(
     tension_factor: float = 1,
     registration: str = "g",
     spline_dampings: float | list[float] | None = None,
-    depth: float | None = None,
+    depth: float | str | None = None,
     damping: float | None = None,
     cv: bool = False,
     block_size: float | None = None,
@@ -378,7 +378,7 @@ def regional_constraints(
        grid registration used if `grid_method` is "pygmt",, by default "g"
     spline_dampings : float | list[float] | None, optional
         damping values used if `grid_method` is "verde", by default None
-    depth : float | None, optional
+    depth : float | str | None, optional
         depth of each source relative to the data elevation, positive downwards in
         meters, by default None
     damping : float | None, optional
@@ -539,6 +539,14 @@ def regional_constraints(
             constraints_df.northing,
             constraints_df.sampled_grav_height,
         )
+        if depth == "default":
+            depth = np.mean(
+                vd.median_distance(
+                    (coords[0], coords[1]),
+                    k_nearest=1,
+                )
+            )
+
         if cv is True:
             # eqs = utils.best_equivalent_source_damping(
             _, eqs = optimization.optimize_eq_source_params(
