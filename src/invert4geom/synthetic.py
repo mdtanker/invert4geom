@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 
 import harmonica as hm
@@ -8,6 +9,7 @@ import pandas as pd
 import pooch
 import verde as vd
 import xarray as xr
+import xesmf
 from numpy.typing import NDArray
 from polartoolkit import fetch, maps
 from polartoolkit import utils as polar_utils
@@ -25,7 +27,7 @@ def load_synthetic_model(
     density_contrast: float | None = None,
     zref: float | None = None,
     gravity_obs_height: float = 1000,
-    gravity_noise: float = 0.2,
+    gravity_noise: float | None = 0.2,
     resample_for_cv: bool = False,
     plot_topography: bool = False,
     plot_topography_diff: bool = True,
@@ -57,7 +59,7 @@ def load_synthetic_model(
         reference level to use, by default None
     gravity_obs_height : float, optional
         gravity observation height to use, by default 1000
-    gravity_noise : float, optional
+    gravity_noise : float | None, optional
         decimal percentage noise level to add to gravity data, by default 0.2
     resample_for_cv : bool, optional
         resample gravity data at half spacing to create train and test sets, by default
@@ -89,7 +91,8 @@ def load_synthetic_model(
         true_topography = contaminate_with_long_wavelength_noise(
             true_topography,
             coarsen_factor=topography_coarsen_factor,
-            percent_noise=topography_percent_noise,
+            noise=topography_percent_noise,
+            noise_as_percent=True,
         )
     # create random points within the region
     if number_of_constraints is not None:
@@ -226,12 +229,13 @@ def load_synthetic_model(
         )
         # pylint: enable=duplicate-code
         # contaminate gravity with random noise
-        grav_df["gravity_anomaly"], _ = contaminate(
-            grav_df.gravity_anomaly,
-            stddev=gravity_noise,
-            percent=False,
-            seed=0,
-        )
+        if gravity_noise is not None:
+            grav_df["gravity_anomaly"], _ = contaminate(
+                grav_df.gravity_anomaly,
+                stddev=gravity_noise,
+                percent=False,
+                seed=0,
+            )
         if plot_gravity is True:
             # plot the observed gravity
             fig = maps.plot_grd(
@@ -251,8 +255,10 @@ def load_synthetic_model(
 
 def contaminate_with_long_wavelength_noise(
     grid: xr.DataArray,
-    coarsen_factor: float = 2,
-    percent_noise: float = 0.02,
+    noise: float,
+    coarsen_factor: float | None = None,
+    spacing: float | None = None,
+    noise_as_percent: bool = True,
 ) -> xr.DataArray:
     """
     Contaminate a grid with long wavelength noise.
@@ -261,10 +267,16 @@ def contaminate_with_long_wavelength_noise(
     ----------
     grid : xarray.DataArray
         Grid to contaminate
-    coarsen_factor : float, optional
-        Factor to coarsen the data by, by default 2
-    percent_noise : float, optional
-        Decimal percentage of noise to add to the data, by default 0.02
+    noise : float
+        noise to add to the data, can be either absolute or percent of max value of
+        data
+    coarsen_factor : float | None, optional
+        Factor to coarsen the data by, by default None
+    spacing : float | None, optional
+        Spacing for the long wavelength noise, by default None
+    noise_as_percent : bool, optional
+        if True, the value given to `noise` is treated as a percentage of the max value
+        of the data.
 
     Returns
     -------
@@ -272,7 +284,7 @@ def contaminate_with_long_wavelength_noise(
         Contaminated grid
     """
 
-    grid = grid.copy()
+    grid = copy.deepcopy(grid)
 
     # get original coordinate names
     original_dims = list(grid.sizes.keys())
@@ -280,34 +292,72 @@ def contaminate_with_long_wavelength_noise(
     # get original grid name
     original_name = grid.name
 
-    # get original spacing
-    original_spacing = polar_utils.get_grid_info(grid)[0]
+    # get original spacing and region
+    info = polar_utils.get_grid_info(grid)
+    original_spacing = info[0]
+    original_region = info[1]
 
     # resample at lower resolution
-    grid = fetch.resample_grid(
-        grid,
-        spacing=original_spacing * coarsen_factor,
-    )
+    if coarsen_factor is not None:
+        new_spacing = original_spacing * coarsen_factor
+    elif spacing is not None:
+        new_spacing = spacing
+    else:
+        new_spacing = original_spacing
+
+    low_res_grid = vd.make_xarray_grid(
+        vd.grid_coordinates(original_region, spacing=new_spacing),
+        data=None,
+        data_names=None,
+    ).rename({"northing": "lat", "easting": "lon"})
+    low_res_grid = xesmf.Regridder(
+        grid.rename({"northing": "lat", "easting": "lon"}),
+        low_res_grid,
+        method="bilinear",
+    )(grid)
+
+    low_res_grid = low_res_grid.rename(
+        {
+            list(low_res_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
+            list(low_res_grid.sizes.keys())[1]: original_dims[1],
+        }
+    ).rename(original_name)
 
     # turn to dataframe and contaminate with noise
-    df = grid.to_dataframe()
-    df["z"], _ = contaminate(
-        df.z,
-        stddev=percent_noise,
-        percent=True,
+    df = low_res_grid.to_dataframe()
+
+    df["noisy"], _ = contaminate(
+        df[original_name],
+        stddev=noise,
+        percent=noise_as_percent,
         seed=1,
     )
-    grid = df.to_xarray().z
+    df["noise"] = df[original_name] - df.noisy
+
+    new_grid = df.to_xarray().noise
 
     # resample back to original spacing
-    return (
-        fetch.resample_grid(
-            grid,
-            spacing=original_spacing,
-        )
-        .rename({"x": original_dims[1], "y": original_dims[0]})
-        .rename(original_name)
+    new_grid = fetch.resample_grid(
+        new_grid,
+        spacing=original_spacing,
+        region=original_region,
     )
+
+    new_grid = new_grid.rename(
+        {
+            list(new_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
+            list(new_grid.sizes.keys())[1]: original_dims[1],
+        }
+    ).rename(original_name)
+
+    final_grid = new_grid + grid
+
+    return final_grid.rename(
+        {
+            list(final_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
+            list(final_grid.sizes.keys())[1]: original_dims[1],
+        }
+    ).rename(original_name)
 
 
 def load_bishop_model(

@@ -12,6 +12,7 @@ import harmonica as hm
 import numpy as np
 import pandas as pd
 import pygmt
+import sklearn
 import verde as vd
 import xarray as xr
 import xrft
@@ -214,9 +215,6 @@ def filter_grid(
         width of the filter in meters, by default None
     filt_type : str, optional
         type of filter to use, by default "lowpass"
-    change_spacing : bool, optional
-        if True, will filter the grid and resample the grid to be at the same spacing
-        of the filter width, by default False
 
     Returns
     -------
@@ -849,6 +847,7 @@ def create_topography(
     upwards: float | None = None,
     constraints_df: pd.DataFrame | None = None,
     weights: pd.Series | NDArray | None = None,
+    weights_col: str | None = None,
 ) -> xr.DataArray:
     """
     Create a grid of topography data from either the interpolation of point data or
@@ -874,6 +873,9 @@ def create_topography(
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
+    weights : str | None, optional
+        instead of passing the weights, pass the name of the column containing the
+        weights, by default None
 
     Returns
     -------
@@ -914,6 +916,23 @@ def create_topography(
             raise ValueError(msg)
         coords = (constraints_df.easting, constraints_df.northing)
 
+        if len(constraints_df) == 1:
+            # create grid of coordinates
+            (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+                region=region,
+                spacing=spacing,
+            )
+            # make flat topography of value = upwards
+            return vd.make_xarray_grid(
+                (x, y),
+                np.ones_like(x) * constraints_df.upward.values,
+                data_names="upward",
+                dims=("northing", "easting"),
+            ).upward
+
+        if weights_col is not None:
+            weights = constraints_df[weights_col]
+
         # run CV for fitting a spline to the data
         spline = best_spline_cv(
             coordinates=coords,
@@ -927,7 +946,10 @@ def create_topography(
             spacing=spacing,
         ).scalars
 
-        return grid.assign_attrs(damping=spline.damping_)
+        try:
+            return grid.assign_attrs(damping=spline.damping_)
+        except AttributeError:
+            return grid.assign_attrs(damping=None)
 
     msg = "method must be 'flat' or 'splines'"
     raise ValueError(msg)
@@ -1048,16 +1070,42 @@ def best_spline_cv(
     else:
         dampings = [dampings]
 
-    spline = vd.SplineCV(
-        dampings=dampings,
-        **kwargs,
-    )
+    n_splits = 5
+    while n_splits > 0:
+        try:
+            spline = vd.SplineCV(
+                dampings=dampings,
+                cv=sklearn.model_selection.KFold(
+                    n_splits=n_splits,
+                    shuffle=True,
+                    random_state=0,
+                ),
+                **kwargs,
+            )
+            spline.fit(
+                coordinates,
+                data,
+                weights=weights,
+            )
+            break
+        except ValueError as e:
+            log.error(e)
+            msg = "decreasing number of splits by 1 until ValueError is resolved"
+            log.warning(msg)
+        if n_splits == 1:
+            msg = "ValueError not resolved, fitting spline with no damping"
+            log.warning(msg)
+            spline = vd.Spline(
+                damping=None,
+                **kwargs,
+            )
+            spline.fit(
+                coordinates,
+                data,
+                weights=weights,
+            )
+        n_splits -= 1
 
-    spline.fit(
-        coordinates,
-        data,
-        weights=weights,
-    )
     if len(dampings) > 1:
         try:
             log.info("Best SplineCV score: %s", spline.scores_.max())
@@ -1068,21 +1116,23 @@ def best_spline_cv(
 
     dampings_without_none = [i for i in dampings if i is not None]
 
-    if spline.damping_ is None:
+    try:
+        if spline.damping_ is None:
+            pass
+        elif len(dampings) > 2 and spline.damping_ in [
+            np.min(dampings_without_none),
+            np.max(dampings_without_none),
+        ]:
+            log.warning(
+                "Best damping value (%s) is at the limit of provided values (%s, %s) "
+                "and thus is likely not a global minimum, expand the range of values "
+                "test to ensure the best parameter value value is found.",
+                spline.damping_,
+                np.nanmin(dampings_without_none),
+                np.nanmax(dampings_without_none),
+            )
+    except AttributeError:
         pass
-    elif len(dampings) > 2 and spline.damping_ in [
-        np.min(dampings_without_none),
-        np.max(dampings_without_none),
-    ]:
-        log.warning(
-            "Best damping value (%s) is at the limit of provided values (%s, %s) and "
-            "thus is likely not a global minimum, expand the range of values test to "
-            "ensure the best parameter value value is found.",
-            spline.damping_,
-            np.nanmin(dampings_without_none),
-            np.nanmax(dampings_without_none),
-        )
-
     return spline
 
 

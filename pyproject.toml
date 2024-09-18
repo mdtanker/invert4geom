@@ -53,6 +53,7 @@ dependencies = [
   "deprecation",
   "pooch",
   "scikit-learn",
+  "xesmf",
 ###
 # optimization
 ###
@@ -221,6 +222,8 @@ extend-include = ["*.ipynb"]
 "noxfile.py" = ["T20"]
 "*.ipynb" = ["E402", "B018", "T201", "C408", "E712",]
 
+[tool.ruff.lint.flake8-pytest-style]
+mark-parentheses = true
 
 [tool.pylint]
 py-version = "3.9"
