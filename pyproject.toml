@@ -53,6 +53,7 @@ dependencies = [
   "deprecation",
   "pooch",
   "scikit-learn",
+  "xesmf",
 ###
 # optimization
 ###
