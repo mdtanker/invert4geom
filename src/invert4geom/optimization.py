@@ -1768,7 +1768,7 @@ class OptimalEqSourceParams:
         depth = kwargs.pop("depth", "default")
         # calculate 4.5 times the mean distance between points
         if depth == "default":
-            depth = np.mean(
+            depth = 4.5 * np.mean(
                 vd.median_distance(
                     (kwargs.get("coordinates")[0], kwargs.get("coordinates")[1]),  # type: ignore[unused-ignore, index]
                     k_nearest=1,
@@ -1977,7 +1977,7 @@ def optimize_eq_source_params(
             log.warning(msg)
             best_depth = "default"
     if best_depth == "default":
-        best_depth = np.mean(
+        best_depth = 4.5 * np.mean(
             vd.median_distance((coordinates[0], coordinates[1]), k_nearest=1)
         )
     if best_block_size is None:
@@ -2376,7 +2376,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                 eq_depth = self.kwargs.get("depth", "default")
                 if eq_depth == "default":
                     # calculate 4.5 times the mean distance between points
-                    eq_depth = np.mean(
+                    eq_depth = 4.5 * np.mean(
                         vd.median_distance(
                             (self.training_df.easting, self.training_df.northing),
                             k_nearest=1,
@@ -2429,7 +2429,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                         eq_depth = self.kwargs.get("depth", "default")
                         if eq_depth == "default":
                             # calculate 4.5 times the mean distance between points
-                            eq_depth = np.mean(
+                            eq_depth = 4.5 * np.mean(
                                 vd.median_distance(
                                     (
                                         self.training_df[i].easting,
@@ -2941,7 +2941,7 @@ def optimize_regional_eq_sources(
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     if depth == "default":
         # calculate 4.5 times the mean distance between points
-        depth = np.mean(
+        depth = 4.5 * np.mean(
             vd.median_distance((grav_df.easting, grav_df.northing), k_nearest=1)
         )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
@@ -3247,7 +3247,7 @@ def optimize_regional_constraint_point_minimization(
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     if depth == "default":
         # calculate 4.5 times the mean distance between points
-        depth = np.mean(
+        depth = 4.5 * np.mean(
             vd.median_distance(
                 (constraints_df.easting, constraints_df.northing), k_nearest=1
             )
