@@ -8,6 +8,11 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 * add pooch and scikit-learn as dependencies ([`8bebf45`](https://github.com/mdtanker/invert4geom/commit/8bebf4545ad816fddc25d59d91dcc578019c86ca))
 ### 🧰 Chores / Maintenance
 * update binder env to `v0.9` ([`0307bd9`](https://github.com/mdtanker/invert4geom/commit/0307bd9f38c5f20d83eeab8e73c9e5dd0b1f5f4e))
+### 📖 Documentation
+* update and rerun docs ([`1d39529`](https://github.com/mdtanker/invert4geom/commit/1d39529ee0b9bbf11eea7e32a87e2a710b1fa887))
+### 🐛 Bug Fixes
+* fixes error of using 1x not 4.5x default depth for eq sources ([`5746851`](https://github.com/mdtanker/invert4geom/commit/57468519286d34691f06855e9d278f8ee2a598d0))
+* enable `default` eq source depth for regional constraints ([`d9301a3`](https://github.com/mdtanker/invert4geom/commit/d9301a3394e4a54b171a245d8bd0af7821c11c98))
 
 
 ## v0.9.0 (2024-08-10)
