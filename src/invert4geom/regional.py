@@ -338,7 +338,7 @@ def regional_constraints(
     tension_factor: float = 1,
     registration: str = "g",
     spline_dampings: float | list[float] | None = None,
-    depth: float | None = None,
+    depth: float | str | None = None,
     damping: float | None = None,
     cv: bool = False,
     block_size: float | None = None,
@@ -378,7 +378,7 @@ def regional_constraints(
        grid registration used if `grid_method` is "pygmt",, by default "g"
     spline_dampings : float | list[float] | None, optional
         damping values used if `grid_method` is "verde", by default None
-    depth : float | None, optional
+    depth : float | str | None, optional
         depth of each source relative to the data elevation, positive downwards in
         meters, by default None
     damping : float | None, optional
@@ -433,7 +433,6 @@ def regional_constraints(
         no_skip=True,
         verbose="q",
     )
-    log.debug("sampled constraints: %s", constraints_df.describe())
 
     # drop rows with NaN values
     constraints_df = constraints_df[constraints_df.sampled_grav.notna()]
@@ -539,6 +538,15 @@ def regional_constraints(
             constraints_df.northing,
             constraints_df.sampled_grav_height,
         )
+
+        if depth == "default":
+            depth = 4.5 * np.mean(
+                vd.median_distance(
+                    (coords[0], coords[1]),
+                    k_nearest=1,
+                )
+            )
+
         if cv is True:
             # eqs = utils.best_equivalent_source_damping(
             _, eqs = optimization.optimize_eq_source_params(
@@ -565,6 +573,8 @@ def regional_constraints(
                 constraints_df.sampled_grav,
                 weights=weights,
             )
+
+        log.debug(f"depth: {eqs.depth}, damping: {eqs.damping}")
 
         # predict sources at gravity points and chosen height for upward continuation
         grav_df["reg"] = eqs.predict(
@@ -630,7 +640,6 @@ def regional_constraints_cv(
         df,
         **split_kwargs,
     )
-    log.debug("cv constraints split: %s", testing_training_df.describe())
 
     _, grav_df, _ = optimization.optimize_regional_constraint_point_minimization(
         testing_training_df=testing_training_df,
