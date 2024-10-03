@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
+
+## v0.9.1 (2024-10-03)
 ### 📦️ Build
 * add pooch and scikit-learn as dependencies ([`8bebf45`](https://github.com/mdtanker/invert4geom/commit/8bebf4545ad816fddc25d59d91dcc578019c86ca))
 ### 🧰 Chores / Maintenance
@@ -13,7 +14,6 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 ### 🐛 Bug Fixes
 * fixes error of using 1x not 4.5x default depth for eq sources ([`5746851`](https://github.com/mdtanker/invert4geom/commit/57468519286d34691f06855e9d278f8ee2a598d0))
 * enable `default` eq source depth for regional constraints ([`d9301a3`](https://github.com/mdtanker/invert4geom/commit/d9301a3394e4a54b171a245d8bd0af7821c11c98))
-
 
 ## v0.9.0 (2024-08-10)
 ### 📦️ Build
