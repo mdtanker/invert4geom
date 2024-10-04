@@ -12,6 +12,7 @@ import harmonica as hm
 import numpy as np
 import pandas as pd
 import pygmt
+import sklearn
 import verde as vd
 import xarray as xr
 import xrft
@@ -214,9 +215,6 @@ def filter_grid(
         width of the filter in meters, by default None
     filt_type : str, optional
         type of filter to use, by default "lowpass"
-    change_spacing : bool, optional
-        if True, will filter the grid and resample the grid to be at the same spacing
-        of the filter width, by default False
 
     Returns
     -------
@@ -1048,16 +1046,42 @@ def best_spline_cv(
     else:
         dampings = [dampings]
 
-    spline = vd.SplineCV(
-        dampings=dampings,
-        **kwargs,
-    )
+    n_splits = 5
+    while n_splits > 0:
+        try:
+            spline = vd.SplineCV(
+                dampings=dampings,
+                cv=sklearn.model_selection.KFold(
+                    n_splits=n_splits,
+                    shuffle=True,
+                    random_state=0,
+                ),
+                **kwargs,
+            )
+            spline.fit(
+                coordinates,
+                data,
+                weights=weights,
+            )
+            break
+        except ValueError as e:
+            log.error(e)
+            msg = "decreasing number of splits by 1 until ValueError is resolved"
+            log.warning(msg)
+        if n_splits == 1:
+            msg = "ValueError not resolved, fitting spline with no damping"
+            log.warning(msg)
+            spline = vd.Spline(
+                damping=None,
+                **kwargs,
+            )
+            spline.fit(
+                coordinates,
+                data,
+                weights=weights,
+            )
+        n_splits -= 1
 
-    spline.fit(
-        coordinates,
-        data,
-        weights=weights,
-    )
     if len(dampings) > 1:
         try:
             log.info("Best SplineCV score: %s", spline.scores_.max())
@@ -1068,20 +1092,23 @@ def best_spline_cv(
 
     dampings_without_none = [i for i in dampings if i is not None]
 
-    if spline.damping_ is None:
+    try:
+        if spline.damping_ is None:
+            pass
+        elif len(dampings) > 2 and spline.damping_ in [
+            np.min(dampings_without_none),
+            np.max(dampings_without_none),
+        ]:
+            log.warning(
+                "Best damping value (%s) is at the limit of provided values (%s, %s) "
+                "and thus is likely not a global minimum, expand the range of values "
+                "test to ensure the best parameter value value is found.",
+                spline.damping_,
+                np.nanmin(dampings_without_none),
+                np.nanmax(dampings_without_none),
+            )
+    except AttributeError:
         pass
-    elif len(dampings) > 2 and spline.damping_ in [
-        np.min(dampings_without_none),
-        np.max(dampings_without_none),
-    ]:
-        log.warning(
-            "Best damping value (%s) is at the limit of provided values (%s, %s) and "
-            "thus is likely not a global minimum, expand the range of values test to "
-            "ensure the best parameter value value is found.",
-            spline.damping_,
-            np.nanmin(dampings_without_none),
-            np.nanmax(dampings_without_none),
-        )
 
     return spline
 
