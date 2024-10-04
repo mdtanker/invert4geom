@@ -573,8 +573,8 @@ def regional_constraints(
                 constraints_df.sampled_grav,
                 weights=weights,
             )
-
-        log.debug(f"depth: {eqs.depth}, damping: {eqs.damping}")
+        msg = "depth: %s, damping: %s"
+        log.debug(msg, eqs.depth, eqs.damping)
 
         # predict sources at gravity points and chosen height for upward continuation
         grav_df["reg"] = eqs.predict(
