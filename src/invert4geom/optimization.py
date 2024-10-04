@@ -853,8 +853,7 @@ class OptimalInversionZrefDensity:
         self.zref = zref
         self.density_contrast = density_contrast
         self.starting_topography = starting_topography
-        self.starting_topography_kwargs = starting_topography_kwargs
-
+        self.starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
         self.progressbar = progressbar
         self.kwargs = kwargs
 
@@ -925,60 +924,8 @@ class OptimalInversionZrefDensity:
                 )
                 raise ValueError(msg)
 
-        if self.starting_topography is None:
-            msg = (
-                "starting_topography not provided, will create a flat surface at each "
-                "zref value to be the starting topography."
-            )
-            log.warning(msg)
-            if self.starting_topography_kwargs is None:
-                msg = (
-                    "must provide `starting_topography_kwargs` with items `region` "
-                    "`spacing`, and `dampings` to create the starting topography for "
-                    "each zref level."
-                )
-                raise ValueError(msg)
+        starting_topography_kwargs = copy.deepcopy(self.starting_topography_kwargs)
 
-        # make flat starting topo at zref if not provided
-        if self.starting_topography is None:
-            starting_topo = utils.create_topography(
-                method="flat",
-                dampings=self.starting_topography_kwargs.get("dampings"),  # type: ignore[union-attr]
-                region=self.starting_topography_kwargs.get("region"),  # type: ignore[union-attr,arg-type]
-                spacing=self.starting_topography_kwargs.get("spacing"),  # type: ignore[union-attr,arg-type]
-                upwards=zref,
-            )
-        else:
-            starting_topo = self.starting_topography.copy()
-
-        utils._check_gravity_inside_topography_region(grav_df, starting_topo)
-
-        # re-calculate density grid with new density contrast
-        density_grid = xr.where(
-            starting_topo >= zref,
-            density_contrast,
-            -density_contrast,  # pylint: disable=invalid-unary-operand-type
-        )
-
-        # create layer of prisms
-        starting_prisms = utils.grids_to_prisms(
-            starting_topo,
-            reference=zref,
-            density=density_grid,
-        )
-        # pylint: disable=duplicate-code
-        # calculate forward gravity of starting prism layer
-        grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
-            coordinates=(
-                grav_df.easting,
-                grav_df.northing,
-                grav_df.upward,
-            ),
-            field="g_z",
-            progressbar=False,
-        )
-        # pylint: enable=duplicate-code
-        # calculate regional field
         reg_kwargs = copy.deepcopy(self.regional_grav_kwargs)
 
         constraints_warning = (
@@ -1005,7 +952,62 @@ class OptimalInversionZrefDensity:
             ):
                 assert isinstance(reg_kwargs.get("constraints_df"), pd.DataFrame)
                 log.warning(constraints_warning)
+            # create starting topography model if not provided
+            if self.starting_topography is None:
+                msg = (
+                    "starting_topography not provided, creating a starting topography "
+                    "model with the supplied starting_topography_kwargs"
+                )
+                log.info(msg)
+                if starting_topography_kwargs is None:
+                    msg = (
+                        "must provide `starting_topography_kwargs` to be passed to the "
+                        "function `utils.create_topography`."
+                    )
+                    raise ValueError(msg)
+                if starting_topography_kwargs["method"] == "flat":
+                    msg = "using zref to create a flat starting topography model"
+                    log.info(msg)
+                    starting_topography_kwargs["upwards"] = zref
 
+                starting_topo = utils.create_topography(**starting_topography_kwargs)
+            else:
+                if starting_topography_kwargs is not None:
+                    msg = (
+                        "starting_topography and starting_topography_kwargs provided, "
+                        "please only provide one or the other."
+                    )
+                    raise ValueError(msg)
+                starting_topo = self.starting_topography.copy()
+
+            utils._check_gravity_inside_topography_region(grav_df, starting_topo)
+
+            # re-calculate density grid with new density contrast
+            density_grid = xr.where(
+                starting_topo >= zref,
+                density_contrast,
+                -density_contrast,  # pylint: disable=invalid-unary-operand-type
+            )
+
+            # create layer of prisms
+            starting_prisms = utils.grids_to_prisms(
+                starting_topo,
+                reference=zref,
+                density=density_grid,
+            )
+
+            # calculate forward gravity of starting prism layer
+            grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
+                coordinates=(
+                    grav_df.easting,
+                    grav_df.northing,
+                    grav_df.upward,
+                ),
+                field="g_z",
+                progressbar=False,
+            )
+
+            # calculate regional field
             with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                 grav_df = regional.regional_separation(
                     grav_df=grav_df,
@@ -1050,6 +1052,16 @@ class OptimalInversionZrefDensity:
             log.debug("running k-folds optimization")
 
             training_constraints = reg_kwargs.pop("constraints_df", None)
+
+            if starting_topography_kwargs is None:
+                msg = (
+                    "must provide `starting_topography_kwargs` to be passed to the "
+                    "function `utils.create_topography`."
+                )
+                raise ValueError(msg)
+
+            starting_topography_kwargs.pop("constraints_df", None)
+
             testing_constraints = self.constraints_df
 
             if training_constraints is None:
@@ -1090,6 +1102,58 @@ class OptimalInversionZrefDensity:
             scores = []
             for i, _ in enumerate(pbar):
                 log.debug(training_constraints[i])
+
+                # create starting topography model if not provided
+                if self.starting_topography is None:
+                    msg = (
+                        "starting_topography not provided, creating a starting "
+                        "topography model with the supplied starting_topography_kwargs"
+                    )
+                    log.info(msg)
+                    if starting_topography_kwargs["method"] == "flat":
+                        msg = "using zref to create a flat starting topography model"
+                        log.info(msg)
+                        starting_topography_kwargs["upwards"] = zref
+                    elif starting_topography_kwargs["method"] == "splines":
+                        starting_topography_kwargs["constraints_df"] = (
+                            training_constraints[i]
+                        )
+
+                    with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+                        starting_topo = utils.create_topography(
+                            **starting_topography_kwargs,
+                        )
+                else:
+                    starting_topo = self.starting_topography.copy()
+
+                utils._check_gravity_inside_topography_region(grav_df, starting_topo)
+
+                # re-calculate density grid with new density contrast
+                density_grid = xr.where(
+                    starting_topo >= zref,
+                    density_contrast,
+                    -density_contrast,  # pylint: disable=invalid-unary-operand-type
+                )
+
+                # create layer of prisms
+                starting_prisms = utils.grids_to_prisms(
+                    starting_topo,
+                    reference=zref,
+                    density=density_grid,
+                )
+
+                # calculate forward gravity of starting prism layer
+                grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
+                    coordinates=(
+                        grav_df.easting,
+                        grav_df.northing,
+                        grav_df.upward,
+                    ),
+                    field="g_z",
+                    progressbar=False,
+                )
+
+                # calculate regional field
                 with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                     grav_df = regional.regional_separation(
                         grav_df=grav_df,
@@ -1272,6 +1336,8 @@ def optimize_inversion_zref_density_contrast(
     optuna.logging.set_verbosity(optuna.logging.WARN)
     if regional_grav_kwargs is not None:
         regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
+    if starting_topography_kwargs is not None:
+        starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
 
     # if sampler not provided, use BoTorch as default unless grid_search is True
     if sampler is None:
@@ -1524,6 +1590,9 @@ def optimize_inversion_zref_density_contrast(
 
     # combine testing and training to get a full constraints dataframe
     reg_constraints = regional_grav_kwargs.pop("constraints_df", None)  # type: ignore[union-attr]
+    if starting_topography_kwargs is not None:
+        starting_topography_kwargs.pop("constraints_df", None)
+
     if isinstance(constraints_df, pd.DataFrame):
         constraints_df = (
             pd.concat([constraints_df, reg_constraints])
@@ -1539,6 +1608,12 @@ def optimize_inversion_zref_density_contrast(
     # add to regional grav kwargs
     if reg_constraints is not None:
         regional_grav_kwargs["constraints_df"] = constraints_df  # type: ignore[index]
+        if starting_topography_kwargs is not None:
+            starting_topography_kwargs["constraints_df"] = constraints_df
+            if "weights" in starting_topography_kwargs:
+                starting_topography_kwargs["weights_col"] = starting_topography_kwargs[
+                    "weights"
+                ].name
 
     # redo inversion with best parameters
     best_zref = best_trial.params.get("zref", zref)
@@ -1718,15 +1793,29 @@ def optimize_inversion_zref_density_contrast_kfolds(
 
     regional_grav_kwargs = kwargs.pop("regional_grav_kwargs", None)
 
+    starting_topography_kwargs = kwargs.pop("starting_topography_kwargs", None)
+
     if regional_grav_kwargs is None:
         msg = "must provide regional_grav_kwargs"
         raise ValueError(msg)
 
+    if starting_topography_kwargs is None:
+        msg = "must provide starting_topography_kwargs"
+        raise ValueError(msg)
+
     regional_grav_kwargs["constraints_df"] = train_dfs
+
+    starting_topography_kwargs["constraints_df"] = train_dfs
+
+    if "weights" in starting_topography_kwargs:
+        starting_topography_kwargs["weights_col"] = starting_topography_kwargs[
+            "weights"
+        ].name
 
     study, inversion_results = optimize_inversion_zref_density_contrast(
         constraints_df=test_dfs,
         regional_grav_kwargs=regional_grav_kwargs,
+        starting_topography_kwargs=starting_topography_kwargs,
         **kwargs,
     )
 
@@ -2968,7 +3057,7 @@ def optimize_regional_eq_sources(
         "grav_obs_height",
         kwargs.pop("grav_obs_height", None),
     )
-    # redo the regional separation with ALL constraint points
+    # redo the regional separation with best parameters
     resulting_grav_df = regional.regional_separation(
         method="eq_sources",
         depth=depth,
