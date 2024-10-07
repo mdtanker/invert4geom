@@ -540,13 +540,13 @@ def zref_density_optimal_parameter(
         raise ValueError(msg)
 
     if zref_values is None:
-        zref = kwargs.get("zref", None)
+        zref = kwargs.get("zref")
         if zref is None:
             msg = "must provide zref_values or zref in kwargs"
             raise ValueError(msg)
         zref_values = [zref]
     elif density_contrast_values is None:
-        density_contrast = kwargs.get("density_contrast", None)
+        density_contrast = kwargs.get("density_contrast")
         if density_contrast is None:
             msg = "must provide density_contrast_values or density_contrast in kwargs"
             raise ValueError(msg)
