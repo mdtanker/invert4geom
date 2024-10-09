@@ -3,82 +3,82 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
-## Unreleased
-### 📦️ Build
+
+## v0.10.0 (2024-10-09)
+### Other
 * make xesmf optional dependency ([`8f3494c`](https://github.com/mdtanker/invert4geom/commit/8f3494c66d3cb3d0999c55b56fe148fcfcc81c62))
-### 🧰 Chores / Maintenance
+### Other
 * set ruff rule ([`7cdb2b0`](https://github.com/mdtanker/invert4geom/commit/7cdb2b0b6dffd3567f1277e94f1a88fd0b24562f))
+### Other
+* pre-commit fixes ([`7802143`](https://github.com/mdtanker/invert4geom/commit/7802143f8bea1ee0101540b5ee88f21011b937ff))
+* pre-commit fixes ([`28687c5`](https://github.com/mdtanker/invert4geom/commit/28687c597d4c956ac4adabf691084061c13313e8))
 ### 📖 Documentation
 * update and rerun doc notebooks ([`7285281`](https://github.com/mdtanker/invert4geom/commit/728528117ce62b3536fc20cbcaf76c23b5080406))
-### 🚀 Features
+### Other
 * allow passing column name for weights in create_topography ([`1815139`](https://github.com/mdtanker/invert4geom/commit/18151399629e2b0fda306171577510250d38fee1))
 * add fname option to optimize functions ([`1bb69b6`](https://github.com/mdtanker/invert4geom/commit/1bb69b6044ed1c6149d7f3b083debf19d97d7040))
-### 🐛 Bug Fixes
+### Other
 * minor changes ([`338306d`](https://github.com/mdtanker/invert4geom/commit/338306dd5d0f9b8349f5a93cc4585a0c65097eaa))
 * re-write long-wavelength contamination function, adding dependency xesmf ([`6e96870`](https://github.com/mdtanker/invert4geom/commit/6e968709a11cc28039d08695a83206f64a7c51fb))
 * add debug for eq source fitting ([`43e2855`](https://github.com/mdtanker/invert4geom/commit/43e28559184a38da218acf849bcbe02dae83a622))
 * if too few points, reduce K folds until it works for fitting Splines ([`5d40917`](https://github.com/mdtanker/invert4geom/commit/5d40917f3f0bc3e470f4c13a7ebdc1994275a490))
 * re-create starting topography for each fold of training constraint points in density/zref optimization ([`5da58fb`](https://github.com/mdtanker/invert4geom/commit/5da58fbcf8a091506636f19f7755853e506bfbf4))
 * bug for checking gravity inside topo region with density/zref cv ([`e96099a`](https://github.com/mdtanker/invert4geom/commit/e96099a3b18e44a34885e852cabef9054209ee47))
-### ✏️ Formatting
-* pre-commit fixes ([`7802143`](https://github.com/mdtanker/invert4geom/commit/7802143f8bea1ee0101540b5ee88f21011b937ff))
-* pre-commit fixes ([`28687c5`](https://github.com/mdtanker/invert4geom/commit/28687c597d4c956ac4adabf691084061c13313e8))
-
 
 ## v0.9.1 (2024-10-03)
-### 📦️ Build
+### Other
 * add pooch and scikit-learn as dependencies ([`8bebf45`](https://github.com/mdtanker/invert4geom/commit/8bebf4545ad816fddc25d59d91dcc578019c86ca))
-### 🧰 Chores / Maintenance
+### Other
 * update binder env to `v0.9` ([`0307bd9`](https://github.com/mdtanker/invert4geom/commit/0307bd9f38c5f20d83eeab8e73c9e5dd0b1f5f4e))
 ### 📖 Documentation
 * update and rerun docs ([`1d39529`](https://github.com/mdtanker/invert4geom/commit/1d39529ee0b9bbf11eea7e32a87e2a710b1fa887))
-### 🐛 Bug Fixes
+### Other
 * fixes error of using 1x not 4.5x default depth for eq sources ([`5746851`](https://github.com/mdtanker/invert4geom/commit/57468519286d34691f06855e9d278f8ee2a598d0))
 * enable `default` eq source depth for regional constraints ([`d9301a3`](https://github.com/mdtanker/invert4geom/commit/d9301a3394e4a54b171a245d8bd0af7821c11c98))
 
 ## v0.9.0 (2024-08-10)
-### 📦️ Build
+### Other
 * increase min supported botorch version to include logie_candidates_func ([`1491b24`](https://github.com/mdtanker/invert4geom/commit/1491b2438f4cc63a81377cf7d29799582e9f9530))
 * restrict scipy to below `v1.14` until UQpy import issue is fixed ([`474e5b5`](https://github.com/mdtanker/invert4geom/commit/474e5b58c38c4f7c564aa021fb057c111e67da16))
-### 🧰 Chores / Maintenance
+### Other
 * fix binder env ([`1066cc6`](https://github.com/mdtanker/invert4geom/commit/1066cc6fc56bd01f21cd5bb6e2d9173894092225))
 * update binder env ([`bf45857`](https://github.com/mdtanker/invert4geom/commit/bf45857ed75b03c153f9ca04d2485d5b43490330))
 ### 📖 Documentation
 * fix notebook error ([`f7783e2`](https://github.com/mdtanker/invert4geom/commit/f7783e22614675839286159e2bc42572d4603ef7))
 * unindent docstring ([`e0715d6`](https://github.com/mdtanker/invert4geom/commit/e0715d63071ee543f8c53170708162d1da207d0d))
-### 🚀 Features
+### Other
 * add `constraint_style` to plotting inversion grav resutls ([`c062b43`](https://github.com/mdtanker/invert4geom/commit/c062b4365b529d3fd76c280f2a968eb0bc5eb3af))
-### 🐛 Bug Fixes
+### Other
 * raise error for NaNs in gravity dataframe ([`3ca5cca`](https://github.com/mdtanker/invert4geom/commit/3ca5cca879071af6701072772e742f2a02ac9e44))
 * drop nans in constraints_df in `regional_constraints` ([`6ee2b6b`](https://github.com/mdtanker/invert4geom/commit/6ee2b6b29feebbea0931509f455e9cf28f38cb1a))
 * add warning for missing `split_kwargs` argument ([`ef96fd9`](https://github.com/mdtanker/invert4geom/commit/ef96fd9dcfc00572076f04e4e3e546025621d579))
 * use `copy.deepcopy()` for all dictionaries inside functions ([`10df82f`](https://github.com/mdtanker/invert4geom/commit/10df82f7e6db1b7748b49b1e678765e2b905f2d1))
 * `warn` instead of `raise error` for constraints outside of gravity data ([`08a60b4`](https://github.com/mdtanker/invert4geom/commit/08a60b45662823668954ce98d3ca247395caf356))
-###  🎨 Refactor
+### Other
 * manually calculate `default` eq source depth until harmonica `v0.7` is released. ([`aeb675a`](https://github.com/mdtanker/invert4geom/commit/aeb675acafc185f1e5a7bcd17fb86e0c518005a3))
 * simplify UQpy import ([`783d3dc`](https://github.com/mdtanker/invert4geom/commit/783d3dcd08770b8eb95a134e7742d5382d14b1b7))
 
 ## v0.8.1 (2024-08-05)
-### 🧰 Chores / Maintenance
+### Other
 * add test deps to conda_install for testing conda releases ([`c44d59b`](https://github.com/mdtanker/invert4geom/commit/c44d59ba2dceddfa15d48b2f9dd2315a20e2b304))
 * update binder env to `v0.8` ([`8d9d294`](https://github.com/mdtanker/invert4geom/commit/8d9d29410d4b406070fcb2316673530b9cff7d61))
 ### 📖 Documentation
 * add missing docstring ([`50591e3`](https://github.com/mdtanker/invert4geom/commit/50591e3a809c94c4d78851417515a79d51c6fa89))
 * fix issues with autoapi and typehints. ([`af93c02`](https://github.com/mdtanker/invert4geom/commit/af93c024f023c5967ab70cd2909ee67cf8f24194))
-### 🐛 Bug Fixes
+### Other
 * remove nptyping as dependency ([`d2534d0`](https://github.com/mdtanker/invert4geom/commit/d2534d083759f8769c42c1979054aa3b6a94aa5f))
 
 ## v0.8.0 (2024-08-02)
 ### 💥 Breaking Changes
 * change equivalent source param names
 
-BREAKING CHANGE: update parameter `eq_cv`-&gt;`cv` in `regional_eq_sources` and `regional_constraints`, and use parameter `cv_kwargs` to pass args to `optimize_eq_source_params` ([`10e47ef`](https://github.com/mdtanker/invert4geom/commit/10e47ef7b6bc19f0b303755d37bdc4ffde6d35cc))
+BREAKING CHANGE: update parameter `eq_cv`->`cv` in `regional_eq_sources` and `regional_constraints`, and use parameter `cv_kwargs` to pass args to `optimize_eq_source_params` ([`10e47ef`](https://github.com/mdtanker/invert4geom/commit/10e47ef7b6bc19f0b303755d37bdc4ffde6d35cc))
 * update `utils.best_spline_cv` to pass all kwargs directly to verde.SplineCV.
 
 BREAKING CHANGE: update parameter `spline_damping` to `spline_dampings` in function `regional.regional_constraints` and all functions which feed into it (i.e. `regional.regional_separation`) ([`1546d06`](https://github.com/mdtanker/invert4geom/commit/1546d06437bfcb63f1c3abd6dfec283a5fea73dd))
 * change all equivalent source parameter variable names.
 
-BREAKING CHANGE: please update all variables names as follows: `eq_damping`-&gt; `damping`, `source_depth`-&gt;`depth`, `eq_damping_limits`-&gt;`damping_limits, `source_depth_limits`-&gt;`depth_limits` ([`1476e2a`](https://github.com/mdtanker/invert4geom/commit/1476e2a5233f38c4a36d3f3c7f9ba4889bf8db2e))
+BREAKING CHANGE: please update all variables names as follows: `eq_damping`-> `damping`, `source_depth`->`depth`, `eq_damping_limits`->`damping_limits, `source_depth_limits`->`depth_limits` ([`1476e2a`](https://github.com/mdtanker/invert4geom/commit/1476e2a5233f38c4a36d3f3c7f9ba4889bf8db2e))
 * overhaul `run_inversion_workflow` function to emit warnings at beginning, and enable kfolds CV for using constraints in regional separation with density/zref CV, and use better file names.
 
 BREAKING CHANGE: removed `starting_prisms_kwargs`, put `density_contrast` and `zef` into standard kwargs now. All `regional_grav_kwargs` are now directly passed to the relavent functions, same for `starting_topography_kwargs`. ([`a72c8a4`](https://github.com/mdtanker/invert4geom/commit/a72c8a4738432587a9c7f29bc7dc39c408a4badc))
@@ -96,16 +96,16 @@ BREAKING CHANGE: please switch to the new function ([`3062ce3`](https://github.c
 BREAKING CHANGE: please switch to the new function ([`5059cd0`](https://github.com/mdtanker/invert4geom/commit/5059cd0aaaa943ddc7594a0700fda50b768fb00c))
 * add delta L2 norms to convergence plots.
 
-BREAKING CHANGE: `plot_convergence` now takes parameter `params` (output dict from run_inversion) and doesn&#39;t plot iteration times. `plot_dynamic_convergence` now takes parameters `l2_norms` and `delta_l2_norms` instead of `results`. ([`7cbdbb3`](https://github.com/mdtanker/invert4geom/commit/7cbdbb3c944aee4b96ca0c42569a7f6f25aebed4))
+BREAKING CHANGE: `plot_convergence` now takes parameter `params` (output dict from run_inversion) and doesn't plot iteration times. `plot_dynamic_convergence` now takes parameters `l2_norms` and `delta_l2_norms` instead of `results`. ([`7cbdbb3`](https://github.com/mdtanker/invert4geom/commit/7cbdbb3c944aee4b96ca0c42569a7f6f25aebed4))
 * update `regional_constraints` func.
 
 BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block_size`. Instead of supplying a lists of damping values to `dampings` for the `verde` method, now provide a single value with parameter `spline_damping`. For `eq_sources` method, instead of providing limits and trial numbers, just provide single parameter values with parameters `source_depth`, and `eq_damping`, `block_size`. ([`3496d5f`](https://github.com/mdtanker/invert4geom/commit/3496d5f0097da570cf79920f59d5f0bb5bec98eb))
-### 📦️ Build
+### Other
 * remove unused optuna parallel functions and dependencies: joblib, psutil, and tqdm_joblib ([`56c3887`](https://github.com/mdtanker/invert4geom/commit/56c388776584291192c64d8556a14058bf1b0f12))
 * remove `viz` optional deps and add to core deps ([`b152f1b`](https://github.com/mdtanker/invert4geom/commit/b152f1b057ebace6ab6d055444ba736fe3741e76))
 * remove `opti` deps and include as part of core deps ([`a396318`](https://github.com/mdtanker/invert4geom/commit/a396318827001c1a7b45aad882ece92eb999ecee))
 * add deprecation to deps ([`dec0ec8`](https://github.com/mdtanker/invert4geom/commit/dec0ec809ada9781e09ca8f2f0738dc61cd1262c))
-### 🧰 Chores / Maintenance
+### Other
 * remove broken test and decrease timeout ([`3639b9c`](https://github.com/mdtanker/invert4geom/commit/3639b9c6778473e328a07b0809523727194a1d6e))
 * remove pre-commit GHA in favor for pre-commit.ci ([`865c514`](https://github.com/mdtanker/invert4geom/commit/865c514551c2adf62b61c4d8955e48551fc6d216))
 * delete unused release file ([`8118b97`](https://github.com/mdtanker/invert4geom/commit/8118b971f093d209bb3390525bcbea87a65783a9))
@@ -130,6 +130,17 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * set min pylint version ([`f36ef0f`](https://github.com/mdtanker/invert4geom/commit/f36ef0f82636cc4b25e8a02d0afd9d307a807296))
 * update make commands ([`e5bc907`](https://github.com/mdtanker/invert4geom/commit/e5bc907946f8c775ec7bbd447016ba3b4f40561a))
 * precommit ignore doc md files ([`78461c3`](https://github.com/mdtanker/invert4geom/commit/78461c36dfe36789d3c43837d2f3e228f5574b08))
+### Other
+* auto style fixes ([`f49df6d`](https://github.com/mdtanker/invert4geom/commit/f49df6d6f519fdfeaf53ac1d1e9e1d5563f815b2))
+* minor fixes ([`c8283be`](https://github.com/mdtanker/invert4geom/commit/c8283be1aa08a46da5bdd82b7f288c6145e1056b))
+* minor fixes ([`bb4ef6f`](https://github.com/mdtanker/invert4geom/commit/bb4ef6fcc68b693571cbb0219b2572d998708fec))
+* auto style fix ([`3eb9a4d`](https://github.com/mdtanker/invert4geom/commit/3eb9a4d1fd399f31e316bc1ab6fe728b6d620c0a))
+* pre-commit fixes ([`ff4cd99`](https://github.com/mdtanker/invert4geom/commit/ff4cd993ea6187846f706b322ed07facb6c1fa11))
+* minor fixes ([`dc23d05`](https://github.com/mdtanker/invert4geom/commit/dc23d05503dc78580208e0e00f45a56687c1de50))
+* minor fixes to files ([`62e623a`](https://github.com/mdtanker/invert4geom/commit/62e623a203f8030123766e54a4b9fb76fc3bef5e))
+* pre-commit fixes ([`e596e12`](https://github.com/mdtanker/invert4geom/commit/e596e12498a7f7b028bb2f9e99839c535c594b52))
+* misc style fixes and missing imports ([`7ff25a4`](https://github.com/mdtanker/invert4geom/commit/7ff25a40a3fa10c19908617666f9fb9fad0f64d5))
+* pre-commit fixes ([`ea59410`](https://github.com/mdtanker/invert4geom/commit/ea59410bea2bed62f93a59460449040baa88f6bf))
 ### 📖 Documentation
 * update all doc notebooks ([`4cc0b69`](https://github.com/mdtanker/invert4geom/commit/4cc0b699e5c80e04c0986e1eb6ac856599a8268c))
 * update some docstrings ([`ff932dd`](https://github.com/mdtanker/invert4geom/commit/ff932dd14c863f92252dba8398d57fc796f165b3))
@@ -138,7 +149,7 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * add accidentally missing api files ([`b0b73d9`](https://github.com/mdtanker/invert4geom/commit/b0b73d96157a8bc10c9e434eaf1bca2d60f84355))
 * update the docs ([`afab24d`](https://github.com/mdtanker/invert4geom/commit/afab24d99e9f88cee55883c78e3d19f694ef8ad1))
 * move contrib guide into docs folder ([`3009e90`](https://github.com/mdtanker/invert4geom/commit/3009e9027ca21b5593cd55ed56f004f61f15f6c9))
-### 🚀 Features
+### Other
 * add `uncertainty` module ([`3d624c7`](https://github.com/mdtanker/invert4geom/commit/3d624c75323c596601862bf8f1e04a8648cd8d55))
 * add upward continuation option to eq_sources regional method ([`10e4c3e`](https://github.com/mdtanker/invert4geom/commit/10e4c3e7c4744235afa09926840e67bb2f8198f8))
 * add back optuna parallel functions ([`4d53fde`](https://github.com/mdtanker/invert4geom/commit/4d53fde6627221a263f03ba495f2a76286f73168))
@@ -180,7 +191,7 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * add option to turn off inversion progressbar ([`17c6b32`](https://github.com/mdtanker/invert4geom/commit/17c6b32b7076e13b1d28e8a4fc1da49880564cac))
 * add load_bishop_model function ([`8006cf5`](https://github.com/mdtanker/invert4geom/commit/8006cf5dced4fbe00435db1fdcd4aadda2f6d74c))
 * add weights option to create_topography ([`17827b4`](https://github.com/mdtanker/invert4geom/commit/17827b4140d6a0660b21e48353f7b851eaf6ddec))
-### 🐛 Bug Fixes
+### Other
 * ensure all dictionary `pop` calls are made on copies ([`1c80404`](https://github.com/mdtanker/invert4geom/commit/1c80404bc4b37948cd0471b3b25b4f97c84c2828))
 * enable upward continuation option for CPM with equivalent source gridding ([`0c23eca`](https://github.com/mdtanker/invert4geom/commit/0c23ecafaeeea0716be0bce90599f061645db107))
 * separate cmaps for starting and ending gravity residual plots ([`d6feb0e`](https://github.com/mdtanker/invert4geom/commit/d6feb0ecdc8d46c16a5b29171ac74e444893e2ed))
@@ -188,7 +199,7 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * bug in eq_sources_score with too many folds ([`c78354e`](https://github.com/mdtanker/invert4geom/commit/c78354e7669a8ddeb69e90413fbdc9d214b024f4))
 * raise error if trying to get regional score from method `constraints_cv` ([`d35b703`](https://github.com/mdtanker/invert4geom/commit/d35b70304f45d5c8b17028794044ceb697814ed0))
 * make `dampings` required for `create_topography` and `starting_topography_kwargs` ([`c3d407b`](https://github.com/mdtanker/invert4geom/commit/c3d407b3033ea7cdb2f59782304e6ce506923483))
-* only plot optuna importances if &gt;1 parameter ([`ba17ed1`](https://github.com/mdtanker/invert4geom/commit/ba17ed14769b3ea04d16f5af633eb4e406d74dc8))
+* only plot optuna importances if >1 parameter ([`ba17ed1`](https://github.com/mdtanker/invert4geom/commit/ba17ed14769b3ea04d16f5af633eb4e406d74dc8))
 * update `regional_eq_sources` to work with new param names ([`68f85f2`](https://github.com/mdtanker/invert4geom/commit/68f85f2727a63e9151b30b7be1f9f5d0c468ce74))
 * bug in `optimize_eq_source_params` ([`eb0ebbe`](https://github.com/mdtanker/invert4geom/commit/eb0ebbe73c8e22b62fdeba2af66453692287dfa9))
 * add warnings about constraints and regional separation ([`c6bc503`](https://github.com/mdtanker/invert4geom/commit/c6bc5033f4b82bfd71a278052ac2e84851ae0b6a))
@@ -213,7 +224,7 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * enqueue trials for value limits in `optimize_eq_source_params` ([`af519e0`](https://github.com/mdtanker/invert4geom/commit/af519e051ead9f9a8e86fcb8effc42798dea53b5))
 * add default value to source_depth in `OptimalEqSourceParams` ([`03b828e`](https://github.com/mdtanker/invert4geom/commit/03b828e2a900e001458ce2c42dba5c6774adeb84))
 * use more startup trials in optimizing on both zref and density ([`789167b`](https://github.com/mdtanker/invert4geom/commit/789167b2cc1a7be7f999390a12132c2db8280a6e))
-* remove warning about using constraints for finding constant regional value in CV as it doesn&#39;t seem to affect it. ([`14efcfc`](https://github.com/mdtanker/invert4geom/commit/14efcfc531b9e4cde17fc1c1e3d407d42615c91a))
+* remove warning about using constraints for finding constant regional value in CV as it doesn't seem to affect it. ([`14efcfc`](https://github.com/mdtanker/invert4geom/commit/14efcfc531b9e4cde17fc1c1e3d407d42615c91a))
 * add warning if no supplied constraints in run_inversion_workflow if doing density/zref CV ([`2783ab4`](https://github.com/mdtanker/invert4geom/commit/2783ab476a6974da56a758eab9e215a4839962a3))
 * allow no starting_prisms in `run_inversion_workflow` if doing a density/zref CV ([`da1674c`](https://github.com/mdtanker/invert4geom/commit/da1674c00f47c13794f9c9c1d715d1e1523f16b4))
 * remove `data_column` from `random_split_test_train` and keep all non-coord columns in dataframe. ([`3584286`](https://github.com/mdtanker/invert4geom/commit/35842860e961b080cf28f360b63aa9cca239dde4))
@@ -228,7 +239,7 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * turn off dynamic convergence plotting during CV ([`a09ad32`](https://github.com/mdtanker/invert4geom/commit/a09ad324ce4b611e73c483933d6900b00d551de0))
 * remove unnecessary `depth_type` arg for eq sources ([`4998705`](https://github.com/mdtanker/invert4geom/commit/4998705e73de9020634595b7202c4d3679294148))
 * add warning to run_inversion about unused weighting grid ([`e2676fa`](https://github.com/mdtanker/invert4geom/commit/e2676fa28a8065f86e37559d9737b772073621de))
-###  🎨 Refactor
+### Other
 * clean up CPM optimization and cv. ([`f873490`](https://github.com/mdtanker/invert4geom/commit/f873490d6c6b96f7825f458164b9f0ffcbf61b0b))
 * clean up zref/density CV functions ([`4ecf9ec`](https://github.com/mdtanker/invert4geom/commit/4ecf9ec4e0e4e9c565a7568611c9a0c0b2a83617))
 * log info instead of warning for params at limits ([`24819a5`](https://github.com/mdtanker/invert4geom/commit/24819a5cc2de343d635614f81dfe83d5709e3d5e))
@@ -238,13 +249,13 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * move creation of regional sep studies to new function ([`be30d53`](https://github.com/mdtanker/invert4geom/commit/be30d537752f45a8252a702bb94b3b401ad486ef))
 * default to separate metrics (multi-objective) for regional separation ([`91b2e4b`](https://github.com/mdtanker/invert4geom/commit/91b2e4b676cde5850ec218db7e28281cbaee0c56))
 * update `optimize_eq_source_params` to work with recent changes ([`0e3ce7b`](https://github.com/mdtanker/invert4geom/commit/0e3ce7ba0e10e44837cda6e765d2055d0ab3ef4f))
-* clean up `regional_constraints` and change default grid_method to &#34;eq_sources&#34; ([`7170ebd`](https://github.com/mdtanker/invert4geom/commit/7170ebd82ac529bfe39c4545eaf6f336311986a8))
+* clean up `regional_constraints` and change default grid_method to "eq_sources" ([`7170ebd`](https://github.com/mdtanker/invert4geom/commit/7170ebd82ac529bfe39c4545eaf6f336311986a8))
 * `cross_validation.eq_sources_score` now passes all kwargs directly to hm.EquivalentSources class ([`5f9f7c6`](https://github.com/mdtanker/invert4geom/commit/5f9f7c67cb604c3c753df419d49342c25a991dbc))
 * consolidate optuna logging of results ([`68b8dc8`](https://github.com/mdtanker/invert4geom/commit/68b8dc8df26ff476d6457d71c7d70bebedf0096e))
 * consolidate optuna warning for best parameter values at their limits ([`5a3a7d1`](https://github.com/mdtanker/invert4geom/commit/5a3a7d1378b57fce36def211c56651611656f070))
 * use context manager to temporarily change logging level ([`c14aaca`](https://github.com/mdtanker/invert4geom/commit/c14aaca1763fbc5681f5be389b1cd9d4cdbb3e12))
 * minor changes to `optimization` ([`18f2058`](https://github.com/mdtanker/invert4geom/commit/18f20580c459277b0c31ca1f4b2d8337f908332c))
-* set default of `source_depth` to &#39;default&#39; in `regional_eq_sources` ([`ee7575f`](https://github.com/mdtanker/invert4geom/commit/ee7575fe5c7989ce3586694e6ffd041102b5914a))
+* set default of `source_depth` to 'default' in `regional_eq_sources` ([`ee7575f`](https://github.com/mdtanker/invert4geom/commit/ee7575fe5c7989ce3586694e6ffd041102b5914a))
 * use pygmt instead of xarray for plotting some inversion results ([`cf377b3`](https://github.com/mdtanker/invert4geom/commit/cf377b399d146d45b908bceb5ba8cd2f2ba51173))
 * use a logger specifically for invert4geom and update all logging calls ([`fa111cc`](https://github.com/mdtanker/invert4geom/commit/fa111cc40f1d3b187b04ae3583eda96f981c85f8))
 * remove default value for `damping_cv_trials` and `zref_density_cv_trials`  in `run_inversion_workflow` ([`7dce943`](https://github.com/mdtanker/invert4geom/commit/7dce9433ed05df0b900179a0199171b14136bab3))
@@ -256,27 +267,18 @@ BREAKING CHANGE: parameter `constraint_block_size` changed to `constraints_block
 * change point color to gray for `plot_2_parameter_cv_scores` ([`ccbd4ba`](https://github.com/mdtanker/invert4geom/commit/ccbd4baac736b8792501d3996f634e9b578a24e7))
 * move eq_sources_score to cross_validation module ([`4def683`](https://github.com/mdtanker/invert4geom/commit/4def683b5c45957fd7fd20b6889e8f25f9e48498))
 * explicitly set parameters instead of kwargs for `eq_sources_score` ([`2a8c133`](https://github.com/mdtanker/invert4geom/commit/2a8c1335e6fcf50fbeefb4bc99130afcbd1e99da))
-### ✏️ Formatting
-* auto style fixes ([`f49df6d`](https://github.com/mdtanker/invert4geom/commit/f49df6d6f519fdfeaf53ac1d1e9e1d5563f815b2))
-* minor fixes ([`c8283be`](https://github.com/mdtanker/invert4geom/commit/c8283be1aa08a46da5bdd82b7f288c6145e1056b))
-* minor fixes ([`bb4ef6f`](https://github.com/mdtanker/invert4geom/commit/bb4ef6fcc68b693571cbb0219b2572d998708fec))
-* auto style fix ([`3eb9a4d`](https://github.com/mdtanker/invert4geom/commit/3eb9a4d1fd399f31e316bc1ab6fe728b6d620c0a))
-* pre-commit fixes ([`ff4cd99`](https://github.com/mdtanker/invert4geom/commit/ff4cd993ea6187846f706b322ed07facb6c1fa11))
-* minor fixes ([`dc23d05`](https://github.com/mdtanker/invert4geom/commit/dc23d05503dc78580208e0e00f45a56687c1de50))
-* minor fixes to files ([`62e623a`](https://github.com/mdtanker/invert4geom/commit/62e623a203f8030123766e54a4b9fb76fc3bef5e))
-* pre-commit fixes ([`e596e12`](https://github.com/mdtanker/invert4geom/commit/e596e12498a7f7b028bb2f9e99839c535c594b52))
-* misc style fixes and missing imports ([`7ff25a4`](https://github.com/mdtanker/invert4geom/commit/7ff25a40a3fa10c19908617666f9fb9fad0f64d5))
-* pre-commit fixes ([`ea59410`](https://github.com/mdtanker/invert4geom/commit/ea59410bea2bed62f93a59460449040baa88f6bf))
 
 ## v0.7.0 (2024-06-26)
 ### 💥 Breaking Changes
 * remove `density_contrast` parameter from `run_inversion` and extract contrast instead
 
-BREAKING CHANGE: the `run_inversion` function now doesn&#39;t take `density_contrast` parameter, please remove these parameters from your code! ([`2883c25`](https://github.com/mdtanker/invert4geom/commit/2883c25d2bbaa7d6555a33992abb01dd5ef557b7))
-### 📦️ Build
-### 🧰 Chores / Maintenance
+BREAKING CHANGE: the `run_inversion` function now doesn't take `density_contrast` parameter, please remove these parameters from your code! ([`2883c25`](https://github.com/mdtanker/invert4geom/commit/2883c25d2bbaa7d6555a33992abb01dd5ef557b7))
+### Other
+### Other
 * add codecov token ([`9d27f1b`](https://github.com/mdtanker/invert4geom/commit/9d27f1b2d861916c188ce47c4c5f91c1927002e3))
 * pre-commit autoupdate to monthly ([`00189aa`](https://github.com/mdtanker/invert4geom/commit/00189aac0cbeabbffef9e15065c30a29c19c05a7))
+### Other
+* typo in docstring ([`d05861a`](https://github.com/mdtanker/invert4geom/commit/d05861aaf0463a099ddc976e39decf8c1864cb1e))
 ### 📖 Documentation
 * rerun the docs ([`322bcc8`](https://github.com/mdtanker/invert4geom/commit/322bcc8d0c5a954566b4dc9242d07ca86d004730))
 * add variable density example to user guide ([`bdce402`](https://github.com/mdtanker/invert4geom/commit/bdce4020e497fe82a9ecbed4f3e285bc57fcc388))
@@ -284,13 +286,11 @@ BREAKING CHANGE: the `run_inversion` function now doesn&#39;t take `density_cont
 * add documentation to density contrast implementation ([`ca96f76`](https://github.com/mdtanker/invert4geom/commit/ca96f768a4ad4949fdd012774b0280b6db265787))
 * fix error in readme ([`18b67c8`](https://github.com/mdtanker/invert4geom/commit/18b67c8e3cf738ffb3ace2b990c12d106932dda2))
 * update binder env to v0.6 ([`19551d7`](https://github.com/mdtanker/invert4geom/commit/19551d763cf3a5c993f05a5b51b16b5b39af39ac))
-### 🐛 Bug Fixes
+### Other
 * add warnings for run_inversion_workflow ([`54fc6b9`](https://github.com/mdtanker/invert4geom/commit/54fc6b9217c8864a46a39d41d90a9446bdcf135a))
 * remove `zref` and `density_contrast`parameters, extract from prism layer instead
 
 BREAKING_CHANGE: make sure to remove all `zref` and `density_contrast` parameters from the following functions: run_inversion, grav_cv_score, constraints_cv_score. ([`f995f00`](https://github.com/mdtanker/invert4geom/commit/f995f000b80718f81073a86e388800dcd653ec0e))
-### ✏️ Formatting
-* typo in docstring ([`d05861a`](https://github.com/mdtanker/invert4geom/commit/d05861aaf0463a099ddc976e39decf8c1864cb1e))
 ### Other
 *  ([`117490c`](https://github.com/mdtanker/invert4geom/commit/117490cde21145a8a9b67e086736ffc9f4a3e639))
 
@@ -313,13 +313,13 @@ BREAKING CHANGE: all use of constraint points need to be supplied via argument `
 BREAKING CHANGE: make sure to switch `run_inversion` argument  `weights_after_solver` to `apply_weighting_grid` and supply a xr.DataArray via parameter `weighting_grid`. ([`444c43d`](https://github.com/mdtanker/invert4geom/commit/444c43dce94edddd4fed490148f4ae2a229c7aa4))
 * switch keyword argument name from `input_grav_column`  to `grav_data_column`
 
-BREAKING CHANGE: make sure to switch all mentions of &#39;input_grav_column` to `grav_data_column` in your code! ([`f864c1f`](https://github.com/mdtanker/invert4geom/commit/f864c1f0fede206b2c65f0b9ac60814e8e8011f9))
+BREAKING CHANGE: make sure to switch all mentions of 'input_grav_column` to `grav_data_column` in your code! ([`f864c1f`](https://github.com/mdtanker/invert4geom/commit/f864c1f0fede206b2c65f0b9ac60814e8e8011f9))
 * switch keyword argument name from `input_grav` to `grav_df`
 
 BREAKING CHANGE: make sure to switch all mentions of `input_grav` to `grav_df` in your code! ([`b7656ee`](https://github.com/mdtanker/invert4geom/commit/b7656eef609b798eb2653bfd48b8157829c78a30))
-### 📦️ Build
+### Other
 * add plotly as optional dep ([`0745e2a`](https://github.com/mdtanker/invert4geom/commit/0745e2ac3cc045bc8a6e0b1d670498eeceb7d5dc))
-### 🧰 Chores / Maintenance
+### Other
 * add warning if using constraints for regional separation within zref/density CV ([`0e298aa`](https://github.com/mdtanker/invert4geom/commit/0e298aa331545bea917c6ce72b0105f6b29035d4))
 * allow cyclic imports ([`0c8942b`](https://github.com/mdtanker/invert4geom/commit/0c8942bcb4a5ca771c1520f12f6165557d010b17))
 * add optuna and plotly as optional imports ([`3545f71`](https://github.com/mdtanker/invert4geom/commit/3545f7104b6cdab6916784c93d72393139168514))
@@ -334,6 +334,8 @@ BREAKING CHANGE: make sure to switch all mentions of `input_grav` to `grav_df` i
 * fix ruff linting compatibility issue ([`f82448c`](https://github.com/mdtanker/invert4geom/commit/f82448cacc0aca6dfd8e00442ca6f7d091da3f2c))
 * remove comprehensive  ignore of specific md files in pre-commit ([`eb9b405`](https://github.com/mdtanker/invert4geom/commit/eb9b4050d9b580c25dde277a06cc732d6810e2e5))
 * ignore md files in pre-commit prettier, ruff, blacken ([`0fade3b`](https://github.com/mdtanker/invert4geom/commit/0fade3b84b951431b0b5b3a38e4bb0bfc2c0e52f))
+### Other
+* automatic style fixes ([`4a83bdd`](https://github.com/mdtanker/invert4geom/commit/4a83bddd2a27dd96b396989834a30f869b3c7934))
 ### 📖 Documentation
 * update docstrings ([`ac9753c`](https://github.com/mdtanker/invert4geom/commit/ac9753c33d759e2bb86f9b2af2bb912624afd07d))
 * add section on conventions for `Invert4Geom` ([`650e4e0`](https://github.com/mdtanker/invert4geom/commit/650e4e04614b31b3b3ec673207ad21893c2d3def))
@@ -341,7 +343,7 @@ BREAKING CHANGE: make sure to switch all mentions of `input_grav` to `grav_df` i
 * clarify intended use of invert4geom in README ([`0817954`](https://github.com/mdtanker/invert4geom/commit/08179547a53c992f562d55029657a6269b020742))
 * fix spacing on md files ([`727c268`](https://github.com/mdtanker/invert4geom/commit/727c268fc6e51ab0d60ffe1c5d7bac55642ae370))
 * update binder env ([`a6d9690`](https://github.com/mdtanker/invert4geom/commit/a6d96900a6703727bf649dcbbfb7d85579e5c502))
-### 🚀 Features
+### Other
 * add warning for global min of optimizing eq source parameters ([`bbd5f10`](https://github.com/mdtanker/invert4geom/commit/bbd5f1054793fbc5ab51d5a08aa51abb727df237))
 * add optuna optimization plotting function ([`8e64289`](https://github.com/mdtanker/invert4geom/commit/8e6428946e93511820817521034af02db1b2c8da))
 * add function for performing constraint CV ([`96f74a0`](https://github.com/mdtanker/invert4geom/commit/96f74a0aaf08b0ab1eb43c04896f105fe0408149))
@@ -354,13 +356,13 @@ BREAKING CHANGE: make sure to switch all mentions of `input_grav` to `grav_df` i
 * add grav obs height option to `regional_constraints` ([`41f1a67`](https://github.com/mdtanker/invert4geom/commit/41f1a67ac7c54a650fc0418b068791285f06c44a))
 * add function for creating starting topography ([`32bb475`](https://github.com/mdtanker/invert4geom/commit/32bb47599b8f9daf29853ece38929dea6132e5fc))
 * add option to calculate CV scores as root median or mean square ([`818eed4`](https://github.com/mdtanker/invert4geom/commit/818eed4ad5aa125e27c902fcceeccd356ce466eb))
-### 🐛 Bug Fixes
+### Other
 * remove numba jit decorator from `jacobian_prism` ([`b6166f5`](https://github.com/mdtanker/invert4geom/commit/b6166f5416e0c61054503ff764f1605b19f4a93d))
 * add missing imports ([`bbc4825`](https://github.com/mdtanker/invert4geom/commit/bbc4825a4f66b575e3d4e3c0636603630776e726))
 * update imports ([`362d79d`](https://github.com/mdtanker/invert4geom/commit/362d79ddfad41f9edab89b47cd6edfed83188716))
 * use median not RMSE for constraint point minimization ([`6d1c686`](https://github.com/mdtanker/invert4geom/commit/6d1c686ee72c5752c897d621408d5009925c3e06))
 * fix warning for best_spline_cv ([`abb5976`](https://github.com/mdtanker/invert4geom/commit/abb59766f4285353744f8c0f81797e69865178e3))
-###  🎨 Refactor
+### Other
 * update plot 2 parameter CV function ([`365f5cf`](https://github.com/mdtanker/invert4geom/commit/365f5cfec04237cf7a22018730a6da77a342a7db))
 * update plot convergence function ([`7efe1e7`](https://github.com/mdtanker/invert4geom/commit/7efe1e7ae029449d28ea62227b1ba3d1ceb43005))
 * update plot inversion results function ([`ad2efa8`](https://github.com/mdtanker/invert4geom/commit/ad2efa87c7210ff07577914bc9a3ad698b3052c9))
@@ -377,30 +379,32 @@ BREAKING CHANGE: make sure to switch all mentions of `input_grav` to `grav_df` i
 * explicitly create density grid ([`7555f18`](https://github.com/mdtanker/invert4geom/commit/7555f18a61b2d2f1ca1e0d8c59c04b1781f68d8a))
 * use `topo` variable for getting final topography grid ([`5596082`](https://github.com/mdtanker/invert4geom/commit/5596082967cd3f8953fc2e3df32c1586e7ccf847))
 * enable CV progressbars by default ([`dc6646e`](https://github.com/mdtanker/invert4geom/commit/dc6646e121af29355c1ffa04308a0045bb67645f))
-### ✏️ Formatting
-* automatic style fixes ([`4a83bdd`](https://github.com/mdtanker/invert4geom/commit/4a83bddd2a27dd96b396989834a30f869b3c7934))
 
 ## v0.5.0 (2024-05-07)
-### 📦️ Build
+### Other
 * make semantic release GHA need changelog success ([`7b7d1c4`](https://github.com/mdtanker/invert4geom/commit/7b7d1c40805617db9cf42fea3065eb32585bf035))
 * add make command for binder env ([`3b5d44e`](https://github.com/mdtanker/invert4geom/commit/3b5d44e926a9925e70220344bba04c464cdbfb3d))
 * add optuna-integration package ([`fa648d5`](https://github.com/mdtanker/invert4geom/commit/fa648d56e243edc934d746b8b77ac103ed0c7e10))
-### 🧰 Chores / Maintenance
+### Other
 * ignore dtype in test utils sampling ([`f18e356`](https://github.com/mdtanker/invert4geom/commit/f18e356057a9d8b3889d3a275b273effa8993018))
 * more specific dtypes in tests ([`1c587fd`](https://github.com/mdtanker/invert4geom/commit/1c587fda8de5f7cd7b2a51bda1615377de073439))
 * fix test dtype issue ([`f16f955`](https://github.com/mdtanker/invert4geom/commit/f16f95541695a0ec0afdd6e4e7f70fcc68c0c284))
 * use head commit for skip tests on docs ([`7f4c863`](https://github.com/mdtanker/invert4geom/commit/7f4c863560d69751a2bd09f3a18d102500666648))
-* don&#39;t run test on docs commits [skip ci] ([`fedf871`](https://github.com/mdtanker/invert4geom/commit/fedf87102cb825a6054ff4e2d3d1c49a17a3e995))
+* don't run test on docs commits [skip ci] ([`fedf871`](https://github.com/mdtanker/invert4geom/commit/fedf87102cb825a6054ff4e2d3d1c49a17a3e995))
 * try stopping tests only for docs (not style) ([`f1cf974`](https://github.com/mdtanker/invert4geom/commit/f1cf9748c7f58cfba44f84166bfb69649ae24914))
 * stop tests on docs/style [skip ci] ([`49de955`](https://github.com/mdtanker/invert4geom/commit/49de9550c07a77cefe5c40811090a87cbf07dc4c))
 * still trying to stop GHA running on docs / style [skip ci] ([`7306b35`](https://github.com/mdtanker/invert4geom/commit/7306b352993af242e5c95f9566d178e29dc6390f))
-* add missing &#34;)&#34; [skip-ci] ([`49918e9`](https://github.com/mdtanker/invert4geom/commit/49918e9169cf8f79779b7e53370426db50369492))
+* add missing ")" [skip-ci] ([`49918e9`](https://github.com/mdtanker/invert4geom/commit/49918e9169cf8f79779b7e53370426db50369492))
 * fixing skip test on certain commits [skip ci] ([`4dfe4cf`](https://github.com/mdtanker/invert4geom/commit/4dfe4cf3bcd5dc9b212c3c75b239d414b4ea3d0c))
 * stop tests running on doc / style commits ([`1a9e308`](https://github.com/mdtanker/invert4geom/commit/1a9e308ddbdfa78795b3055c466325b0c153629d))
 * unpin binder env ([`e865ddc`](https://github.com/mdtanker/invert4geom/commit/e865ddc86d69b73da40fdb55fb042df792ce50ac))
 * cleanup Make commands ([`482d95a`](https://github.com/mdtanker/invert4geom/commit/482d95af9f93ee79abd9e9ee51eee88ff93fb659))
-* don&#39;t run tests on docs or style commits ([`30abcdf`](https://github.com/mdtanker/invert4geom/commit/30abcdf322ffb2c5bb8a29b9dfa8dfde26fb0641))
+* don't run tests on docs or style commits ([`30abcdf`](https://github.com/mdtanker/invert4geom/commit/30abcdf322ffb2c5bb8a29b9dfa8dfde26fb0641))
 * remove pre-commit updates from changelog ([`f7ea9c8`](https://github.com/mdtanker/invert4geom/commit/f7ea9c8af19be4e432c70442482b3b692fb71618))
+### Other
+* pre-commit fixes ([`116a612`](https://github.com/mdtanker/invert4geom/commit/116a612b0ff613375715e320444f85906984483e))
+* pre-commit fixes ([`b110f23`](https://github.com/mdtanker/invert4geom/commit/b110f236277b60c6ed82035b5b58316885366997))
+* pre-commit fixes ([`9fe3777`](https://github.com/mdtanker/invert4geom/commit/9fe377749e1918b587e630343d9e3d1baf8472ea))
 ### 📖 Documentation
 * remove duplicate thumbnail [skip ci] ([`507bd06`](https://github.com/mdtanker/invert4geom/commit/507bd06dad7479eba3266d428455c7ca96e70d4e))
 * specify thumbnails ([`18fcac1`](https://github.com/mdtanker/invert4geom/commit/18fcac15d82fb1bf368de2b3d4fba7fb9db12a7e))
@@ -417,7 +421,7 @@ BREAKING CHANGE: make sure to switch all mentions of `input_grav` to `grav_df` i
 * improve inversion docstrings ([`471a76f`](https://github.com/mdtanker/invert4geom/commit/471a76f62bbc12b7386b998cc8515dff7c29ae24))
 * fix pinning issue ([`a8f0ea1`](https://github.com/mdtanker/invert4geom/commit/a8f0ea1a86de678733db806f2c499ab193c68dfb))
 * pin python-semantic-release in GHA ([`c5b18da`](https://github.com/mdtanker/invert4geom/commit/c5b18da86d199c198ea5523c6b7f6a40de47b61e))
-### 🚀 Features
+### Other
 * add termination reason to inversion progress bar ([`0274d7b`](https://github.com/mdtanker/invert4geom/commit/0274d7bc63ad24e1a83bbe10bdcee09496dd8fdc))
 * add region arg to plot_inversion_topo_results ([`694b778`](https://github.com/mdtanker/invert4geom/commit/694b77898816ae7901bb3a59f4dde51ced0c1467))
 * add DC-shift regional estimation method ([`2e91771`](https://github.com/mdtanker/invert4geom/commit/2e9177123a8018dcea16ddc3f2dd8be949b44e31))
@@ -428,30 +432,26 @@ BREAKING CHANGE: make sure to switch all mentions of `input_grav` to `grav_df` i
 * add inversion_region to plot convergence ([`52eebdd`](https://github.com/mdtanker/invert4geom/commit/52eebddfe3871c624814e720ecd0b7ea495a8b20))
 * add plot_title kwarg for plot_cv_scores ([`3cda4e0`](https://github.com/mdtanker/invert4geom/commit/3cda4e070671c10c17b3834279f3458a4c0dd283))
 * fix colorscales for inversion grav results ([`9218e68`](https://github.com/mdtanker/invert4geom/commit/9218e68ded9c1e22c4945d8e948462e957755ab8))
-### 🐛 Bug Fixes
+### Other
 * set optuna logging level to warning ([`0796fef`](https://github.com/mdtanker/invert4geom/commit/0796fef8340bc47d361e13d87dce794686283622))
 * make ipython optional import ([`ce88f1a`](https://github.com/mdtanker/invert4geom/commit/ce88f1a61d09124cd8df52287e6099323644f0a3))
 * allow wiggle room for enforcing confining surfaces ([`7e4e0b0`](https://github.com/mdtanker/invert4geom/commit/7e4e0b03cb0799fe5d810cc0cd7f1f37a98973ee))
 * add warning message to annulus derivative calculation ([`99a7ade`](https://github.com/mdtanker/invert4geom/commit/99a7ade218a24a2e595961c1d4b5206a52520fcf))
 * add noise to test regional eq sources ([`350baca`](https://github.com/mdtanker/invert4geom/commit/350baca5961beaa3dc95a6854e07e59bbd6196ac))
 * replace pygmt gridding with simple set_index for plotting ([`ebf6732`](https://github.com/mdtanker/invert4geom/commit/ebf6732dbb1da0a770e3b446486336fde56b6606))
-### ✏️ Formatting
-* pre-commit fixes ([`116a612`](https://github.com/mdtanker/invert4geom/commit/116a612b0ff613375715e320444f85906984483e))
-* pre-commit fixes ([`b110f23`](https://github.com/mdtanker/invert4geom/commit/b110f236277b60c6ed82035b5b58316885366997))
-* pre-commit fixes ([`9fe3777`](https://github.com/mdtanker/invert4geom/commit/9fe377749e1918b587e630343d9e3d1baf8472ea))
 
 ## v0.4.0 (2024-02-22)
 ### 💥 Breaking Changes
 * drop python 3.8 support
 
 BREAKING CHANGE: ([`77cc15d`](https://github.com/mdtanker/invert4geom/commit/77cc15df813bde60a638b517d6c4d41ead76a7e0))
-### 📦️ Build
+### Other
 * add support for Python 3.12 ([`b0b058a`](https://github.com/mdtanker/invert4geom/commit/b0b058a83cb54b1b2bc8a179842fd4dc02e55eb9))
 * add binder env ([`60f15b7`](https://github.com/mdtanker/invert4geom/commit/60f15b7c84339bcf754b681257fbbfe599a02cbe))
 * update pyproj specs ([`e70c4bc`](https://github.com/mdtanker/invert4geom/commit/e70c4bc1128575358603d711ca254ee041543ae2))
 * add/remove dev dependencies ([`ec831f3`](https://github.com/mdtanker/invert4geom/commit/ec831f34146c611510c864bd2009da4b4ea617c5))
 * add doc dependencies ([`d62d855`](https://github.com/mdtanker/invert4geom/commit/d62d8557e1c20e7a34c2d1df7204a08b9d5dc852))
-### 🧰 Chores / Maintenance
+### Other
 * fixing semantic release action ([`cfcfdf1`](https://github.com/mdtanker/invert4geom/commit/cfcfdf1fd2e440128afd1312172d755feac672b1))
 * trying to fix semantic-release action ([`75cadc3`](https://github.com/mdtanker/invert4geom/commit/75cadc332044e985bfcdc5dfbbbf3f02d7cff200))
 * manually update GH action and pre-commit versions ([`46d9357`](https://github.com/mdtanker/invert4geom/commit/46d9357dc3c35f04f7c7854b0dcdcfa933892e69))
@@ -480,6 +480,11 @@ BREAKING CHANGE: ([`77cc15d`](https://github.com/mdtanker/invert4geom/commit/77c
 * update RTD env and add make command ([`83d4199`](https://github.com/mdtanker/invert4geom/commit/83d419999f832efef1eb172656ecc81ffdcbaf8d))
 * change dependa-bot updates to monthly ([`3284324`](https://github.com/mdtanker/invert4geom/commit/3284324bd778579871c9cbaf36db5e47991e7d43))
 * update from antarctic-plots to polartoolkit ([`16bf313`](https://github.com/mdtanker/invert4geom/commit/16bf313d1b1b859750552e7b44bd2e2c031f1b92))
+### Other
+* pre-commit fixes ([`ed6fed9`](https://github.com/mdtanker/invert4geom/commit/ed6fed98b1e302546e31a6fffb0ecb420a13e164))
+* remove unused type ignore ([`6313e7b`](https://github.com/mdtanker/invert4geom/commit/6313e7b1bdb56cca8c5490aa0ab0c1235bf68796))
+* fix styling ([`15d96c7`](https://github.com/mdtanker/invert4geom/commit/15d96c7cc8299ea1536f77fa9ea0d92fc9353ed3))
+* formatting ([`ccb890c`](https://github.com/mdtanker/invert4geom/commit/ccb890c0154186fdd11e45ed1c2ee49c9ae4daac))
 ### 📖 Documentation
 * rerun all user guide notebooks ([`d8688f2`](https://github.com/mdtanker/invert4geom/commit/d8688f2251510037c8068eb04f6a896707317078))
 * fix incorrect reference styles ([`93b6cfc`](https://github.com/mdtanker/invert4geom/commit/93b6cfc7cc3dff1f79f2705eb0ebf873a8d4b3e9))
@@ -494,22 +499,19 @@ BREAKING CHANGE: ([`77cc15d`](https://github.com/mdtanker/invert4geom/commit/77c
 * move contributing guide ([`8d30cda`](https://github.com/mdtanker/invert4geom/commit/8d30cda624eeebd56d7297d60270d90587e83591))
 * enable nbgallery for user guide ([`2bcc0aa`](https://github.com/mdtanker/invert4geom/commit/2bcc0aaadbb0a3e915f453d04388570191d6fe76))
 * enable binder links ([`e134b4a`](https://github.com/mdtanker/invert4geom/commit/e134b4aa8c495ae7d77b3fbd1b46756fcd1cb583))
-### 🚀 Features
+### Other
 * add plotting options to show_prism_layers ([`8c1874e`](https://github.com/mdtanker/invert4geom/commit/8c1874e746a19a07f4cf5815316a88ddab6c034e))
-### 🐛 Bug Fixes
+### Other
 * resolve permission denied windows error in optuna test ([`1084b56`](https://github.com/mdtanker/invert4geom/commit/1084b569e13f8ac8cb5660be4dbd56e66af2e093))
-### ✏️ Formatting
-* pre-commit fixes ([`ed6fed9`](https://github.com/mdtanker/invert4geom/commit/ed6fed98b1e302546e31a6fffb0ecb420a13e164))
-* remove unused type ignore ([`6313e7b`](https://github.com/mdtanker/invert4geom/commit/6313e7b1bdb56cca8c5490aa0ab0c1235bf68796))
-* fix styling ([`15d96c7`](https://github.com/mdtanker/invert4geom/commit/15d96c7cc8299ea1536f77fa9ea0d92fc9353ed3))
-* formatting ([`ccb890c`](https://github.com/mdtanker/invert4geom/commit/ccb890c0154186fdd11e45ed1c2ee49c9ae4daac))
 
 ## v0.3.1 (2023-12-06)
-### 📦️ Build
+### Other
 * only install doc optional deps for nox ([`da69dcb`](https://github.com/mdtanker/invert4geom/commit/da69dcbc46c0e8895e380dc6b1696761789b4ad7))
-### 🧰 Chores / Maintenance
+### Other
 * adds license file to pyproject.toml ([`ed882d8`](https://github.com/mdtanker/invert4geom/commit/ed882d85b8bdf790126d5a638d14b4bcdd511716))
 * adds github issue templates amd comments ([`721b391`](https://github.com/mdtanker/invert4geom/commit/721b391d94f9adbdeb28aa65dbea5615231cc0ce))
+### Other
+* formatting ([`3ab7fb3`](https://github.com/mdtanker/invert4geom/commit/3ab7fb3bd9691816e4bc18d2205d46a37053d383))
 ### 📖 Documentation
 * remove optimization deps from RTD env ([`dad0330`](https://github.com/mdtanker/invert4geom/commit/dad033019a0d78421bdc94fe928e51500624d41d))
 * fix docstring for jacobian_annular ([`7b7be72`](https://github.com/mdtanker/invert4geom/commit/7b7be7286476795fbf882dcee74ba9ef98eef97d))
@@ -517,21 +519,19 @@ BREAKING CHANGE: ([`77cc15d`](https://github.com/mdtanker/invert4geom/commit/77c
 * add docs link to contributing file ([`9d7f830`](https://github.com/mdtanker/invert4geom/commit/9d7f830d92fc05f514766fc964c85eabe17f76dd))
 * fixes minor issues in docs ([`0bca578`](https://github.com/mdtanker/invert4geom/commit/0bca578550b1bf3d3cbefa25784692032d12aac6))
 * add cover figure ([`5c0d029`](https://github.com/mdtanker/invert4geom/commit/5c0d029d44c257c51856711b3823a011a6db6c25))
-### 🐛 Bug Fixes
+### Other
 * adds encoding to open calls ([`110ff36`](https://github.com/mdtanker/invert4geom/commit/110ff368f91cc1138a48922798f42982cd352b82))
-### ✏️ Formatting
-* formatting ([`3ab7fb3`](https://github.com/mdtanker/invert4geom/commit/3ab7fb3bd9691816e4bc18d2205d46a37053d383))
 
 ## v0.3.0 (2023-11-30)
-### 📦️ Build
+### Other
 * restrict xrft version
 
-Seems to be cause issues in conda-forge feedstock, harmonica requires &gt;= 1.0, match this ([`f9a17ff`](https://github.com/mdtanker/invert4geom/commit/f9a17ff8effbbd18261434619df1b9d514badc04))
+Seems to be cause issues in conda-forge feedstock, harmonica requires >= 1.0, match this ([`f9a17ff`](https://github.com/mdtanker/invert4geom/commit/f9a17ff8effbbd18261434619df1b9d514badc04))
 * combine optional dependencies into `all` ([`d5f038b`](https://github.com/mdtanker/invert4geom/commit/d5f038ba675c5ad2c95f26e1e589a9ab0b825489))
 * add optimization optional deps ([`871a870`](https://github.com/mdtanker/invert4geom/commit/871a870acba5db7adbc51297e3c8bed274990be4))
 * alter dependency versions ([`82695f5`](https://github.com/mdtanker/invert4geom/commit/82695f574fa0118af5a8874dcc53d811d99b1272))
 * add new dependencies ([`8d9982c`](https://github.com/mdtanker/invert4geom/commit/8d9982cd1b5d04804cd2c9f245c3d48aabafa896))
-### 🧰 Chores / Maintenance
+### Other
 * add Make changelog command ([`d433a9d`](https://github.com/mdtanker/invert4geom/commit/d433a9d9a4b881e7525ee44d9303a60312fae591))
 * numba-progress install from pip to conda ([`59099bf`](https://github.com/mdtanker/invert4geom/commit/59099bfa07dd082d77010c4d0e10fd78524f5527))
 * move changelog template location ([`2bdeccb`](https://github.com/mdtanker/invert4geom/commit/2bdeccbf43d3c4b6b494b38f4d4724d25207d729))
@@ -548,20 +548,20 @@ Seems to be cause issues in conda-forge feedstock, harmonica requires &gt;= 1.0,
 * add module descriptions to overview ([`ae7469d`](https://github.com/mdtanker/invert4geom/commit/ae7469d52dbaea67851e28c21ca3e033484a639f))
 * fix some docstrings ([`920e129`](https://github.com/mdtanker/invert4geom/commit/920e12997354b91b2d4659f75d834e47a73686c4))
 * add cross_validation to pre-commit ignore ([`b8e8e86`](https://github.com/mdtanker/invert4geom/commit/b8e8e86174442c1b16ed4b268097cc56b95c84ac))
-### 🚀 Features
+### Other
 * add test files for all modules ([`2c11f56`](https://github.com/mdtanker/invert4geom/commit/2c11f56fdc4e349f485295f3a616c7ef3a7b0e1e))
 * add regional module ([`2d52c19`](https://github.com/mdtanker/invert4geom/commit/2d52c1924d578140a47679d30a7f37b3dcc5fea5))
 * add optimization module ([`a398e12`](https://github.com/mdtanker/invert4geom/commit/a398e129a243014a0aa78ac92d7c8a9fdea24cbb))
 * add synthetic regional field function ([`aeb81b2`](https://github.com/mdtanker/invert4geom/commit/aeb81b2083d477a7bbd19b93dcad3c7006d91059))
 * add eq_sources_score function ([`6c132d8`](https://github.com/mdtanker/invert4geom/commit/6c132d8533fac4f30e4a537059ef2adca423283b))
 * add best_spline_cv function ([`3965dcb`](https://github.com/mdtanker/invert4geom/commit/3965dcbeb7ab333d8578b74cf3c686ad96908e86))
-### 🐛 Bug Fixes
+### Other
 * optional optuna Journal import ([`e0a159f`](https://github.com/mdtanker/invert4geom/commit/e0a159f6c175419fb42728ca61fba305ab66db84))
 * make optimization dep imports optional ([`e7ed8a1`](https://github.com/mdtanker/invert4geom/commit/e7ed8a16fdf052688d0fd1d1dd868a55abfb1744))
 * use lock_obj to fix file store for windows ([`f835c74`](https://github.com/mdtanker/invert4geom/commit/f835c74bfaeb47491f4a3f74be6b7428e2ef63a8))
 * replace psutil cpu affinity with new function
 
-used a function from a stack overlow answer which is able to get cpu core numbers for many operating systems since psutil doesn&#39;t seem to work for MacOS or Windows. ([`f3bf61e`](https://github.com/mdtanker/invert4geom/commit/f3bf61e6f497d6a70551b098f2b7e3e257fa39d4))
+used a function from a stack overlow answer which is able to get cpu core numbers for many operating systems since psutil doesn't seem to work for MacOS or Windows. ([`f3bf61e`](https://github.com/mdtanker/invert4geom/commit/f3bf61e6f497d6a70551b098f2b7e3e257fa39d4))
 * typos and formatting ([`9ce69c2`](https://github.com/mdtanker/invert4geom/commit/9ce69c21921ad0584f1fee6fc932ed24fd989864))
 ### Other
 *  ([`99bcfac`](https://github.com/mdtanker/invert4geom/commit/99bcfac948ca9e5a169d46b1af4d8daf55b7193d))
@@ -569,10 +569,12 @@ used a function from a stack overlow answer which is able to get cpu core number
 *  ([`cade158`](https://github.com/mdtanker/invert4geom/commit/cade1589062388546c6dd79b0471f04758d37111))
 
 ## v0.2.0 (2023-11-27)
-### 🧰 Chores / Maintenance
+### Other
 * add ignore option for codespell ([`bc4f597`](https://github.com/mdtanker/invert4geom/commit/bc4f5973b89f4b27885b2037b8d861732cf6240f))
 * add semantic-release changelog template ([`bc93159`](https://github.com/mdtanker/invert4geom/commit/bc93159f5cd3261d5049c9b1c12c228abec3ebd9))
 * add semantic release check to makefile ([`d3bb077`](https://github.com/mdtanker/invert4geom/commit/d3bb077c038394a8c66e21d9916cf38ab9c48c96))
+### Other
+* formatting ([`66b0a56`](https://github.com/mdtanker/invert4geom/commit/66b0a56aaba2b590e2594fd2bd31735823959128))
 ### 📖 Documentation
 * minor changes ([`c29c742`](https://github.com/mdtanker/invert4geom/commit/c29c74239237ed08013f6eaf1df2e90c874971c4))
 *  new user guide notebook
@@ -588,26 +590,24 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 * edit the user guide notebooks ([`aec1fe6`](https://github.com/mdtanker/invert4geom/commit/aec1fe67409dd2db0da602483bda98c3cc6e3df0))
 * add cross validation api docs ([`03c38d6`](https://github.com/mdtanker/invert4geom/commit/03c38d6fd89d8b1d3506cc865596dbaf75afb108))
 * remove tqdm mapping ([`088409e`](https://github.com/mdtanker/invert4geom/commit/088409e3ae897e213b6c51d4d59ba5c5a2300b8b))
-### 🚀 Features
+### Other
 * add 2 parameter cross validation plotting ([`2d1269e`](https://github.com/mdtanker/invert4geom/commit/2d1269ebacbe4149642c8cd3484b7ffa65554b83))
 * add contaminate function for synthetic noise ([`3a1cf8d`](https://github.com/mdtanker/invert4geom/commit/3a1cf8d1b081057d0f8e19e611bab30f807fb4a5))
-### 🐛 Bug Fixes
+### Other
 * add reference level to iteration plots ([`960eb44`](https://github.com/mdtanker/invert4geom/commit/960eb44cc5956b9795dbc9b18bcdd627eec7ea17))
-### ✏️ Formatting
-* formatting ([`66b0a56`](https://github.com/mdtanker/invert4geom/commit/66b0a56aaba2b590e2594fd2bd31735823959128))
 ### Other
 *  ([`86c611b`](https://github.com/mdtanker/invert4geom/commit/86c611b322de101c79fa8072718418c8a0b1a56f))
 
 ## v0.1.20 (2023-11-24)
-### 🐛 Bug Fixes
+### Other
 * forcing a new patch ([`9a73194`](https://github.com/mdtanker/invert4geom/commit/9a73194ea5b0e22e4422ed04f2c180c15de29867))
 ### Other
 *  ([`2546ee4`](https://github.com/mdtanker/invert4geom/commit/2546ee401201509409c932cf8111370142911599))
 
 ## v0.1.19 (2023-11-24)
-### 🧰 Chores / Maintenance
+### Other
 * remove scm version files ([`1f99c55`](https://github.com/mdtanker/invert4geom/commit/1f99c558617a85c050c56aaab0b6c799013f6fc8))
-### 🐛 Bug Fixes
+### Other
 * add zref and density args to inversion (#24)
 
 * fix: add zref and density args to inversion
@@ -623,62 +623,62 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 *  ([`fb5f7b2`](https://github.com/mdtanker/invert4geom/commit/fb5f7b277d0b99fc901ca07b75bae4a9853ff008))
 
 ## v0.1.18 (2023-11-23)
-### 🐛 Bug Fixes
+### Other
 * use PAT instead of GH tocken ([`f2cb0d1`](https://github.com/mdtanker/invert4geom/commit/f2cb0d16e23535d56a9378113639814f2140a640))
 
 ## v0.1.17 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * finally have release.yml fixed?! ([`6654e98`](https://github.com/mdtanker/invert4geom/commit/6654e98181e57a433f55870a0470dfa9ea56caf0))
 * fixing release.yml ([`2a381b3`](https://github.com/mdtanker/invert4geom/commit/2a381b33087fcb5d74550231fd2d57816c1bb105))
-### 🐛 Bug Fixes
+### Other
 * force version bump: ([`7c46909`](https://github.com/mdtanker/invert4geom/commit/7c469091dd542ce6ef5eee319f4005c1ca01d5d5))
 
 ## v0.1.16 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * fixing GH actions ([`1517933`](https://github.com/mdtanker/invert4geom/commit/1517933c19f1cfe8b2b156409bdee25aca0c683c))
-### 🐛 Bug Fixes
+### Other
 * force version bump: ([`f357da5`](https://github.com/mdtanker/invert4geom/commit/f357da57bab602c5d6ef2e7eb81ffe60d479265a))
 
 ## v0.1.15 (2023-11-23)
-### 🐛 Bug Fixes
+### Other
 * seperate push and release jobs ([`2f0284a`](https://github.com/mdtanker/invert4geom/commit/2f0284a1b25c831212c17ad32d45a5ba6a00217b))
 
 ## v0.1.14 (2023-11-23)
-### 🐛 Bug Fixes
+### Other
 * refine concurrency ([`a54541f`](https://github.com/mdtanker/invert4geom/commit/a54541f4b92b8fddccbb2ad4911ed2b6bc87dfae))
 
 ## v0.1.13 (2023-11-23)
-### 🐛 Bug Fixes
+### Other
 * remove permission from inside steps ([`42cadef`](https://github.com/mdtanker/invert4geom/commit/42cadef257b43a891566bc19fa4b4eb33a4eb3c8))
 * move environment outside of steps ([`9773658`](https://github.com/mdtanker/invert4geom/commit/9773658adc392c6a90f93bb36e5a6a261a7d4b21))
 * reconfigure cd.yml ([`5fa82ed`](https://github.com/mdtanker/invert4geom/commit/5fa82ed7285fbfbeb29431001b050f8fc64c322b))
 
 ## v0.1.12 (2023-11-23)
-### 🐛 Bug Fixes
+### Other
 * fixing cd.yml ([`ee7efde`](https://github.com/mdtanker/invert4geom/commit/ee7efdefad907bf9eab1904ef0a18a08be12df74))
 * fixing publish action ([`182d8a9`](https://github.com/mdtanker/invert4geom/commit/182d8a9e6481db4294f216f211d41c68091742a1))
 
 ## v0.1.11 (2023-11-23)
-### 🐛 Bug Fixes
+### Other
 * publish pypi only if tag ([`1186e3e`](https://github.com/mdtanker/invert4geom/commit/1186e3ee650dfcc705789dc3c2cbf603d0a5cd24))
 
 ## v0.1.10 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * fixing cd.yml ([`6fcf6d9`](https://github.com/mdtanker/invert4geom/commit/6fcf6d99e69cb6d34aa79396e2401e205b5e5bee))
 * fixing cd.yml ([`d63dd4c`](https://github.com/mdtanker/invert4geom/commit/d63dd4cf18ec743ee76c1f9cf8ff20082de351a2))
-### 🐛 Bug Fixes
+### Other
 * force a version increment ([`8dfd424`](https://github.com/mdtanker/invert4geom/commit/8dfd424ce38f8eb417582130ddf87ce910933f93))
 
 ## v0.1.9 (2023-11-23)
-### 🐛 Bug Fixes
+### Other
 * trying to fix PSR making github release ([`b777890`](https://github.com/mdtanker/invert4geom/commit/b77789046db794a21eaa09d97c8079f15f371199))
 
 ## v0.1.8 (2023-11-23)
-### 🐛 Bug Fixes
+### Other
 * replace hynek build with PSR build ([`f40cfe9`](https://github.com/mdtanker/invert4geom/commit/f40cfe9cce1fef2ee27d88c67862937b13b6bbc5))
 
 ## v0.1.7 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * create github release in cd.yml ([`7b717e7`](https://github.com/mdtanker/invert4geom/commit/7b717e7dfa1d82eb8d7bb3d98a4ab898f5f61461))
 * create github release in cd.yml ([`4212fdc`](https://github.com/mdtanker/invert4geom/commit/4212fdc2b5a9f510b49e34aa6849bc5d5ea96e5d))
 * create github release in cd.yml ([`1e78ab3`](https://github.com/mdtanker/invert4geom/commit/1e78ab3bf191e67a764b649e37ad86de4fd8ca86))
@@ -704,33 +704,33 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 * fix release.yml ([`283b0d6`](https://github.com/mdtanker/invert4geom/commit/283b0d6367cfde096b7322cd5d7655e505cc95ec))
 * fixing release.yml ([`498164d`](https://github.com/mdtanker/invert4geom/commit/498164d8fa889f7e03801b2bc7f58081195bd64d))
 * fixing release.yml ([`a30266f`](https://github.com/mdtanker/invert4geom/commit/a30266f0bdafbb8ab592f9a650bdc60e24836dbb))
-### 🐛 Bug Fixes
+### Other
 * fake fix commit to test semantic-release ([`ffcd3ed`](https://github.com/mdtanker/invert4geom/commit/ffcd3ed2b2efaf434731710d8c8d23f94c8f121a))
 ### Other
 *  ([`3be81dc`](https://github.com/mdtanker/invert4geom/commit/3be81dc32b700dcbc5600fb3c81a09c07064e809))
 *  ([`8ad6482`](https://github.com/mdtanker/invert4geom/commit/8ad648201fd41c395852716c8f938250c4839fb7))
 
 ## v0.1.6 (2023-11-22)
-### 🧰 Chores / Maintenance
+### Other
 * publish to pypi on all commits to main (#18) ([`5b0b9f3`](https://github.com/mdtanker/invert4geom/commit/5b0b9f3cac9453b7c5aeeb45ba0ac3be0d4fca6e))
-### 🐛 Bug Fixes
+### Other
 * add personal access token to github action (#20) ([`cc0f1ed`](https://github.com/mdtanker/invert4geom/commit/cc0f1ed4983103195b342c27cf85b1ea9245317e))
 * enable semantic release (#19) ([`b318687`](https://github.com/mdtanker/invert4geom/commit/b318687220afa97e19f7b50d969000de9e367a1b))
 
 ## v0.1.5 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * only publish to pypi on tags (#17) ([`ae9cbac`](https://github.com/mdtanker/invert4geom/commit/ae9cbaca2b0b7c81a13669ea58eb6b6dfcf0d1ad))
 
 ## v0.1.4 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * manually increment version to test GA (#16) ([`dc18fdb`](https://github.com/mdtanker/invert4geom/commit/dc18fdb0fb6dd7f2148392fc637e929d3c156bbb))
 
 ## v0.1.3 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * enable publish to pypi without testpypi (#15) ([`c0d2969`](https://github.com/mdtanker/invert4geom/commit/c0d29695c826ac99c06e7c41ca121a6a76c35f25))
 
 ## v0.1.2 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * fixing release github action (#14)
 
 manually increment version to test pypi release action is triggered ([`c9fc4c7`](https://github.com/mdtanker/invert4geom/commit/c9fc4c7e7f6cad6c0d9d948b806b51453adaeb33))
@@ -748,7 +748,7 @@ makes release.yml run on all pushes to main instead of just published pushes. ([
 *  ([`9afcbfd`](https://github.com/mdtanker/invert4geom/commit/9afcbfd2f55511e95fff478b304766363287614b))
 
 ## v0.1.1 (2023-11-23)
-### 🧰 Chores / Maintenance
+### Other
 * trying to fix release.yml issues (#8)
 
 * chore: trying to fix reseal.yml issues
@@ -757,7 +757,7 @@ makes release.yml run on all pushes to main instead of just published pushes. ([
 
 ---------
 
-Co-authored-by: pre-commit-ci[bot] &lt;66853113+pre-commit-ci[bot]@users.noreply.github.com&gt; ([`aa8760a`](https://github.com/mdtanker/invert4geom/commit/aa8760ab455060abd3998fc3ce154563080e7ec9))
+Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com> ([`aa8760a`](https://github.com/mdtanker/invert4geom/commit/aa8760ab455060abd3998fc3ce154563080e7ec9))
 * sets up python-semantic-release (#7)
 
 Changes dynamic version to a manually typed version 0.1.0, and tells python-semanitc-release where this version is specified. Removes setuptools_scm. Configures semanitic-release. ([`612b319`](https://github.com/mdtanker/invert4geom/commit/612b31914490201e99019537c3e9997b1bea74d2))
