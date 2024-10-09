@@ -4,8 +4,24 @@ Automatically updated by
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
 ## Unreleased
+### 📦️ Build
+* make xesmf optional dependency ([`8f3494c`](https://github.com/mdtanker/invert4geom/commit/8f3494c66d3cb3d0999c55b56fe148fcfcc81c62))
 ### 🧰 Chores / Maintenance
+* set ruff rule ([`7cdb2b0`](https://github.com/mdtanker/invert4geom/commit/7cdb2b0b6dffd3567f1277e94f1a88fd0b24562f))
+### 📖 Documentation
+* update and rerun doc notebooks ([`7285281`](https://github.com/mdtanker/invert4geom/commit/728528117ce62b3536fc20cbcaf76c23b5080406))
+### 🚀 Features
+* allow passing column name for weights in create_topography ([`1815139`](https://github.com/mdtanker/invert4geom/commit/18151399629e2b0fda306171577510250d38fee1))
+* add fname option to optimize functions ([`1bb69b6`](https://github.com/mdtanker/invert4geom/commit/1bb69b6044ed1c6149d7f3b083debf19d97d7040))
+### 🐛 Bug Fixes
+* minor changes ([`338306d`](https://github.com/mdtanker/invert4geom/commit/338306dd5d0f9b8349f5a93cc4585a0c65097eaa))
+* re-write long-wavelength contamination function, adding dependency xesmf ([`6e96870`](https://github.com/mdtanker/invert4geom/commit/6e968709a11cc28039d08695a83206f64a7c51fb))
+* add debug for eq source fitting ([`43e2855`](https://github.com/mdtanker/invert4geom/commit/43e28559184a38da218acf849bcbe02dae83a622))
+* if too few points, reduce K folds until it works for fitting Splines ([`5d40917`](https://github.com/mdtanker/invert4geom/commit/5d40917f3f0bc3e470f4c13a7ebdc1994275a490))
+* re-create starting topography for each fold of training constraint points in density/zref optimization ([`5da58fb`](https://github.com/mdtanker/invert4geom/commit/5da58fbcf8a091506636f19f7755853e506bfbf4))
+* bug for checking gravity inside topo region with density/zref cv ([`e96099a`](https://github.com/mdtanker/invert4geom/commit/e96099a3b18e44a34885e852cabef9054209ee47))
 ### ✏️ Formatting
+* pre-commit fixes ([`7802143`](https://github.com/mdtanker/invert4geom/commit/7802143f8bea1ee0101540b5ee88f21011b937ff))
 * pre-commit fixes ([`28687c5`](https://github.com/mdtanker/invert4geom/commit/28687c597d4c956ac4adabf691084061c13313e8))
 
 
