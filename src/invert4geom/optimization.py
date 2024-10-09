@@ -1649,7 +1649,6 @@ def optimize_inversion_zref_density_contrast(
             calculate_regional_misfit=True,
             zref=best_zref,
             density_contrast=best_density_contrast,
-            plot_convergence=True,
             fname=fname,
             **new_kwargs,
         )
@@ -1786,10 +1785,6 @@ def optimize_inversion_zref_density_contrast_kfolds(
     # get list of training and testing dataframes
     test_dfs, train_dfs = cross_validation.kfold_df_to_lists(testing_training_df)
     log.info("Constraints split into %s folds", len(test_dfs))
-
-    # for i in range(len(test_dfs)):
-    # log.info("points in fold %s train set:", len(train_dfs[i]))
-    # log.info("point in fold %s test set:", len(test_dfs[i]))
 
     regional_grav_kwargs = kwargs.pop("regional_grav_kwargs", None)
 
