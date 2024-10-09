@@ -171,7 +171,7 @@ def dummy_jacobian_square() -> NDArray:
 ################
 
 
-@pytest.mark.use_numba
+@pytest.mark.use_numba()
 def test_grav_column_der_relative_values():
     """
     test the grav_column_der function
@@ -275,7 +275,7 @@ def test_grav_column_der_relative_values():
     assert h < a
 
 
-@pytest.mark.use_numba
+@pytest.mark.use_numba()
 def test_grav_column_der():
     """
     test the grav_column_der function against a small prism approximation
@@ -306,7 +306,7 @@ def test_grav_column_der():
     assert dg_z == pytest.approx(hm_dg_z, rel=1e-2)
 
 
-@pytest.mark.use_numba
+@pytest.mark.use_numba()
 def test_jacobian_annular():
     """
     test the jacobian_annular function
@@ -359,7 +359,7 @@ def test_prism_properties_error():
         inversion._prism_properties(prisms_layer, method="wrong_input")
 
 
-@pytest.mark.use_numba
+@pytest.mark.use_numba()
 def test_jacobian_prism():
     """
     test the jacobian_prism function
@@ -385,7 +385,7 @@ def test_jacobian_prism():
     assert jac[:, 0:-3].min() > 0
 
 
-@pytest.mark.use_numba
+@pytest.mark.use_numba()
 def test_jacobian():
     """
     test the jacobian dispatcher function
@@ -470,7 +470,7 @@ solver_types = [
 ]
 
 
-@pytest.mark.use_numba
+@pytest.mark.use_numba()
 @pytest.mark.parametrize("solver_type", solver_types)
 def test_solver_square(solver_type):
     """
