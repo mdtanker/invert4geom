@@ -13,14 +13,14 @@ create:
 install:
 	pip install -e .[all]
 
-install_test:
-	pip install $(PROJECT)[all]
-
 remove:
 	mamba remove --name $(PROJECT) --all
 
+pip_install:
+	pip install $(PROJECT)[all]
+
 conda_install:
-	mamba create --name $(PROJECT) --yes --force --channel conda-forge $(PROJECT) pytest pytest-cov
+	mamba create --name $(PROJECT) --yes --force --channel conda-forge $(PROJECT) pytest pytest-cov ipykernel
 
 ####
 ####
