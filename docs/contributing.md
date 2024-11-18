@@ -1,4 +1,12 @@
 # How to contribute
+
+## TLDR (Too long; didn't read)
+* open a [GitHub Issue](https://github.com/mdtanker/invert4geom/issues/new/choose) describing what you want to do
+* [fork](https://docs.github.com/en/get-started/exploring-projects-on-github/contributing-to-a-project) the main branch and clone it locally
+* [create a branch](https://docs.github.com/en/get-started/using-github/github-flow#create-a-branch) for your edits
+* make your changes, and commit them using the [Angular Commits Convention](https://www.conventionalcommits.org/en/v1.0.0-beta.4/#summary)
+* [make a Pull Request](http://makeapullrequest.com/) for your branch
+
 🎉 Thanks for considering contributing to this package! 🎉
 
 <sub>Adapted from the great contribution guidelines of the [Fatiando a Terra](https://www.fatiando.org/) packages<sub>.
@@ -23,11 +31,13 @@ Also, checkout the [Zen of Scientific Software Maintenance](https://jrleeman.git
 * [Reporting a Bug](#reporting-a-bug)
 * [Editing the Documentation](#editing-the-documentation)
 * [Contributing Code](#contributing-code)
+  - [Setting up Make](#setting-up-make)
   - [Setting up your environment](#setting-up-your-environment)
   - [Code style and linting](#code-style-and-linting)
   - [Testing your code](#testing-your-code)
   - [Documentation](#documentation)
-  - [Code Review](#code-review)
+  - [Committing changes](#committing-changes)
+  - [Code review](#code-review)
 * [Publish a new release](#publish-a-new-release)
 * [Update the Dependencies](#update-the-dependencies)
 * [Set up Binder](#set-up-the-binder-configuration)
@@ -104,8 +114,7 @@ You can submit fixes to the documentation pages completely online without having
 * Click on that link to open the respective source file on GitHub for editing online (you'll need a GitHub account).
 * Make your desired changes.
 * When you're done, scroll to the bottom of the page.
-* Fill out the two fields under "Commit changes": the first is a short title describing your fixes, start this with "docs:"; the second is a more detailed description of the changes.
- Try to be as detailed as possible and describe *why* you changed something.
+* Fill out the two fields under "Commit changes": the first is a short title describing your fixes, start this with `docs: `, then your short title; the second is a more detailed description of the changes. Try to be as detailed as possible and describe *why* you changed something.
 * Click on the "Commit changes" button to open a pull request (see below).
 * We'll review your changes and then merge them in if everything is OK.
 * Done 🎉🍺
@@ -123,35 +132,74 @@ Please take a look at these resources to learn about git and pull requests (don'
 
 If you're new to working with git, GitHub, and the Unix Shell, we recommend starting with the [Software Carpentry](https://software-carpentry.org/) lessons, which are available in English and Spanish:
 
-* :gb: [Version Control with Git](http://swcarpentry.github.io/git-novice/) / :es: [Control de versiones con Git](https://swcarpentry.github.io/git-novice-es/)
-* :gb: [The Unix Shell](http://swcarpentry.github.io/shell-novice/) / :es: [La Terminal de Unix](https://swcarpentry.github.io/shell-novice-es/)
+* 🇬🇧 [Version Control with Git](http://swcarpentry.github.io/git-novice/) / 🇪🇸 [Control de versiones con Git](https://swcarpentry.github.io/git-novice-es/)
+* 🇬🇧 [The Unix Shell](http://swcarpentry.github.io/shell-novice/) / 🇪🇸 [La Terminal de Unix](https://swcarpentry.github.io/shell-novice-es/)
 
+### General guidelines
+
+We follow the [git pull request workflow](http://www.asmeurer.com/git-workflow/) to
+make changes to our codebase.
+Every change made to the codebase goes through a pull request so that our
+[continuous integration](https://en.wikipedia.org/wiki/Continuous_integration) services
+have a chance to check that the code is up to standards and passes all our tests.
+This way, the *main* branch is always stable.
+
+General guidelines for pull requests (PRs):
+
+* **Open an issue first** describing what you want to do. If there is already an issue
+  that matches your PR, leave a comment there instead to let us know what you plan to
+  do.
+* Each pull request should consist of a **small** and logical collection of changes.
+* Larger changes should be broken down into smaller components and integrated
+  separately.
+* Bug fixes should be submitted in separate PRs.
+* Describe what your PR changes and *why* this is a good thing. Be as specific as you
+  can. The PR description is how we keep track of the changes made to the project over
+  time.
+* Write descriptive commit messages. Chris Beams has written a
+  [guide](https://chris.beams.io/posts/git-commit/) on how to write good commit
+  messages.
+* Be willing to accept criticism and work on improving your code; we don't want to break
+  other users' code, so care must be taken not to introduce bugs.
+* Be aware that the pull request review process is not immediate, and is generally
+  proportional to the size of the pull request.
+
+### Setting up `make`
+
+Most of the commands used in the development of `PolarToolkit` use the tool `make`.
+The `make` commands are defined in the file [`Makefile`](https://github.com/mdtanker/polartoolkit/blob/main/Makefile), and are run in the terminal / command prompt with the format ```make <<command name>>```.
+
+If you don't want to use `make`, you can always open the `Makefile` and copy and past the command you need into the terminal.
+
+`make` is typically included in most unix systems, but can be installed explicitly with a package manager such as `Homebrew` for MacOS, or `RPM` or`DNF` for Linux, or `Chocalatey` for Windows.
+
+Run `make -version` to test that `make` is correctly installed.
 
 ### Setting up your environment
 
 To get the latest version clone the github repo:
 
 ```
-    git clone https://github.com/mdtanker/invert4geom.git
+git clone https://github.com/mdtanker/invert4geom.git
 ```
 Change into the directory:
 
 ```
-    cd invert4geom
+cd invert4geom
 ```
 
-Run the following command to make a new environment and install the package dependencies:
+Run the following `make` command to create a new environment and install the package dependencies:
 
 ```
-    make create
+make create
 ```
 Activate the environment:
 ```
-    conda activate invert4geom
+conda activate invert4geom
 ```
 Install your local version:
 ```
-    make install
+make install
 ```
 This environment now contains your local, editable version of Invert4Geom, meaning if you alter code in the package, it will automatically include those changes in your environment (you may need to restart your kernel if using Jupyter).
 If you need to update the dependencies, see the [update the dependencies](#update-the-dependencies) section below.
@@ -160,35 +208,22 @@ If you need to update the dependencies, see the [update the dependencies](#updat
 
 ### Code style and linting
 
-We use [Ruff](https://docs.astral.sh/ruff/) to format the code so we don't have to think about it.
-This allows you to not think about proper indentation, line length, or aligning your code while to development.
-Before committing, or periodically while you code, run the following to automatically format your code:
+We use [pre-commit](https://pre-commit.com/) to check code style. This can be used locally, by installing pre-commit, or can be used as a pre-commit hook, where it is automatically run by git for each commit to the repository. This pre-commit hook wont add or commit any changes, but will just inform your of what should be changed. Pre-commit is setup within the `.pre-commit-config.yaml` file. There are lots of hooks (processes) which run for each pre-commit call, including [Ruff](https://docs.astral.sh/ruff/) to format and lint the code. This allows you to not think about proper indentation, line length, or aligning your code during development. Before committing, or periodically while you code, run the following to automatically format your code:
 ```
-    make format
+make check
 ```
-Some formatting changes can't be applied automatically. Running the following to see these.
-```
-    make check
-```
-Go through the output of this and try to change the code based on the errors.
-Search the error codes on the [Ruff documentation](https://docs.astral.sh/ruff/), which should give suggestions.
-Re-run the check to see if you've fixed it.
-Somethings can't be resolved (unsplittable urls longer than the line length).
-For these, add `# noqa: []` at the end of the line and the check will ignore it.
-Inside the square brackets add the specific error code you want to ignore.
 
-We also use [Pylint](https://pylint.readthedocs.io/en/latest/), which performs static-linting on the code.
-This checks the code and catches many common bugs and errors, without running any of the code.
-This check is slightly slower the the `Ruff` check. Run it with the following:
-```
-    make pylint
-```
-Similar to using `Ruff`, go through the output of this, search the error codes on the [Pylint documentation](https://pylint.readthedocs.io/en/latest/) for help, and try and fix all the errors and warnings.
-If there are false-positives, or your confident you don't agree with the warning, add ` # pylint: disable=` at the end of the lines, with the warning code following the `=`.
+Go through the output of this and try to change the code based on the errors. Search the error codes on the [Ruff documentation](https://docs.astral.sh/ruff/), which should give suggestions. Re-run the check to see if you've fixed it. Somethings can't be resolved (unsplittable urls longer than the line length). For these, add `# noqa: []` at the end of the line and the check will ignore it. Inside the square brackets add the specific error code you want to ignore.
 
-To run all three of the code checks, use:
+We also use [Pylint](https://pylint.readthedocs.io/en/latest/), which performs static-linting on the code. This checks the code and catches many common bugs and errors, without running any of the code. This check is slightly slower the the `Ruff` check. Run it with the following:
 ```
-    make style
+make pylint
+```
+Similar to using `Ruff`, go through the output of this, search the error codes on the [Pylint documentation](https://pylint.readthedocs.io/en/latest/) for help, and try and fix all the errors and warnings. If there are false-positives, or your confident you don't agree with the warning, add ` # pylint: disable=` at the end of the lines, with the warning code following the `=`.
+
+To run both pre-commit and pylint together use:
+```
+make style
 ```
 
 ### Docstrings
@@ -269,6 +304,42 @@ nox -s docs
 Add, commit, and push all changes to GitHub in a Pull Request, and `RTD` should automatically build the docs.
 In each PR, you will see section of the checks for `RTD`. Click on this to preview the docs for the PR.
 `RTD` uses the conda environment specified in `env/RTD_env.yml` when it's building.
+
+### Committing changes
+
+Once your have made your changes locally, you'll need to make a branch, commit the changes, and create a PR. We use the [Angular Commits Convention](https://www.conventionalcommits.org/en/v1.0.0-beta.4/#summary) for commit messages. This allows automatic creation of the Changelogs, and automatic determination of what the next version will be. All commits should follow the below structure:
+```
+<type>: <description>
+
+[optional body]
+```
+
+Where `type` is one of the following:
+   * `docs` --> a change to the documents
+   * `style`--> simple fixes to the styling of the code
+   * `feat` --> any new features
+   * `fix` --> bug fixes
+   * `build` --> changes to the package build process, i.e. dependencies, changelogs etc.
+   * `chore` --> maintenance changes, like GitHub Action workflows
+   * `refactor` --> refactoring of the code without user-seen changes
+
+The `optional body` can include any detailed description, and can optionally start with `BREAKING CHANGE: `.
+
+Based on the commit message, one of four things will happen when;
+1) no new version will be released
+2) a `PATCH` version will be released (`v1.1.0 -> v1.1.1`)
+3) a `MINOR` version will be released (`v1.1.0 -> v1.2.0`)
+4) a `MAJOR` version will be released (`v1.1.0 -> v2.0.0`)
+
+This follows [Semantic Versioning](https://semver.org/#summary) where given a version number `MAJOR.MINOR.PATCH`, the software should increment the:
+1) `MAJOR` version when you make incompatible API changes
+2) `MINOR` version when you add functionality in a backward compatible manner
+3) `PATCH` version when you make backward compatible bug fixes
+
+The following will occur based on your commit message:
+* `BREAKING CHANGE: ` will always result in a `MAJOR` release
+* `feat` will always result in a `MINOR` release
+* `fix` will always result in a `PATCH` release
 
 ### Code Review
 
