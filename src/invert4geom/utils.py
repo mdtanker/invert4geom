@@ -873,7 +873,7 @@ def create_topography(
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
-    weights : str | None, optional
+    weights_col : str | None, optional
         instead of passing the weights, pass the name of the column containing the
         weights, by default None
 
@@ -1133,6 +1133,7 @@ def best_spline_cv(
             )
     except AttributeError:
         pass
+
     return spline
 
 

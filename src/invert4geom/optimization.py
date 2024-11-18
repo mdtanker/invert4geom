@@ -854,7 +854,6 @@ class OptimalInversionZrefDensity:
         self.density_contrast = density_contrast
         self.starting_topography = starting_topography
         self.starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
-
         self.progressbar = progressbar
         self.kwargs = kwargs
 
@@ -954,6 +953,23 @@ class OptimalInversionZrefDensity:
             ):
                 assert isinstance(reg_kwargs.get("constraints_df"), pd.DataFrame)
                 log.warning(constraints_warning)
+            # create starting topography model if not provided
+            if self.starting_topography is None:
+                msg = (
+                    "starting_topography not provided, creating a starting topography "
+                    "model with the supplied starting_topography_kwargs"
+                )
+                log.info(msg)
+                if starting_topography_kwargs is None:
+                    msg = (
+                        "must provide `starting_topography_kwargs` to be passed to the "
+                        "function `utils.create_topography`."
+                    )
+                    raise ValueError(msg)
+                if starting_topography_kwargs["method"] == "flat":
+                    msg = "using zref to create a flat starting topography model"
+                    log.info(msg)
+                    starting_topography_kwargs["upwards"] = zref
 
             # create starting topography model if not provided
             if self.starting_topography is None:
@@ -1653,7 +1669,6 @@ def optimize_inversion_zref_density_contrast(
             calculate_regional_misfit=True,
             zref=best_zref,
             density_contrast=best_density_contrast,
-            plot_convergence=True,
             fname=fname,
             **new_kwargs,
         )
@@ -1791,10 +1806,6 @@ def optimize_inversion_zref_density_contrast_kfolds(
     test_dfs, train_dfs = cross_validation.kfold_df_to_lists(testing_training_df)
     log.info("Constraints split into %s folds", len(test_dfs))
 
-    # for i in range(len(test_dfs)):
-    # log.info("points in fold %s train set:", len(train_dfs[i]))
-    # log.info("point in fold %s test set:", len(test_dfs[i]))
-
     regional_grav_kwargs = kwargs.pop("regional_grav_kwargs", None)
 
     starting_topography_kwargs = kwargs.pop("starting_topography_kwargs", None)
@@ -1861,7 +1872,7 @@ class OptimalEqSourceParams:
         depth = kwargs.pop("depth", "default")
         # calculate 4.5 times the mean distance between points
         if depth == "default":
-            depth = np.mean(
+            depth = 4.5 * np.mean(
                 vd.median_distance(
                     (kwargs.get("coordinates")[0], kwargs.get("coordinates")[1]),  # type: ignore[unused-ignore, index]
                     k_nearest=1,
@@ -2070,7 +2081,7 @@ def optimize_eq_source_params(
             log.warning(msg)
             best_depth = "default"
     if best_depth == "default":
-        best_depth = np.mean(
+        best_depth = 4.5 * np.mean(
             vd.median_distance((coordinates[0], coordinates[1]), k_nearest=1)
         )
     if best_block_size is None:
@@ -2469,7 +2480,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                 eq_depth = self.kwargs.get("depth", "default")
                 if eq_depth == "default":
                     # calculate 4.5 times the mean distance between points
-                    eq_depth = np.mean(
+                    eq_depth = 4.5 * np.mean(
                         vd.median_distance(
                             (self.training_df.easting, self.training_df.northing),
                             k_nearest=1,
@@ -2522,7 +2533,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                         eq_depth = self.kwargs.get("depth", "default")
                         if eq_depth == "default":
                             # calculate 4.5 times the mean distance between points
-                            eq_depth = np.mean(
+                            eq_depth = 4.5 * np.mean(
                                 vd.median_distance(
                                     (
                                         self.training_df[i].easting,
@@ -3052,7 +3063,7 @@ def optimize_regional_eq_sources(
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     if depth == "default":
         # calculate 4.5 times the mean distance between points
-        depth = np.mean(
+        depth = 4.5 * np.mean(
             vd.median_distance((grav_df.easting, grav_df.northing), k_nearest=1)
         )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
@@ -3358,7 +3369,7 @@ def optimize_regional_constraint_point_minimization(
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     if depth == "default":
         # calculate 4.5 times the mean distance between points
-        depth = np.mean(
+        depth = 4.5 * np.mean(
             vd.median_distance(
                 (constraints_df.easting, constraints_df.northing), k_nearest=1
             )

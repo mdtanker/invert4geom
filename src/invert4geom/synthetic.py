@@ -9,12 +9,16 @@ import pandas as pd
 import pooch
 import verde as vd
 import xarray as xr
-import xesmf
 from numpy.typing import NDArray
 from polartoolkit import fetch, maps
 from polartoolkit import utils as polar_utils
 
 from invert4geom import cross_validation, log, utils
+
+try:
+    import xesmf
+except ImportError:
+    xesmf = None
 
 
 def load_synthetic_model(
@@ -283,6 +287,12 @@ def contaminate_with_long_wavelength_noise(
     xarray.DataArray
         Contaminated grid
     """
+    if xesmf is None:
+        msg = (
+            "To use the `contaminate_with_long_wavelength_noise` function, you must "
+            "have the `xesmf` package installed."
+        )
+        raise ImportError(msg)
 
     grid = copy.deepcopy(grid)
 
@@ -310,6 +320,7 @@ def contaminate_with_long_wavelength_noise(
         data=None,
         data_names=None,
     ).rename({"northing": "lat", "easting": "lon"})
+
     low_res_grid = xesmf.Regridder(
         grid.rename({"northing": "lat", "easting": "lon"}),
         low_res_grid,

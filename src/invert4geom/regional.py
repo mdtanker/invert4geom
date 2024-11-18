@@ -433,7 +433,6 @@ def regional_constraints(
         no_skip=True,
         verbose="q",
     )
-    log.debug("sampled constraints: %s", constraints_df.describe())
 
     # drop rows with NaN values
     constraints_df = constraints_df[constraints_df.sampled_grav.notna()]
@@ -539,8 +538,9 @@ def regional_constraints(
             constraints_df.northing,
             constraints_df.sampled_grav_height,
         )
+
         if depth == "default":
-            depth = np.mean(
+            depth = 4.5 * np.mean(
                 vd.median_distance(
                     (coords[0], coords[1]),
                     k_nearest=1,
@@ -573,6 +573,8 @@ def regional_constraints(
                 constraints_df.sampled_grav,
                 weights=weights,
             )
+        msg = "depth: %s, damping: %s"
+        log.debug(msg, eqs.depth, eqs.damping)
 
         # predict sources at gravity points and chosen height for upward continuation
         grav_df["reg"] = eqs.predict(
@@ -638,7 +640,6 @@ def regional_constraints_cv(
         df,
         **split_kwargs,
     )
-    log.debug("cv constraints split: %s", testing_training_df.describe())
 
     _, grav_df, _ = optimization.optimize_regional_constraint_point_minimization(
         testing_training_df=testing_training_df,

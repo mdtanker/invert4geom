@@ -26,7 +26,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 readme = "README.md"
-version = "0.9.0"
+version = "0.10.0"
 license = {file = "LICENSE"}
 
 keywords = ["inversion", "gravity", "geometry", "density", "Moho", "sediment", "geophysics", "geology", "geoscience"]
@@ -53,7 +53,6 @@ dependencies = [
   "deprecation",
   "pooch",
   "scikit-learn",
-  "xesmf",
 ###
 # optimization
 ###
@@ -79,6 +78,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+synth = [
+  "xesmf",
+]
 test = [
   "pytest >=6",
   "pytest-cov >=3",
@@ -97,7 +99,7 @@ docs = [
   "sphinxcontrib-bibtex",
 ]
 dev = [
-  "invert4geom[test,docs]",
+  "invert4geom[test,docs,synth]",
   "nox",
   "pre-commit",
   "pylint>=3.2",
@@ -107,7 +109,7 @@ dev = [
   "mypy",
 ]
 all = [
-  "invert4geom[test,dev,docs]",
+  "invert4geom[test,dev,docs,synth]",
 ]
 
 [project.urls]

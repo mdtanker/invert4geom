@@ -1104,7 +1104,7 @@ def show_prism_layers(
         notebook=True,
     )
 
-    opacity = kwargs.get("opacity", None)
+    opacity = kwargs.get("opacity")
 
     if isinstance(prisms, xr.Dataset):
         prisms = [prisms]
@@ -1126,7 +1126,7 @@ def show_prism_layers(
                 style=kwargs.get("style", "surface"),
                 show_edges=kwargs.get("show_edges", False),
                 opacity=trans,
-                scalar_bar_args=kwargs.get("scalar_bar_args", None),
+                scalar_bar_args=kwargs.get("scalar_bar_args"),
             )
         else:
             plotter.add_mesh(
@@ -1139,7 +1139,7 @@ def show_prism_layers(
                 show_edges=kwargs.get("show_edges", False),
                 log_scale=kwargs.get("log_scale", True),
                 opacity=trans,
-                scalar_bar_args=kwargs.get("scalar_bar_args", None),
+                scalar_bar_args=kwargs.get("scalar_bar_args"),
             )
         plotter.set_scale(
             zscale=kwargs.get("zscale", 75)
@@ -1336,7 +1336,7 @@ def plot_stochastic_results(
     unit = kwargs.get("unit", "m")
     reverse_cpt = kwargs.get("reverse_cpt", True)
     label = kwargs.get("label", "ensemble mean")
-    points_label = kwargs.get("points_label", None)
+    points_label = kwargs.get("points_label")
     fig_height = kwargs.get("fig_height", 12)
 
     try:

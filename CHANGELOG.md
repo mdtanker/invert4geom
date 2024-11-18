@@ -4,11 +4,44 @@ Automatically updated by
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
 ## Unreleased
+### 🧰 Chores / Maintenance
+* bump binder env to v.0.10 ([`0604561`](https://github.com/mdtanker/invert4geom/commit/060456170989616a09aa5824815194ee60061804))
+* update release checklist and make commands ([`8943bd0`](https://github.com/mdtanker/invert4geom/commit/8943bd04fbd076b48d379ab325e1e7969c740bf5))
+### 📖 Documentation
+* update some docs notebooks ([`6fe1488`](https://github.com/mdtanker/invert4geom/commit/6fe1488d7cda52615d7890cf11c4811b637d17fd))
+
+
+## v0.10.0 (2024-10-09)
+### 📦️ Build
+* make xesmf optional dependency ([`8f3494c`](https://github.com/mdtanker/invert4geom/commit/8f3494c66d3cb3d0999c55b56fe148fcfcc81c62))
+### 🧰 Chores / Maintenance
+* set ruff rule ([`7cdb2b0`](https://github.com/mdtanker/invert4geom/commit/7cdb2b0b6dffd3567f1277e94f1a88fd0b24562f))
+### 📖 Documentation
+* update and rerun doc notebooks ([`7285281`](https://github.com/mdtanker/invert4geom/commit/728528117ce62b3536fc20cbcaf76c23b5080406))
+### 🚀 Features
+* allow passing column name for weights in create_topography ([`1815139`](https://github.com/mdtanker/invert4geom/commit/18151399629e2b0fda306171577510250d38fee1))
+* add fname option to optimize functions ([`1bb69b6`](https://github.com/mdtanker/invert4geom/commit/1bb69b6044ed1c6149d7f3b083debf19d97d7040))
+### 🐛 Bug Fixes
+* minor changes ([`338306d`](https://github.com/mdtanker/invert4geom/commit/338306dd5d0f9b8349f5a93cc4585a0c65097eaa))
+* re-write long-wavelength contamination function, adding dependency xesmf ([`6e96870`](https://github.com/mdtanker/invert4geom/commit/6e968709a11cc28039d08695a83206f64a7c51fb))
+* add debug for eq source fitting ([`43e2855`](https://github.com/mdtanker/invert4geom/commit/43e28559184a38da218acf849bcbe02dae83a622))
+* if too few points, reduce K folds until it works for fitting Splines ([`5d40917`](https://github.com/mdtanker/invert4geom/commit/5d40917f3f0bc3e470f4c13a7ebdc1994275a490))
+* re-create starting topography for each fold of training constraint points in density/zref optimization ([`5da58fb`](https://github.com/mdtanker/invert4geom/commit/5da58fbcf8a091506636f19f7755853e506bfbf4))
+* bug for checking gravity inside topo region with density/zref cv ([`e96099a`](https://github.com/mdtanker/invert4geom/commit/e96099a3b18e44a34885e852cabef9054209ee47))
+### ✏️ Formatting
+* pre-commit fixes ([`7802143`](https://github.com/mdtanker/invert4geom/commit/7802143f8bea1ee0101540b5ee88f21011b937ff))
+* pre-commit fixes ([`28687c5`](https://github.com/mdtanker/invert4geom/commit/28687c597d4c956ac4adabf691084061c13313e8))
+
+## v0.9.1 (2024-10-03)
 ### 📦️ Build
 * add pooch and scikit-learn as dependencies ([`8bebf45`](https://github.com/mdtanker/invert4geom/commit/8bebf4545ad816fddc25d59d91dcc578019c86ca))
 ### 🧰 Chores / Maintenance
 * update binder env to `v0.9` ([`0307bd9`](https://github.com/mdtanker/invert4geom/commit/0307bd9f38c5f20d83eeab8e73c9e5dd0b1f5f4e))
-
+### 📖 Documentation
+* update and rerun docs ([`1d39529`](https://github.com/mdtanker/invert4geom/commit/1d39529ee0b9bbf11eea7e32a87e2a710b1fa887))
+### 🐛 Bug Fixes
+* fixes error of using 1x not 4.5x default depth for eq sources ([`5746851`](https://github.com/mdtanker/invert4geom/commit/57468519286d34691f06855e9d278f8ee2a598d0))
+* enable `default` eq source depth for regional constraints ([`d9301a3`](https://github.com/mdtanker/invert4geom/commit/d9301a3394e4a54b171a245d8bd0af7821c11c98))
 
 ## v0.9.0 (2024-08-10)
 ### 📦️ Build

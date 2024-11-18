@@ -399,7 +399,6 @@ Now, when submitting a PR, `RTD` will automatically build the docs and update th
 
 ## Release Checklist
 * re-run any relevant notebooks
-* add any new dependencies to the binder env
 * check docs are building correctly using the GitHub actions link within the PR
 * merge the PR
 * wait for `PyPI` to publish the new version [here](https://pypi.python.org/pypi/invert4geom)
@@ -407,5 +406,14 @@ Now, when submitting a PR, `RTD` will automatically build the docs and update th
 * update any changed dependencies in the feedstock PR and merge
 * wait for `conda` to publish the new version [here](https://anaconda.org/conda-forge/invert4geom)
 * update invert4geom version in `binder/environment.yml`.
-* test `PyPI` version with `make install_test` and `make test`
-* test `conda` version with `make conda_install` and `make test`
+* test `PyPI` version with:
+    - `make remove`
+    - `make create`
+    - `mamba activate invert4geom`
+    - `make pip_install`
+    - `make test`
+* test `conda` version with:
+    - `make remove`
+    - `make conda_install`
+    - `mamba activate invert4geom`
+    - `make test`

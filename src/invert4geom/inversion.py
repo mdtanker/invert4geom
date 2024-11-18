@@ -1101,7 +1101,7 @@ def run_inversion(
     return results
 
 
-def run_inversion_workflow(  # equivalent to monte_carlo_full_workflow
+def run_inversion_workflow(
     grav_df: pd.DataFrame,
     create_starting_topography: bool = False,
     create_starting_prisms: bool = False,
