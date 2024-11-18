@@ -101,7 +101,6 @@ docs = [
 ]
 dev = [
   "invert4geom[test,docs, synth]",
-  "ruff",
   "nox",
   "pre-commit",
   "pylint>=3.2",
