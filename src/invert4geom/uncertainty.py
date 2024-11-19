@@ -504,6 +504,7 @@ def regional_misfit_uncertainty(
     runs: int,
     sample_gravity: bool = False,
     parameter_dict: dict[str, typing.Any] | None = None,
+    region: tuple[float, float, float, float] | None = None,
     plot: bool = True,
     plot_region: tuple[float, float, float, float] | None = None,
     true_regional: xr.DataArray | None = None,
@@ -526,6 +527,8 @@ def regional_misfit_uncertainty(
     parameter_dict : dict[str, typing.Any] | None, optional
         dictionary of parameters passes to `regional_separation` with the uncertainty
         distributions defined, by default None
+    region: tuple[float, float, float, float] | None = None,
+        region to calculate statistics within, by default None
     plot : bool, optional
         show the results, by default True
     plot_region : tuple[float, float, float, float] | None, optional
@@ -604,6 +607,7 @@ def regional_misfit_uncertainty(
     stats_ds = model_ensemble_stats(
         merged,
         weights=weights,
+        region=region,
     )
 
     if plot is True:
