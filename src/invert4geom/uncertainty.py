@@ -22,6 +22,7 @@ def create_lhc(
     n_samples: int,
     parameter_dict: dict[str, dict[str, typing.Any]],
     random_state: int = 1,
+    criterion: str = "centered",
 ) -> dict[str, dict[str, typing.Any]]:
     """
     Given some parameter values and their expected distributions, create a Latin
@@ -42,7 +43,10 @@ def create_lhc(
         log=True would sample values between 1e-4 and 1e2.
     random_state : int, optional
         random state to use for sampling, by default 1
-
+    criterion : str, optional
+        criterion to use for sampling, by default "centered", options are "centered",
+        "random", "maximin", or "mincorrelation", which each relate to a criterion from
+        the Python package UQPy.
     Returns
     -------
     dict[dict[typing.Any]]
@@ -62,10 +66,24 @@ def create_lhc(
             msg = "Unknown distribution type: %s"
             raise ValueError(msg, v["distribution"])
 
+    if criterion == "centered":
+        criterion = sampling.stratified_sampling.latin_hypercube_criteria.Centered()
+    elif criterion == "random":
+        criterion = sampling.stratified_sampling.latin_hypercube_criteria.Random()
+    elif criterion == "maximin":
+        criterion = sampling.stratified_sampling.latin_hypercube_criteria.MaxiMin()
+    elif criterion == "mincorrelation":
+        criterion = (
+            sampling.stratified_sampling.latin_hypercube_criteria.MinCorrelation()
+        )
+    else:
+        msg = "Unknown criterion type: %s"
+        raise ValueError(msg, criterion)
+
     # make latin hyper cube
     lhc = sampling.LatinHypercubeSampling(
         distributions=[v for k, v in dists.items()],
-        criterion=sampling.stratified_sampling.latin_hypercube_criteria.Centered(),
+        criterion=criterion,
         random_state=np.random.RandomState(random_state),  # pylint: disable=no-member
         nsamples=n_samples,
     )
@@ -178,6 +196,7 @@ def starting_topography_uncertainty(
             n_samples=runs,
             parameter_dict=parameter_dict,
             random_state=0,
+            criterion="centered",
         )
     else:
         sampled_param_dict = None
@@ -334,6 +353,7 @@ def regional_misfit_uncertainty(
             n_samples=runs,
             parameter_dict=parameter_dict,
             random_state=0,
+            criterion="centered",
         )
     else:
         sampled_param_dict = None
@@ -563,6 +583,7 @@ def full_workflow_uncertainty_loop(
             n_samples=runs,
             parameter_dict=parameter_dict,
             random_state=0,
+            criterion="centered",
         )
     else:
         sampled_param_dict = None
@@ -572,6 +593,7 @@ def full_workflow_uncertainty_loop(
             n_samples=runs,
             parameter_dict=starting_topography_parameter_dict,
             random_state=0,
+            criterion="centered",
         )
     else:
         sampled_starting_topography_parameter_dict = None
@@ -581,6 +603,7 @@ def full_workflow_uncertainty_loop(
             n_samples=runs,
             parameter_dict=regional_misfit_parameter_dict,
             random_state=0,
+            criterion="centered",
         )
     else:
         sampled_regional_misfit_parameter_dict = None
