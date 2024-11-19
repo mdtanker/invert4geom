@@ -209,7 +209,7 @@ def plot_cv_scores(
     figsize: tuple[float, float] = (5, 3.5),
     plot_title: str | None = None,
     fname: str | None = None,
-) -> None:
+) -> typing.Any:
     """
     plot a graph of cross-validation scores vs hyperparameter values
 
@@ -229,6 +229,10 @@ def plot_cv_scores(
         title of figure, by default None
     fname : str | None, optional
         filename to save figure, by default None
+
+    Returns
+    -------
+    a matplotlib figure instance
     """
 
     sns.set_theme()
@@ -238,13 +242,13 @@ def plot_cv_scores(
 
     best = df.scores.argmin()
 
-    plt.figure(figsize=figsize)
+    fig, ax = plt.subplots(figsize=figsize)
     if plot_title is not None:
-        plt.title(plot_title)
+        ax.set_title(plot_title)
     else:
-        plt.title(f"{param_name} Cross-validation")
-    plt.plot(df.parameters, df.scores, marker="o")
-    plt.plot(
+        ax.set_title(f"{param_name} Cross-validation")
+    ax.plot(df.parameters, df.scores, marker="o")
+    ax.plot(
         df.parameters.iloc[best],
         df.scores.iloc[best],
         "s",
@@ -252,18 +256,20 @@ def plot_cv_scores(
         color=sns.color_palette()[3],
         label="Minimum",
     )
-    plt.legend(loc="best")
+    ax.legend(loc="best")
     if logx:
-        plt.xscale("log")
+        ax.set_xscale("log")
     if logy:
-        plt.yscale("log")
-    plt.xlabel(f"{param_name} value")
-    plt.ylabel("Root Mean Square Error")
+        ax.set_yscale("log")
+    ax.set_xlabel(f"{param_name} value")
+    ax.set_ylabel("Root Mean Square Error")
 
     plt.tight_layout()
 
     if fname is not None:
         plt.savefig(fname)
+
+    return fig
 
 
 def plot_convergence(
