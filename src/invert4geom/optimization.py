@@ -546,13 +546,16 @@ def _warn_limits_better_than_trial_multi_params(
     # if study direction is maximize
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
-        if trial.values[0] < min(scores):
-            log.info(
-                msg,
-                trial.number,
-                trial.params,
-                trial.values[0],
-            )
+        try:
+            if trial.values[0] < min(scores):
+                log.info(
+                    msg,
+                    trial.number,
+                    trial.params,
+                    trial.values[0],
+                )
+        except TypeError:
+            pass
         else:
             pass
 
