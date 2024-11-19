@@ -1095,32 +1095,37 @@ def eq_sources_score(
         score = np.nan
         n_splits = 5
         while np.isnan(score):
-            score = np.mean(
-                vd.cross_val_score(
-                    eqs,
-                    coordinates,
-                    data,
-                    delayed=delayed,
-                    weights=weights,
-                    cv=sklearn.model_selection.KFold(
-                        n_splits=n_splits,
-                        shuffle=True,
-                        random_state=0,
-                    ),
+            try:
+                score = np.mean(
+                    vd.cross_val_score(
+                        eqs,
+                        coordinates,
+                        data,
+                        delayed=delayed,
+                        weights=weights,
+                        cv=sklearn.model_selection.KFold(
+                            n_splits=n_splits,
+                            shuffle=True,
+                            random_state=0,
+                        ),
+                    )
                 )
-            )
+            except ValueError:
+                score = np.nan
             if (n_splits == 5) and (np.isnan(score)):
                 msg = (
-                    "eq sources score is NaN, reduce n_splits (5) by 1 until "
+                    "eq sources score is NaN, reducing n_splits (5) by 1 until "
                     "scoring metric is defined"
                 )
                 log.warning(msg)
 
             n_splits -= 1
+            if n_splits == 0:
+                break
 
     if np.isnan(score):
         msg = (
-            "score is still NaN after reduce n_splits, makes sure you're supplying "
+            "score is still NaN after reducing n_splits, makes sure you're supplying "
             "enough points for the equivalent sources"
         )
         raise ValueError(msg)
