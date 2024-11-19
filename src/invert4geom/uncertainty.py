@@ -7,6 +7,7 @@ import pickle
 import random
 import typing
 
+import harmonica as hm
 import numpy as np
 import pandas as pd
 import scipy as sp
@@ -331,6 +332,172 @@ def starting_topography_uncertainty(
             )
     return stats_ds
     # pylint: enable=duplicate-code
+
+
+def equivalent_sources_uncertainty(
+    runs: int,
+    data: NDArray,
+    coords: tuple[NDArray, NDArray, NDArray],
+    grid_points: pd.DataFrame,
+    parameter_dict: dict[str, typing.Any] | None = None,
+    region: tuple[float, float, float, float] | None = None,
+    plot: bool = True,
+    plot_region: tuple[float, float, float, float] | None = None,
+    true_gravity: xr.DataArray | None = None,
+    weight_by: str | None = None,
+    **kwargs: typing.Any,
+) -> xr.Dataset:
+    """
+    Create a stochastic ensemble of regional gravity anomalies by sampling the
+    constraints, gravity, or parameters within their respective distributions and
+    calculate the cell-wise (weighted) statistics of the ensemble.
+
+    Parameters
+    ----------
+    runs : int
+        number of runs to perform
+    parameter_dict : dict[str, typing.Any] | None, optional
+        dictionary of parameters passes to `regional_separation` with the uncertainty
+        distributions defined, by default None
+    region: tuple[float, float, float, float] | None = None,
+        region to calculate statistics within, by default None
+    plot : bool, optional
+        show the results, by default True
+    plot_region : tuple[float, float, float, float] | None, optional
+        clip the plot to a region, by default None
+    true_regional : xarray.DataArray | None, optional
+        if the true regional misfit is known, will make a plot comparing the results, by
+        default None
+
+    Returns
+    -------
+    xarray.Dataset
+        a dataset with the cell-wise statistics of the ensemble of regional gravity
+    """
+    kwargs = copy.deepcopy(kwargs)
+
+    if parameter_dict is not None:
+        sampled_param_dict = create_lhc(
+            n_samples=runs,
+            parameter_dict=parameter_dict,
+            random_state=0,
+            criterion="centered",
+        )
+    else:
+        sampled_param_dict = None
+
+    grav_grids = []
+    scores = []
+    for i in tqdm(range(runs), desc="starting equivalent sources ensemble"):
+        if sampled_param_dict is not None:
+            for k, v in sampled_param_dict.items():
+                kwargs[k] = v["sampled_values"][i]
+
+        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+            # refit EqSources with best parameters
+            eqs = hm.EquivalentSources(
+                **kwargs,
+            )
+            eqs.fit(coords, data, weights=kwargs.get("weights", None))
+
+        if weight_by == "score":
+            scores.append(eqs.score(coords, data, weights=kwargs.get("weights", None)))
+
+        # predict sources onto grid
+        grid_points["predicted_grav"] = eqs.predict(
+            (
+                grid_points.easting,
+                grid_points.northing,
+                grid_points.upward,
+            ),
+        )
+
+        grav_grids.append(
+            grid_points.set_index(["northing", "easting"]).to_xarray().predicted_grav
+        )
+
+    # merge all topos into 1 dataset
+    merged = merge_simulation_results(grav_grids)
+
+    # get constraint point RMSE of each model
+    if weight_by == "score":
+        # convert residuals into weights
+        weights = [1 / (x**2) for x in scores]
+        # weights = scores
+    elif weight_by == "rmse":
+        weight_vals = []
+        for g in grav_grids:
+            points = utils.sample_grids(
+                grid_points,
+                g,
+                sampled_name="sampled",
+                coord_names=["easting", "northing"],
+            )
+            weight_vals.append(utils.rmse(points.gravity_anomaly - points.sampled))
+        # convert residuals into weights
+        weights = [1 / (x**2) for x in weight_vals]
+    else:
+        weights = None
+
+    # get stats and weighted stats on the merged dataset
+    stats_ds = model_ensemble_stats(
+        merged,
+        weights=weights,
+        region=region,
+    )
+
+    if plot is True:
+        plotting.plot_stochastic_results(
+            stats_ds=stats_ds,
+            cmap="viridis",
+            reverse_cpt=False,
+            label="Predicted gravity",
+            unit="mGal",
+            region=plot_region,
+        )
+        if true_gravity is not None:
+            try:
+                mean = stats_ds.weighted_mean
+                stdev = stats_ds.weighted_stdev
+            except AttributeError:
+                mean = stats_ds.z_mean
+                stdev = stats_ds.z_stdev
+
+            # pylint: disable=duplicate-code
+            _ = polar_utils.grd_compare(
+                np.abs(true_gravity - mean),
+                stdev,
+                fig_height=12,
+                region=plot_region,
+                plot=True,
+                grid1_name="True error",
+                grid2_name="Stochastic uncertainty",
+                robust=True,
+                hist=True,
+                inset=False,
+                verbose="q",
+                title="difference",
+                grounding_line=False,
+                cmap="thermal",
+            )
+            _ = polar_utils.grd_compare(
+                true_gravity,
+                mean,
+                fig_height=12,
+                region=plot_region,
+                plot=True,
+                grid1_name="True gravity",
+                grid2_name="Mean gravity",
+                robust=True,
+                hist=True,
+                inset=False,
+                verbose="q",
+                title="difference",
+                grounding_line=False,
+                cmap="viridis",
+            )
+            # pylint: enable=duplicate-code
+    return stats_ds
 
 
 def regional_misfit_uncertainty(
