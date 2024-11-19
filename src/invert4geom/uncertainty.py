@@ -9,6 +9,7 @@ import typing
 
 import numpy as np
 import pandas as pd
+import scipy as sp
 import xarray as xr
 from numpy.typing import NDArray
 from polartoolkit import utils as polar_utils
@@ -16,6 +17,22 @@ from tqdm.autonotebook import tqdm
 from UQpy import distributions, sampling
 
 from invert4geom import inversion, log, plotting, regional, utils
+
+
+class DiscreteUniform(distributions.DistributionDiscrete1D):  # type: ignore[misc]
+    """
+    Discrete uniform distribution.
+    """
+
+    def __init__(
+        self,
+        loc: float | int = 0.0,
+        scale: float | int = 1.0,
+    ):
+        super().__init__(
+            low=loc, high=loc + scale + 1, ordered_parameters=("low", "high")
+        )
+        self._construct_from_scipy(scipy_name=sp.stats.randint)
 
 
 def create_lhc(
@@ -62,6 +79,8 @@ def create_lhc(
             dists[k] = distributions.Uniform(loc=v["loc"], scale=v["scale"])
         elif v["distribution"] == "normal":
             dists[k] = distributions.Normal(loc=v["loc"], scale=v["scale"])
+        elif v["distribution"] == "uniform_discrete":
+            dists[k] = DiscreteUniform(loc=v["loc"], scale=v["scale"])
         else:
             msg = "Unknown distribution type: %s"
             raise ValueError(msg, v["distribution"])
