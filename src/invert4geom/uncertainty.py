@@ -109,10 +109,19 @@ def create_lhc(
 
     # add sampled values to parameters dict
     for j, (k, v) in enumerate(param_dict.items()):
+        if v.get("norm_limits", None) is not None:
+            norm_limits = v["norm_limits"]
+            lhc.samples[:, j] = utils.normalize(
+                lhc.samples[:, j],
+                low=norm_limits[0],
+                high=norm_limits[1],
+            )
         if v.get("log", False) is True:
             v["sampled_values"] = 10 ** lhc._samples[:, j]  # pylint: disable=protected-access
         else:
             v["sampled_values"] = lhc.samples[:, j]  # pylint: disable=protected-access
+        if v.get("dtype", None) is int:
+            v["sampled_values"] = v["sampled_values"].round().astype(int)
 
         log.info(
             "Sampled '%s' parameter values; mean: %s, min: %s, max: %s",
