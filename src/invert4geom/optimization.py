@@ -1902,12 +1902,19 @@ class OptimalEqSourceParams:
                 log=True,
             )
 
-        return cross_validation.eq_sources_score(
-            damping=damping,
-            depth=depth,
-            block_size=block_size,
-            **kwargs,
-        )
+        try:
+            score = cross_validation.eq_sources_score(
+                damping=damping,
+                depth=depth,
+                block_size=block_size,
+                **kwargs,
+            )
+        except ValueError as e:
+            log.error(e)
+            msg = "score could not be calculated, returning NaN"
+            log.warning(msg)
+            score = np.nan
+        return score
 
 
 def optimize_eq_source_params(

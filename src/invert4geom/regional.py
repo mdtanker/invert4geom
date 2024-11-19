@@ -548,16 +548,36 @@ def regional_constraints(
 
         if cv is True:
             # eqs = utils.best_equivalent_source_damping(
-            _, eqs = optimization.optimize_eq_source_params(
-                coordinates=coords,
-                data=constraints_df.sampled_grav,
-                # kwargs
-                weights=weights,
-                depth=depth,
-                damping=damping,
-                block_size=block_size,
-                **cv_kwargs,  # type: ignore[arg-type]
-            )
+            try:
+                _, eqs = optimization.optimize_eq_source_params(
+                    coordinates=coords,
+                    data=constraints_df.sampled_grav,
+                    # kwargs
+                    weights=weights,
+                    depth=depth,
+                    damping=damping,
+                    block_size=block_size,
+                    **cv_kwargs,  # type: ignore[arg-type]
+                )
+            except ValueError as e:
+                log.error(e)
+                msg = (
+                    "eq sources optimization failed, using damping=None and "
+                    "depth='default'"
+                )
+                log.error(msg)
+                eqs = hm.EquivalentSources(
+                    depth="default",
+                    damping=None,
+                    block_size=block_size,
+                    points=points,
+                )
+                eqs.fit(
+                    coords,
+                    constraints_df.sampled_grav,
+                    weights=weights,
+                )
+
         else:
             # create set of deep sources
             eqs = hm.EquivalentSources(
