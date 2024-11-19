@@ -347,6 +347,36 @@ def dist_nearest_points(
     return df_data.set_index([coord_names[0], coord_names[1]][::-1]).to_xarray()
 
 
+def normalize(
+    x: NDArray,
+    low: float = 0,
+    high: float = 1,
+) -> NDArray:
+    """
+    Normalize a list of numbers between provided values
+
+    Parameters
+    ----------
+    x : NDArray
+        numbers to normalize
+    low : float, optional
+        lower value for normalization, by default 0
+    high : float, optional
+        higher value for normalization, by default 1
+
+    Returns
+    -------
+    NDArray
+        a normalized list of numbers
+    """
+    min_val = np.min(x)
+    max_val = np.max(x)
+
+    norm = (x - min_val) / (max_val - min_val)
+
+    return norm * (high - low) + low
+
+
 def normalize_xarray(
     da: xr.DataArray,
     low: float = 0,
@@ -382,6 +412,36 @@ def normalize_xarray(
     ) + low
 
     return da2.drop("quantile")
+
+
+def scale_normalized(
+    sample: NDArray,
+    bounds: NDArray,
+) -> NDArray:
+    """
+    Rescales the sample space into the unit hypercube, bounds = [0,1]
+
+    Parameters
+    ----------
+    sample : NDArray
+        sampled values
+    bounds : NDArray
+        bounds of the sampling
+
+    Returns
+    -------
+    NDArray
+        sampled values normalized from 0 to 1
+    """
+
+    scaled_sample = np.zeros(sample.shape)
+
+    for j in range(sample.shape[1]):
+        scaled_sample[:, j] = (sample[:, j] - bounds[j][0]) / (
+            bounds[j][1] - bounds[j][0]
+        )
+
+    return scaled_sample
 
 
 def normalized_mindist(
