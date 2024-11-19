@@ -1161,9 +1161,9 @@ def run_inversion_workflow(
         filename and path to use for saving results. If running a damping
         CV, will save the study to <fname>_damping_cv_study.pickle and the tuple of the
         best inversion results to <fname>_damping_cv_results.pickle. If running a
-        density/zref CV, will save the study to <fname>_density_zref_cv_study.pickle and
+        density/zref CV, will save the study to <fname>_zref_density_cv_study.pickle and
         the tuple of the best inversion results to
-        <fname>_density_zref_cv_results.pickle. The final inversion result for all
+        <fname>_zref_density_cv_results.pickle. The final inversion result for all
         methods will be saved to <fname>_results.pickle, by default will be "tmp_<x>"
         where x is a random integer between 0 and 999.
     kwargs : typing.Any
