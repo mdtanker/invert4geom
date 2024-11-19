@@ -26,7 +26,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 readme = "README.md"
-version = "0.10.0"
+version = "0.11.0"
 license = {file = "LICENSE"}
 
 keywords = ["inversion", "gravity", "geometry", "density", "Moho", "sediment", "geophysics", "geology", "geoscience"]
