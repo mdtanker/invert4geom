@@ -879,6 +879,18 @@ def split_test_train(
     if method == "LeaveOneOut":
         kfold = sklearn.model_selection.LeaveOneOut()
     elif method == "KFold":
+        if n_splits > len(df):
+            msg = (
+                "n_splits must be less than or equal to the number of data points, "
+                "decreasing n_splits"
+            )
+            log.warning(msg)
+            n_splits = len(df)
+
+        if n_splits == 1:
+            msg = "n_splits must be greater than 1"
+            raise ValueError(msg)
+
         if spacing or shape is None:
             kfold = sklearn.model_selection.KFold(
                 n_splits=n_splits,
