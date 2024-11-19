@@ -5,10 +5,38 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 
 ## Unreleased
 ### 🧰 Chores / Maintenance
+* remove ruff commands and use pre-commit ([`7495204`](https://github.com/mdtanker/invert4geom/commit/74952047270f2f86ceb56fc907a4792623ee4ca3))
 * bump binder env to v.0.10 ([`0604561`](https://github.com/mdtanker/invert4geom/commit/060456170989616a09aa5824815194ee60061804))
 * update release checklist and make commands ([`8943bd0`](https://github.com/mdtanker/invert4geom/commit/8943bd04fbd076b48d379ab325e1e7969c740bf5))
 ### 📖 Documentation
+* minor updates ([`82210b2`](https://github.com/mdtanker/invert4geom/commit/82210b27fe486ca7f0c205a567e9e4036cbb7dc8))
+* rerun docs ([`9f7348f`](https://github.com/mdtanker/invert4geom/commit/9f7348f1aa71a49240b095896d7abd5731a20a2f))
+* fix docstring ([`b0ec481`](https://github.com/mdtanker/invert4geom/commit/b0ec4815a07ab4595e81ca2b42c21f554a6bf135))
+* add TLDR and conventional comments to contribute guide ([`1371096`](https://github.com/mdtanker/invert4geom/commit/13710969abe34b811303044ffe00a4fab0a63fff))
+* saving progress ([`bdd6907`](https://github.com/mdtanker/invert4geom/commit/bdd69078d6784c40c4a97867f4127858da870c3d))
+* restructure to Divio system ([`865983a`](https://github.com/mdtanker/invert4geom/commit/865983a8c380bfcbc799d1ae7fa90b6cac7fdedf))
 * update some docs notebooks ([`6fe1488`](https://github.com/mdtanker/invert4geom/commit/6fe1488d7cda52615d7890cf11c4811b637d17fd))
+### 🚀 Features
+* return fig for `plot_cv_scores` ([`70e4a0d`](https://github.com/mdtanker/invert4geom/commit/70e4a0d29e22021481ee2ebf14549eccdbd2844f))
+* add `fname` kwarg to some plotting functions ([`155f645`](https://github.com/mdtanker/invert4geom/commit/155f6450ae9ea58b56e7a9c3f32f299656c5b217))
+* add plotting functions for latin hypercube sampling ([`2607284`](https://github.com/mdtanker/invert4geom/commit/26072840fb55c7fbad95ff77ab739add00928f3f))
+* add `region` parameter for `regional_misfit_uncertainty` ([`ef5239e`](https://github.com/mdtanker/invert4geom/commit/ef5239e2c15d4f826bd4f851ed058fb3f3d05705))
+* add uncertainty estimate for equivalent source interpolation ([`0cb4a21`](https://github.com/mdtanker/invert4geom/commit/0cb4a21973cc1457fc5551674f08917b0816d360))
+* allow normalizing of sampled values in latin hypercube ([`b01c210`](https://github.com/mdtanker/invert4geom/commit/b01c210e4c05996f17a4a8171942f75ca84b9c74))
+* include discrete uniform distribution for LHS sampling ([`7bd98e9`](https://github.com/mdtanker/invert4geom/commit/7bd98e918c086b0b0e58eb480b0db413f6112e21))
+* allow choice of `criterion` in sampling of latin hyper cube ([`f7e94a1`](https://github.com/mdtanker/invert4geom/commit/f7e94a1137f89b25b81d0ed6668cb84cdd4ed0d2))
+* allow `weight_by=None` in `merged_stats` ([`d96e5c2`](https://github.com/mdtanker/invert4geom/commit/d96e5c20b866c25da5343d1cec76ab4a5299ac44))
+* add normalizing functions ([`bebaa67`](https://github.com/mdtanker/invert4geom/commit/bebaa67b74520a21d9d0ce69e392a9da272ec518))
+### 🐛 Bug Fixes
+* use duplicate filter on optimize for zref/density ([`cc825e0`](https://github.com/mdtanker/invert4geom/commit/cc825e0a4701ae1e0102e5b41b98c643b4b7f13e))
+* exception for trail worsening warning ([`313f847`](https://github.com/mdtanker/invert4geom/commit/313f8474b22b557bd7706e72e0c59ff27673480e))
+* raise warnings for invalid number of splits in test train data splitting ([`bcef273`](https://github.com/mdtanker/invert4geom/commit/bcef273b38f33cf564300b716559d3f8699b1932))
+* raise warnings and use fallback for nan scores in eq source fitting ([`ad14dc0`](https://github.com/mdtanker/invert4geom/commit/ad14dc09d35c318d473aaed1981e976ab68b1015))
+* re-create starting topography for each fold of training constraint points in  density/zref optimization. ([`91ffb71`](https://github.com/mdtanker/invert4geom/commit/91ffb71979dc9d87d8c0287edf426400098c9377))
+* re-write long-wavelength contamination function, adding dependency `xesmf`. ([`335e11e`](https://github.com/mdtanker/invert4geom/commit/335e11e7a770e03a685abb54cc7fb20a6692c885))
+###  🎨 Refactor
+* make &#34;default&#34; the default depth for eq sources ([`6b68c2b`](https://github.com/mdtanker/invert4geom/commit/6b68c2bbcb5a3759aeb98722c4bc0cec52a3c36e))
+* print more decimals for inversion info ([`05cbda9`](https://github.com/mdtanker/invert4geom/commit/05cbda902768c527c82550bdc62432f0f7781981))
 
 
 ## v0.10.0 (2024-10-09)
