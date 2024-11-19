@@ -1577,30 +1577,31 @@ def optimize_inversion_zref_density_contrast(
         warnings.filterwarnings(
             "ignore", message="logei_candidates_func is experimental"
         )
-        study = run_optuna(
-            study=study,
-            storage=storage,
-            objective=OptimalInversionZrefDensity(
-                grav_df=grav_df,
-                constraints_df=constraints_df,
-                zref_limits=zref_limits,
-                density_contrast_limits=density_contrast_limits,
-                zref=zref,
-                density_contrast=density_contrast,
-                starting_topography=starting_topography,
-                starting_topography_kwargs=starting_topography_kwargs,
-                regional_grav_kwargs=regional_grav_kwargs,  # type: ignore[arg-type]
-                rmse_as_median=score_as_median,
-                fname=fname,
-                progressbar=fold_progressbar,
-                **kwargs,
-            ),
-            n_trials=n_trials,
-            # callbacks=[_warn_limits_better_than_trial_multi_params],
-            maximize_cpus=True,
-            parallel=parallel,
-            progressbar=progressbar,
-        )
+        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+            study = run_optuna(
+                study=study,
+                storage=storage,
+                objective=OptimalInversionZrefDensity(
+                    grav_df=grav_df,
+                    constraints_df=constraints_df,
+                    zref_limits=zref_limits,
+                    density_contrast_limits=density_contrast_limits,
+                    zref=zref,
+                    density_contrast=density_contrast,
+                    starting_topography=starting_topography,
+                    starting_topography_kwargs=starting_topography_kwargs,
+                    regional_grav_kwargs=regional_grav_kwargs,  # type: ignore[arg-type]
+                    rmse_as_median=score_as_median,
+                    fname=fname,
+                    progressbar=fold_progressbar,
+                    **kwargs,
+                ),
+                n_trials=n_trials,
+                # callbacks=[_warn_limits_better_than_trial_multi_params],
+                maximize_cpus=True,
+                parallel=parallel,
+                progressbar=progressbar,
+            )
 
     best_trial = study.best_trial
 
