@@ -3,6 +3,11 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
+## Unreleased
+### 🧰 Chores / Maintenance
+### 🐛 Bug Fixes
+* make xesmf optional dependency ([`664072a`](https://github.com/mdtanker/invert4geom/commit/664072aa32f18e4938148d0a04ba04402cee8018))
+
 
 ## v0.11.0 (2024-11-19)
 ### 🧰 Chores / Maintenance
