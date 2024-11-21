@@ -3,6 +3,11 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
+## Unreleased
+### 🧰 Chores / Maintenance
+* update makefile install commands ([`e973bfb`](https://github.com/mdtanker/invert4geom/commit/e973bfb74557e5fd3a8e3be57bd187be9bc4139f))
+* update binder version to 0.11 ([`a0ba8e6`](https://github.com/mdtanker/invert4geom/commit/a0ba8e6837e7f5a3aea0ac4a1389f91cf871ccb8))
+
 
 ## v0.11.1 (2024-11-20)
 ### 🧰 Chores / Maintenance
