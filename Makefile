@@ -1,6 +1,7 @@
 PROJECT=invert4geom
-STYLE_CHECK_FILES=.
+VERSION := $(shell grep -m 1 'version =' pyproject.toml | tr -s ' ' | tr -d '"' | tr -d "'" | cut -d' ' -f3)
 
+print-%  : ; @echo $* = $($*)
 ####
 ####
 # install commands
@@ -17,10 +18,10 @@ remove:
 	mamba remove --name $(PROJECT) --all
 
 pip_install:
-	pip install $(PROJECT)[all]
+	pip install $(PROJECT)[all]==$(VERSION)
 
 conda_install:
-	mamba create --name $(PROJECT) --yes --force --channel conda-forge $(PROJECT) pytest pytest-cov ipykernel
+	mamba create --name $(PROJECT) --yes --force --channel conda-forge $(PROJECT)=$(VERSION) pytest pytest-cov ipykernel
 
 ####
 ####
