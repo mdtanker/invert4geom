@@ -600,10 +600,7 @@ def plot_inversion_topo_results(
 
     final_topo = prisms_ds.topo
 
-    if constraints_df is not None:
-        points = constraints_df.rename(columns={"easting": "x", "northing": "y"})
-    else:
-        points = None
+    points = constraints_df if constraints_df is not None else None
 
     # pylint: disable=duplicate-code
     _ = polar_utils.grd_compare(
@@ -663,10 +660,7 @@ def plot_inversion_grav_results(
     initial_rmse = utils.rmse(grav_results["iter_1_initial_misfit"])
     final_rmse = utils.rmse(grav_results[f"iter_{max(iterations)}_final_misfit"])
 
-    if constraints_df is not None:
-        points = constraints_df.rename(columns={"easting": "x", "northing": "y"})
-    else:
-        points = None
+    points = constraints_df if constraints_df is not None else None
 
     dif, initial, final = polar_utils.grd_compare(
         initial_misfit,
