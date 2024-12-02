@@ -914,6 +914,8 @@ def create_topography(
     constraints_df: pd.DataFrame | None = None,
     weights: pd.Series | NDArray | None = None,
     weights_col: str | None = None,
+    upper_confining_layer: xr.DataArray | None = None,
+    lower_confining_layer: xr.DataArray | None = None,
 ) -> xr.DataArray:
     """
     Create a grid of topography data from either the interpolation of point data or
@@ -949,6 +951,10 @@ def create_topography(
     weights_col : str | None, optional
         instead of passing the weights, pass the name of the column containing the
         weights, by default None
+    upper_confining_layer : xarray.DataArray | None, optional
+        layer which the inverted topography should always be below, by default None
+    lower_confining_layer : xarray.DataArray | None, optional
+        layer which the inverted topography should always be above, by default None
 
     Returns
     -------
@@ -1074,6 +1080,12 @@ def create_topography(
     else:
         msg = "method must be 'flat' or 'splines'"
         raise ValueError(msg)
+
+    # ensure grid doesn't cross supplied confining layers
+    if upper_confining_layer is not None:
+        grid = grid.where(grid <= upper_confining_layer, upper_confining_layer)
+    if lower_confining_layer is not None:
+        grid = grid.where(grid >= lower_confining_layer, lower_confining_layer)
 
     return grid
 
