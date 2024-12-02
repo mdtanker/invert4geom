@@ -462,6 +462,18 @@ def regional_constraints(
     # drop rows with NaN values
     constraints_df = constraints_df[constraints_df.sampled_grav.notna()]
 
+    if grid_method == "eq_sources":
+        # sample gravity observation height at constraint points
+        constraints_df = utils.sample_grids(
+            df=constraints_df,
+            grid=grav_grid.upward,
+            sampled_name="sampled_grav_height",
+            no_skip=True,
+            verbose="q",
+        )
+        # drop rows with NaN values
+        constraints_df = constraints_df[constraints_df.sampled_grav_height.notna()]
+
     # get weights for each constraint point
     if constraints_weights_column is None:
         weights = None
@@ -472,18 +484,27 @@ def regional_constraints(
 
     # get weighted mean gravity value of constraint points in each cell
     if constraints_block_size is not None:
+        if grid_method == "eq_sources":
+            msg = "blockmean reduction not supported for eq_sources grid method yet"
+            raise ValueError(msg)
+
         blockmean = vd.BlockMean(
             spacing=constraints_block_size,
             uncertainty=uncertainty,
         )
+
+        data = constraints_df.sampled_grav
+        weight_values = weights
+
         coordinates, data, weights = blockmean.filter(
             coordinates=(
                 constraints_df["easting"],
                 constraints_df["northing"],
             ),
-            data=constraints_df.sampled_grav,
-            weights=weights,
+            data=data,
+            weights=weight_values,
         )
+
         # add reduced coordinates to a dictionary
         coord_cols = dict(zip(["easting", "northing"], coordinates))
 
@@ -491,7 +512,11 @@ def regional_constraints(
         if constraints_weights_column is None:
             data_cols = {"sampled_grav": data}
         else:
-            data_cols = {"sampled_grav": data, constraints_weights_column: weights}
+            data_cols = {
+                "sampled_grav": data,
+                constraints_weights_column: weights,
+            }
+
         # merge dicts and create dataframe
         constraints_df = pd.DataFrame(data=coord_cols | data_cols)
 
@@ -548,15 +573,6 @@ def regional_constraints(
         else:
             grav_obs_height = np.ones_like(grav_df.easting) * grav_obs_height
 
-        # sample gravity observation height at constraint points
-        constraints_df = utils.sample_grids(
-            df=constraints_df,
-            grid=grav_grid.upward,
-            sampled_name="sampled_grav_height",
-            coord_names=("easting", "northing"),
-            no_skip=True,
-            verbose="q",
-        )
         coords = (
             constraints_df.easting,
             constraints_df.northing,
