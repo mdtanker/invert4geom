@@ -814,13 +814,17 @@ def optimize_inversion_damping(
         pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
 
     if plot_cv is True:
-        plotting.plot_cv_scores(
-            study.trials_dataframe().value.values,
-            study.trials_dataframe().params_damping.values,
-            param_name="Damping",
-            logx=logx,
-            logy=logy,
-        )
+        try:
+            plotting.plot_cv_scores(
+                study.trials_dataframe().value.values,
+                study.trials_dataframe().params_damping.values,
+                param_name="Damping",
+                logx=logx,
+                logy=logy,
+            )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
+
     return study, inv_results
 
 
@@ -1701,49 +1705,56 @@ def optimize_inversion_zref_density_contrast(
         pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
 
     if plot_cv is True:
-        if zref_limits is None:
-            plotting.plot_cv_scores(
-                study.trials_dataframe().value.values,
-                study.trials_dataframe().params_density_contrast.values,
-                param_name="Density contrast (kg/m$^3$)",
-                plot_title="Density contrast Cross-validation",
-                logx=logx,
-                logy=logy,
-            )
-        elif density_contrast_limits is None:
-            plotting.plot_cv_scores(
-                study.trials_dataframe().value.values,
-                study.trials_dataframe().params_zref.values,
-                param_name="Reference level (m)",
-                plot_title="Reference level Cross-validation",
-                logx=logx,
-                logy=logy,
-            )
-        else:
-            if grid_search is True:
-                parameter_pairs = list(
-                    zip(
-                        study.trials_dataframe().params_zref,
-                        study.trials_dataframe().params_density_contrast,
-                    )
-                )
-                plotting.plot_2_parameter_cv_scores(
+        try:
+            if zref_limits is None:
+                plotting.plot_cv_scores(
                     study.trials_dataframe().value.values,
-                    parameter_pairs,
-                    param_names=("Reference level (m)", "Density contrast (kg/m$^3$)"),
+                    study.trials_dataframe().params_density_contrast.values,
+                    param_name="Density contrast (kg/m$^3$)",
+                    plot_title="Density contrast Cross-validation",
+                    logx=logx,
+                    logy=logy,
+                )
+            elif density_contrast_limits is None:
+                plotting.plot_cv_scores(
+                    study.trials_dataframe().value.values,
+                    study.trials_dataframe().params_zref.values,
+                    param_name="Reference level (m)",
+                    plot_title="Reference level Cross-validation",
+                    logx=logx,
+                    logy=logy,
                 )
             else:
-                plotting.plot_2_parameter_cv_scores_uneven(
-                    study,
-                    param_names=(
-                        "params_zref",
-                        "params_density_contrast",
-                    ),
-                    plot_param_names=(
-                        "Reference level (m)",
-                        "Density contrast (kg/m$^3$)",
-                    ),
-                )
+                if grid_search is True:
+                    parameter_pairs = list(
+                        zip(
+                            study.trials_dataframe().params_zref,
+                            study.trials_dataframe().params_density_contrast,
+                        )
+                    )
+                    plotting.plot_2_parameter_cv_scores(
+                        study.trials_dataframe().value.values,
+                        parameter_pairs,
+                        param_names=(
+                            "Reference level (m)",
+                            "Density contrast (kg/m$^3$)",
+                        ),
+                    )
+                else:
+                    plotting.plot_2_parameter_cv_scores_uneven(
+                        study,
+                        param_names=(
+                            "params_zref",
+                            "params_density_contrast",
+                        ),
+                        plot_param_names=(
+                            "Reference level (m)",
+                            "Density contrast (kg/m$^3$)",
+                        ),
+                    )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
+
     return study, final_inversion_results
 
 
@@ -2131,14 +2142,17 @@ def optimize_eq_source_params(
             pickle.dump(study, f)
 
     if plot is True:
-        plotting.plot_optuna_figures(
-            study,
-            target_names=["score"],
-            plot_history=False,
-            plot_slice=True,
-            plot_importance=True,
-            include_duration=False,
-        )
+        try:
+            plotting.plot_optuna_figures(
+                study,
+                target_names=["score"],
+                plot_history=False,
+                plot_slice=True,
+                plot_importance=True,
+                include_duration=False,
+            )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return study, eqs
 
@@ -2738,27 +2752,32 @@ def optimize_regional_filter(
     )
 
     if plot is True:
-        if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            if optimize_on_true_regional_misfit is True:
-                plotting.combined_slice(
-                    study,
-                    attribute_names=[
-                        "residual constraint score",
-                        "residual amplitude score",
-                    ],
-                ).show()
+        try:
+            if study._is_multi_objective() is False:  # pylint: disable=protected-access
+                if optimize_on_true_regional_misfit is True:
+                    plotting.combined_slice(
+                        study,
+                        attribute_names=[
+                            "residual constraint score",
+                            "residual amplitude score",
+                        ],
+                    ).show()
+                else:
+                    optuna.visualization.plot_slice(study).show()
             else:
-                optuna.visualization.plot_slice(study).show()
-        else:
-            optuna.visualization.plot_pareto_front(study).show()
-            for i, j in enumerate(study.metric_names):
-                optuna.visualization.plot_slice(
-                    study,
-                    target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
-                    target_name=j,
-                ).show()
-        if plot_grid is True:
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
+                optuna.visualization.plot_pareto_front(study).show()
+                for i, j in enumerate(study.metric_names):
+                    optuna.visualization.plot_slice(
+                        study,
+                        target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target_name=j,
+                    ).show()
+            if plot_grid is True:
+                resulting_grav_df.set_index(
+                    ["northing", "easting"]
+                ).to_xarray().reg.plot()
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
 
@@ -2902,27 +2921,32 @@ def optimize_regional_trend(
     )
 
     if plot is True:
-        if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            if optimize_on_true_regional_misfit is True:
-                plotting.combined_slice(
-                    study,
-                    attribute_names=[
-                        "residual constraint score",
-                        "residual amplitude score",
-                    ],
-                ).show()
+        try:
+            if study._is_multi_objective() is False:  # pylint: disable=protected-access
+                if optimize_on_true_regional_misfit is True:
+                    plotting.combined_slice(
+                        study,
+                        attribute_names=[
+                            "residual constraint score",
+                            "residual amplitude score",
+                        ],
+                    ).show()
+                else:
+                    optuna.visualization.plot_slice(study).show()
             else:
-                optuna.visualization.plot_slice(study).show()
-        else:
-            optuna.visualization.plot_pareto_front(study).show()
-            for i, j in enumerate(study.metric_names):
-                optuna.visualization.plot_slice(
-                    study,
-                    target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
-                    target_name=j,
-                ).show()
-        if plot_grid is True:
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
+                optuna.visualization.plot_pareto_front(study).show()
+                for i, j in enumerate(study.metric_names):
+                    optuna.visualization.plot_slice(
+                        study,
+                        target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target_name=j,
+                    ).show()
+            if plot_grid is True:
+                resulting_grav_df.set_index(
+                    ["northing", "easting"]
+                ).to_xarray().reg.plot()
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
 
@@ -3098,29 +3122,34 @@ def optimize_regional_eq_sources(
         **kwargs,
     )
     if plot is True:
-        if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            if optimize_on_true_regional_misfit is True:
-                for p in best_trial.params:
-                    plotting.combined_slice(
-                        study,
-                        attribute_names=[
-                            "residual constraint score",
-                            "residual amplitude score",
-                        ],
-                        parameter_name=[p],  # type: ignore[arg-type]
-                    ).show()
+        try:
+            if study._is_multi_objective() is False:  # pylint: disable=protected-access
+                if optimize_on_true_regional_misfit is True:
+                    for p in best_trial.params:
+                        plotting.combined_slice(
+                            study,
+                            attribute_names=[
+                                "residual constraint score",
+                                "residual amplitude score",
+                            ],
+                            parameter_name=[p],  # type: ignore[arg-type]
+                        ).show()
+                else:
+                    optuna.visualization.plot_slice(study).show()
             else:
-                optuna.visualization.plot_slice(study).show()
-        else:
-            optuna.visualization.plot_pareto_front(study).show()
-            for i, j in enumerate(study.metric_names):
-                optuna.visualization.plot_slice(
-                    study,
-                    target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
-                    target_name=j,
-                ).show()
-        if plot_grid is True:
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
+                optuna.visualization.plot_pareto_front(study).show()
+                for i, j in enumerate(study.metric_names):
+                    optuna.visualization.plot_slice(
+                        study,
+                        target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target_name=j,
+                    ).show()
+            if plot_grid is True:
+                resulting_grav_df.set_index(
+                    ["northing", "easting"]
+                ).to_xarray().reg.plot()
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
 
@@ -3420,28 +3449,33 @@ def optimize_regional_constraint_point_minimization(
             pickle.dump(study, f)
 
     if plot is True:
-        if study._is_multi_objective() is False:  # pylint: disable=protected-access
-            if optimize_on_true_regional_misfit is True:
-                for p in best_trial.params:
-                    plotting.combined_slice(
-                        study,
-                        attribute_names=[
-                            "residual constraint score",
-                            "residual amplitude score",
-                        ],
-                        parameter_name=[p],  # type: ignore[arg-type]
-                    ).show()
+        try:
+            if study._is_multi_objective() is False:  # pylint: disable=protected-access
+                if optimize_on_true_regional_misfit is True:
+                    for p in best_trial.params:
+                        plotting.combined_slice(
+                            study,
+                            attribute_names=[
+                                "residual constraint score",
+                                "residual amplitude score",
+                            ],
+                            parameter_name=[p],  # type: ignore[arg-type]
+                        ).show()
+                else:
+                    optuna.visualization.plot_slice(study).show()
             else:
-                optuna.visualization.plot_slice(study).show()
-        else:
-            optuna.visualization.plot_pareto_front(study).show()
-            for i, j in enumerate(study.metric_names):
-                optuna.visualization.plot_slice(
-                    study,
-                    target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
-                    target_name=j,
-                ).show()
-        if plot_grid is True:
-            resulting_grav_df.set_index(["northing", "easting"]).to_xarray().reg.plot()
+                optuna.visualization.plot_pareto_front(study).show()
+                for i, j in enumerate(study.metric_names):
+                    optuna.visualization.plot_slice(
+                        study,
+                        target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target_name=j,
+                    ).show()
+            if plot_grid is True:
+                resulting_grav_df.set_index(
+                    ["northing", "easting"]
+                ).to_xarray().reg.plot()
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
