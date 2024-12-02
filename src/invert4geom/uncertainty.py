@@ -259,7 +259,6 @@ def starting_topography_uncertainty(
             constraints_df,
             starting_topography,
             "sampled",
-            coord_names=("easting", "northing"),
         )
         # get weights of rmse between constraints and results
         weight_vals.append(utils.rmse(constraints_df.upward - constraints_df.sampled))
@@ -431,7 +430,6 @@ def equivalent_sources_uncertainty(
                 grid_points,
                 g,
                 sampled_name="sampled",
-                coord_names=["easting", "northing"],
             )
             weight_vals.append(utils.rmse(points.gravity_anomaly - points.sampled))
         # convert residuals into weights
@@ -595,7 +593,6 @@ def regional_misfit_uncertainty(
                 constraints_df,
                 g,
                 sampled_name="sampled_regional",
-                coord_names=["easting", "northing"],
             )
             weight_vals.append(utils.rmse(points.sampled_regional))
         # convert residuals into weights
@@ -1138,7 +1135,6 @@ def merged_stats(
                 constraints_df,
                 bed,
                 sampled_name="sampled_topo",
-                coord_names=["easting", "northing"],
             )
             points["dif"] = points.upward - points.sampled_topo
             weight_vals.append(utils.rmse(points.dif))
