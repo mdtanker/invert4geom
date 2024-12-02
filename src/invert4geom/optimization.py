@@ -462,6 +462,10 @@ def _warn_limits_better_than_trial_1_param(
         "(%s) or upper (%s) parameter value limits, it might be best to stop the "
         "study and expand the limits."
     )
+    if lower_limit_score is None:
+        return
+    if upper_limit_score is None:
+        return
     # if study direction is minimize
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
