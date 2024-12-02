@@ -212,21 +212,24 @@ def grav_cv_score(
     score = utils.rmse(dif, as_median=rmse_as_median)
 
     if plot:
-        test_grid = test.set_index(["northing", "easting"]).to_xarray()
-        obs = test_grid.gravity_anomaly - test_grid.reg
-        pred = test_grid.test_point_grav.rename("")
+        try:
+            test_grid = test.set_index(["northing", "easting"]).to_xarray()
+            obs = test_grid.gravity_anomaly - test_grid.reg
+            pred = test_grid.test_point_grav.rename("")
 
-        polar_utils.grd_compare(
-            pred,
-            obs,
-            grid1_name="Predicted gravity",
-            grid2_name="Observed gravity",
-            plot=True,
-            plot_type="xarray",
-            robust=True,
-            title=f"Score={score}",
-            rmse_in_title=False,
-        )
+            polar_utils.grd_compare(
+                pred,
+                obs,
+                grid1_name="Predicted gravity",
+                grid2_name="Observed gravity",
+                plot=True,
+                plot_type="xarray",
+                robust=True,
+                title=f"Score={score}",
+                rmse_in_title=False,
+            )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return score, results
 
@@ -381,14 +384,17 @@ def grav_optimal_parameter(
         pickle.dump(results, f)
 
     if plot_cv:
-        # plot scores
-        plotting.plot_cv_scores(
-            scores,
-            param_values,
-            param_name=param_name,
-            # logx=True,
-            # logy=True,
-        )
+        try:
+            # plot scores
+            plotting.plot_cv_scores(
+                scores,
+                param_values,
+                param_name=param_name,
+                # logx=True,
+                # logy=True,
+            )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return inv_results, best_param_value, best_score, param_values, scores
 
@@ -722,32 +728,35 @@ def zref_density_optimal_parameter(
         pickle.dump(results, f)
 
     if plot_cv:
-        if len(zref_values) == 1:
-            plotting.plot_cv_scores(
-                scores,
-                density_contrast_values,  # type: ignore[arg-type]
-                param_name="Density contrast (kg/m$^3$)",
-                plot_title="Density contrast Cross-validation",
-                # logx=True,
-                # logy=True,
-            )
-        elif len(density_contrast_values) == 1:  # type: ignore[arg-type]
-            plotting.plot_cv_scores(
-                scores,
-                zref_values,
-                param_name="Reference level (m)",
-                plot_title="Reference level Cross-validation",
-                # logx=True,
-                # logy=True,
-            )
-        else:
-            plotting.plot_2_parameter_cv_scores(
-                scores,
-                parameter_pairs,
-                param_names=("Reference level (m)", "Density contrast (kg/m$^3$)"),
-                # logx=True,
-                # logy=True,
-            )
+        try:
+            if len(zref_values) == 1:
+                plotting.plot_cv_scores(
+                    scores,
+                    density_contrast_values,  # type: ignore[arg-type]
+                    param_name="Density contrast (kg/m$^3$)",
+                    plot_title="Density contrast Cross-validation",
+                    # logx=True,
+                    # logy=True,
+                )
+            elif len(density_contrast_values) == 1:  # type: ignore[arg-type]
+                plotting.plot_cv_scores(
+                    scores,
+                    zref_values,
+                    param_name="Reference level (m)",
+                    plot_title="Reference level Cross-validation",
+                    # logx=True,
+                    # logy=True,
+                )
+            else:
+                plotting.plot_2_parameter_cv_scores(
+                    scores,
+                    parameter_pairs,
+                    param_names=("Reference level (m)", "Density contrast (kg/m$^3$)"),
+                    # logx=True,
+                    # logy=True,
+                )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return inv_results, best_zref, best_density, best_score, parameter_pairs, scores
 
@@ -813,33 +822,36 @@ def random_split_test_train(
     random_split_df = random_split_df.drop(columns=["index"])
 
     if plot is True:
-        df_train = random_split_df[random_split_df.test == False]  # noqa: E712 # pylint: disable=singleton-comparison
-        df_test = random_split_df[random_split_df.test == True]  # noqa: E712 # pylint: disable=singleton-comparison
+        try:
+            df_train = random_split_df[random_split_df.test == False]  # noqa: E712 # pylint: disable=singleton-comparison
+            df_test = random_split_df[random_split_df.test == True]  # noqa: E712 # pylint: disable=singleton-comparison
 
-        region = vd.get_region((random_split_df.easting, random_split_df.northing))
-        plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
+            region = vd.get_region((random_split_df.easting, random_split_df.northing))
+            plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
 
-        fig = maps.basemap(
-            region=plot_region,
-            title="Random split",
-        )
-        fig.plot(
-            x=df_train.easting,
-            y=df_train.northing,
-            style="c.3c",
-            fill="blue",
-            label="Train",
-        )
-        fig.plot(
-            x=df_test.easting,
-            y=df_test.northing,
-            style="t.5c",
-            fill="red",
-            label="Test",
-        )
-        maps.add_box(fig, box=region)
-        fig.legend()
-        fig.show()
+            fig = maps.basemap(
+                region=plot_region,
+                title="Random split",
+            )
+            fig.plot(
+                x=df_train.easting,
+                y=df_train.northing,
+                style="c.3c",
+                fill="blue",
+                label="Train",
+            )
+            fig.plot(
+                x=df_test.easting,
+                y=df_test.northing,
+                style="t.5c",
+                fill="red",
+                label="Test",
+            )
+            maps.add_box(fig, box=region)
+            fig.legend()
+            fig.show()
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return random_split_df
 
@@ -936,56 +948,59 @@ def split_test_train(
 
     df = df.replace("_test", "test")
     if plot is True:
-        folds = list(df.columns[df.columns.str.startswith("fold_")])
-        _, ncols = polar_utils.square_subplots(len(folds))
-        df = df.copy()
-        for i in range(len(folds)):
-            if i == 0:
-                fig = (None,)
-                origin_shift = "initialize"
-                xshift_amount = None
-                yshift_amount = None
-            elif i % ncols == 0:
-                # fig = fig
-                origin_shift = "both_shift"
-                xshift_amount = -ncols + 1
-                yshift_amount = -1
-            else:
-                # fig= fig
-                origin_shift = "xshift"
-                xshift_amount = 1
-                yshift_amount = 1
+        try:
+            folds = list(df.columns[df.columns.str.startswith("fold_")])
+            _, ncols = polar_utils.square_subplots(len(folds))
+            df = df.copy()
+            for i in range(len(folds)):
+                if i == 0:
+                    fig = (None,)
+                    origin_shift = "initialize"
+                    xshift_amount = None
+                    yshift_amount = None
+                elif i % ncols == 0:
+                    # fig = fig
+                    origin_shift = "both_shift"
+                    xshift_amount = -ncols + 1
+                    yshift_amount = -1
+                else:
+                    # fig= fig
+                    origin_shift = "xshift"
+                    xshift_amount = 1
+                    yshift_amount = 1
 
-            df_test = df[df[f"fold_{i}"] == "test"]
-            df_train = df[df[f"fold_{i}"] == "train"]
+                df_test = df[df[f"fold_{i}"] == "test"]
+                df_train = df[df[f"fold_{i}"] == "train"]
 
-            region = vd.get_region((df.easting, df.northing))
-            plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
-            fig = maps.basemap(
-                region=plot_region,
-                title=f"Fold {i} ({len(df_test)} testing points)",
-                origin_shift=origin_shift,
-                xshift_amount=xshift_amount,
-                yshift_amount=yshift_amount,
-                fig=fig,
-            )
-            maps.add_box(fig, box=region)
-            fig.plot(  # type: ignore[attr-defined]
-                x=df_train.easting,
-                y=df_train.northing,
-                style="c.4c",
-                fill="blue",
-                label="Train",
-            )
-            fig.plot(  # type: ignore[attr-defined]
-                x=df_test.easting,
-                y=df_test.northing,
-                style="t.7c",
-                fill="red",
-                label="Test",
-            )
-            fig.legend()  # type: ignore[attr-defined]
-        fig.show()  # type: ignore[attr-defined]
+                region = vd.get_region((df.easting, df.northing))
+                plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
+                fig = maps.basemap(
+                    region=plot_region,
+                    title=f"Fold {i} ({len(df_test)} testing points)",
+                    origin_shift=origin_shift,
+                    xshift_amount=xshift_amount,
+                    yshift_amount=yshift_amount,
+                    fig=fig,
+                )
+                maps.add_box(fig, box=region)
+                fig.plot(  # type: ignore[attr-defined]
+                    x=df_train.easting,
+                    y=df_train.northing,
+                    style="c.4c",
+                    fill="blue",
+                    label="Train",
+                )
+                fig.plot(  # type: ignore[attr-defined]
+                    x=df_test.easting,
+                    y=df_test.northing,
+                    style="t.7c",
+                    fill="red",
+                    label="Test",
+                )
+                fig.legend()  # type: ignore[attr-defined]
+            fig.show()  # type: ignore[attr-defined]
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return df
 
