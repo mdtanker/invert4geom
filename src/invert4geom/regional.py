@@ -36,6 +36,7 @@ def regional_constant(
     constant: float | None = None,
     constraints_df: pd.DataFrame | None = None,
     regional_shift: float = 0,
+    mask_column: str | None = None,
 ) -> pd.DataFrame:
     """
     approximate the regional field with a constant value. If constraint points of the
@@ -53,6 +54,9 @@ def regional_constant(
         a dataframe of constraint points with columns easting and northing.
     regional_shift : float, optional
         shift to add to the regional field, by default 0
+    mask_column : str | None, optional
+        Name of optional column with values to multiply estimated regional field by,
+        should have values of 1 or 0, by default None.
 
     Returns
     -------
@@ -63,15 +67,6 @@ def regional_constant(
     grav_df = grav_df.copy()
 
     _check_grav_cols(grav_df)
-    # Gobs_shift = f"{gravity_anomaly}_shift"
-
-    # # add optional dc shift
-    # if regional_shift is not None:
-    #     grav_df[Gobs_shift] = grav_df[gravity_anomaly] + regional_shift
-    # else:
-    #     grav_df[Gobs_shift] = grav_df[gravity_anomaly]
-
-    # grav_df["misfit"] = grav_df[Gobs_shift] - grav_df[starting_gravity]
 
     grav_df["misfit"] = grav_df.gravity_anomaly - grav_df.starting_gravity
 
@@ -115,6 +110,10 @@ def regional_constant(
 
     grav_df["res"] = grav_df.misfit - grav_df.reg
 
+    if mask_column is not None:
+        grav_df["res"] *= grav_df[mask_column]
+        grav_df["reg"] = grav_df.misfit - grav_df.res
+
     # return the new dataframe
     return grav_df
 
@@ -123,6 +122,7 @@ def regional_filter(
     grav_df: pd.DataFrame,
     filter_width: float,
     regional_shift: float = 0,
+    mask_column: str | None = None,
 ) -> pd.DataFrame:
     """
     separate the regional field with a low-pass filter
@@ -136,6 +136,9 @@ def regional_filter(
         width in meters to use for the low-pass filter
     regional_shift : float, optional
         shift to add to the regional field, by default 0
+    mask_column : str | None, optional
+        Name of optional column with values to multiply estimated regional field by,
+        should have values of 1 or 0, by default None.
 
     Returns
     -------
@@ -147,7 +150,6 @@ def regional_filter(
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
 
-    # grav_df["misfit"] = grav_df[Gobs_shift] - grav_df[starting_gravity]
     grav_df["misfit"] = grav_df.gravity_anomaly - grav_df.starting_gravity
 
     # grid the grav_df data
@@ -180,6 +182,10 @@ def regional_filter(
     )
     grav_df["res"] = grav_df.misfit - grav_df.reg
 
+    if mask_column is not None:
+        grav_df["res"] *= grav_df[mask_column]
+        grav_df["reg"] = grav_df.misfit - grav_df.res
+
     return grav_df
 
 
@@ -187,6 +193,7 @@ def regional_trend(
     grav_df: pd.DataFrame,
     trend: int,
     regional_shift: float = 0,
+    mask_column: str | None = None,
 ) -> pd.DataFrame:
     """
     separate the regional field with a trend
@@ -200,6 +207,9 @@ def regional_trend(
         order of the polynomial trend to fit to the data
     regional_shift : float, optional
         shift to add to the regional field, by default 0
+    mask_column : str | None, optional
+        Name of optional column with values to multiply estimated regional field by,
+        should have values of 1 or 0, by default None.
 
     Returns
     -------
@@ -226,6 +236,10 @@ def regional_trend(
 
     grav_df["res"] = grav_df.misfit - grav_df.reg
 
+    if mask_column is not None:
+        grav_df["res"] *= grav_df[mask_column]
+        grav_df["reg"] = grav_df.misfit - grav_df.res
+
     return grav_df
 
 
@@ -240,6 +254,7 @@ def regional_eq_sources(
     cv: bool = False,
     weights_column: str | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
+    mask_column: str | None = None,
 ) -> pd.DataFrame:
     """
     separate the regional field by estimating deep equivalent sources
@@ -270,6 +285,10 @@ def regional_eq_sources(
         "parallel", "dtype", or "delayed".
     weights_column: str | None, optional
         column name for weighting values of each gravity point.
+    mask_column : str | None, optional
+        Name of optional column with values to multiply estimated regional field by,
+        should have values of 1 or 0, by default None.
+
     Returns
     -------
     pandas.DataFrame
@@ -325,6 +344,10 @@ def regional_eq_sources(
 
     grav_df["res"] = grav_df.misfit - grav_df.reg
 
+    if mask_column is not None:
+        grav_df["res"] *= grav_df[mask_column]
+        grav_df["reg"] = grav_df.misfit - grav_df.res
+
     return grav_df
 
 
@@ -345,6 +368,7 @@ def regional_constraints(
     grav_obs_height: float | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
     regional_shift: float = 0,
+    mask_column: str | None = None,
 ) -> pd.DataFrame:
     """
     Separate the regional field by sampling and re-gridding the gravity misfit at
@@ -400,6 +424,9 @@ def regional_constraints(
         "plot", "progressbar", "parallel", "fname", "dtype", or "delayed".
     regional_shift : float, optional
         shift to add to the regional field, by default 0
+    mask_column : str | None, optional
+        Name of optional column with values to multiply estimated residual field by,
+        should have values of 1 or 0, by default None.
 
     Returns
     -------
@@ -583,6 +610,7 @@ def regional_constraints(
                 block_size=block_size,
                 points=points,
             )
+
             # fit the source coefficients to the data
             eqs.fit(
                 coords,
@@ -606,6 +634,11 @@ def regional_constraints(
 
     grav_df["reg"] += regional_shift
     grav_df["res"] = grav_df.misfit - grav_df.reg
+
+    if mask_column is not None:
+        grav_df["res"] *= grav_df[mask_column]
+        grav_df["reg"] = grav_df.misfit - grav_df.res
+
     return grav_df
 
 
