@@ -1128,6 +1128,8 @@ def grids_to_prisms(
         msg = "invalid density type, should be a number or DataArray"
         raise ValueError(msg)
 
+    assert ~np.isnan(reference), "reference should be a dataarray or a float, not a NaN"
+
     # create layer of prisms based off input dataarrays
     prisms = hm.prism_layer(
         coordinates=(
