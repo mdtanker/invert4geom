@@ -917,7 +917,13 @@ def create_topography(
 ) -> xr.DataArray:
     """
     Create a grid of topography data from either the interpolation of point data or
-    creating a grid of constant value.
+    creating a grid of constant value. Optionally, a subset of point data can be
+    interpolated and then merged with an existing grid. The this, constraints_df must
+    contain two additional columns of booleans, `inside` which is True for points inside
+    the region of interest, and False otherwise, and `buffer` which is True for points
+    within a buffer region around the region of interest, and False otherwise. Inside
+    and Buffer points are used to interpolated the data, and then the interpolated data
+    (without the buffer zone) is merged with the points outside the region of interest.
 
     Parameters
     ----------
@@ -935,7 +941,8 @@ def create_topography(
     upwards : float | None, optional
         constant value to use for method "flat", by default None
     constraints_df : pandas.DataFrame | None, optional
-        dataframe with column 'upwards' to use for method "splines", by default None
+        dataframe with column 'upwards' to use for method "splines", and optionally
+        columns 'inside' and 'buffer', by default None
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
@@ -968,57 +975,107 @@ def create_topography(
             pixel_register=pixel_register,
         )
         # make flat topography of value = upwards
-        return vd.make_xarray_grid(
+        grid = vd.make_xarray_grid(
             (x, y),
             np.ones_like(x) * upwards,
             data_names="upward",
             dims=("northing", "easting"),
         ).upward
 
-    if method == "splines":
+    elif method == "splines":
         # get coordinates of the constraint points
         if constraints_df is None:
             msg = "constraints_df must be provided if method is `splines`"
             raise ValueError(msg)
-        coords = (constraints_df.easting, constraints_df.northing)
 
-        if len(constraints_df) == 1:
+        df = constraints_df.copy()
+
+        # if only 1 point, return a flat topography
+        if len(df) == 1:
             # create grid of coordinates
             (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
                 region=region,
                 spacing=spacing,
             )
             # make flat topography of value = upwards
-            return vd.make_xarray_grid(
+            grid = vd.make_xarray_grid(
                 (x, y),
-                np.ones_like(x) * constraints_df.upward.values,
+                np.ones_like(x) * df.upward.values,
                 data_names="upward",
                 dims=("northing", "easting"),
             ).upward
 
-        if weights_col is not None:
-            weights = constraints_df[weights_col]
+        if pd.Series(["inside", "buffer"]).isin(df.columns).all():
+            df_to_interpolate = df[df.inside | df.buffer]
+            df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712
 
-        # run CV for fitting a spline to the data
-        spline = best_spline_cv(
-            coordinates=coords,
-            data=constraints_df.upward,
-            weights=weights,
-            dampings=dampings,
-        )
-        # grid the fitted spline at desired spacing and region
-        grid = spline.grid(
-            region=region,
-            spacing=spacing,
-        ).scalars
+            coords = (df_to_interpolate.easting, df_to_interpolate.northing)
+            if weights_col is not None:
+                weights = df_to_interpolate[weights_col]
+
+            # run CV for fitting a spline to the data
+            spline = best_spline_cv(
+                coordinates=coords,
+                data=df_to_interpolate.upward,
+                weights=weights,
+                dampings=dampings,
+            )
+
+            # grid the fitted spline at desired spacing and region
+            inside_grid = spline.grid(
+                region=region,
+                spacing=spacing,
+            ).scalars
+
+            # merge interpolation of inner / buffer points with outside grid
+            # outside_grid = df_outside_buffer.set_index(
+            #   ["northing", "easting"]).to_xarray().upward
+            # outside_grid = vd.make_xarray_grid(
+            #     (df_outside_buffer.easting, df_outside_buffer.northing),
+            #     df_outside_buffer.upward,
+            #     data_names="upward",
+            # )
+            outside_grid = pygmt.xyz2grd(
+                x=df_outside_buffer.easting,
+                y=df_outside_buffer.northing,
+                z=df_outside_buffer.upward,
+                region=region,
+                spacing=spacing,
+            ).rename({"x": "easting", "y": "northing"})
+
+            grid = inside_grid.where(
+                outside_grid.isnull(),
+                outside_grid,
+            )
+
+        else:
+            coords = (df.easting, df.northing)
+            if weights_col is not None:
+                weights = df[weights_col]
+
+            # run CV for fitting a spline to the data
+            spline = best_spline_cv(
+                coordinates=coords,
+                data=df.upward,
+                weights=weights,
+                dampings=dampings,
+            )
+            # grid the fitted spline at desired spacing and region
+            grid = spline.grid(
+                region=region,
+                spacing=spacing,
+            ).scalars
 
         try:
-            return grid.assign_attrs(damping=spline.damping_)
+            grid = grid.assign_attrs(damping=spline.damping_)
         except AttributeError:
-            return grid.assign_attrs(damping=None)
+            grid = grid.assign_attrs(damping=None)
 
-    msg = "method must be 'flat' or 'splines'"
-    raise ValueError(msg)
+    else:
+        msg = "method must be 'flat' or 'splines'"
+        raise ValueError(msg)
+
+    return grid
 
 
 def grids_to_prisms(
