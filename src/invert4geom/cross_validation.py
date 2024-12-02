@@ -90,15 +90,24 @@ def resample_with_test_points(
 
     grid = data.set_index(["northing", "easting"]).to_xarray()
     for i in list(grid):
-        if i == "test":
+        if i == "test" or grid[i].dtype == object:
             pass
         else:
-            df2[i] = utils.sample_grids(
-                df2,
-                grid[i],
-                i,
-                coord_names=("easting", "northing"),
-            )[i].astype(data[i].dtype)
+            try:
+                df2[i] = utils.sample_grids(
+                    df2,
+                    grid[i],
+                    i,
+                    coord_names=("easting", "northing"),
+                )[i].astype(data[i].dtype)
+            except pd.errors.IntCastingNaNError as e:
+                log.error(e)
+                df2[i] = utils.sample_grids(
+                    df2,
+                    grid[i],
+                    i,
+                    coord_names=("easting", "northing"),
+                )[i]
 
     # test with this, using same input spacing as original
     # pd.testing.assert_frame_equal(df2, full_res_grav, check_like=True,)
