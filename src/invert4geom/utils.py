@@ -562,7 +562,15 @@ def sample_grids(
     # reset the index
     df3 = df2.reset_index()
 
+    # get x and y column names
     x, y = kwargs.get("coord_names", ("easting", "northing"))
+
+    # check column names exist, if not, use other common names
+    if (x in df3.columns) and (y in df3.columns):
+        pass
+    elif ("x" in df3.columns) and ("y" in df3.columns):
+        x, y = ("x", "y")
+
     # get points to sample at
     points = df3[[x, y]].copy()
 
@@ -683,7 +691,6 @@ def sample_bounding_surfaces(
             df=df,
             grid=upper_confining_layer,
             sampled_name="upper_bounds",
-            coord_names=["easting", "northing"],
         )
         assert len(df.upper_bounds) != 0
     if lower_confining_layer is not None:
@@ -691,7 +698,6 @@ def sample_bounding_surfaces(
             df=df,
             grid=lower_confining_layer,
             sampled_name="lower_bounds",
-            coord_names=["easting", "northing"],
         )
         assert len(df.lower_bounds) != 0
     return df

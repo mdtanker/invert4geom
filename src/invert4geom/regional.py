@@ -100,7 +100,6 @@ def regional_constant(
             df=constraints_df,
             grid=grav_grid,
             sampled_name="sampled_grav",
-            coord_names=("easting", "northing"),
         )
 
         # use median of sampled value for DC shift
@@ -429,7 +428,6 @@ def regional_constraints(
         df=constraints_df,
         grid=grav_grid.misfit,
         sampled_name="sampled_grav",
-        coord_names=("easting", "northing"),
         no_skip=True,
         verbose="q",
     )
@@ -491,7 +489,6 @@ def regional_constraints(
             df=grav_df,
             grid=regional_grav,
             sampled_name="reg",
-            coord_names=("easting", "northing"),
             verbose="q",
         )
     ###

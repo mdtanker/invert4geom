@@ -98,7 +98,6 @@ def resample_with_test_points(
                     df2,
                     grid[i],
                     i,
-                    coord_names=("easting", "northing"),
                 )[i].astype(data[i].dtype)
             except pd.errors.IntCastingNaNError as e:
                 log.error(e)
@@ -106,7 +105,6 @@ def resample_with_test_points(
                     df2,
                     grid[i],
                     i,
-                    coord_names=("easting", "northing"),
                 )[i]
 
     # test with this, using same input spacing as original
@@ -450,7 +448,6 @@ def constraints_cv_score(
         constraints_df,
         final_topography,
         "inverted_topo",
-        coord_names=("easting", "northing"),
     )
 
     dif = constraints_df.upward - constraints_df.inverted_topo
