@@ -140,41 +140,47 @@ def load_synthetic_model(
         log.info(msg, rmse)
 
         if plot_topography_diff is True:
-            _ = polar_utils.grd_compare(
-                true_topography,
-                starting_topography,
-                plot=True,
-                grid1_name="True topography",
-                grid2_name="Starting topography",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
-                reverse_cpt=True,
-                cmap="rain",
-                points=constraint_points.rename(
-                    columns={"easting": "x", "northing": "y"}
-                ),
-                points_style="x.3c",
-            )
+            try:
+                _ = polar_utils.grd_compare(
+                    true_topography,
+                    starting_topography,
+                    plot=True,
+                    grid1_name="True topography",
+                    grid2_name="Starting topography",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    reverse_cpt=True,
+                    cmap="rain",
+                    points=constraint_points.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+            except Exception as e:
+                log.error("plotting failed with error: %s", e)
     else:
         starting_topography = None
         constraint_points = None
 
     if plot_topography is True:
-        # plot the topography
-        fig = maps.plot_grd(
-            true_topography,
-            fig_height=10,
-            title="True topography",
-            reverse_cpt=True,
-            cmap="rain",
-            cbar_label="elevation (m)",
-            frame=["nSWe", "xaf10000", "yaf10000"],
-        )
-        fig.show()
+        try:
+            # plot the topography
+            fig = maps.plot_grd(
+                true_topography,
+                fig_height=10,
+                title="True topography",
+                reverse_cpt=True,
+                cmap="rain",
+                cbar_label="elevation (m)",
+                frame=["nSWe", "xaf10000", "yaf10000"],
+            )
+            fig.show()
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     if density_contrast is not None:
         if zref is None:
@@ -239,16 +245,21 @@ def load_synthetic_model(
                 seed=0,
             )
         if plot_gravity is True:
-            # plot the observed gravity
-            fig = maps.plot_grd(
-                grav_df.set_index(["northing", "easting"]).to_xarray().gravity_anomaly,
-                fig_height=10,
-                title="Forward gravity of true topography",
-                cmap="balance+h0",
-                cbar_label="mGal",
-                frame=["nSWe", "xaf10000", "yaf10000"],
-            )
-            fig.show()
+            try:
+                # plot the observed gravity
+                fig = maps.plot_grd(
+                    grav_df.set_index(["northing", "easting"])
+                    .to_xarray()
+                    .gravity_anomaly,
+                    fig_height=10,
+                    title="Forward gravity of true topography",
+                    cmap="balance+h0",
+                    cbar_label="mGal",
+                    frame=["nSWe", "xaf10000", "yaf10000"],
+                )
+                fig.show()
+            except Exception as e:
+                log.error("plotting failed with error: %s", e)
     else:
         grav_df = None
 

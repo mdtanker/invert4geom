@@ -1085,10 +1085,13 @@ def run_inversion(
     }
 
     if plot_convergence is True:
-        plotting.plot_convergence(
-            gravity,
-            params,
-        )
+        try:
+            plotting.plot_convergence(
+                gravity,
+                params,
+            )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     results = prisms_df, gravity, params, elapsed_time
     if results_fname is not None:
