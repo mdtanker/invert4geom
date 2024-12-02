@@ -114,7 +114,6 @@ def load_synthetic_model(
             constraint_points,
             true_topography,
             "upward",
-            coord_names=("easting", "northing"),
         )
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
@@ -133,7 +132,6 @@ def load_synthetic_model(
             constraint_points,
             starting_topography,
             "starting_topography",
-            coord_names=("easting", "northing"),
         )
         rmse = utils.rmse(
             constraint_points.upward - constraint_points.starting_topography
