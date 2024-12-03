@@ -960,12 +960,12 @@ def split_test_train(
                     yshift_amount = None
                 elif i % ncols == 0:
                     # fig = fig
-                    origin_shift = "both_shift"
+                    origin_shift = "both"
                     xshift_amount = -ncols + 1
                     yshift_amount = -1
                 else:
                     # fig= fig
-                    origin_shift = "xshift"
+                    origin_shift = "x"
                     xshift_amount = 1
                     yshift_amount = 1
 
