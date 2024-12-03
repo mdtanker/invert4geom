@@ -686,7 +686,7 @@ def plot_inversion_grav_results(
     fig = maps.plot_grd(
         dif,
         fig=fig,
-        origin_shift="xshift",
+        origin_shift="x",
         fig_height=fig_height,
         region=region,
         cmap="balance+h0",
@@ -700,7 +700,7 @@ def plot_inversion_grav_results(
     fig = maps.plot_grd(
         final,
         fig=fig,
-        origin_shift="xshift",
+        origin_shift="x",
         fig_height=fig_height,
         region=region,
         cmap="balance+h0",
@@ -1407,7 +1407,7 @@ def plot_stochastic_results(
         cbar_label=f"{label}: {weighted} mean ({unit})",
         title="Ensemble mean",
         fig=fig,
-        origin_shift="xshift",
+        origin_shift="x",
     )
     if points is not None:
         fig.plot(
