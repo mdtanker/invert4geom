@@ -259,7 +259,6 @@ def starting_topography_uncertainty(
             constraints_df,
             starting_topography,
             "sampled",
-            coord_names=("easting", "northing"),
         )
         # get weights of rmse between constraints and results
         weight_vals.append(utils.rmse(constraints_df.upward - constraints_df.sampled))
@@ -276,60 +275,68 @@ def starting_topography_uncertainty(
         weights=weights,
     )
     if plot is True:
-        plotting.plot_stochastic_results(
-            stats_ds=stats_ds,
-            points=constraints_df,
-            cmap="rain",
-            reverse_cpt=True,
-            label="topography",
-            points_label="Topography constraints",
-            region=plot_region,
-        )
-        if true_topography is not None:
-            try:
-                mean = stats_ds.weighted_mean
-                stdev = stats_ds.weighted_stdev
-            except AttributeError:
-                mean = stats_ds.z_mean
-                stdev = stats_ds.z_stdev
-
-            _ = polar_utils.grd_compare(
-                np.abs(true_topography - mean),
-                stdev,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True error",
-                grid2_name="Stochastic uncertainty",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
-                cmap="thermal",
-                points=constraints_df.rename(columns={"easting": "x", "northing": "y"}),
-                points_style="x.3c",
-            )
-            _ = polar_utils.grd_compare(
-                true_topography,
-                mean,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True topography",
-                grid2_name="Mean topography",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
+        try:
+            plotting.plot_stochastic_results(
+                stats_ds=stats_ds,
+                points=constraints_df,
                 cmap="rain",
                 reverse_cpt=True,
-                points=constraints_df.rename(columns={"easting": "x", "northing": "y"}),
-                points_style="x.3c",
+                label="topography",
+                points_label="Topography constraints",
+                region=plot_region,
             )
+            if true_topography is not None:
+                try:
+                    mean = stats_ds.weighted_mean
+                    stdev = stats_ds.weighted_stdev
+                except AttributeError:
+                    mean = stats_ds.z_mean
+                    stdev = stats_ds.z_stdev
+
+                _ = polar_utils.grd_compare(
+                    np.abs(true_topography - mean),
+                    stdev,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True error",
+                    grid2_name="Stochastic uncertainty",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="thermal",
+                    points=constraints_df.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+                _ = polar_utils.grd_compare(
+                    true_topography,
+                    mean,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True topography",
+                    grid2_name="Mean topography",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="rain",
+                    reverse_cpt=True,
+                    points=constraints_df.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
+
     return stats_ds
     # pylint: enable=duplicate-code
 
@@ -431,7 +438,6 @@ def equivalent_sources_uncertainty(
                 grid_points,
                 g,
                 sampled_name="sampled",
-                coord_names=["easting", "northing"],
             )
             weight_vals.append(utils.rmse(points.gravity_anomaly - points.sampled))
         # convert residuals into weights
@@ -447,56 +453,60 @@ def equivalent_sources_uncertainty(
     )
 
     if plot is True:
-        plotting.plot_stochastic_results(
-            stats_ds=stats_ds,
-            cmap="viridis",
-            reverse_cpt=False,
-            label="Predicted gravity",
-            unit="mGal",
-            region=plot_region,
-        )
-        if true_gravity is not None:
-            try:
-                mean = stats_ds.weighted_mean
-                stdev = stats_ds.weighted_stdev
-            except AttributeError:
-                mean = stats_ds.z_mean
-                stdev = stats_ds.z_stdev
-
-            # pylint: disable=duplicate-code
-            _ = polar_utils.grd_compare(
-                np.abs(true_gravity - mean),
-                stdev,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True error",
-                grid2_name="Stochastic uncertainty",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
-                cmap="thermal",
-            )
-            _ = polar_utils.grd_compare(
-                true_gravity,
-                mean,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True gravity",
-                grid2_name="Mean gravity",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
+        try:
+            plotting.plot_stochastic_results(
+                stats_ds=stats_ds,
                 cmap="viridis",
+                reverse_cpt=False,
+                label="Predicted gravity",
+                unit="mGal",
+                region=plot_region,
             )
-            # pylint: enable=duplicate-code
+            if true_gravity is not None:
+                try:
+                    mean = stats_ds.weighted_mean
+                    stdev = stats_ds.weighted_stdev
+                except AttributeError:
+                    mean = stats_ds.z_mean
+                    stdev = stats_ds.z_stdev
+
+                # pylint: disable=duplicate-code
+                _ = polar_utils.grd_compare(
+                    np.abs(true_gravity - mean),
+                    stdev,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True error",
+                    grid2_name="Stochastic uncertainty",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="thermal",
+                )
+                _ = polar_utils.grd_compare(
+                    true_gravity,
+                    mean,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True gravity",
+                    grid2_name="Mean gravity",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="viridis",
+                )
+                # pylint: enable=duplicate-code
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
+
     return stats_ds
 
 
@@ -595,7 +605,6 @@ def regional_misfit_uncertainty(
                 constraints_df,
                 g,
                 sampled_name="sampled_regional",
-                coord_names=["easting", "northing"],
             )
             weight_vals.append(utils.rmse(points.sampled_regional))
         # convert residuals into weights
@@ -611,61 +620,69 @@ def regional_misfit_uncertainty(
     )
 
     if plot is True:
-        plotting.plot_stochastic_results(
-            stats_ds=stats_ds,
-            points=constraints_df,
-            cmap="viridis",
-            reverse_cpt=False,
-            label="Regional gravity",
-            unit="mGal",
-            points_label="Topography constraints",
-            region=plot_region,
-        )
-        if true_regional is not None:
-            try:
-                mean = stats_ds.weighted_mean
-                stdev = stats_ds.weighted_stdev
-            except AttributeError:
-                mean = stats_ds.z_mean
-                stdev = stats_ds.z_stdev
-            # pylint: disable=duplicate-code
-            _ = polar_utils.grd_compare(
-                np.abs(true_regional - mean),
-                stdev,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True error",
-                grid2_name="Stochastic uncertainty",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
-                cmap="thermal",
-                points=constraints_df.rename(columns={"easting": "x", "northing": "y"}),
-                points_style="x.3c",
-            )
-            _ = polar_utils.grd_compare(
-                true_regional,
-                mean,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True regional",
-                grid2_name="Mean regional",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
+        try:
+            plotting.plot_stochastic_results(
+                stats_ds=stats_ds,
+                points=constraints_df,
                 cmap="viridis",
-                points=constraints_df.rename(columns={"easting": "x", "northing": "y"}),
-                points_style="x.3c",
+                reverse_cpt=False,
+                label="Regional gravity",
+                unit="mGal",
+                points_label="Topography constraints",
+                region=plot_region,
             )
-            # pylint: enable=duplicate-code
+            if true_regional is not None:
+                try:
+                    mean = stats_ds.weighted_mean
+                    stdev = stats_ds.weighted_stdev
+                except AttributeError:
+                    mean = stats_ds.z_mean
+                    stdev = stats_ds.z_stdev
+                # pylint: disable=duplicate-code
+                _ = polar_utils.grd_compare(
+                    np.abs(true_regional - mean),
+                    stdev,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True error",
+                    grid2_name="Stochastic uncertainty",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="thermal",
+                    points=constraints_df.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+                _ = polar_utils.grd_compare(
+                    true_regional,
+                    mean,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True regional",
+                    grid2_name="Mean regional",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="viridis",
+                    points=constraints_df.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+                # pylint: enable=duplicate-code
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
+
     return stats_ds
 
 
@@ -1138,7 +1155,6 @@ def merged_stats(
                 constraints_df,
                 bed,
                 sampled_name="sampled_topo",
-                coord_names=["easting", "northing"],
             )
             points["dif"] = points.upward - points.sampled_topo
             weight_vals.append(utils.rmse(points.dif))
@@ -1154,13 +1170,16 @@ def merged_stats(
     )
 
     if plot is True:
-        plotting.plot_stochastic_results(
-            stats_ds=stats_ds,
-            points=constraints_df,
-            cmap="rain",
-            reverse_cpt=True,
-            label="inverted topography",
-            points_label="Topography constraints",
-        )
+        try:
+            plotting.plot_stochastic_results(
+                stats_ds=stats_ds,
+                points=constraints_df,
+                cmap="rain",
+                reverse_cpt=True,
+                label="inverted topography",
+                points_label="Topography constraints",
+            )
+        except Exception as e:
+            log.error("plotting failed with error: %s", e)
 
     return stats_ds
