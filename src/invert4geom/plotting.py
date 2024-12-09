@@ -1095,6 +1095,8 @@ def show_prism_layers(
     prisms: list[xr.Dataset] | xr.Dataset,
     cmap: str = "viridis",
     color_by: str = "density",
+    region: tuple[float, float, float, float] | None = None,
+    clip_box: bool = False,
     **kwargs: typing.Any,
 ) -> None:
     """
@@ -1110,6 +1112,11 @@ def show_prism_layers(
         either use a variable of the prism_layer dataset, typically 'density' or
         'thickness', or choose 'constant' to have each layer colored by a unique color
         use kwarg `colors` to alter these colors, by default is "density"
+    region : tuple[float, float, float, float], optional
+        region to clip the model to, by default None
+    clip_box : bool, optional
+        clip a corner out of the model to help visualize, by default False
+
     """
 
     # Plot with pyvista
@@ -1124,8 +1131,35 @@ def show_prism_layers(
         prisms = [prisms]
 
     for i, j in enumerate(prisms):
+        # if region is given, clip model
+        if region is not None:
+            j = j.sel(  # noqa: PLW2901
+                easting=slice(region[0], region[1]),
+                northing=slice(region[2], region[3]),
+            )
+
         # turn prisms into pyvista object
         pv_grid = j.prism_layer.to_pyvista()
+
+        # clip corner out of model to help visualize
+        if clip_box is True:
+            # extract region from first prism layer
+            reg = vd.get_region((j.easting.values, j.northing.values))
+            # box_buffer used make box slightly bigger
+            box_buffer = kwargs.get("box_buffer", 5e3)
+            # set 6 edges of cube to clip out
+            bounds = [
+                reg[0] - box_buffer,
+                reg[0] + box_buffer + ((reg[1] - reg[0]) / 2),
+                reg[2] - box_buffer,
+                reg[2] + box_buffer + ((reg[3] - reg[2]) / 2),
+                np.nanmin(j.bottom),
+                np.nanmax(j.top),
+            ]
+            pv_grid = pv_grid.clip_box(
+                bounds,
+                invert=True,
+            )
 
         trans = opacity[i] if opacity is not None else None
 
