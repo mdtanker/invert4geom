@@ -3479,3 +3479,182 @@ def optimize_regional_constraint_point_minimization(
             log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
+
+
+def optimal_buffer(
+    target: float,
+    buffer_perc_limits: tuple[float, float] = (1, 50),
+    n_trials: int = 25,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    grid_search: bool = False,
+    fname: str | None = None,
+    progressbar: bool = True,
+    parallel: bool = False,
+    plot: bool = True,
+    **kwargs: typing.Any,
+) -> tuple[optuna.study, tuple[float, float, int, xr.Dataset]]:
+    """
+    Run an optimization to find best buffer zone width.
+    """
+
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    # if sampler not provided, use BoTorch as default unless grid_search is True
+    if sampler is None:
+        if grid_search is True:
+            if n_trials < 4:
+                msg = (
+                    "if grid_search is True, n_trials must be at least 4, "
+                    "resetting n_trials to 4 now."
+                )
+                log.warning(msg)
+                n_trials = 4
+            space = np.linspace(buffer_perc_limits[0], buffer_perc_limits[1], n_trials)
+            # omit first and last since they will be enqueued separately
+            space = space[1:-1]
+            sampler = optuna.samplers.GridSampler(
+                search_space={"buffer_perc": space},
+                seed=0,
+            )
+        else:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="BoTorch")
+                sampler = optuna.integration.BoTorchSampler(
+                    n_startup_trials=int(n_trials / 4),
+                    seed=0,
+                )
+
+    # set file name for saving results with random number between 0 and 999
+    if fname is None:
+        fname = f"tmp_{random.randint(0,999)}"
+
+    if parallel:
+        pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
+        pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
+        pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
+        storage = JournalStorage(JournalFileStorage(f"{fname}.log"))
+    else:
+        storage = None
+
+    study = optuna.create_study(
+        direction="minimize",
+        sampler=sampler,
+        load_if_exists=False,
+        study_name=fname,
+        storage=storage,
+    )
+
+    # explicitly add the limits as trials
+    study.enqueue_trial({"damping": buffer_perc_limits[0]}, skip_if_exists=True)
+    study.enqueue_trial({"damping": buffer_perc_limits[1]}, skip_if_exists=True)
+
+    # run optimization
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="logei_candidates_func is experimental"
+        )
+        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+            study = run_optuna(
+                study=study,
+                storage=storage,
+                objective=OptimalBuffer(
+                    buffer_perc_limits=buffer_perc_limits,
+                    fname=fname,
+                    target=target,
+                    **kwargs,
+                ),
+                n_trials=n_trials,
+                callbacks=[_warn_limits_better_than_trial_1_param],
+                maximize_cpus=True,
+                parallel=parallel,
+                progressbar=progressbar,
+            )
+
+    best_trial = study.best_trial
+
+    # warn if any best parameter values are at their limits
+    _warn_parameter_at_limits(best_trial)
+
+    # log the results of the best trial
+    _log_optuna_results(best_trial)
+
+    # re-run decay calculation with optimal buffer
+    results = utils.gravity_decay_buffer(
+        buffer_perc=best_trial.params["buffer_perc"],
+        plot=plot,
+        **kwargs,
+    )
+
+    if plot:
+        try:
+            plot1 = optuna.visualization.plot_optimization_history(study)
+            plot2 = optuna.visualization.plot_slice(study)
+
+            plot1.show()
+            plot2.show()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.error("plotting failed with error: %s", e)
+
+    return study, results
+
+
+class OptimalBuffer:
+    """
+    Objective function to use in an Optuna optimization for finding the buffer zone
+    width as a percentage of region width which limits the gravity decay (edge effects)
+    to a specified amount within a region of interest. Used within function
+    func:`optimal_buffer`.
+    """
+
+    def __init__(
+        self,
+        buffer_perc_limits: tuple[float, float],
+        target: float,
+        fname: str,
+        **kwargs: typing.Any,
+    ) -> None:
+        self.fname = fname
+        self.buffer_perc_limits = buffer_perc_limits
+        self.target = target
+        self.kwargs = kwargs
+
+    def __call__(self, trial: optuna.trial) -> float:
+        """
+        Parameters
+        ----------
+        trial : optuna.trial
+            the trial to run
+
+        Returns
+        -------
+        float
+            the score of the eq_sources fit
+        """
+        buffer_perc = trial.suggest_float(
+            "buffer_perc",
+            self.buffer_perc_limits[0],
+            self.buffer_perc_limits[1],
+        )
+
+        new_kwargs = {
+            key: value
+            for key, value in self.kwargs.items()
+            if key
+            not in [
+                "buffer_perc",
+                "progressbar",
+                "results_fname",
+                "plot",
+            ]
+        }
+
+        trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
+
+        score = utils.gravity_decay_buffer(
+            buffer_perc=buffer_perc,
+            progressbar=False,
+            plot=False,
+            **new_kwargs,
+        )[0]
+
+        return np.abs((self.target) - score)  # type: ignore[no-any-return]

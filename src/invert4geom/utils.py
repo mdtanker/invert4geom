@@ -20,7 +20,7 @@ from numpy.typing import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 import invert4geom
-from invert4geom import cross_validation, log
+from invert4geom import cross_validation, log, plotting
 
 
 @contextmanager
@@ -1421,3 +1421,223 @@ def eq_sources_score(kwargs: typing.Any) -> float:
     deprecated function, use cross_validation.eq_sources_score instead.
     """
     return cross_validation.eq_sources_score(**kwargs)
+
+
+def gravity_decay_buffer(
+    buffer_perc: float,
+    spacing: float,
+    inner_region: tuple[float, float, float, float],
+    top: float,
+    zref: float,
+    obs_height: float,
+    density: float,
+    amplitude: float | None = None,
+    wavelength: float | None = None,
+    checkerboard: bool = False,
+    as_density_contrast: bool = False,
+    plot: bool = True,
+    plot_profile: bool = True,
+    progressbar: bool = False,
+) -> tuple[float, float, int, xr.Dataset]:
+    """
+    For a given buffer zone width (as percentage of x or y range) and domain parameters,
+    calculate the max percent decay of the gravity anomaly within the region of
+    interest.
+
+    Parameters
+    ----------
+    buffer_perc : float
+        percentage of the widest dimension of inner_region to use as buffer zone
+    spacing : float
+        spacing of the prism layer and gravity observation points
+    inner_region : tuple[float, float, float, float]
+        region boundaries for the region of interest
+    top : float
+        height for the top of the prisms
+    zref : float
+        reference level for the prisms
+    obs_height : float
+        gravity observation height
+    density : float
+        density value for the prisms
+    amplitude : float | None, optional
+        if using `checkerboard`, this is the amplitude of each undulation, by default
+        None
+    wavelength : float | None, optional
+        if using `checkerboard`, this is the wavelength of each undulation, by default
+        None
+    checkerboard : bool, optional
+        use an undulating checkerboard for the topography instead of a flat surface, by
+        default False
+    as_density_contrast : bool, optional
+        discretize the topography as a density contrast, resulting in no edge effects,
+        by default False
+    plot : bool, optional
+        plot the results, by default True
+    plot_profile : bool, optional
+        plot a profile across the prism layer, by default True
+    progressbar : bool, optional
+        show a progressbar for the forward gravity calculation, by default False
+
+    Returns
+    -------
+    max_decay : float
+        the maximum percentage decay of the gravity anomaly within the region of
+        interest
+    buffer_width : float
+        width of the buffer zone
+    buffer_cells : int
+        number of cells in the buffer zone
+    grav_ds : xarray.Dataset
+        dataset of the forward gravity calculations
+    """
+
+    if (checkerboard is False) & (top == zref):
+        msg = "top and zref must be different if checkerboard is False"
+        raise ValueError(msg)
+
+    # get x and y range of interest region
+    x_diff = np.abs(inner_region[0] - inner_region[1])
+    y_diff = np.abs(inner_region[2] - inner_region[3])
+
+    # pick the bigger range
+    max_diff = max(x_diff, y_diff)
+
+    # calc buffer as percentage of width
+    buffer_width = max_diff * (buffer_perc / 100)
+
+    # round to nearest multiple of spacing
+    def round_to_input(num: float, multiple: float) -> float:
+        return round(num / multiple) * multiple
+
+    # round buffer width to nearest spacing interval
+    buffer_width = round_to_input(buffer_width, spacing)
+
+    # define buffer region
+    buffer_region = vd.pad_region(inner_region, buffer_width)
+
+    # calculate buffer width in terms of number of cells
+    buffer_cells = buffer_width / spacing
+
+    # create topography
+    if checkerboard:
+        synth = vd.synthetic.CheckerBoard(
+            amplitude=amplitude,
+            region=buffer_region,
+            w_east=wavelength,
+            w_north=wavelength,
+        )
+
+        surface = synth.grid(
+            spacing=spacing, data_names="upward", dims=("northing", "easting")
+        ).upward
+
+        surface += top
+
+    else:
+        surface = create_topography(
+            method="flat",
+            upwards=top,
+            region=buffer_region,
+            spacing=spacing,
+        )
+
+    # create prism layer
+    if as_density_contrast:
+        # create prisms around mean value to compare to to calculate decay
+        zref = surface.values.mean()
+
+        # positive densities above, negative below
+        dens = surface.copy()
+        dens.values[:] = density
+        dens = dens.where(surface >= zref, -density)
+
+        # create prism layer with a mean zref
+        prisms = grids_to_prisms(
+            surface,
+            zref,
+            density=dens,
+        )
+    else:
+        prisms = grids_to_prisms(
+            surface,
+            zref,
+            density=density,
+        )
+
+    # create prisms around mean value to compare to to calculate decay
+    zref = surface.values.mean()
+
+    # positive densities above, negative below
+    dens = surface.copy()
+    dens.values[:] = density
+    dens = dens.where(surface >= zref, -density)
+
+    # create prism layer with a mean zref
+    prisms_mean_zref = grids_to_prisms(
+        surface,
+        zref,
+        density=dens,
+    )
+
+    # create set of observation points
+    data = vd.grid_coordinates(
+        inner_region,
+        spacing=spacing,
+        extra_coords=obs_height,
+    )
+
+    forward_df = pd.DataFrame(
+        {
+            "easting": data[0].ravel(),
+            "northing": data[1].ravel(),
+            "upward": data[2].ravel(),
+        }
+    )
+
+    # calculate forward gravity of prism layer
+    forward_df["forward"] = prisms.prism_layer.gravity(
+        coordinates=(
+            forward_df.easting,
+            forward_df.northing,
+            forward_df.upward,
+        ),
+        field="g_z",
+        progressbar=progressbar,
+    )
+
+    # if checkerboard:
+    forward_df["forward_no_edge_effects"] = prisms_mean_zref.prism_layer.gravity(
+        coordinates=(
+            forward_df.easting,
+            forward_df.northing,
+            forward_df.upward,
+        ),
+        field="g_z",
+        progressbar=progressbar,
+    )
+
+    grav_ds = forward_df.set_index(["northing", "easting"]).to_xarray()
+
+    # shift forward gravity with and without edge effects so max value are equal
+    shift = grav_ds.forward_no_edge_effects.max() - grav_ds.forward.max()
+
+    grav_ds["forward_no_edge_effects"] -= shift
+
+    dif = grav_ds.forward - grav_ds.forward_no_edge_effects
+
+    max_grav = grav_ds.forward.values.max()
+    max_decay = 100 * (max_grav - (max_grav + dif.values.min())) / max_grav
+
+    if plot:
+        try:
+            plotting.edge_effects(
+                grav_ds=grav_ds,
+                prism_layer=prisms,
+                inner_region=inner_region,
+                plot_profile=plot_profile,
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.error("plotting failed with error: %s", e)
+
+    return max_decay, buffer_width, buffer_cells, grav_ds
