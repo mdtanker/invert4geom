@@ -1016,7 +1016,7 @@ def create_topography(
 
         if pd.Series(["inside", "buffer"]).isin(df.columns).all():
             df_to_interpolate = df[df.inside | df.buffer]
-            df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712
+            df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
 
             coords = (df_to_interpolate.easting, df_to_interpolate.northing)
             if weights_col is not None:
