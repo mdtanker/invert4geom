@@ -17,7 +17,7 @@ import verde as vd
 import xarray as xr
 from IPython.display import clear_output
 from numpy.typing import NDArray
-from polartoolkit import maps
+from polartoolkit import maps, profiles
 from polartoolkit import utils as polar_utils
 
 from invert4geom import log, utils
@@ -1549,3 +1549,94 @@ def projection_2d(
             plt.xticks([])
             plt.yticks([])
     plt.show()
+
+
+def edge_effects(
+    grav_ds: xr.Dataset,
+    prism_layer: xr.DataArray,
+    inner_region: tuple[float, float, float, float],
+    plot_profile: bool = True,
+) -> None:
+    """
+    Show the gravity edge effects and the percentage decay within the inner region and
+    optionally a profile across the region.
+
+    Parameters
+    ----------
+    grav_ds : xr.Dataset
+        the gravity dataset
+    prism_layer : xr.DataArray
+        the prism layer
+    inner_region : tuple[float, float, float, float]
+        the inside region, where forward gravity is calculated
+    plot_profile : bool, optional
+        plot a profile across the region, by default True
+    """
+    # plot profiles
+    if plot_profile:
+        data_dict = profiles.make_data_dict(
+            ["forward gravity", "without edge effects"],
+            [grav_ds.forward, grav_ds.forward_no_edge_effects],
+            ["black", "red"],
+        )
+
+        layers_dict = profiles.make_data_dict(
+            ["surface", "reference"],
+            [prism_layer.top, prism_layer.bottom],
+            ["blue", "darkorange"],
+        )
+
+        fig, _, _ = profiles.plot_profile(
+            "points",
+            start=(inner_region[0], (inner_region[3] - inner_region[2]) / 2),
+            stop=(inner_region[1], (inner_region[3] - inner_region[2]) / 2),
+            layers_dict=layers_dict,
+            data_dict=data_dict,
+            fill_layers=False,
+        )
+        fig.show()
+
+    dif = grav_ds.forward - grav_ds.forward_no_edge_effects
+    max_grav = grav_ds.forward.values.max()
+    percent_decay = 100 * (max_grav - (max_grav + dif)) / max_grav
+
+    hist_vals = vd.grid_to_table(percent_decay).reset_index().scalars
+
+    # plot histogram of gravity decay values
+    sns.displot(hist_vals, kde=True, stat="percent")
+
+    plt.xlabel("Percent of max forward gravity")
+    plt.ylabel("Percent")
+    plt.title("Percent gravity decay within inner region")
+    plt.show()
+
+    # plot gravity and percentage contours
+    fig = maps.plot_grd(
+        grav_ds.forward,
+        cmap="viridis",
+        region=inner_region,
+        title="Forward gravity",
+        cbar_label="mGal",
+        frame=True,
+        scalebar=True,
+        hist=True,
+        hist_bin_num=25,
+    )
+
+    fig = maps.plot_grd(
+        percent_decay,
+        fig=fig,
+        origin_shift="x",
+        cmap="thermal",
+        region=inner_region,
+        title="Gravity edge effect",
+        cbar_label="Percentage decay",
+        frame=True,
+        scalebar=True,
+        hist=True,
+        hist_bin_num=25,
+    )
+
+    fig.grdcontour(grid=percent_decay)
+
+    fig.show()
