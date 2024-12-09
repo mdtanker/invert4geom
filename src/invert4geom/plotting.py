@@ -17,7 +17,7 @@ import verde as vd
 import xarray as xr
 from IPython.display import clear_output
 from numpy.typing import NDArray
-from polartoolkit import maps
+from polartoolkit import maps, profiles
 from polartoolkit import utils as polar_utils
 
 from invert4geom import log, utils
@@ -600,10 +600,7 @@ def plot_inversion_topo_results(
 
     final_topo = prisms_ds.topo
 
-    if constraints_df is not None:
-        points = constraints_df.rename(columns={"easting": "x", "northing": "y"})
-    else:
-        points = None
+    points = constraints_df if constraints_df is not None else None
 
     # pylint: disable=duplicate-code
     _ = polar_utils.grd_compare(
@@ -663,10 +660,7 @@ def plot_inversion_grav_results(
     initial_rmse = utils.rmse(grav_results["iter_1_initial_misfit"])
     final_rmse = utils.rmse(grav_results[f"iter_{max(iterations)}_final_misfit"])
 
-    if constraints_df is not None:
-        points = constraints_df.rename(columns={"easting": "x", "northing": "y"})
-    else:
-        points = None
+    points = constraints_df if constraints_df is not None else None
 
     dif, initial, final = polar_utils.grd_compare(
         initial_misfit,
@@ -692,7 +686,7 @@ def plot_inversion_grav_results(
     fig = maps.plot_grd(
         dif,
         fig=fig,
-        origin_shift="xshift",
+        origin_shift="x",
         fig_height=fig_height,
         region=region,
         cmap="balance+h0",
@@ -706,7 +700,7 @@ def plot_inversion_grav_results(
     fig = maps.plot_grd(
         final,
         fig=fig,
-        origin_shift="xshift",
+        origin_shift="x",
         fig_height=fig_height,
         region=region,
         cmap="balance+h0",
@@ -1101,6 +1095,8 @@ def show_prism_layers(
     prisms: list[xr.Dataset] | xr.Dataset,
     cmap: str = "viridis",
     color_by: str = "density",
+    region: tuple[float, float, float, float] | None = None,
+    clip_box: bool = False,
     **kwargs: typing.Any,
 ) -> None:
     """
@@ -1116,6 +1112,11 @@ def show_prism_layers(
         either use a variable of the prism_layer dataset, typically 'density' or
         'thickness', or choose 'constant' to have each layer colored by a unique color
         use kwarg `colors` to alter these colors, by default is "density"
+    region : tuple[float, float, float, float], optional
+        region to clip the model to, by default None
+    clip_box : bool, optional
+        clip a corner out of the model to help visualize, by default False
+
     """
 
     # Plot with pyvista
@@ -1130,8 +1131,35 @@ def show_prism_layers(
         prisms = [prisms]
 
     for i, j in enumerate(prisms):
+        # if region is given, clip model
+        if region is not None:
+            j = j.sel(  # noqa: PLW2901
+                easting=slice(region[0], region[1]),
+                northing=slice(region[2], region[3]),
+            )
+
         # turn prisms into pyvista object
         pv_grid = j.prism_layer.to_pyvista()
+
+        # clip corner out of model to help visualize
+        if clip_box is True:
+            # extract region from first prism layer
+            reg = vd.get_region((j.easting.values, j.northing.values))
+            # box_buffer used make box slightly bigger
+            box_buffer = kwargs.get("box_buffer", 5e3)
+            # set 6 edges of cube to clip out
+            bounds = [
+                reg[0] - box_buffer,
+                reg[0] + box_buffer + ((reg[1] - reg[0]) / 2),
+                reg[2] - box_buffer,
+                reg[2] + box_buffer + ((reg[3] - reg[2]) / 2),
+                np.nanmin(j.bottom),
+                np.nanmax(j.top),
+            ]
+            pv_grid = pv_grid.clip_box(
+                bounds,
+                invert=True,
+            )
 
         trans = opacity[i] if opacity is not None else None
 
@@ -1413,7 +1441,7 @@ def plot_stochastic_results(
         cbar_label=f"{label}: {weighted} mean ({unit})",
         title="Ensemble mean",
         fig=fig,
-        origin_shift="xshift",
+        origin_shift="x",
     )
     if points is not None:
         fig.plot(
@@ -1555,3 +1583,94 @@ def projection_2d(
             plt.xticks([])
             plt.yticks([])
     plt.show()
+
+
+def edge_effects(
+    grav_ds: xr.Dataset,
+    prism_layer: xr.DataArray,
+    inner_region: tuple[float, float, float, float],
+    plot_profile: bool = True,
+) -> None:
+    """
+    Show the gravity edge effects and the percentage decay within the inner region and
+    optionally a profile across the region.
+
+    Parameters
+    ----------
+    grav_ds : xr.Dataset
+        the gravity dataset
+    prism_layer : xr.DataArray
+        the prism layer
+    inner_region : tuple[float, float, float, float]
+        the inside region, where forward gravity is calculated
+    plot_profile : bool, optional
+        plot a profile across the region, by default True
+    """
+    # plot profiles
+    if plot_profile:
+        data_dict = profiles.make_data_dict(
+            ["forward gravity", "without edge effects"],
+            [grav_ds.forward, grav_ds.forward_no_edge_effects],
+            ["black", "red"],
+        )
+
+        layers_dict = profiles.make_data_dict(
+            ["surface", "reference"],
+            [prism_layer.top, prism_layer.bottom],
+            ["blue", "darkorange"],
+        )
+
+        fig, _, _ = profiles.plot_profile(
+            "points",
+            start=(inner_region[0], (inner_region[3] - inner_region[2]) / 2),
+            stop=(inner_region[1], (inner_region[3] - inner_region[2]) / 2),
+            layers_dict=layers_dict,
+            data_dict=data_dict,
+            fill_layers=False,
+        )
+        fig.show()
+
+    dif = grav_ds.forward - grav_ds.forward_no_edge_effects
+    max_grav = grav_ds.forward.values.max()
+    percent_decay = 100 * (max_grav - (max_grav + dif)) / max_grav
+
+    hist_vals = vd.grid_to_table(percent_decay).reset_index().scalars
+
+    # plot histogram of gravity decay values
+    sns.displot(hist_vals, kde=True, stat="percent")
+
+    plt.xlabel("Percent of max forward gravity")
+    plt.ylabel("Percent")
+    plt.title("Percent gravity decay within inner region")
+    plt.show()
+
+    # plot gravity and percentage contours
+    fig = maps.plot_grd(
+        grav_ds.forward,
+        cmap="viridis",
+        region=inner_region,
+        title="Forward gravity",
+        cbar_label="mGal",
+        frame=True,
+        scalebar=True,
+        hist=True,
+        hist_bin_num=25,
+    )
+
+    fig = maps.plot_grd(
+        percent_decay,
+        fig=fig,
+        origin_shift="x",
+        cmap="thermal",
+        region=inner_region,
+        title="Gravity edge effect",
+        cbar_label="Percentage decay",
+        frame=True,
+        scalebar=True,
+        hist=True,
+        hist_bin_num=25,
+    )
+
+    fig.grdcontour(grid=percent_decay)
+
+    fig.show()
