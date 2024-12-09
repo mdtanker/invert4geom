@@ -1090,7 +1090,7 @@ def run_inversion(
                 gravity,
                 params,
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     results = prisms_df, gravity, params, elapsed_time
