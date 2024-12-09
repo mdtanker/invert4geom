@@ -334,7 +334,7 @@ def starting_topography_uncertainty(
                     ),
                     points_style="x.3c",
                 )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return stats_ds
@@ -504,7 +504,7 @@ def equivalent_sources_uncertainty(
                     cmap="viridis",
                 )
                 # pylint: enable=duplicate-code
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return stats_ds
@@ -680,7 +680,7 @@ def regional_misfit_uncertainty(
                     points_style="x.3c",
                 )
                 # pylint: enable=duplicate-code
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return stats_ds
@@ -1179,7 +1179,7 @@ def merged_stats(
                 label="inverted topography",
                 points_label="Topography constraints",
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return stats_ds

@@ -756,7 +756,6 @@ def optimize_inversion_damping(
     )
 
     # explicitly add the limits as trials
-    # if grid_search is False:
     study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
     study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
 
@@ -822,7 +821,7 @@ def optimize_inversion_damping(
                 logx=logx,
                 logy=logy,
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return study, inv_results
@@ -1752,7 +1751,7 @@ def optimize_inversion_zref_density_contrast(
                             "Density contrast (kg/m$^3$)",
                         ),
                     )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return study, final_inversion_results
@@ -2151,7 +2150,7 @@ def optimize_eq_source_params(
                 plot_importance=True,
                 include_duration=False,
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return study, eqs
@@ -2776,7 +2775,7 @@ def optimize_regional_filter(
                 resulting_grav_df.set_index(
                     ["northing", "easting"]
                 ).to_xarray().reg.plot()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
@@ -2945,7 +2944,7 @@ def optimize_regional_trend(
                 resulting_grav_df.set_index(
                     ["northing", "easting"]
                 ).to_xarray().reg.plot()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
@@ -3148,7 +3147,7 @@ def optimize_regional_eq_sources(
                 resulting_grav_df.set_index(
                     ["northing", "easting"]
                 ).to_xarray().reg.plot()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
@@ -3475,7 +3474,7 @@ def optimize_regional_constraint_point_minimization(
                 resulting_grav_df.set_index(
                     ["northing", "easting"]
                 ).to_xarray().reg.plot()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial

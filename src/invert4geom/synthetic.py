@@ -160,7 +160,7 @@ def load_synthetic_model(
                     ),
                     points_style="x.3c",
                 )
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 log.error("plotting failed with error: %s", e)
     else:
         starting_topography = None
@@ -179,7 +179,7 @@ def load_synthetic_model(
                 frame=["nSWe", "xaf10000", "yaf10000"],
             )
             fig.show()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     if density_contrast is not None:
@@ -258,7 +258,7 @@ def load_synthetic_model(
                     frame=["nSWe", "xaf10000", "yaf10000"],
                 )
                 fig.show()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 log.error("plotting failed with error: %s", e)
     else:
         grav_df = None

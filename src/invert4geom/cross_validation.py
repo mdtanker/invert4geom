@@ -228,7 +228,7 @@ def grav_cv_score(
                 title=f"Score={score}",
                 rmse_in_title=False,
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return score, results
@@ -393,7 +393,7 @@ def grav_optimal_parameter(
                 # logx=True,
                 # logy=True,
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return inv_results, best_param_value, best_score, param_values, scores
@@ -755,7 +755,7 @@ def zref_density_optimal_parameter(
                     # logx=True,
                     # logy=True,
                 )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return inv_results, best_zref, best_density, best_score, parameter_pairs, scores
@@ -850,7 +850,7 @@ def random_split_test_train(
             maps.add_box(fig, box=region)
             fig.legend()
             fig.show()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return random_split_df
@@ -999,7 +999,7 @@ def split_test_train(
                 )
                 fig.legend()  # type: ignore[attr-defined]
             fig.show()  # type: ignore[attr-defined]
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
     return df
