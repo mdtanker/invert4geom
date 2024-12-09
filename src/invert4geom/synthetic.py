@@ -9,6 +9,7 @@ import pandas as pd
 import pooch
 import verde as vd
 import xarray as xr
+import xrft
 from numpy.typing import NDArray
 from polartoolkit import fetch, maps
 from polartoolkit import utils as polar_utils
@@ -89,7 +90,21 @@ def load_synthetic_model(
 
     buffer_region = vd.pad_region(region, buffer) if buffer != 0 else region
 
-    true_topography = synthetic_topography_simple(spacing, buffer_region)
+    true_topography = synthetic_topography_simple(spacing, region)
+
+    if buffer != 0:
+        # pad to extent of buffer region
+        pad_width = {
+            "northing": int(buffer / spacing),
+            "easting": int(buffer / spacing),
+        }
+        true_topography = xrft.pad(
+            true_topography,
+            pad_width,
+            mode="linear_ramp",
+            constant_values=None,
+            end_values=true_topography.median(),
+        )
 
     if topography_percent_noise is not None:
         true_topography = contaminate_with_long_wavelength_noise(
@@ -159,6 +174,7 @@ def load_synthetic_model(
                         columns={"easting": "x", "northing": "y"}
                     ),
                     points_style="x.3c",
+                    region=region,
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
                 log.error("plotting failed with error: %s", e)
@@ -177,6 +193,7 @@ def load_synthetic_model(
                 cmap="rain",
                 cbar_label="elevation (m)",
                 frame=["nSWe", "xaf10000", "yaf10000"],
+                region=region,
             )
             fig.show()
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -256,6 +273,7 @@ def load_synthetic_model(
                     cmap="balance+h0",
                     cbar_label="mGal",
                     frame=["nSWe", "xaf10000", "yaf10000"],
+                    hist=True,
                 )
                 fig.show()
             except Exception as e:  # pylint: disable=broad-exception-caught
