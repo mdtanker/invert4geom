@@ -203,6 +203,7 @@ def filter_grid(
     grid: xr.DataArray,
     filter_width: float | None = None,
     filt_type: str = "lowpass",
+    pad_width_factor: int = 3,
 ) -> xr.DataArray:
     """
     Apply a spatial filter to a grid.
@@ -215,6 +216,9 @@ def filter_grid(
         width of the filter in meters, by default None
     filt_type : str, optional
         type of filter to use, by default "lowpass"
+    pad_width_factor : int, optional
+        factor of grid width to pad the grid by, by default 3, which equates to a pad
+        with a width of 1/3 of the grid width.
 
     Returns
     -------
@@ -245,10 +249,9 @@ def filter_grid(
 
     # define width of padding in each direction
     pad_width = {
-        original_dims[1]: grid[original_dims[1]].size // 3,
-        original_dims[0]: grid[original_dims[0]].size // 3,
+        original_dims[1]: grid[original_dims[1]].size // pad_width_factor,
+        original_dims[0]: grid[original_dims[0]].size // pad_width_factor,
     }
-
     # apply padding
     padded = xrft.pad(filled, pad_width)
 
