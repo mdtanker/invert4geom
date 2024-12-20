@@ -162,4 +162,5 @@ Thumbs.db
 *.lock
 
 # tmp data folders
-tmp/
+docs/tmp/*
+!docs/tmp/.gitkeep

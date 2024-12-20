@@ -73,8 +73,6 @@ or
 or
 ```
     make check
-    make format
-    make lint
     make pylint
 ```
 
@@ -286,7 +284,7 @@ Here is how to run/update the docs on your local machine.
 
 #### Run all .ipynb's to update them
 
-    make run_doc_files
+    make run_docs
 
 If your edits haven't changed any part of the core package, then there is no need to re-run the notebooks.
 If you changed a notebook, just clear it's contents and re-run that one notebook.
