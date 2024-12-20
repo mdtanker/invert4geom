@@ -9,7 +9,7 @@ print-%  : ; @echo $* = $($*)
 ####
 
 create:
-	mamba create --name $(PROJECT) --yes --force --channel conda-forge polartoolkit python=3.11
+	mamba create --name $(PROJECT) --yes --force --channel conda-forge polartoolkit esmpy xesmf python=3.12
 
 install:
 	pip install -e .[all]
@@ -80,20 +80,26 @@ clean:
 ####
 ####
 
-clear_gallery_outputs:
-	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/gallery/*.ipynb
+clear_examples:
+	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/examples/*.ipynb
 
-run_gallery: clear_gallery_outputs
-	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/gallery/*.ipynb
+run_examples: clear_examples
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/examples/*.ipynb
 
-clear_user_guide_outputs:
-	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/user_guide/*.ipynb
+clear_how_to:
+	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/how_to/*.ipynb
 
-run_user_guide: clear_user_guide_outputs
-	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/user_guide/*.ipynb
+run_how_to: clear_how_to
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/how_to/*.ipynb
 
-clear_docs_outputs:
+clear_tutorial:
+	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/tutorial/*.ipynb
+
+run_tutorial: clear_tutorial
+	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/tutorial/*.ipynb
+
+clear_docs:
 	jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/**/*.ipynb
 
-run_doc_files: clear_docs_outputs
+run_docs: clear_docs
 	jupyter nbconvert --ExecutePreprocessor.allow_errors=False --execute --inplace docs/**/*.ipynb
