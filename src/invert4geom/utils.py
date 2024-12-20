@@ -1640,4 +1640,4 @@ def gravity_decay_buffer(
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
-    return max_decay, buffer_width, buffer_cells, grav_ds
+    return max_decay, buffer_width, int(buffer_cells), grav_ds
