@@ -1652,9 +1652,8 @@ def edge_effects(
         title="Forward gravity",
         cbar_label="mGal",
         frame=True,
-        scalebar=True,
+        scalebar=False,
         hist=True,
-        hist_bin_num=25,
     )
 
     fig = maps.plot_grd(
@@ -1666,9 +1665,8 @@ def edge_effects(
         title="Gravity edge effect",
         cbar_label="Percentage decay",
         frame=True,
-        scalebar=True,
+        scalebar=False,
         hist=True,
-        hist_bin_num=25,
     )
 
     fig.grdcontour(grid=percent_decay)
