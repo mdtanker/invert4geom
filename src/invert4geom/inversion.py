@@ -319,7 +319,7 @@ def jacobian(
         )
         log.warning("no empty jacobian supplied")
 
-    jac = empty_jac.copy()
+    jac = empty_jac
 
     if deriv_type == "annulus":
         # convert dataframe to arrays
@@ -999,7 +999,7 @@ def run_inversion(
         final_rmse = updated_rmse
 
         # update the l2 and delta l2 norms
-        previous_delta_l2_norm = copy.copy(delta_l2_norm)
+        previous_delta_l2_norm = copy.deepcopy(delta_l2_norm)
         l2_norm, delta_l2_norm = update_l2_norms(
             current_rmse=updated_rmse,
             last_l2_norm=l2_norm,

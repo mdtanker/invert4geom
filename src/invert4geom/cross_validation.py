@@ -227,6 +227,8 @@ def grav_cv_score(
                 robust=True,
                 title=f"Score={score}",
                 rmse_in_title=False,
+                inset=False,
+                hist=True,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
@@ -866,7 +868,7 @@ def split_test_train(
     plot: bool = False,
 ) -> pd.DataFrame:
     """
-    Split data into training or testing sets either using KFold, BlockedKFold or
+    Split data into training or testing sets either using KFold (optional blocked) or
     LeaveOneOut methods.
 
     Parameters

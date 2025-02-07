@@ -247,7 +247,6 @@ def plot_cv_scores(
         ax.set_title(plot_title)
     else:
         ax.set_title(f"{param_name} Cross-validation")
-    ax.plot(df.parameters, df.scores, marker="o")
     ax.plot(
         df.parameters.iloc[best],
         df.scores.iloc[best],
@@ -255,6 +254,16 @@ def plot_cv_scores(
         markersize=10,
         color=sns.color_palette()[3],
         label="Minimum",
+    )
+    ax.plot(df.parameters, df.scores, marker="o")
+    ax.scatter(
+        df.parameters,
+        df.scores,
+        s=1,
+        marker=".",
+        color="black",
+        edgecolors="black",
+        zorder=10,
     )
     ax.legend(loc="best")
     if logx:
@@ -410,8 +419,8 @@ def plot_dynamic_convergence(
 
     clear_output(wait=True)
 
-    l2_norms = l2_norms.copy()
-    delta_l2_norms = delta_l2_norms.copy()
+    l2_norms = copy.deepcopy(l2_norms)
+    delta_l2_norms = copy.deepcopy(delta_l2_norms)
 
     assert len(delta_l2_norms) == len(l2_norms)
 
@@ -1519,6 +1528,8 @@ def plot_latin_hypercube(
             len(df.columns),
             figsize=(3 * len(df.columns), 1.8),
         )
+        if len(df.columns) == 1:
+            axes = [axes]
 
         for i, j in enumerate(df.columns):
             sns.kdeplot(
@@ -1548,7 +1559,10 @@ def plot_latin_hypercube(
 
     # 2D projection
     if plot_2d_projections:
-        projection_2d(sample, problem["names"])
+        if len(df.columns) == 1:
+            pass
+        else:
+            projection_2d(sample, problem["names"])
 
 
 def projection_2d(
