@@ -290,6 +290,7 @@ def contaminate_with_long_wavelength_noise(
     coarsen_factor: float | None = None,
     spacing: float | None = None,
     noise_as_percent: bool = True,
+    seed: int = 1,
 ) -> xr.DataArray:
     """
     Contaminate a grid with long wavelength noise.
@@ -308,6 +309,8 @@ def contaminate_with_long_wavelength_noise(
     noise_as_percent : bool, optional
         if True, the value given to `noise` is treated as a percentage of the max value
         of the data.
+    seed : int, optional
+        seed to use for the random number generator, by default 1
 
     Returns
     -------
@@ -368,7 +371,7 @@ def contaminate_with_long_wavelength_noise(
         df[original_name],
         stddev=noise,
         percent=noise_as_percent,
-        seed=1,
+        seed=seed,
     )
     df["noise"] = df[original_name] - df.noisy
 
