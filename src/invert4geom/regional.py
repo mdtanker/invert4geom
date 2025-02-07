@@ -83,7 +83,7 @@ def regional_constant(
                 "`constant` parameter provide but not used since `constraints_df`"
                 "were provided."
             )
-            log.warning(msg)
+            raise ValueError(msg)
 
         utils._check_constraints_inside_gravity_region(constraints_df, grav_df)  # pylint: disable=protected-access
 
