@@ -132,6 +132,11 @@ def create_lhc(
             v["sampled_values"].max(),
         )
 
+        # ax = pd.Series(v["sampled_values"]).hist()
+        # ax = np.log(pd.Series(v["sampled_values"])).plot.hist(bins=8)
+        # import matplotlib.pyplot as plt
+        # plt.show()
+
     return param_dict
 
 
@@ -213,8 +218,8 @@ def starting_topography_uncertainty(
     xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of topographies.
     """
-    kwargs = copy.deepcopy(kwargs)
-    constraints_df = kwargs.pop("constraints_df", None)
+    new_kwargs = copy.deepcopy(kwargs)
+    constraints_df = new_kwargs.pop("constraints_df", None)
 
     if constraints_df is None:
         msg = "constraints_df must be provided"
@@ -230,6 +235,8 @@ def starting_topography_uncertainty(
     else:
         sampled_param_dict = None
 
+    sampled_constraints = copy.deepcopy(constraints_df)
+
     topos = []
     weight_vals = []
     for i in tqdm(range(runs), desc="starting topography ensemble"):
@@ -237,31 +244,31 @@ def starting_topography_uncertainty(
         rand = np.random.default_rng(seed=i)
 
         if sample_constraints:
-            sampled_constraints = constraints_df.copy()
             sampled_constraints["upward"] = rand.normal(
                 sampled_constraints.upward, sampled_constraints.uncert
             )
-            constraints_df = sampled_constraints
 
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                kwargs[k] = v["sampled_values"][i]
+                new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             starting_topography = utils.create_topography(
-                constraints_df=constraints_df,
-                **kwargs,
+                constraints_df=sampled_constraints,
+                **new_kwargs,
             )
         topos.append(starting_topography)
 
         # sample the topography at the constraint points
-        constraints_df = utils.sample_grids(
-            constraints_df,
+        sampled_constraints = utils.sample_grids(
+            sampled_constraints,
             starting_topography,
             "sampled",
         )
         # get weights of rmse between constraints and results
-        weight_vals.append(utils.rmse(constraints_df.upward - constraints_df.sampled))
+        weight_vals.append(
+            utils.rmse(sampled_constraints.upward - sampled_constraints.sampled)
+        )
 
     # convert residuals into weights
     weights = [1 / (x**2) for x in weight_vals]
@@ -278,7 +285,7 @@ def starting_topography_uncertainty(
         try:
             plotting.plot_stochastic_results(
                 stats_ds=stats_ds,
-                points=constraints_df,
+                points=sampled_constraints,
                 cmap="rain",
                 reverse_cpt=True,
                 label="topography",
@@ -308,7 +315,7 @@ def starting_topography_uncertainty(
                     title="difference",
                     grounding_line=False,
                     cmap="thermal",
-                    points=constraints_df.rename(
+                    points=sampled_constraints.rename(
                         columns={"easting": "x", "northing": "y"}
                     ),
                     points_style="x.3c",
@@ -329,7 +336,7 @@ def starting_topography_uncertainty(
                     grounding_line=False,
                     cmap="rain",
                     reverse_cpt=True,
-                    points=constraints_df.rename(
+                    points=sampled_constraints.rename(
                         columns={"easting": "x", "northing": "y"}
                     ),
                     points_style="x.3c",
@@ -381,7 +388,7 @@ def equivalent_sources_uncertainty(
     xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of regional gravity
     """
-    kwargs = copy.deepcopy(kwargs)
+    new_kwargs = copy.deepcopy(kwargs)
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -398,17 +405,19 @@ def equivalent_sources_uncertainty(
     for i in tqdm(range(runs), desc="starting equivalent sources ensemble"):
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                kwargs[k] = v["sampled_values"][i]
+                new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             # refit EqSources with best parameters
             eqs = hm.EquivalentSources(
-                **kwargs,
+                **new_kwargs,
             )
-            eqs.fit(coords, data, weights=kwargs.get("weights", None))
+            eqs.fit(coords, data, weights=new_kwargs.get("weights", None))
 
         if weight_by == "score":
-            scores.append(eqs.score(coords, data, weights=kwargs.get("weights", None)))
+            scores.append(
+                eqs.score(coords, data, weights=new_kwargs.get("weights", None))
+            )
 
         # predict sources onto grid
         grid_points["predicted_grav"] = eqs.predict(
@@ -552,9 +561,9 @@ def regional_misfit_uncertainty(
     xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of regional gravity
     """
-    kwargs = copy.deepcopy(kwargs)
-    constraints_df = kwargs.pop("constraints_df", None)
-    grav_df = kwargs.pop("grav_df", None)
+    new_kwargs = copy.deepcopy(kwargs)
+    constraints_df = new_kwargs.pop("constraints_df", None)
+    grav_df = new_kwargs.pop("grav_df", None)
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -581,13 +590,13 @@ def regional_misfit_uncertainty(
 
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                kwargs[k] = v["sampled_values"][i]
+                new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             grav_df = regional.regional_separation(
                 constraints_df=constraints_df,
                 grav_df=grav_df,
-                **kwargs,
+                **new_kwargs,
             )
 
         regional_grids.append(
@@ -790,9 +799,21 @@ def full_workflow_uncertainty_loop(
     prism_dfs : list[pandas.DataFrame]
         list of prism dataframes from each inversion run
     """
-    kwargs = copy.deepcopy(kwargs)
+    # ensure kwargs are not altered by making copies before sampling values
+    new_kwargs = copy.deepcopy(kwargs)
     if regional_grav_kwargs is not None:
-        regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
+        new_regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
+    else:
+        new_regional_grav_kwargs = None
+    if starting_topography_kwargs is not None:
+        new_starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+    else:
+        new_starting_topography_kwargs = None
+
+    # print("before loop")
+    # print(new_regional_grav_kwargs["constraints_df"].upward.mean())
+    # print(new_starting_topography_kwargs["constraints_df"].upward.mean())
+    # print(new_kwargs["constraints_df"].upward.mean())
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -870,7 +891,7 @@ def full_workflow_uncertainty_loop(
         rand = np.random.default_rng(seed=i)
 
         if sample_gravity is True:
-            grav_df = kwargs.pop("grav_df", None)
+            new_kwargs.pop("grav_df", None)
             if grav_df is None:
                 msg = "grav_df must be provided"
                 raise ValueError(msg)
@@ -937,14 +958,14 @@ def full_workflow_uncertainty_loop(
                 create_starting_prisms=create_starting_prisms,
                 calculate_starting_gravity=calculate_starting_gravity,
                 calculate_regional_misfit=calculate_regional_misfit,  # pylint: disable=possibly-used-before-assignment
-                regional_grav_kwargs=regional_grav_kwargs,
-                starting_topography_kwargs=starting_topography_kwargs,
+                regional_grav_kwargs=new_regional_grav_kwargs,
+                starting_topography_kwargs=new_starting_topography_kwargs,
                 fname=f"{fname}_{i}",
-                **kwargs,
+                **new_kwargs,
             )
 
         # get results
-        prism_df, grav_df, params, _ = inv_results  # type: ignore[assignment]
+        prism_df, final_grav_df, params, _ = inv_results  # type: ignore[assignment]
 
         # add run number to the parameter values
         params["run_num"] = i  # type: ignore[call-overload]
@@ -953,7 +974,7 @@ def full_workflow_uncertainty_loop(
         with pathlib.Path(f"{fname}_params.pickle").open("ab") as file:
             pickle.dump(params, file, protocol=pickle.HIGHEST_PROTOCOL)
         with pathlib.Path(f"{fname}_grav_dfs.pickle").open("ab") as file:
-            pickle.dump(grav_df, file, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(final_grav_df, file, protocol=pickle.HIGHEST_PROTOCOL)
         with pathlib.Path(f"{fname}_prism_dfs.pickle").open("ab") as file:
             pickle.dump(prism_df, file, protocol=pickle.HIGHEST_PROTOCOL)
 

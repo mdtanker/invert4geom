@@ -304,7 +304,7 @@ def dist_nearest_points(
     coord_names: tuple[str, str] | None = None,
 ) -> typing.Any:
     """
-    for all gridcells calculate to the distance to the nearest target.
+    for all grid cells calculate to the distance to the nearest target.
 
     Parameters
     ----------
@@ -1114,7 +1114,7 @@ def grids_to_prisms(
         contrast across a surface (i.e. between air and rock).
     input_coord_names : tuple[str, str], optional
         names of the coordinates in the input dataarray, by default
-        ["easting", "northing"]
+        ("easting", "northing")
     Returns
     -------
     xarray.Dataset
@@ -1130,8 +1130,6 @@ def grids_to_prisms(
     else:
         msg = "invalid density type, should be a number or DataArray"
         raise ValueError(msg)
-
-    assert ~np.isnan(reference), "reference should be a dataarray or a float, not a NaN"
 
     # create layer of prisms based off input dataarrays
     prisms = hm.prism_layer(

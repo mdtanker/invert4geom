@@ -77,7 +77,7 @@ def available_cpu_count() -> typing.Any:
 
     # POSIX
     try:
-        res = int(os.sysconf("SC_NPROCESSORS_ONLN"))  # type: ignore[attr-defined]
+        res = int(os.sysconf("SC_NPROCESSORS_ONLN"))
 
         if res > 0:
             return res
