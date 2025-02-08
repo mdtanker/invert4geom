@@ -1603,7 +1603,6 @@ def optimize_inversion_zref_density_contrast(
             x = {k: v for d in i for k, v in d.items()}
             study.enqueue_trial(x, skip_if_exists=True)
 
-        study.enqueue_trial({"density_contrast": 1452})
         # run optimization
         with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
             study = run_optuna(
