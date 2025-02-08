@@ -1324,6 +1324,7 @@ def run_inversion_workflow(
             (starting_topography is None)
             & (starting_prisms is None)
             & (create_starting_prisms is False)
+            & (run_zref_or_density_cv is False)
         ):
             msg = (
                 "starting_topography must be provided since create_starting_topography "
@@ -1555,6 +1556,7 @@ def run_inversion_workflow(
         n_trials=zref_density_cv_trials,
         n_startup_trials=zref_density_cv_startup_trials,
         starting_topography=starting_topography,
+        starting_topography_kwargs=starting_topography_kwargs,
         regional_grav_kwargs=regional_grav_kwargs,
         grid_search=grid_search,
         fname=f"{fname}_zref_density_cv",
