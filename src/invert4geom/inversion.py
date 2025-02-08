@@ -1202,6 +1202,7 @@ def run_inversion_workflow(
     density_contrast = kwargs.pop("density_contrast", None)
     constraints_df = kwargs.pop("constraints_df", None)
     zref_density_cv_trials = kwargs.pop("zref_density_cv_trials", None)
+    zref_density_cv_startup_trials = kwargs.pop("zref_density_cv_startup_trials", None)
     density_contrast_limits = kwargs.pop("density_contrast_limits", None)
     zref_limits = kwargs.pop("zref_limits", None)
     split_kwargs = kwargs.pop("split_kwargs", None)
@@ -1209,6 +1210,7 @@ def run_inversion_workflow(
     inversion_region = kwargs.pop("inversion_region", None)
     damping_limits = kwargs.pop("damping_limits", (0.001, 1))
     damping_cv_trials = kwargs.pop("damping_cv_trials", None)
+    damping_cv_startup_trials = kwargs.pop("damping_cv_startup_trials", None)
     starting_grav_kwargs = kwargs.pop("starting_grav_kwargs", None)
 
     # set file name for saving results with random number between 0 and 999
@@ -1505,6 +1507,7 @@ def run_inversion_workflow(
             testing_df=grav_df[grav_df.test == True],  # noqa: E712 pylint: disable=singleton-comparison
             damping_limits=damping_limits,
             n_trials=damping_cv_trials,
+            n_startup_trials=damping_cv_startup_trials,
             grid_search=grid_search,
             plot_grids=False,
             fname=f"{fname}_damping_cv",
@@ -1547,6 +1550,7 @@ def run_inversion_workflow(
         density_contrast=density_contrast,
         zref=zref,
         n_trials=zref_density_cv_trials,
+        n_startup_trials=zref_density_cv_startup_trials,
         starting_topography=starting_topography,
         regional_grav_kwargs=regional_grav_kwargs,
         grid_search=grid_search,
