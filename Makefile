@@ -9,10 +9,10 @@ print-%  : ; @echo $* = $($*)
 ####
 
 create:
-	mamba create --name $(PROJECT) --yes --force --channel conda-forge polartoolkit esmpy xesmf python=3.12
+	mamba env create --file environment.yml
 
 install:
-	pip install -e .[all]
+	pip install --no-deps -e .
 
 remove:
 	mamba remove --name $(PROJECT) --all
