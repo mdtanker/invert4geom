@@ -1211,6 +1211,8 @@ def run_inversion_workflow(
     damping_limits = kwargs.pop("damping_limits", (0.001, 1))
     damping_cv_trials = kwargs.pop("damping_cv_trials", None)
     damping_cv_startup_trials = kwargs.pop("damping_cv_startup_trials", None)
+    damping_cv_progressbar = kwargs.pop("damping_cv_progressbar", True)
+    plot_grids = kwargs.pop("plot_grids", False)
     starting_grav_kwargs = kwargs.pop("starting_grav_kwargs", None)
 
     # set file name for saving results with random number between 0 and 999
@@ -1509,11 +1511,12 @@ def run_inversion_workflow(
             n_trials=damping_cv_trials,
             n_startup_trials=damping_cv_startup_trials,
             grid_search=grid_search,
-            plot_grids=False,
+            plot_grids=plot_grids,
             fname=f"{fname}_damping_cv",
             prism_layer=starting_prisms,
             score_as_median=score_as_median,
             plot_cv=plot_cv,
+            progressbar=damping_cv_progressbar,
             **inversion_kwargs,
         )
         # use the best damping parameter if performing zref/density CV
