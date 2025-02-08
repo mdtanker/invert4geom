@@ -11,13 +11,14 @@ import harmonica as hm
 import numpy as np
 import pandas as pd
 import scipy as sp
+import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
 from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 from UQpy import distributions, sampling
 
-from invert4geom import inversion, log, plotting, regional, utils
+from invert4geom import inversion, log, plotting, regional, synthetic, utils
 
 
 class DiscreteUniform(distributions.DistributionDiscrete1D):  # type: ignore[misc]
@@ -876,6 +877,16 @@ def full_workflow_uncertainty_loop(
     if starting_run == runs:
         log.info("all %s runs already complete, loading results from files.", runs)
 
+    if sample_constraints is True:
+        constraints_df = new_kwargs.get("constraints_df", None)
+        sampled_constraints = copy.deepcopy(constraints_df)
+        test_constraint_value = copy.deepcopy(constraints_df.upward.iloc[0])
+
+    if sample_gravity is True:
+        grav_df = new_kwargs.get("grav_df", None)
+        sampled_grav = copy.deepcopy(grav_df)
+        test_grav_value = copy.deepcopy(grav_df.gravity_anomaly.iloc[0])
+
     for i in tqdm(range(starting_run, runs), desc="stochastic ensemble"):
         if i == starting_run:
             log.info(
@@ -895,39 +906,50 @@ def full_workflow_uncertainty_loop(
             if grav_df is None:
                 msg = "grav_df must be provided"
                 raise ValueError(msg)
-            sampled_grav = grav_df.copy()
-            sampled_grav["gravity_anomaly"] = rand.normal(
-                sampled_grav.gravity_anomaly, sampled_grav.uncert
-            )
-            kwargs["grav_df"] = sampled_grav
+
+            # assert original gravity values are unaltered
+            assert test_grav_value == grav_df.gravity_anomaly.iloc[0]
+
+                sampled_grav["gravity_anomaly"] = rand.normal(
+                    grav_df.gravity_anomaly, grav_df.uncert
+                )
+            new_kwargs["grav_df"] = sampled_grav
 
         if sample_constraints is True:
-            constraints_df = kwargs.pop("constraints_df", None)
+            new_kwargs.pop("constraints_df")
             if constraints_df is None:
                 msg = "constraints_df must be provided if sample_constraints is True"
                 raise ValueError(msg)
-            sampled_constraints = constraints_df.copy()
-            sampled_constraints["upward"] = rand.normal(
-                sampled_constraints.upward, sampled_constraints.uncert
+
+            # assert original constraint values are unaltered
+            assert test_constraint_value == constraints_df.upward.iloc[0]
+
+            sampled_constraints = randomly_sample_data(
+                seed=i,
+                data_df=constraints_df,
+                data_col="upward",
+                uncert_col="uncert",
             )
-            if starting_topography_kwargs is not None:
-                starting_topography_kwargs["constraints_df"] = sampled_constraints
-            if (regional_grav_kwargs is not None) and (
-                regional_grav_kwargs.get("constraints_df", None) is not None
+            if (new_starting_topography_kwargs is not None) and (
+                new_starting_topography_kwargs.get("constraints_df", None) is not None
             ):
-                regional_grav_kwargs["constraints_df"] = sampled_constraints
-            kwargs["constraints_df"] = sampled_constraints
+                new_starting_topography_kwargs["constraints_df"] = sampled_constraints
+            if (new_regional_grav_kwargs is not None) and (
+                new_regional_grav_kwargs.get("constraints_df", None) is not None
+            ):
+                new_regional_grav_kwargs["constraints_df"] = sampled_constraints
+            new_kwargs["constraints_df"] = sampled_constraints
 
         # if parameters provided, sampled and add back to kwargs
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                kwargs[k] = v["sampled_values"][i]
+                new_kwargs[k] = v["sampled_values"][i]
         if sampled_starting_topography_parameter_dict is not None:
             for k, v in sampled_starting_topography_parameter_dict.items():
-                starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
+                new_starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
         if sampled_regional_misfit_parameter_dict is not None:
             for k, v in sampled_regional_misfit_parameter_dict.items():
-                regional_grav_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
+                new_regional_grav_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
 
         # define what needs to be done depending on what parameters are sampled
         if sample_gravity is True:
