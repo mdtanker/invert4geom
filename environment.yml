@@ -1,0 +1,76 @@
+name: invert4geom
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  # Required dependencies
+  - numpy
+  - pandas
+  - xarray
+  - verde
+  - rioxarray
+  - pykdtree
+  - xrft
+  - harmonica>=0.7
+  - polartoolkit
+  - numba
+  - scipy<1.14
+  # - numba_progress
+  - tqdm
+  - pygmt
+  - dask
+  - deprecation
+  - pooch
+  - scikit-learn
+  - torch
+  # optimization
+  - optuna>=3.6.0
+  - joblib
+  - psutil
+  # visualization
+  - pyvista
+  - trame
+  - ipywidgets
+  - matplotlib
+  - seaborn
+  - ipython
+  - plotly
+  # uncertainty
+  - UQpy
+  # Optional dependencies
+  ## synthetic data
+  - xesmf
+  ## test
+  - pytest>=6
+  - pytest-cov>=3
+  ## docs
+  - sphinx>=4.0
+  - sphinx-book-theme>=0.3
+  - nbsphinx
+  - nbconvert
+  - sphinxcontrib-bibtex
+  # included with pip below
+  # - myst_parser
+  # - sphinx_copybutton
+  # - sphinx_autoapi
+  # - sphinx_autodoc_typehints
+  # - sphinx_design
+  ## dev
+  - nox
+  - pre-commit
+  - pylint>=3.2
+  - python-semantic-release>=8
+  - ipykernel
+  - jupyterlab
+  - mypy
+  - pathspec
+  # below packages need to be installed with pip
+  - pip
+  - pip:
+      - sphinx_design
+      - sphinx_copybutton
+      - sphinx_autodoc_typehints
+      - sphinx_autoapi
+      - myst_parser
+      - numba_progress

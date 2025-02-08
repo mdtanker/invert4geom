@@ -403,6 +403,7 @@ Now, when submitting a PR, `RTD` will automatically build the docs and update th
 * wait for a PR to be opened in the [feedstock](https://github.com/conda-forge/invert4geom-feedstock)
 * update any changed dependencies in the feedstock PR and merge
 * wait for `conda` to publish the new version [here](https://anaconda.org/conda-forge/invert4geom)
+* manually add dependency changes to `environment.yml`
 * update invert4geom version in `binder/environment.yml`.
 * test `PyPI` version with:
     - `make remove`
