@@ -388,6 +388,7 @@ def _create_regional_separation_study(
         study_name=fname,
         storage=storage,
         load_if_exists=False,
+        pruner=DuplicateIterationPruner,
     )
     study.set_metric_names(metric_names)
 
@@ -2023,8 +2024,8 @@ def optimize_eq_source_params(
         load_if_exists=False,
         study_name=study_fname,
         storage=storage,
+        pruner=DuplicateIterationPruner,
     )
-
     # explicitly add the limits as trials
     num_params = 0
     if depth_limits is not None:
@@ -3541,6 +3542,7 @@ def optimal_buffer(
         load_if_exists=False,
         study_name=fname,
         storage=storage,
+        pruner=DuplicateIterationPruner,
     )
 
     # explicitly add the limits as trials
@@ -3657,3 +3659,23 @@ class OptimalBuffer:
         )[0]
 
         return np.abs((self.target) - score)  # type: ignore[no-any-return]
+
+
+class DuplicateIterationPruner(optuna.pruners.BasePruner):  # type: ignore[misc]
+    """
+    DuplicatePruner
+
+    Pruner to detect duplicate trials based on the parameters.
+
+    This pruner is used to identify and prune trials that have the same set of
+    parameters as a previously completed trial.
+    """
+
+    def prune(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> bool:
+        completed_trials = study.get_trials(states=[optuna.trial.TrialState.COMPLETE])
+
+        for completed_trial in completed_trials:
+            if completed_trial.params == trial.params:
+                return True
+
+        return False
