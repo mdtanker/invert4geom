@@ -775,6 +775,7 @@ def optimize_inversion_damping(
         # define number of startup trials, whichever is bigger; 1/4 of trials or 4
         if n_startup_trials is None:
             n_startup_trials = max(4, int(n_trials / 4))
+            n_startup_trials = min(n_startup_trials, n_trials)
         log.info("using %s startup trials", n_startup_trials)
         if n_startup_trials >= n_trials:
             log.warning(
@@ -1549,7 +1550,7 @@ def optimize_inversion_zref_density_contrast(
         # 4 x the number of parameters
         if n_startup_trials is None:
             n_startup_trials = max(num_params * 4, int(n_trials / 4))
-
+            n_startup_trials = min(n_startup_trials, n_trials)
         log.info("using %s startup trials", n_startup_trials)
         if n_startup_trials >= n_trials:
             log.warning(
