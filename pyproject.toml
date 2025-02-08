@@ -38,11 +38,11 @@ dependencies = [
   "numpy",
   "pandas",
   "xarray",
-  "verde>=1.8.0",
+  "verde",
   "rioxarray",
   "pykdtree",
-  "xrft>=1.0",
-  "harmonica>=0.6.0",
+  "xrft",
+  "harmonica>=0.7", # need default depth arg for equivalent sources
   "polartoolkit",
   "numba",
   "scipy<1.14", # issue with UQpy import
@@ -83,19 +83,18 @@ synth = [
 test = [
   "pytest >=6",
   "pytest-cov >=3",
-  "invert4geom",
 ]
 docs = [
   "sphinx>=4.0",
+  "sphinx-book-theme>=0.3",
+  "nbsphinx",
+  "nbconvert",
+  "sphinxcontrib-bibtex",
   "myst_parser",
   "sphinx_copybutton",
   "sphinx_autoapi",
   "sphinx_autodoc_typehints",
-  "sphinx-book-theme>=0.3",
   "sphinx_design",
-  "nbsphinx",
-  "nbconvert",
-  "sphinxcontrib-bibtex",
 ]
 dev = [
   "invert4geom[test,docs, synth]",
@@ -106,6 +105,7 @@ dev = [
   "ipykernel",
   "jupyterlab",
   "mypy",
+  "pathspec",
 ]
 all = [
   "invert4geom[test,dev,docs,synth]",
