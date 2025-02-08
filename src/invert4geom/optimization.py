@@ -966,8 +966,8 @@ class OptimalInversionZrefDensity:
             if zref is None:
                 msg = "must provide zref if zref_limits not provided"
                 raise ValueError(msg)
-density_contrast_limits
-        if self. is not None:
+
+        if self.density_contrast_limits is not None:
             density_contrast = trial.suggest_int(
                 "density_contrast",
                 self.density_contrast_limits[0],
