@@ -911,7 +911,7 @@ class OptimalInversionZrefDensity:
                 raise ValueError(msg)
 
         if self.density_contrast_limits is not None:
-            density_contrast = trial.suggest_float(
+            density_contrast = trial.suggest_int(
                 "density_contrast",
                 self.density_contrast_limits[0],
                 self.density_contrast_limits[1],
@@ -1371,9 +1371,10 @@ def optimize_inversion_zref_density_contrast(
                     log.warning(msg)
                     n_trials = 4
                 space = np.linspace(
-                    density_contrast_limits[0],  # type: ignore[index]
-                    density_contrast_limits[1],  # type: ignore[index]
+                    int(density_contrast_limits[0]),  # type: ignore[index]
+                    int(density_contrast_limits[1]),  # type: ignore[index]
                     n_trials,
+                    dtype=int,
                 )
                 # omit first and last since they will be enqueued separately
                 space = space[1:-1]
@@ -1425,11 +1426,12 @@ def optimize_inversion_zref_density_contrast(
                     int(np.sqrt(n_trials)),
                 )
 
-                density_contrast_space = np.linspace(
-                    density_contrast_limits[0],
-                    density_contrast_limits[1],
-                    int(np.sqrt(n_trials)),
-                )
+            density_contrast_space = np.linspace(
+                int(density_contrast_limits[0]),  # type: ignore[index]
+                int(density_contrast_limits[1]),  # type: ignore[index]
+                int(np.sqrt(n_trials)),
+                dtype=int,
+            )
 
                 # omit first and last since they will be enqueued separately
                 sampler = optuna.samplers.GridSampler(
