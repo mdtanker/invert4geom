@@ -359,6 +359,7 @@ def equivalent_sources_uncertainty(
     plot: bool = True,
     plot_region: tuple[float, float, float, float] | None = None,
     true_gravity: xr.DataArray | None = None,
+    deterministic_error: xr.DataArray | None = None,
     weight_by: str | None = None,
     **kwargs: typing.Any,
 ) -> xr.Dataset:
@@ -383,6 +384,11 @@ def equivalent_sources_uncertainty(
     true_regional : xarray.DataArray | None, optional
         if the true regional misfit is known, will make a plot comparing the results, by
         default None
+    deterministic_error : xarray.DataArray | None, optional
+        if the deterministic error is known, will make a plot comparing the results, by
+        default None
+    weight_by : str | None, optional
+        how to weight the models, by default None
 
     Returns
     -------
@@ -487,7 +493,7 @@ def equivalent_sources_uncertainty(
                     fig_height=12,
                     region=plot_region,
                     plot=True,
-                    grid1_name="True error",
+                    grid1_name="Stochastic error",
                     grid2_name="Stochastic uncertainty",
                     robust=True,
                     hist=True,
@@ -497,6 +503,23 @@ def equivalent_sources_uncertainty(
                     grounding_line=False,
                     cmap="thermal",
                 )
+                if deterministic_error is not None:
+                    _ = polar_utils.grd_compare(
+                        np.abs(deterministic_error),
+                        stdev,
+                        fig_height=12,
+                        region=plot_region,
+                        plot=True,
+                        grid1_name="Deterministic error",
+                        grid2_name="Stochastic uncertainty",
+                        robust=True,
+                        hist=True,
+                        inset=False,
+                        verbose="q",
+                        title="difference",
+                        grounding_line=False,
+                        cmap="thermal",
+                    )
                 _ = polar_utils.grd_compare(
                     true_gravity,
                     mean,
