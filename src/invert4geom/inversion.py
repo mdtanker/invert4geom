@@ -939,7 +939,7 @@ def run_inversion(
 
         # log correction values
         log.info(
-            "Layer correction median: %s m, RMSE:%s m",
+            "Layer correction median: %s m, RMS:%s m",
             round(np.median(surface_correction), 6),
             round(utils.rmse(surface_correction), 6),
         )
