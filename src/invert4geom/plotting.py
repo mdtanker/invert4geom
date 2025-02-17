@@ -209,6 +209,7 @@ def plot_cv_scores(
     figsize: tuple[float, float] = (5, 3.5),
     plot_title: str | None = None,
     fname: str | None = None,
+    best: str = "min",
 ) -> typing.Any:
     """
     plot a graph of cross-validation scores vs hyperparameter values
@@ -229,7 +230,8 @@ def plot_cv_scores(
         title of figure, by default None
     fname : str | None, optional
         filename to save figure, by default None
-
+    best : str, optional
+        which value to plot as the best, 'min' or 'max', by default "min"
     Returns
     -------
     a matplotlib figure instance
@@ -240,7 +242,15 @@ def plot_cv_scores(
     df0 = pd.DataFrame({"scores": scores, "parameters": parameters})
     df = df0.sort_values(by="parameters")
 
-    best = df.scores.argmin()
+    if best == "min":
+        best_score = df.scores.argmin()
+        label = "Minimum"
+    elif best == "max":
+        best_score = df.scores.argmax()
+        label = "Maximum"
+    else:
+        msg = f"best must be 'min' or 'max', not {best}"
+        raise ValueError(msg)
 
     fig, ax = plt.subplots(figsize=figsize)
     if plot_title is not None:
@@ -248,12 +258,12 @@ def plot_cv_scores(
     else:
         ax.set_title(f"{param_name} Cross-validation")
     ax.plot(
-        df.parameters.iloc[best],
-        df.scores.iloc[best],
+        df.parameters.iloc[best_score],
+        df.scores.iloc[best_score],
         "s",
         markersize=10,
         color=sns.color_palette()[3],
-        label="Minimum",
+        label=label,
     )
     ax.plot(df.parameters, df.scores, marker="o")
     ax.scatter(
