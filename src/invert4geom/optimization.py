@@ -644,6 +644,7 @@ def optimize_inversion_damping(
     logy: bool = True,
     progressbar: bool = True,
     parallel: bool = False,
+    seed: int = 0,
     **kwargs: typing.Any,
 ) -> tuple[
     optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
@@ -698,6 +699,8 @@ def optimize_inversion_damping(
         add a progressbar, by default True
     parallel : bool, optional
         run the optimization in parallel, by default False
+    seed : int, optional
+        random seed for the samplers, by default 0
 
     Returns
     -------
@@ -747,7 +750,7 @@ def optimize_inversion_damping(
         )
         sampler = optuna.samplers.GridSampler(
             search_space={"damping": space},
-            seed=0,
+            seed=seed,
         )
 
         study = optuna.create_study(
@@ -786,7 +789,7 @@ def optimize_inversion_damping(
         study = optuna.create_study(
             direction="minimize",
             sampler=optuna.samplers.QMCSampler(
-                seed=10,
+                seed=seed,
                 qmc_type="halton",
                 scramble=True,
             ),
@@ -817,7 +820,7 @@ def optimize_inversion_damping(
         if sampler is None:
             sampler = optuna.samplers.GPSampler(
                 n_startup_trials=0,
-                seed=0,
+                seed=seed,
                 deterministic_objective=True,
             )
         study.sampler = sampler
@@ -1298,6 +1301,7 @@ def optimize_inversion_zref_density_contrast(
     progressbar: bool = True,
     parallel: bool = False,
     fold_progressbar: bool = True,
+    seed: int = 0,
     **kwargs: typing.Any,
 ) -> tuple[
     optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
@@ -1398,6 +1402,8 @@ def optimize_inversion_zref_density_contrast(
     fold_progressbar : bool, optional
         show a progress bar for each fold of the constraint-point minimization
         cross-validation, by default True
+    seed : int, optional
+        random seed for the samplers, by default 0
 
     Returns
     -------
@@ -1471,13 +1477,13 @@ def optimize_inversion_zref_density_contrast(
                 )
                 sampler = optuna.samplers.GridSampler(
                     search_space={"density_contrast": space},
-                    seed=0,
+                    seed=seed,
                 )
             if density_contrast_limits is None:
                 space = np.linspace(zref_limits[0], zref_limits[1], n_trials)  # type: ignore[index]
                 sampler = optuna.samplers.GridSampler(
                     search_space={"zref": space},
-                    seed=0,
+                    seed=seed,
                 )
         else:
             if n_trials < 16:
@@ -1520,7 +1526,7 @@ def optimize_inversion_zref_density_contrast(
                     "zref": zref_space,
                     "density_contrast": density_contrast_space,
                 },
-                seed=0,
+                seed=seed,
             )
 
         study = optuna.create_study(
@@ -1562,7 +1568,7 @@ def optimize_inversion_zref_density_contrast(
         if sampler is None:
             sampler = optuna.samplers.GPSampler(
                 n_startup_trials=0,
-                seed=0,
+                seed=seed,
                 deterministic_objective=True,
             )
 
@@ -1570,7 +1576,7 @@ def optimize_inversion_zref_density_contrast(
         study = optuna.create_study(
             direction="minimize",
             sampler=optuna.samplers.QMCSampler(
-                seed=10,
+                seed=seed,
                 qmc_type="halton",
                 scramble=True,
             ),
@@ -1622,7 +1628,7 @@ def optimize_inversion_zref_density_contrast(
         if sampler is None:
             sampler = optuna.samplers.GPSampler(
                 n_startup_trials=0,
-                seed=0,
+                seed=seed,
                 deterministic_objective=True,
             )
         study.sampler = sampler
@@ -1975,6 +1981,7 @@ def optimize_eq_source_params(
     progressbar: bool = True,
     parallel: bool = False,
     fname: str | None = None,
+    seed: int = 0,
     **kwargs: typing.Any,
 ) -> tuple[optuna.study, hm.EquivalentSources]:
     """
@@ -2010,6 +2017,8 @@ def optimize_eq_source_params(
         run the optimization in parallel, by default False
     fname : str | None, optional
         file name to save the study to, by default None
+    seed : int, optional
+        random seed for the samplers, by default 0
     kwargs : typing.Any
         additional keyword arguments to pass to `OptimalEqSourceParams`, which are
         passed to `eq_sources_score`. These can include parameters to pass to
@@ -2071,7 +2080,7 @@ def optimize_eq_source_params(
     study = optuna.create_study(
         direction="maximize",
         sampler=optuna.samplers.QMCSampler(
-            seed=10,
+            seed=seed,
             qmc_type="halton",
             scramble=True,
         ),
@@ -2136,7 +2145,7 @@ def optimize_eq_source_params(
     if sampler is None:
         sampler = optuna.samplers.GPSampler(
             n_startup_trials=0,
-            seed=0,
+            seed=seed,
             deterministic_objective=True,
         )
     study.sampler = sampler
@@ -2704,6 +2713,7 @@ def optimize_regional_filter(
     progressbar: bool = True,
     parallel: bool = False,
     fname: str | None = None,
+    seed: int = 0,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal filter width for estimating the
@@ -2757,6 +2767,8 @@ def optimize_regional_filter(
         run the optimization in parallel, by default False
     fname : str | None, optional
         file name to save the study to, by default None
+    seed : int, optional
+        random seed for the samplers, by default 0
 
     Returns
     -------
@@ -2774,7 +2786,7 @@ def optimize_regional_filter(
     if sampler is None:
         sampler = optuna.samplers.TPESampler(
             n_startup_trials=int(n_trials / 4),
-            seed=10,
+            seed=seed,
         )
 
     results_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
@@ -2875,6 +2887,7 @@ def optimize_regional_trend(
     progressbar: bool = True,
     parallel: bool = False,
     fname: str | None = None,
+    seed: int = 0,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal trend order for estimating the
@@ -2926,6 +2939,8 @@ def optimize_regional_trend(
         run the optimization in parallel, by default False
     fname : str | None, optional
         file name to save the study to, by default None
+    seed : int, optional
+        random seed for the samplers, by default 0
 
     Returns
     -------
@@ -2942,7 +2957,7 @@ def optimize_regional_trend(
     if sampler is None:
         sampler = optuna.samplers.GridSampler(
             search_space={"trend": list(range(trend_limits[0], trend_limits[1] + 1))},
-            seed=10,
+            seed=seed,
         )
 
     results_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
@@ -3047,6 +3062,7 @@ def optimize_regional_eq_sources(
     progressbar: bool = True,
     parallel: bool = False,
     fname: str | None = None,
+    seed: int = 0,
     **kwargs: typing.Any,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
@@ -3104,6 +3120,8 @@ def optimize_regional_eq_sources(
         run the optimization in parallel, by default False
     fname : str | None, optional
         file name to save the study to, by default None
+    seed : int, optional
+        random seed for the samplers, by default 0
     kwargs : typing.Any
         additional keyword arguments to pass to the regional.regional_separation
 
@@ -3125,7 +3143,7 @@ def optimize_regional_eq_sources(
     if sampler is None:
         sampler = optuna.samplers.TPESampler(
             n_startup_trials=int(n_trials / 4),
-            seed=10,
+            seed=seed,
         )
 
     results_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
@@ -3254,6 +3272,7 @@ def optimize_regional_constraint_point_minimization(
     progressbar: bool = True,
     parallel: bool = False,
     fname: str | None = None,
+    seed: int = 0,
     **kwargs: typing.Any,
 ) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
     """
@@ -3343,6 +3362,8 @@ def optimize_regional_constraint_point_minimization(
         run the optimization in parallel, by default False
     fname : str | None, optional
         file name to save the study to, by default None
+    seed : int, optional
+        random seed for the samplers, by default 0
     kwargs : typing.Any
         additional keyword arguments to pass to the regional.regional_separation
 
@@ -3364,7 +3385,7 @@ def optimize_regional_constraint_point_minimization(
     if sampler is None:
         sampler = optuna.samplers.TPESampler(
             n_startup_trials=int(n_trials / 4),
-            seed=10,
+            seed=seed,
         )
 
     results_fname = f"tmp_{random.randint(0, 999)}" if fname is None else fname
@@ -3569,6 +3590,7 @@ def optimal_buffer(
     progressbar: bool = True,
     parallel: bool = False,
     plot: bool = True,
+    seed: int = 0,
     **kwargs: typing.Any,
 ) -> tuple[optuna.study, tuple[float, float, int, xr.Dataset]]:
     """
@@ -3592,13 +3614,13 @@ def optimal_buffer(
             space = space[1:-1]
             sampler = optuna.samplers.GridSampler(
                 search_space={"buffer_perc": space},
-                seed=0,
+                seed=seed,
             )
         else:
             with warnings.catch_warnings():
                 sampler = optuna.samplers.GPSampler(
                     n_startup_trials=int(n_trials / 4),
-                    seed=0,
+                    seed=seed,
                     deterministic_objective=True,
                 )
 
