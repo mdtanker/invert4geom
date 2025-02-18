@@ -73,8 +73,6 @@ or
 or
 ```
     make check
-    make format
-    make lint
     make pylint
 ```
 
@@ -286,7 +284,7 @@ Here is how to run/update the docs on your local machine.
 
 #### Run all .ipynb's to update them
 
-    make run_doc_files
+    make run_docs
 
 If your edits haven't changed any part of the core package, then there is no need to re-run the notebooks.
 If you changed a notebook, just clear it's contents and re-run that one notebook.
@@ -405,6 +403,7 @@ Now, when submitting a PR, `RTD` will automatically build the docs and update th
 * wait for a PR to be opened in the [feedstock](https://github.com/conda-forge/invert4geom-feedstock)
 * update any changed dependencies in the feedstock PR and merge
 * wait for `conda` to publish the new version [here](https://anaconda.org/conda-forge/invert4geom)
+* manually add dependency changes to `environment.yml`
 * update invert4geom version in `binder/environment.yml`.
 * test `PyPI` version with:
     - `make remove`

@@ -8,8 +8,9 @@ import pytest
 import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
+from polartoolkit import utils as polar_utils
 
-from invert4geom import inversion
+from invert4geom import inversion, synthetic
 
 pd.set_option("display.max_columns", None)
 
@@ -739,6 +740,57 @@ def test_update_gravity_and_misfit_forward_gravity_regional():
     assert updated_gravity_df.iter_1_final_misfit.tolist() == pytest.approx(
         expected_misfit, 0.01
     )
+
+
+@pytest.mark.use_numba()
+def test_run_inversion():
+    """
+    Test a basic inversion
+    """
+    spacing = 10000
+    region = (0, 40000, 0, 30000)
+    true_density_contrast = 2500
+    true_zref = 500
+
+    true_topography, _, _, grav_df = synthetic.load_synthetic_model(
+        spacing=spacing,
+        region=region,
+        density_contrast=true_density_contrast,
+        zref=true_zref,
+        gravity_noise=0.2,
+        plot_gravity=False,
+    )
+
+    results = inversion.run_inversion_workflow(
+        grav_df=grav_df,
+        create_starting_topography=True,
+        starting_topography_kwargs={
+            "method": "flat",
+            "upwards": true_zref,
+            "region": region,
+            "spacing": spacing,
+        },
+        regional_grav_kwargs={"method": "constant", "constant": 0},
+        density_contrast=true_density_contrast,
+        zref=true_zref,
+        solver_damping=0.1,
+        max_iterations=20,
+        l2_norm_tolerance=0.45,
+        delta_l2_norm_tolerance=1.005,
+    )
+
+    topo_results, grav_results, parameters, elapsed_time = results
+
+    final_topography = topo_results.set_index(["northing", "easting"]).to_xarray().topo
+    starting_topography = (
+        topo_results.set_index(["northing", "easting"]).to_xarray().starting_topo
+    )
+
+    starting_rmse = polar_utils.rmse(true_topography - starting_topography)
+    final_rmse = polar_utils.rmse(true_topography - final_topography)
+
+    assert starting_rmse > final_rmse
+    assert final_rmse == pytest.approx(2.78217, 0.001)
 
 
 # @pytest.mark.use_numba()

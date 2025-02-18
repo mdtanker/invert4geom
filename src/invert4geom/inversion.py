@@ -319,7 +319,7 @@ def jacobian(
         )
         log.warning("no empty jacobian supplied")
 
-    jac = empty_jac.copy()
+    jac = empty_jac
 
     if deriv_type == "annulus":
         # convert dataframe to arrays
@@ -939,7 +939,7 @@ def run_inversion(
 
         # log correction values
         log.info(
-            "Layer correction median: %s m, RMSE:%s m",
+            "Layer correction median: %s m, RMS:%s m",
             round(np.median(surface_correction), 6),
             round(utils.rmse(surface_correction), 6),
         )
@@ -999,7 +999,7 @@ def run_inversion(
         final_rmse = updated_rmse
 
         # update the l2 and delta l2 norms
-        previous_delta_l2_norm = copy.copy(delta_l2_norm)
+        previous_delta_l2_norm = copy.deepcopy(delta_l2_norm)
         l2_norm, delta_l2_norm = update_l2_norms(
             current_rmse=updated_rmse,
             last_l2_norm=l2_norm,
@@ -1085,10 +1085,13 @@ def run_inversion(
     }
 
     if plot_convergence is True:
-        plotting.plot_convergence(
-            gravity,
-            params,
-        )
+        try:
+            plotting.plot_convergence(
+                gravity,
+                params,
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.error("plotting failed with error: %s", e)
 
     results = prisms_df, gravity, params, elapsed_time
     if results_fname is not None:
@@ -1199,6 +1202,7 @@ def run_inversion_workflow(
     density_contrast = kwargs.pop("density_contrast", None)
     constraints_df = kwargs.pop("constraints_df", None)
     zref_density_cv_trials = kwargs.pop("zref_density_cv_trials", None)
+    zref_density_cv_startup_trials = kwargs.pop("zref_density_cv_startup_trials", None)
     density_contrast_limits = kwargs.pop("density_contrast_limits", None)
     zref_limits = kwargs.pop("zref_limits", None)
     split_kwargs = kwargs.pop("split_kwargs", None)
@@ -1206,6 +1210,9 @@ def run_inversion_workflow(
     inversion_region = kwargs.pop("inversion_region", None)
     damping_limits = kwargs.pop("damping_limits", (0.001, 1))
     damping_cv_trials = kwargs.pop("damping_cv_trials", None)
+    damping_cv_startup_trials = kwargs.pop("damping_cv_startup_trials", None)
+    damping_cv_progressbar = kwargs.pop("damping_cv_progressbar", True)
+    plot_grids = kwargs.pop("plot_grids", False)
     starting_grav_kwargs = kwargs.pop("starting_grav_kwargs", None)
 
     # set file name for saving results with random number between 0 and 999
@@ -1317,6 +1324,7 @@ def run_inversion_workflow(
             (starting_topography is None)
             & (starting_prisms is None)
             & (create_starting_prisms is False)
+            & (run_zref_or_density_cv is False)
         ):
             msg = (
                 "starting_topography must be provided since create_starting_topography "
@@ -1502,12 +1510,14 @@ def run_inversion_workflow(
             testing_df=grav_df[grav_df.test == True],  # noqa: E712 pylint: disable=singleton-comparison
             damping_limits=damping_limits,
             n_trials=damping_cv_trials,
+            n_startup_trials=damping_cv_startup_trials,
             grid_search=grid_search,
-            plot_grids=False,
+            plot_grids=plot_grids,
             fname=f"{fname}_damping_cv",
             prism_layer=starting_prisms,
             score_as_median=score_as_median,
             plot_cv=plot_cv,
+            progressbar=damping_cv_progressbar,
             **inversion_kwargs,
         )
         # use the best damping parameter if performing zref/density CV
@@ -1544,7 +1554,9 @@ def run_inversion_workflow(
         density_contrast=density_contrast,
         zref=zref,
         n_trials=zref_density_cv_trials,
+        n_startup_trials=zref_density_cv_startup_trials,
         starting_topography=starting_topography,
+        starting_topography_kwargs=starting_topography_kwargs,
         regional_grav_kwargs=regional_grav_kwargs,
         grid_search=grid_search,
         fname=f"{fname}_zref_density_cv",
