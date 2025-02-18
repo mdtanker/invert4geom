@@ -1651,6 +1651,9 @@ def edge_effects(
             layers_dict=layers_dict,
             data_dict=data_dict,
             fill_layers=False,
+            fig_width=10,
+            fig_height=8,
+            data_height=6,
         )
         fig.show()
 
