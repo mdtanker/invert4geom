@@ -11,14 +11,13 @@ import harmonica as hm
 import numpy as np
 import pandas as pd
 import scipy as sp
-import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
 from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 from UQpy import distributions, sampling
 
-from invert4geom import inversion, log, plotting, regional, synthetic, utils
+from invert4geom import inversion, log, plotting, regional, utils
 
 
 class DiscreteUniform(distributions.DistributionDiscrete1D):  # type: ignore[misc]
@@ -933,46 +932,9 @@ def full_workflow_uncertainty_loop(
             # assert original gravity values are unaltered
             assert test_grav_value == grav_df.gravity_anomaly.iloc[0]
 
-            # sample gravity on 4xspacing grid
-            if len(grav_df.uncert.unique()) == 1:
-                log.debug(
-                    "sampling gravity data on point-by-point basis with constant value "
-                    "of %s mGal",
-                    round(grav_df.uncert.unique()[0], 2),
-                )
-                grav_grid = (
-                    grav_df.set_index(["northing", "easting"])
-                    .to_xarray()
-                    .gravity_anomaly
-                )
-                grav_spacing = polar_utils.get_grid_info(grav_grid)[0]
-
-                with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-                    cont = synthetic.contaminate_with_long_wavelength_noise(
-                        grav_grid,
-                        coarsen_factor=None,
-                        spacing=grav_spacing * 4,
-                        noise_as_percent=False,
-                        noise=grav_df.uncert.unique()[0],
-                        seed=i,
-                    )
-                df = vd.grid_to_table(cont.rename("gravity_anomaly")).reset_index(
-                    drop=True
-                )
-                sampled_grav["gravity_anomaly"] = pd.merge(  # noqa: PD015
-                    grav_df.drop(columns=["gravity_anomaly"], errors="ignore"),
-                    df,
-                    on=["easting", "northing"],
-                ).gravity_anomaly
-            # sample gravity point-by-point with supplied gridded uncertainty
-            else:
-                log.debug(
-                    "sampling gravity data on point-by-point basis with supplied "
-                    "gridded values"
-                )
-                sampled_grav["gravity_anomaly"] = rand.normal(
-                    grav_df.gravity_anomaly, grav_df.uncert
-                )
+            sampled_grav["gravity_anomaly"] = rand.normal(
+                grav_df.gravity_anomaly, grav_df.uncert
+            )
             new_kwargs["grav_df"] = sampled_grav
 
         if sample_constraints is True:
