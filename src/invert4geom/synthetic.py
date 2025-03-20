@@ -9,6 +9,7 @@ import pandas as pd
 import pooch
 import verde as vd
 import xarray as xr
+import xrft
 from numpy.typing import NDArray
 from polartoolkit import fetch, maps
 from polartoolkit import utils as polar_utils
@@ -89,7 +90,21 @@ def load_synthetic_model(
 
     buffer_region = vd.pad_region(region, buffer) if buffer != 0 else region
 
-    true_topography = synthetic_topography_simple(spacing, buffer_region)
+    true_topography = synthetic_topography_simple(spacing, region)
+
+    if buffer != 0:
+        # pad to extent of buffer region
+        pad_width = {
+            "northing": int(buffer / spacing),
+            "easting": int(buffer / spacing),
+        }
+        true_topography = xrft.pad(
+            true_topography,
+            pad_width,
+            mode="linear_ramp",
+            constant_values=None,
+            end_values=true_topography.median(),
+        )
 
     if topography_percent_noise is not None:
         true_topography = contaminate_with_long_wavelength_noise(
@@ -114,7 +129,6 @@ def load_synthetic_model(
             constraint_points,
             true_topography,
             "upward",
-            coord_names=("easting", "northing"),
         )
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
@@ -133,7 +147,6 @@ def load_synthetic_model(
             constraint_points,
             starting_topography,
             "starting_topography",
-            coord_names=("easting", "northing"),
         )
         rmse = utils.rmse(
             constraint_points.upward - constraint_points.starting_topography
@@ -142,41 +155,49 @@ def load_synthetic_model(
         log.info(msg, rmse)
 
         if plot_topography_diff is True:
-            _ = polar_utils.grd_compare(
-                true_topography,
-                starting_topography,
-                plot=True,
-                grid1_name="True topography",
-                grid2_name="Starting topography",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
-                reverse_cpt=True,
-                cmap="rain",
-                points=constraint_points.rename(
-                    columns={"easting": "x", "northing": "y"}
-                ),
-                points_style="x.3c",
-            )
+            try:
+                _ = polar_utils.grd_compare(
+                    true_topography,
+                    starting_topography,
+                    plot=True,
+                    grid1_name="True topography",
+                    grid2_name="Starting topography",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    reverse_cpt=True,
+                    cmap="rain",
+                    points=constraint_points.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                    region=region,
+                )
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                log.error("plotting failed with error: %s", e)
     else:
         starting_topography = None
         constraint_points = None
 
     if plot_topography is True:
-        # plot the topography
-        fig = maps.plot_grd(
-            true_topography,
-            fig_height=10,
-            title="True topography",
-            reverse_cpt=True,
-            cmap="rain",
-            cbar_label="elevation (m)",
-            frame=["nSWe", "xaf10000", "yaf10000"],
-        )
-        fig.show()
+        try:
+            # plot the topography
+            fig = maps.plot_grd(
+                true_topography,
+                fig_height=10,
+                title="True topography",
+                reverse_cpt=True,
+                cmap="rain",
+                cbar_label="elevation (m)",
+                frame=["nSWe", "xaf10000", "yaf10000"],
+                region=region,
+            )
+            fig.show()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.error("plotting failed with error: %s", e)
 
     if density_contrast is not None:
         if zref is None:
@@ -241,16 +262,22 @@ def load_synthetic_model(
                 seed=0,
             )
         if plot_gravity is True:
-            # plot the observed gravity
-            fig = maps.plot_grd(
-                grav_df.set_index(["northing", "easting"]).to_xarray().gravity_anomaly,
-                fig_height=10,
-                title="Forward gravity of true topography",
-                cmap="balance+h0",
-                cbar_label="mGal",
-                frame=["nSWe", "xaf10000", "yaf10000"],
-            )
-            fig.show()
+            try:
+                # plot the observed gravity
+                fig = maps.plot_grd(
+                    grav_df.set_index(["northing", "easting"])
+                    .to_xarray()
+                    .gravity_anomaly,
+                    fig_height=10,
+                    title="Forward gravity of true topography",
+                    cmap="balance+h0",
+                    cbar_label="mGal",
+                    frame=["nSWe", "xaf10000", "yaf10000"],
+                    hist=True,
+                )
+                fig.show()
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                log.error("plotting failed with error: %s", e)
     else:
         grav_df = None
 
@@ -263,6 +290,7 @@ def contaminate_with_long_wavelength_noise(
     coarsen_factor: float | None = None,
     spacing: float | None = None,
     noise_as_percent: bool = True,
+    seed: int = 1,
 ) -> xr.DataArray:
     """
     Contaminate a grid with long wavelength noise.
@@ -281,6 +309,8 @@ def contaminate_with_long_wavelength_noise(
     noise_as_percent : bool, optional
         if True, the value given to `noise` is treated as a percentage of the max value
         of the data.
+    seed : int, optional
+        seed to use for the random number generator, by default 1
 
     Returns
     -------
@@ -341,7 +371,7 @@ def contaminate_with_long_wavelength_noise(
         df[original_name],
         stddev=noise,
         percent=noise_as_percent,
-        seed=1,
+        seed=seed,
     )
     df["noise"] = df[original_name] - df.noisy
 

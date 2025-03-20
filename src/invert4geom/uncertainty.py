@@ -132,6 +132,11 @@ def create_lhc(
             v["sampled_values"].max(),
         )
 
+        # ax = pd.Series(v["sampled_values"]).hist()
+        # ax = np.log(pd.Series(v["sampled_values"])).plot.hist(bins=8)
+        # import matplotlib.pyplot as plt
+        # plt.show()
+
     return param_dict
 
 
@@ -213,8 +218,8 @@ def starting_topography_uncertainty(
     xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of topographies.
     """
-    kwargs = copy.deepcopy(kwargs)
-    constraints_df = kwargs.pop("constraints_df", None)
+    new_kwargs = copy.deepcopy(kwargs)
+    constraints_df = new_kwargs.pop("constraints_df", None)
 
     if constraints_df is None:
         msg = "constraints_df must be provided"
@@ -230,6 +235,8 @@ def starting_topography_uncertainty(
     else:
         sampled_param_dict = None
 
+    sampled_constraints = copy.deepcopy(constraints_df)
+
     topos = []
     weight_vals = []
     for i in tqdm(range(runs), desc="starting topography ensemble"):
@@ -237,32 +244,31 @@ def starting_topography_uncertainty(
         rand = np.random.default_rng(seed=i)
 
         if sample_constraints:
-            sampled_constraints = constraints_df.copy()
             sampled_constraints["upward"] = rand.normal(
                 sampled_constraints.upward, sampled_constraints.uncert
             )
-            constraints_df = sampled_constraints
 
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                kwargs[k] = v["sampled_values"][i]
+                new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             starting_topography = utils.create_topography(
-                constraints_df=constraints_df,
-                **kwargs,
+                constraints_df=sampled_constraints,
+                **new_kwargs,
             )
         topos.append(starting_topography)
 
         # sample the topography at the constraint points
-        constraints_df = utils.sample_grids(
-            constraints_df,
+        sampled_constraints = utils.sample_grids(
+            sampled_constraints,
             starting_topography,
             "sampled",
-            coord_names=("easting", "northing"),
         )
         # get weights of rmse between constraints and results
-        weight_vals.append(utils.rmse(constraints_df.upward - constraints_df.sampled))
+        weight_vals.append(
+            utils.rmse(sampled_constraints.upward - sampled_constraints.sampled)
+        )
 
     # convert residuals into weights
     weights = [1 / (x**2) for x in weight_vals]
@@ -276,60 +282,68 @@ def starting_topography_uncertainty(
         weights=weights,
     )
     if plot is True:
-        plotting.plot_stochastic_results(
-            stats_ds=stats_ds,
-            points=constraints_df,
-            cmap="rain",
-            reverse_cpt=True,
-            label="topography",
-            points_label="Topography constraints",
-            region=plot_region,
-        )
-        if true_topography is not None:
-            try:
-                mean = stats_ds.weighted_mean
-                stdev = stats_ds.weighted_stdev
-            except AttributeError:
-                mean = stats_ds.z_mean
-                stdev = stats_ds.z_stdev
-
-            _ = polar_utils.grd_compare(
-                np.abs(true_topography - mean),
-                stdev,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True error",
-                grid2_name="Stochastic uncertainty",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
-                cmap="thermal",
-                points=constraints_df.rename(columns={"easting": "x", "northing": "y"}),
-                points_style="x.3c",
-            )
-            _ = polar_utils.grd_compare(
-                true_topography,
-                mean,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True topography",
-                grid2_name="Mean topography",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
+        try:
+            plotting.plot_stochastic_results(
+                stats_ds=stats_ds,
+                points=sampled_constraints,
                 cmap="rain",
                 reverse_cpt=True,
-                points=constraints_df.rename(columns={"easting": "x", "northing": "y"}),
-                points_style="x.3c",
+                label="topography",
+                points_label="Topography constraints",
+                region=plot_region,
             )
+            if true_topography is not None:
+                try:
+                    mean = stats_ds.weighted_mean
+                    stdev = stats_ds.weighted_stdev
+                except AttributeError:
+                    mean = stats_ds.z_mean
+                    stdev = stats_ds.z_stdev
+
+                _ = polar_utils.grd_compare(
+                    np.abs(true_topography - mean),
+                    stdev,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True error",
+                    grid2_name="Stochastic uncertainty",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="thermal",
+                    points=sampled_constraints.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+                _ = polar_utils.grd_compare(
+                    true_topography,
+                    mean,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True topography",
+                    grid2_name="Mean topography",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="rain",
+                    reverse_cpt=True,
+                    points=sampled_constraints.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.error("plotting failed with error: %s", e)
+
     return stats_ds
     # pylint: enable=duplicate-code
 
@@ -344,6 +358,7 @@ def equivalent_sources_uncertainty(
     plot: bool = True,
     plot_region: tuple[float, float, float, float] | None = None,
     true_gravity: xr.DataArray | None = None,
+    deterministic_error: xr.DataArray | None = None,
     weight_by: str | None = None,
     **kwargs: typing.Any,
 ) -> xr.Dataset:
@@ -368,13 +383,18 @@ def equivalent_sources_uncertainty(
     true_regional : xarray.DataArray | None, optional
         if the true regional misfit is known, will make a plot comparing the results, by
         default None
+    deterministic_error : xarray.DataArray | None, optional
+        if the deterministic error is known, will make a plot comparing the results, by
+        default None
+    weight_by : str | None, optional
+        how to weight the models, by default None
 
     Returns
     -------
     xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of regional gravity
     """
-    kwargs = copy.deepcopy(kwargs)
+    new_kwargs = copy.deepcopy(kwargs)
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -391,17 +411,19 @@ def equivalent_sources_uncertainty(
     for i in tqdm(range(runs), desc="starting equivalent sources ensemble"):
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                kwargs[k] = v["sampled_values"][i]
+                new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             # refit EqSources with best parameters
             eqs = hm.EquivalentSources(
-                **kwargs,
+                **new_kwargs,
             )
-            eqs.fit(coords, data, weights=kwargs.get("weights", None))
+            eqs.fit(coords, data, weights=new_kwargs.get("weights", None))
 
         if weight_by == "score":
-            scores.append(eqs.score(coords, data, weights=kwargs.get("weights", None)))
+            scores.append(
+                eqs.score(coords, data, weights=new_kwargs.get("weights", None))
+            )
 
         # predict sources onto grid
         grid_points["predicted_grav"] = eqs.predict(
@@ -431,7 +453,6 @@ def equivalent_sources_uncertainty(
                 grid_points,
                 g,
                 sampled_name="sampled",
-                coord_names=["easting", "northing"],
             )
             weight_vals.append(utils.rmse(points.gravity_anomaly - points.sampled))
         # convert residuals into weights
@@ -447,56 +468,77 @@ def equivalent_sources_uncertainty(
     )
 
     if plot is True:
-        plotting.plot_stochastic_results(
-            stats_ds=stats_ds,
-            cmap="viridis",
-            reverse_cpt=False,
-            label="Predicted gravity",
-            unit="mGal",
-            region=plot_region,
-        )
-        if true_gravity is not None:
-            try:
-                mean = stats_ds.weighted_mean
-                stdev = stats_ds.weighted_stdev
-            except AttributeError:
-                mean = stats_ds.z_mean
-                stdev = stats_ds.z_stdev
-
-            # pylint: disable=duplicate-code
-            _ = polar_utils.grd_compare(
-                np.abs(true_gravity - mean),
-                stdev,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True error",
-                grid2_name="Stochastic uncertainty",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
-                cmap="thermal",
-            )
-            _ = polar_utils.grd_compare(
-                true_gravity,
-                mean,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True gravity",
-                grid2_name="Mean gravity",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
+        try:
+            plotting.plot_stochastic_results(
+                stats_ds=stats_ds,
                 cmap="viridis",
+                reverse_cpt=False,
+                label="Predicted gravity",
+                unit="mGal",
+                region=plot_region,
             )
-            # pylint: enable=duplicate-code
+            if true_gravity is not None:
+                try:
+                    mean = stats_ds.weighted_mean
+                    stdev = stats_ds.weighted_stdev
+                except AttributeError:
+                    mean = stats_ds.z_mean
+                    stdev = stats_ds.z_stdev
+
+                # pylint: disable=duplicate-code
+                _ = polar_utils.grd_compare(
+                    np.abs(true_gravity - mean),
+                    stdev,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="Stochastic error",
+                    grid2_name="Stochastic uncertainty",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="thermal",
+                )
+                if deterministic_error is not None:
+                    _ = polar_utils.grd_compare(
+                        np.abs(deterministic_error),
+                        stdev,
+                        fig_height=12,
+                        region=plot_region,
+                        plot=True,
+                        grid1_name="Deterministic error",
+                        grid2_name="Stochastic uncertainty",
+                        robust=True,
+                        hist=True,
+                        inset=False,
+                        verbose="q",
+                        title="difference",
+                        grounding_line=False,
+                        cmap="thermal",
+                    )
+                _ = polar_utils.grd_compare(
+                    true_gravity,
+                    mean,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True gravity",
+                    grid2_name="Mean gravity",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="viridis",
+                )
+                # pylint: enable=duplicate-code
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.error("plotting failed with error: %s", e)
+
     return stats_ds
 
 
@@ -542,9 +584,9 @@ def regional_misfit_uncertainty(
     xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of regional gravity
     """
-    kwargs = copy.deepcopy(kwargs)
-    constraints_df = kwargs.pop("constraints_df", None)
-    grav_df = kwargs.pop("grav_df", None)
+    new_kwargs = copy.deepcopy(kwargs)
+    constraints_df = new_kwargs.pop("constraints_df", None)
+    grav_df = new_kwargs.pop("grav_df", None)
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -571,13 +613,13 @@ def regional_misfit_uncertainty(
 
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                kwargs[k] = v["sampled_values"][i]
+                new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             grav_df = regional.regional_separation(
                 constraints_df=constraints_df,
                 grav_df=grav_df,
-                **kwargs,
+                **new_kwargs,
             )
 
         regional_grids.append(
@@ -595,7 +637,6 @@ def regional_misfit_uncertainty(
                 constraints_df,
                 g,
                 sampled_name="sampled_regional",
-                coord_names=["easting", "northing"],
             )
             weight_vals.append(utils.rmse(points.sampled_regional))
         # convert residuals into weights
@@ -611,61 +652,69 @@ def regional_misfit_uncertainty(
     )
 
     if plot is True:
-        plotting.plot_stochastic_results(
-            stats_ds=stats_ds,
-            points=constraints_df,
-            cmap="viridis",
-            reverse_cpt=False,
-            label="Regional gravity",
-            unit="mGal",
-            points_label="Topography constraints",
-            region=plot_region,
-        )
-        if true_regional is not None:
-            try:
-                mean = stats_ds.weighted_mean
-                stdev = stats_ds.weighted_stdev
-            except AttributeError:
-                mean = stats_ds.z_mean
-                stdev = stats_ds.z_stdev
-            # pylint: disable=duplicate-code
-            _ = polar_utils.grd_compare(
-                np.abs(true_regional - mean),
-                stdev,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True error",
-                grid2_name="Stochastic uncertainty",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
-                cmap="thermal",
-                points=constraints_df.rename(columns={"easting": "x", "northing": "y"}),
-                points_style="x.3c",
-            )
-            _ = polar_utils.grd_compare(
-                true_regional,
-                mean,
-                fig_height=12,
-                region=plot_region,
-                plot=True,
-                grid1_name="True regional",
-                grid2_name="Mean regional",
-                robust=True,
-                hist=True,
-                inset=False,
-                verbose="q",
-                title="difference",
-                grounding_line=False,
+        try:
+            plotting.plot_stochastic_results(
+                stats_ds=stats_ds,
+                points=constraints_df,
                 cmap="viridis",
-                points=constraints_df.rename(columns={"easting": "x", "northing": "y"}),
-                points_style="x.3c",
+                reverse_cpt=False,
+                label="Regional gravity",
+                unit="mGal",
+                points_label="Topography constraints",
+                region=plot_region,
             )
-            # pylint: enable=duplicate-code
+            if true_regional is not None:
+                try:
+                    mean = stats_ds.weighted_mean
+                    stdev = stats_ds.weighted_stdev
+                except AttributeError:
+                    mean = stats_ds.z_mean
+                    stdev = stats_ds.z_stdev
+                # pylint: disable=duplicate-code
+                _ = polar_utils.grd_compare(
+                    np.abs(true_regional - mean),
+                    stdev,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True error",
+                    grid2_name="Stochastic uncertainty",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="thermal",
+                    points=constraints_df.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+                _ = polar_utils.grd_compare(
+                    true_regional,
+                    mean,
+                    fig_height=12,
+                    region=plot_region,
+                    plot=True,
+                    grid1_name="True regional",
+                    grid2_name="Mean regional",
+                    robust=True,
+                    hist=True,
+                    inset=False,
+                    verbose="q",
+                    title="difference",
+                    grounding_line=False,
+                    cmap="viridis",
+                    points=constraints_df.rename(
+                        columns={"easting": "x", "northing": "y"}
+                    ),
+                    points_style="x.3c",
+                )
+                # pylint: enable=duplicate-code
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.error("plotting failed with error: %s", e)
+
     return stats_ds
 
 
@@ -773,9 +822,21 @@ def full_workflow_uncertainty_loop(
     prism_dfs : list[pandas.DataFrame]
         list of prism dataframes from each inversion run
     """
-    kwargs = copy.deepcopy(kwargs)
+    # ensure kwargs are not altered by making copies before sampling values
+    new_kwargs = copy.deepcopy(kwargs)
     if regional_grav_kwargs is not None:
-        regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
+        new_regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
+    else:
+        new_regional_grav_kwargs = None
+    if starting_topography_kwargs is not None:
+        new_starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+    else:
+        new_starting_topography_kwargs = None
+
+    # print("before loop")
+    # print(new_regional_grav_kwargs["constraints_df"].upward.mean())
+    # print(new_starting_topography_kwargs["constraints_df"].upward.mean())
+    # print(new_kwargs["constraints_df"].upward.mean())
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -838,6 +899,16 @@ def full_workflow_uncertainty_loop(
     if starting_run == runs:
         log.info("all %s runs already complete, loading results from files.", runs)
 
+    if sample_constraints is True:
+        constraints_df = new_kwargs.get("constraints_df", None)
+        sampled_constraints = copy.deepcopy(constraints_df)
+        test_constraint_value = copy.deepcopy(constraints_df.upward.iloc[0])
+
+    if sample_gravity is True:
+        grav_df = new_kwargs.get("grav_df", None)
+        sampled_grav = copy.deepcopy(grav_df)
+        test_grav_value = copy.deepcopy(grav_df.gravity_anomaly.iloc[0])
+
     for i in tqdm(range(starting_run, runs), desc="stochastic ensemble"):
         if i == starting_run:
             log.info(
@@ -853,43 +924,54 @@ def full_workflow_uncertainty_loop(
         rand = np.random.default_rng(seed=i)
 
         if sample_gravity is True:
-            grav_df = kwargs.pop("grav_df", None)
+            new_kwargs.pop("grav_df", None)
             if grav_df is None:
                 msg = "grav_df must be provided"
                 raise ValueError(msg)
-            sampled_grav = grav_df.copy()
+
+            # assert original gravity values are unaltered
+            assert test_grav_value == grav_df.gravity_anomaly.iloc[0]
+
             sampled_grav["gravity_anomaly"] = rand.normal(
-                sampled_grav.gravity_anomaly, sampled_grav.uncert
+                grav_df.gravity_anomaly, grav_df.uncert
             )
-            kwargs["grav_df"] = sampled_grav
+            new_kwargs["grav_df"] = sampled_grav
 
         if sample_constraints is True:
-            constraints_df = kwargs.pop("constraints_df", None)
+            new_kwargs.pop("constraints_df")
             if constraints_df is None:
                 msg = "constraints_df must be provided if sample_constraints is True"
                 raise ValueError(msg)
-            sampled_constraints = constraints_df.copy()
-            sampled_constraints["upward"] = rand.normal(
-                sampled_constraints.upward, sampled_constraints.uncert
+
+            # assert original constraint values are unaltered
+            assert test_constraint_value == constraints_df.upward.iloc[0]
+
+            sampled_constraints = randomly_sample_data(
+                seed=i,
+                data_df=constraints_df,
+                data_col="upward",
+                uncert_col="uncert",
             )
-            if starting_topography_kwargs is not None:
-                starting_topography_kwargs["constraints_df"] = sampled_constraints
-            if (regional_grav_kwargs is not None) and (
-                regional_grav_kwargs.get("constraints_df", None) is not None
+            if (new_starting_topography_kwargs is not None) and (
+                new_starting_topography_kwargs.get("constraints_df", None) is not None
             ):
-                regional_grav_kwargs["constraints_df"] = sampled_constraints
-            kwargs["constraints_df"] = sampled_constraints
+                new_starting_topography_kwargs["constraints_df"] = sampled_constraints
+            if (new_regional_grav_kwargs is not None) and (
+                new_regional_grav_kwargs.get("constraints_df", None) is not None
+            ):
+                new_regional_grav_kwargs["constraints_df"] = sampled_constraints
+            new_kwargs["constraints_df"] = sampled_constraints
 
         # if parameters provided, sampled and add back to kwargs
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                kwargs[k] = v["sampled_values"][i]
+                new_kwargs[k] = v["sampled_values"][i]
         if sampled_starting_topography_parameter_dict is not None:
             for k, v in sampled_starting_topography_parameter_dict.items():
-                starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
+                new_starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
         if sampled_regional_misfit_parameter_dict is not None:
             for k, v in sampled_regional_misfit_parameter_dict.items():
-                regional_grav_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
+                new_regional_grav_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
 
         # define what needs to be done depending on what parameters are sampled
         if sample_gravity is True:
@@ -920,14 +1002,14 @@ def full_workflow_uncertainty_loop(
                 create_starting_prisms=create_starting_prisms,
                 calculate_starting_gravity=calculate_starting_gravity,
                 calculate_regional_misfit=calculate_regional_misfit,  # pylint: disable=possibly-used-before-assignment
-                regional_grav_kwargs=regional_grav_kwargs,
-                starting_topography_kwargs=starting_topography_kwargs,
+                regional_grav_kwargs=new_regional_grav_kwargs,
+                starting_topography_kwargs=new_starting_topography_kwargs,
                 fname=f"{fname}_{i}",
-                **kwargs,
+                **new_kwargs,
             )
 
         # get results
-        prism_df, grav_df, params, _ = inv_results  # type: ignore[assignment]
+        prism_df, final_grav_df, params, _ = inv_results  # type: ignore[assignment]
 
         # add run number to the parameter values
         params["run_num"] = i  # type: ignore[call-overload]
@@ -936,7 +1018,7 @@ def full_workflow_uncertainty_loop(
         with pathlib.Path(f"{fname}_params.pickle").open("ab") as file:
             pickle.dump(params, file, protocol=pickle.HIGHEST_PROTOCOL)
         with pathlib.Path(f"{fname}_grav_dfs.pickle").open("ab") as file:
-            pickle.dump(grav_df, file, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(final_grav_df, file, protocol=pickle.HIGHEST_PROTOCOL)
         with pathlib.Path(f"{fname}_prism_dfs.pickle").open("ab") as file:
             pickle.dump(prism_df, file, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -1138,7 +1220,6 @@ def merged_stats(
                 constraints_df,
                 bed,
                 sampled_name="sampled_topo",
-                coord_names=["easting", "northing"],
             )
             points["dif"] = points.upward - points.sampled_topo
             weight_vals.append(utils.rmse(points.dif))
@@ -1154,13 +1235,16 @@ def merged_stats(
     )
 
     if plot is True:
-        plotting.plot_stochastic_results(
-            stats_ds=stats_ds,
-            points=constraints_df,
-            cmap="rain",
-            reverse_cpt=True,
-            label="inverted topography",
-            points_label="Topography constraints",
-        )
+        try:
+            plotting.plot_stochastic_results(
+                stats_ds=stats_ds,
+                points=constraints_df,
+                cmap="rain",
+                reverse_cpt=True,
+                label="inverted topography",
+                points_label="Topography constraints",
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.error("plotting failed with error: %s", e)
 
     return stats_ds
