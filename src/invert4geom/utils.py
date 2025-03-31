@@ -1367,11 +1367,7 @@ def best_equivalent_source_damping(
 
         score = np.mean(
             vd.cross_val_score(
-                eqs,
-                coordinates,
-                data,
-                delayed=delayed,
-                weights=weights,
+                eqs, coordinates, data, delayed=delayed, weights=weights, scoring="r2"
             )
         )
         # pylint: enable=duplicate-code
