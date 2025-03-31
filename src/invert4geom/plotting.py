@@ -120,6 +120,10 @@ def plot_2_parameter_cv_scores_uneven(
     plot_param_names: tuple[str, str] = ("Hyperparameter 1", "Hyperparameter 2"),
     figsize: tuple[float, float] = (5, 3.5),
     cmap: str | None = None,
+    best: str = "min",
+    logx: bool = False,
+    logy: bool = False,
+    robust: bool = False,
 ) -> None:
     """
     plot a scatter plot graph with x axis equal to parameter 1, y axis equal to
@@ -134,6 +138,12 @@ def plot_2_parameter_cv_scores_uneven(
         size of the figure, by default (5, 3.5)
     cmap : str, optional
         matplotlib colormap for scores, by default "viridis"
+    best : str, optional
+        whether the 'min' or 'max' score is considered best, by default 'min'
+    logx, logy : bool, optional
+        make the x or y axes log scale, by default False
+    robust: bool, optional
+        use robust color limits
     """
 
     sns.set_theme()
@@ -141,9 +151,18 @@ def plot_2_parameter_cv_scores_uneven(
     if cmap is None:
         cmap = sns.color_palette("mako", as_cmap=True)
 
-    df = study.trials_dataframe().sort_values(by="value")
+    df = study.trials_dataframe()
     df = df[[param_names[0], param_names[1], "value"]]
-    best = df.iloc[0]
+
+    if best == "min":
+        best_ind = df.value.idxmin()
+        label = "Minimum"
+    elif best == "max":
+        best_ind = df.value.idxmax()
+        label = "Maximum"
+    else:
+        msg = "best must be either 'min' or 'max'"
+        raise ValueError(msg)
 
     plt.figure(figsize=figsize)
     plt.title("Two parameter cross-validation")
@@ -169,17 +188,38 @@ def plot_2_parameter_cv_scores_uneven(
         return
     zi = interp(xi, yi)
 
-    # plt.pcolormesh(xi, yi, zi, cmap=cmap, shading='auto')
-    plt.contourf(xi, yi, zi, 30, cmap=cmap)
+    vmin, vmax = polar_utils.get_min_max(
+        df.value,
+        robust=robust,
+        # robust_percentiles=(.89,.9)
+    )
+    plt.pcolormesh(
+        xi,
+        yi,
+        zi,
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        # shading='auto',
+    )
+    # plt.contourf(
+    #     xi,
+    #     yi,
+    #     zi,
+    #     30,
+    #     cmap=cmap,
+    #     vmin=vmin,
+    #     vmax=vmax,
+    # )
     plt.colorbar().set_label("Scores")
 
     plt.plot(
-        best[param_names[0]],
-        best[param_names[1]],
+        df.iloc[best_ind][param_names[0]],
+        df.iloc[best_ind][param_names[1]],
         "s",
         markersize=10,
         color=sns.color_palette()[3],
-        label="Minimum",
+        label=label,
     )
     plt.scatter(
         x,
@@ -189,13 +229,18 @@ def plot_2_parameter_cv_scores_uneven(
         edgecolor="black",
     )
     plt.legend(
-        loc="upper right",
+        loc="best",
     )
     plt.xlim([min(x) - x_buffer, max(x) + x_buffer])
     plt.ylim([min(y) - y_buffer, max(y) + y_buffer])
     plt.xlabel(plot_param_names[0])
     plt.ylabel(plot_param_names[1])
     plt.xticks(rotation=20)
+
+    if logx:
+        plt.xscale("log")
+    if logy:
+        plt.yscale("log")
 
     plt.tight_layout()
 
@@ -1549,7 +1594,11 @@ def plot_latin_hypercube(
             )
             sns.rugplot(ax=axes[i], data=df, x=j, linewidth=2.5, height=0.07)
             axes[i].set_xlabel(j.replace("_", " ").capitalize())
-            axes[i].ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+            axes[i].ticklabel_format(
+                axis="y",
+                style="sci",
+                scilimits=(0, 0),
+            )
             axes[i].set_ylabel(None)
 
         plt.show()
