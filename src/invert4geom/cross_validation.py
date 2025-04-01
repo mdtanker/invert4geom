@@ -1143,6 +1143,7 @@ def eq_sources_score(
                             shuffle=True,
                             random_state=0,
                         ),
+                        scoring="r2",
                     )
                 )
             except ValueError:
