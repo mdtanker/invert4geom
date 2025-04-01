@@ -45,7 +45,7 @@ dependencies = [
   "harmonica>=0.7", # need default depth arg for equivalent sources
   "polartoolkit",
   "numba",
-  "scipy<1.14", # issue with UQpy import
+  "scipy",
   "numba_progress",
   "tqdm",
   "pygmt",
@@ -73,7 +73,7 @@ dependencies = [
 ###
 # uncertainty
 ###
-  "UQpy",
+  "UQpy>=4.1.7", # need fixed issue with scipy
 ]
 
 [project.optional-dependencies]
