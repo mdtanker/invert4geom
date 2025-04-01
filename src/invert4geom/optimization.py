@@ -1933,7 +1933,7 @@ class OptimalEqSourceParams:
         block_size = kwargs.pop("block_size", None)
         damping = kwargs.pop("damping", None)
 
-        # replace with suggest values if limits provided
+        # replace with suggested values if limits provided
         if self.depth_limits is not None:
             depth = trial.suggest_float(
                 "depth",
