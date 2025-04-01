@@ -192,7 +192,7 @@ def grav_cv_score(
         density=density_grid,
     )
 
-    # calculate forward gravity of starting prism layer
+    # calculate forward gravity of inverted prism layer
     test["test_point_grav"] = prism_layer.prism_layer.gravity(
         coordinates=(
             test.easting,
