@@ -15,7 +15,7 @@ dependencies:
   - harmonica>=0.7
   - polartoolkit
   - numba
-  - scipy<1.14
+  - scipy
   # - numba_progress
   - tqdm
   - pygmt
@@ -37,7 +37,7 @@ dependencies:
   - ipython
   - plotly
   # uncertainty
-  - UQpy
+  - UQpy>=4.1.7 # need fixed issue with scipy
   # Optional dependencies
   ## synthetic data
   - xesmf
