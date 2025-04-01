@@ -729,6 +729,7 @@ def plot_inversion_grav_results(
     dif, initial, final = polar_utils.grd_compare(
         initial_misfit,
         final_misfit,
+        plot=False,
     )
     robust = True
     diff_maxabs = vd.maxabs(polar_utils.get_min_max(dif, robust=robust))
@@ -1727,7 +1728,6 @@ def edge_effects(
         region=inner_region,
         title="Forward gravity",
         cbar_label="mGal",
-        frame=True,
         scalebar=False,
         hist=True,
     )
@@ -1740,7 +1740,6 @@ def edge_effects(
         region=inner_region,
         title="Gravity edge effect",
         cbar_label="Percentage decay",
-        frame=True,
         scalebar=False,
         hist=True,
     )
