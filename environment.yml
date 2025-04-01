@@ -23,7 +23,7 @@ dependencies:
   - deprecation
   - pooch
   - scikit-learn
-  - torch
+  # - torch # included with pip
   # optimization
   - optuna>=3.6.0
   - joblib
@@ -44,6 +44,7 @@ dependencies:
   ## test
   - pytest>=6
   - pytest-cov>=3
+  - deepdiff
   ## docs
   - sphinx>=4.0
   - sphinx-book-theme>=0.3
@@ -68,6 +69,7 @@ dependencies:
   # below packages need to be installed with pip
   - pip
   - pip:
+      - torch
       - sphinx_design
       - sphinx_copybutton
       - sphinx_autodoc_typehints
