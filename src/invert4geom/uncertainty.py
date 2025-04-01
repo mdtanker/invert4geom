@@ -188,7 +188,7 @@ def starting_topography_uncertainty(
     plot_region: tuple[float, float, float, float] | None = None,
     true_topography: xr.DataArray | None = None,
     **kwargs: typing.Any,
-) -> xr.Dataset:
+) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
     Create a stochastic ensemble of starting topographies by sampling the constraints or
     parameters within their respective distributions and find the cell-wise (weighted)
@@ -215,8 +215,10 @@ def starting_topography_uncertainty(
 
     Returns
     -------
-    xarray.Dataset
+    stats_ds: xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of topographies.
+    sampled_param_dict : dict[str, typing.Any]
+        dictionary of sampled parameter values.
     """
     new_kwargs = copy.deepcopy(kwargs)
     constraints_df = new_kwargs.pop("constraints_df", None)
@@ -344,7 +346,7 @@ def starting_topography_uncertainty(
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
-    return stats_ds
+    return stats_ds, sampled_param_dict  # type: ignore[return-value]
     # pylint: enable=duplicate-code
 
 
@@ -361,7 +363,7 @@ def equivalent_sources_uncertainty(
     deterministic_error: xr.DataArray | None = None,
     weight_by: str | None = None,
     **kwargs: typing.Any,
-) -> xr.Dataset:
+) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
     Create a stochastic ensemble of regional gravity anomalies by sampling the
     constraints, gravity, or parameters within their respective distributions and
@@ -391,8 +393,10 @@ def equivalent_sources_uncertainty(
 
     Returns
     -------
-    xarray.Dataset
+    stats_ds: xarray.Dataset,
         a dataset with the cell-wise statistics of the ensemble of regional gravity
+    sampled_parms_dict: dict[str, typing.Any]
+        a dictionary of sampled parameter values.
     """
     new_kwargs = copy.deepcopy(kwargs)
 
@@ -539,7 +543,7 @@ def equivalent_sources_uncertainty(
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
-    return stats_ds
+    return stats_ds, sampled_param_dict  # type: ignore[return-value]
 
 
 def regional_misfit_uncertainty(
@@ -552,7 +556,7 @@ def regional_misfit_uncertainty(
     true_regional: xr.DataArray | None = None,
     weight_by: str | None = None,
     **kwargs: typing.Any,
-) -> xr.Dataset:
+) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
     Create a stochastic ensemble of regional gravity anomalies by sampling the
     constraints, gravity, or parameters within their respective distributions and
@@ -581,8 +585,10 @@ def regional_misfit_uncertainty(
 
     Returns
     -------
-    xarray.Dataset
+    stats_ds: xarray.Dataset
         a dataset with the cell-wise statistics of the ensemble of regional gravity
+    sampled_param_dict : dict[str, typing.Any]
+        a dictionary of sampled parameter values.
     """
     new_kwargs = copy.deepcopy(kwargs)
     constraints_df = new_kwargs.pop("constraints_df", None)
@@ -715,7 +721,7 @@ def regional_misfit_uncertainty(
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
-    return stats_ds
+    return stats_ds, sampled_param_dict  # type: ignore[return-value]
 
 
 def full_workflow_uncertainty_loop(
@@ -733,7 +739,9 @@ def full_workflow_uncertainty_loop(
     regional_grav_kwargs: dict[str, typing.Any] | None = None,
     starting_topography_kwargs: dict[str, typing.Any] | None = None,
     **kwargs: typing.Any,
-) -> tuple[dict[str, typing.Any], list[pd.DataFrame], list[pd.DataFrame]]:
+) -> tuple[
+    dict[str, typing.Any], list[pd.DataFrame], list[pd.DataFrame], dict[str, typing.Any]
+]:
     """
     Run a series of inversions (N=runs), and save results of
     each inversion to pickle files starting with `fname`. If files already
@@ -821,6 +829,8 @@ def full_workflow_uncertainty_loop(
         list of gravity dataframes from each inversion run
     prism_dfs : list[pandas.DataFrame]
         list of prism dataframes from each inversion run
+    sampled_params : dict[str, typing.Any]
+        dictionary of sampled parameter values from the Latin Hypercube sampling
     """
     # ensure kwargs are not altered by making copies before sampling values
     new_kwargs = copy.deepcopy(kwargs)
@@ -1047,7 +1057,12 @@ def full_workflow_uncertainty_loop(
             except EOFError:
                 break
 
-    return (params, grav_dfs, prism_dfs)  # type: ignore[return-value]
+    return (
+        params,
+        grav_dfs,
+        prism_dfs,
+        sampled_param_dict,
+    )  # type: ignore[return-value]
 
 
 def model_ensemble_stats(
@@ -1197,7 +1212,7 @@ def merged_stats(
         weighted standard deviation of the ensemble of inverted topographies.
     """
     # unpack results
-    _, grav_dfs, prism_dfs = results  # type: ignore[misc]
+    _, grav_dfs, prism_dfs, _ = results  # type: ignore[misc]
 
     # get merged dataset
     merged = merge_simulation_results(
