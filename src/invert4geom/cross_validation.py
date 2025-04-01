@@ -217,17 +217,15 @@ def grav_cv_score(
             obs = test_grid.gravity_anomaly - test_grid.reg
             pred = test_grid.test_point_grav.rename("")
 
-            polar_utils.grd_compare(
+            _ = polar_utils.grd_compare(
                 pred,
                 obs,
                 grid1_name="Predicted gravity",
                 grid2_name="Observed gravity",
-                plot=True,
                 plot_type="xarray",
                 robust=True,
                 title=f"Score={score}",
                 rmse_in_title=False,
-                inset=False,
                 hist=True,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
