@@ -728,6 +728,7 @@ def full_workflow_uncertainty_loop(
     runs: int,
     fname: str | None = None,
     sample_gravity: bool = False,
+    gravity_filter_width: float | None = None,
     sample_constraints: bool = False,
     starting_topography_parameter_dict: dict[str, typing.Any] | None = None,
     regional_misfit_parameter_dict: dict[str, typing.Any] | None = None,
@@ -795,6 +796,9 @@ def full_workflow_uncertainty_loop(
         choose to randomly sample the gravity data from a normal distribution with a
         mean of each data value and a standard deviation given by the column "uncert",
         by default False
+    gravity_filter_width : float | None, optional
+        the width in meters of a low-pass filter to apply to the gravity data after
+        sampling, by default None
     sample_constraints : bool, optional
         choose to randomly sample the constraint elevations from a normal distribution
         with a mean of each data value and a standard deviation given by the column
@@ -945,8 +949,20 @@ def full_workflow_uncertainty_loop(
             sampled_grav["gravity_anomaly"] = rand.normal(
                 grav_df.gravity_anomaly, grav_df.uncert
             )
-            new_kwargs["grav_df"] = sampled_grav
 
+            # low-pass filter the sampled gravity data
+            if gravity_filter_width is not None:
+                filtered_grav = utils.filter_grid(
+                    sampled_grav.set_index(["northing", "easting"])
+                    .to_xarray()
+                    .gravity_anomaly,
+                    gravity_filter_width,
+                    filt_type="lowpass",
+                    pad_mode="linear_ramp",
+                )
+                sampled_grav["gravity_anomaly"] = filtered_grav.values.ravel()
+
+            new_kwargs["grav_df"] = sampled_grav
         if sample_constraints is True:
             new_kwargs.pop("constraints_df")
             if constraints_df is None:
