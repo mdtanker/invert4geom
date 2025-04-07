@@ -1347,7 +1347,7 @@ def combined_slice(
                 y=figs[i].data[0]["y"],
                 name=j,
                 mode="markers",
-                yaxis=f"y{i+1}",
+                yaxis=f"y{i + 1}",
             )
         )
 

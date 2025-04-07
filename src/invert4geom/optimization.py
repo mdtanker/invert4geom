@@ -354,7 +354,7 @@ def _create_regional_separation_study(
     directions = None
 
     if fname is None:
-        fname = f"tmp_{random.randint(0,999)}"
+        fname = f"tmp_{random.randint(0, 999)}"
     if parallel:
         pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
@@ -716,7 +716,7 @@ def optimize_inversion_damping(
 
     # set file name for saving results with random number between 0 and 999
     if fname is None:
-        fname = f"tmp_{random.randint(0,999)}_damping_cv"
+        fname = f"tmp_{random.randint(0, 999)}_damping_cv"
 
     if parallel:
         pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
@@ -1416,9 +1416,9 @@ def optimize_inversion_zref_density_contrast(
     """
 
     if "test" in grav_df.columns:
-        assert (
-            grav_df.test.any()
-        ), "test column contains True value, not needed except for during damping CV"
+        assert grav_df.test.any(), (
+            "test column contains True value, not needed except for during damping CV"
+        )
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
     if regional_grav_kwargs is not None:
@@ -1428,7 +1428,7 @@ def optimize_inversion_zref_density_contrast(
 
     # set file name for saving results with random number between 0 and 999
     if fname is None:
-        fname = f"tmp_{random.randint(0,999)}_zref_density_cv"
+        fname = f"tmp_{random.randint(0, 999)}_zref_density_cv"
 
     if parallel:
         pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
@@ -3626,7 +3626,7 @@ def optimal_buffer(
 
     # set file name for saving results with random number between 0 and 999
     if fname is None:
-        fname = f"tmp_{random.randint(0,999)}"
+        fname = f"tmp_{random.randint(0, 999)}"
 
     if parallel:
         pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
