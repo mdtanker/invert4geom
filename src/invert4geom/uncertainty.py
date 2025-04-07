@@ -884,7 +884,7 @@ def full_workflow_uncertainty_loop(
 
     # set file name for saving results with random number between 0 and 999
     if fname is None:
-        fname = f"tmp_{random.randint(0,999)}_stochastic_ensemble"
+        fname = f"tmp_{random.randint(0, 999)}_stochastic_ensemble"
 
     # if file exists, start and next run, else start at 0
     try:

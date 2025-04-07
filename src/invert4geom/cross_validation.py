@@ -303,7 +303,7 @@ def grav_optimal_parameter(
 
     # set file name for saving results with random number between 0 and 999
     if results_fname is None:
-        results_fname = f"tmp_{random.randint(0,999)}"
+        results_fname = f"tmp_{random.randint(0, 999)}"
 
     # run inversions and collect scores
     scores = []
@@ -545,7 +545,7 @@ def zref_density_optimal_parameter(
 
     # set file name for saving results with random number between 0 and 999
     if results_fname is None:
-        results_fname = f"tmp_{random.randint(0,999)}"
+        results_fname = f"tmp_{random.randint(0, 999)}"
 
     if (zref_values is None) & (density_contrast_values is None):
         msg = "must provide either or both zref_values and density_contrast_values"
@@ -599,9 +599,9 @@ def zref_density_optimal_parameter(
     parameter_pairs = list(itertools.product(zref_values, density_contrast_values))  # type: ignore[arg-type]
 
     if "test" in grav_df.columns:
-        assert (
-            grav_df.test.any()
-        ), "test column contains True value, not needed except for during damping CV"
+        assert grav_df.test.any(), (
+            "test column contains True value, not needed except for during damping CV"
+        )
 
     # run inversions and collect scores
     scores = []

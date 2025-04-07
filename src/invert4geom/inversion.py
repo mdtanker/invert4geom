@@ -906,8 +906,8 @@ def run_inversion(
         if iteration == 1:
             pass
         else:
-            gravity["res"] = gravity[f"iter_{iteration-1}_final_misfit"]
-            prisms_df["density"] = prisms_df[f"iter_{iteration-1}_density"]
+            gravity["res"] = gravity[f"iter_{iteration - 1}_final_misfit"]
+            prisms_df["density"] = prisms_df[f"iter_{iteration - 1}_density"]
 
         # add starting residual to df
         gravity[f"iter_{iteration}_initial_misfit"] = gravity.res
@@ -1078,7 +1078,7 @@ def run_inversion(
         "Time elapsed": f"{int(elapsed_time)} seconds",
         "Avg. iteration time": f"{round(np.mean(iter_times), 2)} seconds",
         "Final misfit RMSE / L2-norm": (
-            f"{round(final_rmse,4)} /{round(final_l2_norm,4)} mGal"
+            f"{round(final_rmse, 4)} /{round(final_l2_norm, 4)} mGal"
         ),
         "Termination reason": termination_reason,
         "Iteration times": iter_times,
@@ -1217,7 +1217,7 @@ def run_inversion_workflow(
 
     # set file name for saving results with random number between 0 and 999
     if fname is None:
-        fname = f"tmp_{random.randint(0,999)}"
+        fname = f"tmp_{random.randint(0, 999)}"
 
     log.info("saving all results with root name '%s'", fname)
     ###
