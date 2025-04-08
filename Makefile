@@ -17,6 +17,9 @@ install:
 remove:
 	mamba env remove --name $(PROJECT)
 
+create_env:
+	mamba create --name invert4geom --yes --channel conda-forge pip
+
 pip_install:
 	pip install $(PROJECT)[all]==$(VERSION)
 

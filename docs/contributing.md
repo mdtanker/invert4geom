@@ -407,7 +407,7 @@ Now, when submitting a PR, `RTD` will automatically build the docs and update th
 * update invert4geom version in `binder/environment.yml`.
 * test `PyPI` version with:
     - `make remove`
-    - `make create`
+    - `make create_env`
     - `mamba activate invert4geom`
     - `make pip_install`
     - `make test`
