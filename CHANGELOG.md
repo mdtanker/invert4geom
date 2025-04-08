@@ -4,8 +4,13 @@ Automatically updated by
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
 ## Unreleased
+### 📦️ Build
+* make UQpy optional due to their pinned deps ([`2df3369`](https://github.com/mdtanker/invert4geom/commit/2df3369cdbcbde0ce8e7eac147826cf9e7c2a21c))
 ### 🧰 Chores / Maintenance
+* add uncert deps to testing env ([`334ac77`](https://github.com/mdtanker/invert4geom/commit/334ac770aea076b00425d869fd84d007b2576f16))
+* update testing of pip env ([`327fe4a`](https://github.com/mdtanker/invert4geom/commit/327fe4a9d6c25fa973a64c17320065dee5a8e4a7))
 ### ✏️ Formatting
+* ignore ruff issue ([`aade18f`](https://github.com/mdtanker/invert4geom/commit/aade18f6db3c1ba7a9837449dec025ebafa4ae96))
 * pre-commit fixes ([`03770e2`](https://github.com/mdtanker/invert4geom/commit/03770e2ae45aaa7a0d29bf58adbdc180ae079f85))
 
 
