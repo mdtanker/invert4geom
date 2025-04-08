@@ -15,25 +15,28 @@ import xarray as xr
 from numpy.typing import NDArray
 from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
-from UQpy import distributions, sampling
+
+try:
+    import UQpy
+
+    class DiscreteUniform(UQpy.distributions.DistributionDiscrete1D):  # type: ignore[misc]
+        """
+        Discrete uniform distribution.
+        """
+
+        def __init__(
+            self,
+            loc: float | int = 0.0,
+            scale: float | int = 1.0,
+        ):
+            super().__init__(
+                low=loc, high=loc + scale + 1, ordered_parameters=("low", "high")
+            )
+            self._construct_from_scipy(scipy_name=sp.stats.randint)
+except ImportError:
+    UQpy = None
 
 from invert4geom import inversion, log, plotting, regional, utils
-
-
-class DiscreteUniform(distributions.DistributionDiscrete1D):  # type: ignore[misc]
-    """
-    Discrete uniform distribution.
-    """
-
-    def __init__(
-        self,
-        loc: float | int = 0.0,
-        scale: float | int = 1.0,
-    ):
-        super().__init__(
-            low=loc, high=loc + scale + 1, ordered_parameters=("low", "high")
-        )
-        self._construct_from_scipy(scipy_name=sp.stats.randint)
 
 
 def create_lhc(
@@ -64,22 +67,26 @@ def create_lhc(
     criterion : str, optional
         criterion to use for sampling, by default "centered", options are "centered",
         "random", "maximin", or "mincorrelation", which each relate to a criterion from
-        the Python package UQPy.
+        the Python package UQpy.
     Returns
     -------
     dict[dict[typing.Any]]
         nested dictionary with parameter names, distribution specifics, and sampled
         values
     """
+    if UQpy is None:
+        msg = "Missing optional dependency 'UQpy' required for uncertainty analysis."
+        raise ImportError(msg)
+
     param_dict = copy.deepcopy(parameter_dict)
 
     # create distributions for parameters
     dists = {}
     for k, v in param_dict.items():
         if v["distribution"] == "uniform":
-            dists[k] = distributions.Uniform(loc=v["loc"], scale=v["scale"])
+            dists[k] = UQpy.distributions.Uniform(loc=v["loc"], scale=v["scale"])
         elif v["distribution"] == "normal":
-            dists[k] = distributions.Normal(loc=v["loc"], scale=v["scale"])
+            dists[k] = UQpy.distributions.Normal(loc=v["loc"], scale=v["scale"])
         elif v["distribution"] == "uniform_discrete":
             dists[k] = DiscreteUniform(loc=v["loc"], scale=v["scale"])
         else:
@@ -87,21 +94,23 @@ def create_lhc(
             raise ValueError(msg, v["distribution"])
 
     if criterion == "centered":
-        criterion = sampling.stratified_sampling.latin_hypercube_criteria.Centered()
+        criterion = (
+            UQpy.sampling.stratified_sampling.latin_hypercube_criteria.Centered()
+        )
     elif criterion == "random":
-        criterion = sampling.stratified_sampling.latin_hypercube_criteria.Random()
+        criterion = UQpy.sampling.stratified_sampling.latin_hypercube_criteria.Random()
     elif criterion == "maximin":
-        criterion = sampling.stratified_sampling.latin_hypercube_criteria.MaxiMin()
+        criterion = UQpy.sampling.stratified_sampling.latin_hypercube_criteria.MaxiMin()
     elif criterion == "mincorrelation":
         criterion = (
-            sampling.stratified_sampling.latin_hypercube_criteria.MinCorrelation()
+            UQpy.sampling.stratified_sampling.latin_hypercube_criteria.MinCorrelation()
         )
     else:
         msg = "Unknown criterion type: %s"
         raise ValueError(msg, criterion)
 
     # make latin hyper cube
-    lhc = sampling.LatinHypercubeSampling(
+    lhc = UQpy.sampling.LatinHypercubeSampling(
         distributions=[v for k, v in dists.items()],
         criterion=criterion,
         random_state=np.random.RandomState(random_state),  # pylint: disable=no-member
