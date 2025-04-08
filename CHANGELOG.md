@@ -3,6 +3,11 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
 
+## Unreleased
+### 🧰 Chores / Maintenance
+### ✏️ Formatting
+* pre-commit fixes ([`03770e2`](https://github.com/mdtanker/invert4geom/commit/03770e2ae45aaa7a0d29bf58adbdc180ae079f85))
+
 
 ## v0.12.0 (2025-04-01)
 ### 📦️ Build
