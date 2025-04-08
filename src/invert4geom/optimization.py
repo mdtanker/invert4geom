@@ -120,7 +120,7 @@ def available_cpu_count() -> typing.Any:
 
     # Solaris
     try:
-        pseudo_devices = os.listdir("/devices/pseudo/")
+        pseudo_devices = os.listdir("/devices/pseudo/")  # noqa: PTH208
         res = 0
         for pds in pseudo_devices:
             if re.match(r"^cpuid@[0-9]+$", pds):
