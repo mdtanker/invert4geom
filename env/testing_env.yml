@@ -6,4 +6,4 @@ dependencies:
   - polartoolkit
   - pip
   - pip:
-    - ../.[test]
+    - ../.[test,uncert]
