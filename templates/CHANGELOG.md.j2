@@ -1,25 +1,25 @@
 # Changelog
 Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
-with commit parsing of [angular commits](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits).
+with commit parsing of [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
 {% if context.history.unreleased | length > 0 %}
 {# UNRELEASED #}
 
 ## Unreleased
 {% for type_, commits in context.history.unreleased | dictsort %}
-{% if type_ == "feature" %}
+{% if type_ == "features" %}
 ### 🚀 Features
-{% elif type_ == "fix" %}
+{% elif type_ == "bug fixes" %}
 ### 🐛 Bug Fixes
-{% elif type_ == "chore" %}
+{% elif type_ == "chores" %}
 ### 🧰 Chores / Maintenance
-{% elif type_ == "refactor" %}
+{% elif type_ == "refactoring" %}
 ###  🎨 Refactor
 {% elif type_ == "documentation" %}
 ### 📖 Documentation
-{% elif type_ == "style" %}
+{% elif type_ == "code style" %}
 ### ✏️ Formatting
-{% elif type_ == "build" %}
+{% elif type_ == "build system" %}
 ### 📦️ Build
 {% elif type_ == "breaking" %}
 ### 💥 Breaking Changes
@@ -43,19 +43,19 @@ with commit parsing of [angular commits](https://github.com/angular/angular.js/b
 
 ## {{ version.as_semver_tag() }} ({{ release.tagged_date.strftime("%Y-%m-%d") }})
 {% for type_, commits in release["elements"] | dictsort %}
-{% if type_ == "feature" %}
+{% if type_ == "features" %}
 ### 🚀 Features
-{% elif type_ == "fix" %}
+{% elif type_ == "bug fixes" %}
 ### 🐛 Bug Fixes
-{% elif type_ == "chore" %}
+{% elif type_ == "chores" %}
 ### 🧰 Chores / Maintenance
-{% elif type_ == "refactor" %}
+{% elif type_ == "refactoring" %}
 ###  🎨 Refactor
 {% elif type_ == "documentation" %}
 ### 📖 Documentation
-{% elif type_ == "style" %}
+{% elif type_ == "code style" %}
 ### ✏️ Formatting
-{% elif type_ == "build" %}
+{% elif type_ == "build system" %}
 ### 📦️ Build
 {% elif type_ == "breaking" %}
 ### 💥 Breaking Changes
