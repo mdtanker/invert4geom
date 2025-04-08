@@ -12,7 +12,7 @@ dependencies:
   - rioxarray
   - pykdtree
   - xrft
-  - harmonica>=0.7
+  - harmonica>=0.7 # need default depth arg for equivalent sources
   - polartoolkit
   - numba
   - scipy
@@ -25,7 +25,7 @@ dependencies:
   - scikit-learn
   # - torch # included with pip
   # optimization
-  - optuna>=3.6.0
+  - optuna>=3.6.0 # need GPSampler
   - joblib
   - psutil
   # visualization
@@ -36,8 +36,6 @@ dependencies:
   - seaborn
   - ipython
   - plotly
-  # uncertainty
-  - UQpy>=4.1.7 # need fixed issue with scipy
   # Optional dependencies
   ## synthetic data
   - xesmf
@@ -69,7 +67,7 @@ dependencies:
   # below packages need to be installed with pip
   - pip
   - pip:
-      - torch
+      - torch # needed for GPSampler of Optuna
       - sphinx_design
       - sphinx_copybutton
       - sphinx_autodoc_typehints

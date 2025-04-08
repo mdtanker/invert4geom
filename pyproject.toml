@@ -70,13 +70,12 @@ dependencies = [
   "seaborn",
   "ipython",
   "plotly",
-###
-# uncertainty
-###
-  "UQpy>=4.1.7", # need fixed issue with scipy
 ]
 
 [project.optional-dependencies]
+uncert = [
+  "UQpy >=4.1.7", # need fixed issue with scipy
+]
 synth = [
   "xesmf",
 ]
@@ -98,7 +97,7 @@ docs = [
   "sphinx_design",
 ]
 dev = [
-  "invert4geom[test,docs, synth]",
+  "invert4geom[test,docs,synth,uncert]",
   "nox",
   "pre-commit",
   "pylint>=3.2",
@@ -109,7 +108,7 @@ dev = [
   "pathspec",
 ]
 all = [
-  "invert4geom[test,dev,docs,synth]",
+  "invert4geom[test,dev,docs,synth,uncert]",
 ]
 
 [project.urls]
