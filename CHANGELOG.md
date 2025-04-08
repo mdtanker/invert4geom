@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## Unreleased
+
+## v0.13.0 (2025-04-08)
 ### 📦️ Build
 * make UQpy optional due to their pinned deps ([`2df3369`](https://github.com/mdtanker/invert4geom/commit/2df3369cdbcbde0ce8e7eac147826cf9e7c2a21c))
 ### 🧰 Chores / Maintenance
@@ -16,7 +17,6 @@ BREAKING CHANGE: this is to force a new minor version as accidently wasn't force
 ### ✏️ Formatting
 * ignore ruff issue ([`aade18f`](https://github.com/mdtanker/invert4geom/commit/aade18f6db3c1ba7a9837449dec025ebafa4ae96))
 * pre-commit fixes ([`03770e2`](https://github.com/mdtanker/invert4geom/commit/03770e2ae45aaa7a0d29bf58adbdc180ae079f85))
-
 
 ## v0.12.0 (2025-04-01)
 ### 🐛 Bug Fixes
