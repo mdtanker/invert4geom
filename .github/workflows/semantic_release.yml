@@ -51,10 +51,10 @@ jobs:
         run: git pull origin main --rebase
 
       # use semantic-release
-      # This action uses Python Semantic Release v8
+      # This action uses Python Semantic Release
       - name: Python Semantic Release
         id: release
-        uses: python-semantic-release/python-semantic-release@v8.7.0
+        uses: python-semantic-release/python-semantic-release@v10.0.2
         with:
           github_token: ${{ secrets.PAT }}
           changelog: "true"
