@@ -4,10 +4,19 @@ Automatically updated by
 with commit parsing of [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
 ## Unreleased
+### 🐛 Bug Fixes
+* fixing release action ([`e30d1b5`](https://github.com/mdtanker/invert4geom/commit/e30d1b5717811ddd009cca684ee07f5d9fce338e))
+* forgot to update one version of PSR ([`0f84d89`](https://github.com/mdtanker/invert4geom/commit/0f84d89a91c3cb717b5c4a6cad8720e41b4a1947))
+* up new -noop mode in GHA for PSR ([`bc28072`](https://github.com/mdtanker/invert4geom/commit/bc28072108437e4f4530ecf68f02b958dbc992a9))
+* use new python semantic release GHA ([`41665f9`](https://github.com/mdtanker/invert4geom/commit/41665f9ca05907438e8f75ac25218cfe91a84948))
+* use new semantic release GHA ([`97b6bbb`](https://github.com/mdtanker/invert4geom/commit/97b6bbbcea97e9721a173f0933c93286a2eb0f0e))
 ### 📦️ Build
 * use pytorch ('torch') from conda install of pip ([`1e6e20c`](https://github.com/mdtanker/invert4geom/commit/1e6e20c7935844762997415c59a0f4a9eb23cecc))
 ### 🧰 Chores / Maintenance
+* update python semantic release to v10.0.2 ([`f0e112c`](https://github.com/mdtanker/invert4geom/commit/f0e112c67b66f3e08c8a381eeaa77297cb191f75))
 * update makefile install commands ([`1ca9a58`](https://github.com/mdtanker/invert4geom/commit/1ca9a582fd634945670f9e001c581e3518810eb0))
+### ✏️ Formatting
+* pre-commit fixes ([`7f7da08`](https://github.com/mdtanker/invert4geom/commit/7f7da0838e109e24f68fe45f73349653977e9b6a))
 ###  🎨 Refactor
 * remove uncertainty tests since uqpy is now optional ([`4f07e04`](https://github.com/mdtanker/invert4geom/commit/4f07e043005b3931556abc3cbf4eb24fbab12df4))
 
