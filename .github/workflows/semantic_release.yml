@@ -18,11 +18,10 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{secrets.PAT}}
-          # ref: ${{ github.head_ref || github.ref_name }}
       - name: update changelog
         run: |
           pip install -U pip
-          pip install python-semantic-release==9.21
+          pip install python-semantic-release==10.0.2
           semantic-release changelog
       # Commits files to repository
       - name: Commit changes
@@ -33,7 +32,7 @@ jobs:
           add: "./CHANGELOG.md"
   # determine appropriate version number and create a release commit
   semantic-release:
-    name: release
+    name: Release
     needs: changelog
     runs-on: ubuntu-latest
     concurrency: release
@@ -45,29 +44,26 @@ jobs:
       - id: checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           token: ${{secrets.PAT}}
-      - name: git pull
+
+      - name: Setup | Git pull remove changes to current branch
         run: git pull origin main --rebase
 
-      # use semantic-release
-      # This action uses Python Semantic Release
-      - name: Python Semantic Release
+      - name: Action | Python Semantic Release
         id: release
         uses: python-semantic-release/python-semantic-release@v10.0.2
         with:
           github_token: ${{ secrets.PAT }}
           changelog: "true"
           push: "true"
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@users.noreply.github.com"
 
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@v1
-        # NOTE: DO NOT wrap the conditional in ${{ }} as it will always evaluate to true.
-        # See https://github.com/actions/runner/issues/1173
-        if: steps.release.outputs.released == 'true'
-
-      - name: Publish package distributions to GitHub Releases
-        uses: python-semantic-release/upload-to-gh-release@v10.0.2
+      - name: Publish | Upload to GitHub Release Assets
+        uses: python-semantic-release/publish-action@v10.0.2
         if: steps.release.outputs.released == 'true'
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.PAT }}
+          tag: ${{ steps.release.outputs.tag }}
