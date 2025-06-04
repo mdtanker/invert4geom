@@ -3,6 +3,14 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## Unreleased
+### 📦️ Build
+* use pytorch ('torch') from conda install of pip ([`1e6e20c`](https://github.com/mdtanker/invert4geom/commit/1e6e20c7935844762997415c59a0f4a9eb23cecc))
+### 🧰 Chores / Maintenance
+* update makefile install commands ([`1ca9a58`](https://github.com/mdtanker/invert4geom/commit/1ca9a582fd634945670f9e001c581e3518810eb0))
+###  🎨 Refactor
+* remove uncertainty tests since uqpy is now optional ([`4f07e04`](https://github.com/mdtanker/invert4geom/commit/4f07e043005b3931556abc3cbf4eb24fbab12df4))
+
 
 ## v1.0.0 (2025-06-02)
 ### 🧰 Chores / Maintenance
