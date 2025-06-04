@@ -37,6 +37,8 @@ dependencies:
   - ipython
   - plotly
   # Optional dependencies
+  ## uncert
+  # - uqpy
   ## synthetic data
   - xesmf
   ## test
