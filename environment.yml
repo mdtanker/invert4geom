@@ -23,9 +23,9 @@ dependencies:
   - deprecation
   - pooch
   - scikit-learn
-  # - torch # included with pip
   # optimization
   - optuna>=3.6.0 # need GPSampler
+  - pytorch # needed for GPSampler of Optuna, called 'torch' for pypi
   - joblib
   - psutil
   # visualization
@@ -69,7 +69,6 @@ dependencies:
   # below packages need to be installed with pip
   - pip
   - pip:
-      - torch # needed for GPSampler of Optuna
       - sphinx_design
       - sphinx_copybutton
       - sphinx_autodoc_typehints

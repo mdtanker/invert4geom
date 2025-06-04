@@ -57,7 +57,7 @@ dependencies = [
 # optimization
 ###
   "optuna>=3.6.0", # need GPSampler
-  "torch", # needed for GPSampler of Optuna
+  "torch", # needed for GPSampler of Optuna, 'torch' is PyPI name for pytorch
   "joblib",
   "psutil",
 ###
