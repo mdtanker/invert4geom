@@ -25,7 +25,7 @@ jobs:
 
       # use semantic-release in no operation mode
       - id: semantic-release-check
-        uses: python-semantic-release/python-semantic-release@v8.7.0
+        uses: python-semantic-release/python-semantic-release@v10.0.2
         with:
           root_options: --noop
         # outputs: released, version, tag
