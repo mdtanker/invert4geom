@@ -18,13 +18,13 @@ remove:
 	mamba env remove --name $(PROJECT)
 
 create_env:
-	mamba create --name invert4geom --yes --channel conda-forge pip
+	mamba create --name invert4geom --yes polartoolkit --channel conda-forge
 
 pip_install:
-	pip install $(PROJECT)[all]==$(VERSION)
+	pip install $(PROJECT)[test]==$(VERSION)
 
 conda_install:
-	mamba create --name $(PROJECT) --yes --force --channel conda-forge $(PROJECT)=$(VERSION) pytest pytest-cov ipykernel
+	mamba create --name $(PROJECT) --yes --channel conda-forge $(PROJECT)=$(VERSION) pytest pytest-cov ipykernel deepdiff
 
 ####
 ####
