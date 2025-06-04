@@ -3,7 +3,8 @@ Automatically updated by
 [python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
 with commit parsing of [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## Unreleased
+
+## v1.0.1 (2025-06-04)
 ### 🐛 Bug Fixes
 * fixing release action ([`e30d1b5`](https://github.com/mdtanker/invert4geom/commit/e30d1b5717811ddd009cca684ee07f5d9fce338e))
 * forgot to update one version of PSR ([`0f84d89`](https://github.com/mdtanker/invert4geom/commit/0f84d89a91c3cb717b5c4a6cad8720e41b4a1947))
@@ -19,7 +20,6 @@ with commit parsing of [conventional commits](https://www.conventionalcommits.or
 * pre-commit fixes ([`7f7da08`](https://github.com/mdtanker/invert4geom/commit/7f7da0838e109e24f68fe45f73349653977e9b6a))
 ###  🎨 Refactor
 * remove uncertainty tests since uqpy is now optional ([`4f07e04`](https://github.com/mdtanker/invert4geom/commit/4f07e043005b3931556abc3cbf4eb24fbab12df4))
-
 
 ## v1.0.0 (2025-06-02)
 ### 🧰 Chores / Maintenance
