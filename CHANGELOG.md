@@ -5,6 +5,7 @@ with commit parsing of [conventional commits](https://www.conventionalcommits.or
 
 ## Unreleased
 ### 🧰 Chores / Maintenance
+* fix binder env ([`d904f4e`](https://github.com/mdtanker/invert4geom/commit/d904f4e72ea033d4b1da919b0928a03471d0aa35))
 * update binder env ([`f86ba0a`](https://github.com/mdtanker/invert4geom/commit/f86ba0a2a2c977640aaf3596541a867e0601d4bc))
 
 
