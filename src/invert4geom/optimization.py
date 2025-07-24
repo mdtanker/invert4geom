@@ -1734,7 +1734,7 @@ def optimize_inversion_zref_density_contrast(
         pickle.dump(study, f)
 
     # delete all inversion results
-    for i in range(n_trials):  # type: ignore[assignment]
+    for i in range(n_trials):
         pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
 
     if plot_cv is True:

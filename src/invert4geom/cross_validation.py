@@ -983,21 +983,21 @@ def split_test_train(
                     fig=fig,
                 )
                 maps.add_box(fig, box=region)
-                fig.plot(  # type: ignore[attr-defined]
+                fig.plot(
                     x=df_train.easting,
                     y=df_train.northing,
                     style="c.4c",
                     fill="blue",
                     label="Train",
                 )
-                fig.plot(  # type: ignore[attr-defined]
+                fig.plot(
                     x=df_test.easting,
                     y=df_test.northing,
                     style="t.7c",
                     fill="red",
                     label="Test",
                 )
-                fig.legend()  # type: ignore[attr-defined]
+                fig.legend()
             fig.show()  # type: ignore[attr-defined]
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
