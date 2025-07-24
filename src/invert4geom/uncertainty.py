@@ -925,12 +925,12 @@ def full_workflow_uncertainty_loop(
     if sample_constraints is True:
         constraints_df = new_kwargs.get("constraints_df", None)
         sampled_constraints = copy.deepcopy(constraints_df)
-        test_constraint_value = copy.deepcopy(constraints_df.upward.iloc[0])
+        test_constraint_value = copy.deepcopy(constraints_df.upward.iloc[0])  # type: ignore[union-attr]
 
     if sample_gravity is True:
         grav_df = new_kwargs.get("grav_df", None)
         sampled_grav = copy.deepcopy(grav_df)
-        test_grav_value = copy.deepcopy(grav_df.gravity_anomaly.iloc[0])
+        test_grav_value = copy.deepcopy(grav_df.gravity_anomaly.iloc[0])  # type: ignore[union-attr]
 
     for i in tqdm(range(starting_run, runs), desc="stochastic ensemble"):
         if i == starting_run:
@@ -955,21 +955,21 @@ def full_workflow_uncertainty_loop(
             # assert original gravity values are unaltered
             assert test_grav_value == grav_df.gravity_anomaly.iloc[0]
 
-            sampled_grav["gravity_anomaly"] = rand.normal(
+            sampled_grav["gravity_anomaly"] = rand.normal(  # type: ignore[index]
                 grav_df.gravity_anomaly, grav_df.uncert
             )
 
             # low-pass filter the sampled gravity data
             if gravity_filter_width is not None:
                 filtered_grav = utils.filter_grid(
-                    sampled_grav.set_index(["northing", "easting"])
+                    sampled_grav.set_index(["northing", "easting"])  # type: ignore[union-attr]
                     .to_xarray()
                     .gravity_anomaly,
                     gravity_filter_width,
                     filt_type="lowpass",
                     pad_mode="linear_ramp",
                 )
-                sampled_grav["gravity_anomaly"] = filtered_grav.values.ravel()
+                sampled_grav["gravity_anomaly"] = filtered_grav.values.ravel()  # type: ignore[index]
 
             new_kwargs["grav_df"] = sampled_grav
         if sample_constraints is True:
