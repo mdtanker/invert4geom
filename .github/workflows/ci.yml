@@ -65,9 +65,42 @@ jobs:
       - name: Setup Micromamba
         uses: mamba-org/setup-micromamba@v2
         with:
-          environment-file: env/testing_env.yml
+          environment-name: test_env
           create-args: >-
             python=${{ matrix.python-version }}
+            numpy
+            pandas
+            xarray
+            verde
+            rioxarray
+            pykdtree
+            xrft
+            harmonica>=0.7
+            polartoolkit
+            numba
+            scipy
+            tqdm
+            pygmt
+            dask
+            deprecation
+            pooch
+            scikit-learn
+            optimization
+            optuna>=3.6.0
+            pytorch
+            joblib
+            psutil
+            pyvista
+            trame
+            ipywidgets
+            matplotlib
+            seaborn
+            ipython
+            plotly
+            xesmf
+            pytest>=6
+            pytest-cov>=3
+            deepdiff
           post-cleanup: "all"
           # cache-downloads: false
           # # environment cache is persistent for one week.

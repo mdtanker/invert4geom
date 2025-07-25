@@ -16,7 +16,7 @@ dependencies:
   - polartoolkit
   - numba
   - scipy
-  # - numba_progress
+  - numba-progress
   - tqdm
   - pygmt
   - dask
@@ -65,6 +65,6 @@ dependencies:
   - mypy
   - pathspec
   # below packages need to be installed with pip
-  - pip
-  - pip:
-      - numba_progress
+  # - pip
+  # - pip:
+  #     -
