@@ -85,7 +85,6 @@ jobs:
             deprecation
             pooch
             scikit-learn
-            optimization
             optuna>=3.6.0
             pytorch
             joblib
