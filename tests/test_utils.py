@@ -130,11 +130,11 @@ def test_nearest_grid_fill(test_input):
     grid = dummy_grid().scalars
     grid.loc[{"easting": 100, "northing": 200}] = np.nan
     # check the grid has a hole
-    assert grid.isnull().any()
+    assert grid.isna().any()
     # fill the hole
     filled = utils.nearest_grid_fill(grid, method=test_input, crs="epsg:3031")
     # check that the hole has been filled
-    assert not filled.isnull().any()
+    assert not filled.isna().any()
     # check fill value is equal to one of the adjacent cells
     expected = [
         filled.loc[{"easting": 0, "northing": 200}],
@@ -193,7 +193,7 @@ def test_filter_grid_nans():
     # add a nan to the grid
     grid.loc[{"easting": 100, "northing": 200}] = np.nan
     # check the grid has a hole
-    assert grid.isnull().any()
+    assert grid.isna().any()
     # filter the grid
     filtered = utils.filter_grid(grid, 10000, filt_type="lowpass")
     # check that the grid has been low-pass filtered
@@ -531,7 +531,7 @@ def test_sample_grids_all_out_of_grid_coordinates_all():
     name = "sampled_data"
     points = pd.DataFrame({"easting": [-100, -200, -300], "northing": [500, 1000, 600]})
     result_df = utils.sample_grids(points, grid, sampled_name=name)
-    assert result_df[name].isnull().all()  # All values should be NaN
+    assert result_df[name].isna().all()  # All values should be NaN
 
 
 def test_extract_prism_data():

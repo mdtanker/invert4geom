@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=64"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.26", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "invert4geom"
@@ -8,6 +8,9 @@ authors = [
   { name = "Matt Tankersley", email = "matt.d.tankersley@gmail.com" },
 ]
 description = "Constrained gravity inversion to recover the geometry of a density contrast."
+keywords = ["inversion", "gravity", "geometry", "density", "Moho", "sediment", "geophysics", "geology", "geoscience"]
+readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.9"
 classifiers = [
   "Development Status :: 1 - Planning",
@@ -25,12 +28,7 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
-readme = "README.md"
-version = "1.0.1"
-license = {file = "LICENSE"}
-
-keywords = ["inversion", "gravity", "geometry", "density", "Moho", "sediment", "geophysics", "geology", "geoscience"]
-
+dynamic = ["version"]
 dependencies = [
 ###
 # core
@@ -72,7 +70,7 @@ dependencies = [
   "plotly",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 uncert = [
   "UQpy >=4.1.7", # need fixed issue with scipy
 ]
@@ -97,18 +95,24 @@ docs = [
   "sphinx_design",
 ]
 dev = [
-  "invert4geom[test,docs,synth,uncert]",
+  {include-group = "test"},
+  {include-group = "synth"},
+  {include-group = "uncert"},
+  {include-group = "docs"},
   "nox",
   "pre-commit",
   "pylint>=3.2",
-  "python-semantic-release >=8",
   "ipykernel",
   "jupyterlab",
   "mypy",
   "pathspec",
 ]
 all = [
-  "invert4geom[test,dev,docs,synth,uncert]",
+  {include-group = "test"},
+  {include-group = "dev"},
+  {include-group = "synth"},
+  {include-group = "uncert"},
+  {include-group = "docs"},
 ]
 
 [project.urls]
@@ -118,29 +122,26 @@ Documentation = "https://invert4geom.readthedocs.io/"
 Discussions = "https://github.com/mdtanker/invert4geom/discussions"
 Changelog = "https://invert4geom.readthedocs.io/en/latest/changelog.html"
 
-[tool.coverage]
-run.source = ["invert4geom"]
-port.exclude_lines = [
-  'pragma: no cover',
-  '\.\.\.',
-  'if typing.TYPE_CHECKING:',
-]
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/invert4geom/_version.py"
+
+[tool.hatch.envs.default]
+# duplicate for now since hatch doesn't support groups yet
+dependencies = []
+scripts.test = "pytest {args}"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = [
-  "-rA",
+  "-ra",
   "--showlocals",
   "--strict-markers",
   "--strict-config",
-  "--cov", "--cov-report", "term-missing",
   ]
 xfail_strict = true
 filterwarnings = [
   "error",
-  "ignore::DeprecationWarning",
-  "ignore::PendingDeprecationWarning",
-  "ignore::FutureWarning",
 ]
 log_cli_level = "INFO"
 testpaths = [
@@ -150,8 +151,15 @@ markers = [
     "use_numba: mark test functions that call Numba jitted functions",
 ]
 
+[tool.coverage]
+run.source = ["invert4geom"]
+report.exclude_also = [
+  '\.\.\.',
+  'if typing.TYPE_CHECKING:',
+]
+
 [tool.mypy]
-files = ["src"]
+files = ["src", "tests"]
 python_version = "3.9"
 warn_unused_configs = true
 strict = true
@@ -160,6 +168,7 @@ warn_unreachable = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 ignore_missing_imports = true
+disallow_untyped_decorators = false
 
 [[tool.mypy.overrides]]
 module = "invert4geom.*"
@@ -168,66 +177,54 @@ disallow_incomplete_defs = true
 
 
 [tool.ruff]
-lint.select = [
-  "E", "F", "W", # flake8
-  "B",           # flake8-bugbear
-  "I",           # isort
-  "ARG",         # flake8-unused-arguments
-  "C4",          # flake8-comprehensions
-  "EM",          # flake8-errmsg
-  "ICN",         # flake8-import-conventions
-  "ISC",         # flake8-implicit-str-concat
-  "G",           # flake8-logging-format
-  "PGH",         # pygrep-hooks
-  "PIE",         # flake8-pie
-  "PL",          # pylint
-  "PT",          # flake8-pytest-style
-  "PTH",         # flake8-use-pathlib
-  "RET",         # flake8-return
-  "RUF",         # Ruff-specific
-  "SIM",         # flake8-simplify
-  "T20",         # flake8-print
-  "UP",          # pyupgrade
-  "YTT",         # flake8-2020
-  "EXE",         # flake8-executable
-  "NPY",         # NumPy specific rules
-  "PD",          # pandas-vet
+
+[tool.ruff.lint]
+extend-select = [
+  "ARG",      # flake8-unused-arguments
+  "B",        # flake8-bugbear
+  "C4",       # flake8-comprehensions
+  "EM",       # flake8-errmsg
+  "EXE",      # flake8-executable
+  "G",        # flake8-logging-format
+  "I",        # isort
+  "ICN",      # flake8-import-conventions
+  "NPY",      # NumPy specific rules
+  "PD",       # pandas-vet
+  "PGH",      # pygrep-hooks
+  "PIE",      # flake8-pie
+  "PL",       # pylint
+  "PT",       # flake8-pytest-style
+  "PTH",      # flake8-use-pathlib
+  "RET",      # flake8-return
+  "RUF",      # Ruff-specific
+  "SIM",      # flake8-simplify
+  "T20",      # flake8-print
+  "UP",       # pyupgrade
+  "YTT",      # flake8-2020
 ]
-lint.ignore = [
-  "PLR",    # Design related pylint codes
-  "G004",   # Logging with f-strings
-  "PD901",  # Bad variable name warning
-  "PD003", # Changes .isna to .isnull
-  "PD004", # Changes .notna to .notnull
-  "PD011", # Changes .values() to .to_numpy()
-  "ISC001", # Implicit string concatenation
+ignore = [
+  "PLR09",    # Too many <...>
+  "PLR2004",  # Magic value used in comparison
+  "PD901",    # Bad variable name warning
+  "UP038",    # slows down code
 ]
-src = ["src"]
-lint.unfixable = [
-  "T20",  # Removes print statements
-  "F841", # Removes unused variables
-  "PD003", # Changes .isna to .isnull
-  "PD004", # Changes .notna to .notnull
-  "PD011", # Changes .values() to .to_numpy()
-]
-exclude = ["docs/index.md", "CHANGELOG.md"]
-line-length = 88 # Set the maximum line length to 88.
-lint.flake8-unused-arguments.ignore-variadic-names = true
-lint.isort.required-imports = ["from __future__ import annotations"]
+isort.required-imports = ["from __future__ import annotations"]
 # Uncomment if using a _compat.typing backport
 # typing-modules = ["invert4geom._compat.typing"]
-extend-include = ["*.ipynb"]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]
 "noxfile.py" = ["T20"]
-"*.ipynb" = ["E402", "B018", "T201", "C408", "E712",]
-
-[tool.ruff.lint.flake8-pytest-style]
-mark-parentheses = true
+"*.ipynb" = [
+  "T201",
+  "C408", # unnecessary dictionary call
+  "E712", # equality comparisons, don't work with Pandas
+  "B018", # useless expression
+]
 
 [tool.pylint]
 py-version = "3.9"
-# ignore-patterns = [".*.md",]
+ignore-patterns = ["CHANGELOG.md", ".*/_version.py"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
 similarities.min-similarity-lines = 5
@@ -240,45 +237,5 @@ messages_control.disable = [
   "cyclic-import",
 ]
 
-[tool.semantic_release]
-version_variables = ["src/invert4geom/__init__.py:__version__"]
-version_toml = ["pyproject.toml:project.version"]
-major_on_zero = false
-build_command = """
-    python -m pip install build
-    python -m build .
-"""
-commit_parser = "conventional"
-
-[tool.semantic_release.branches.main]
-match = "main"
-prerelease = false
-
-[tool.semantic_release.branches.notmain]
-match = "(?!main)"
-prerelease = false
-
-[tool.semantic_release.changelog]
-template_dir = "templates"
-
-[tool.semantic_release.changelog.environment]
-trim_blocks = true
-
-[tool.semantic_release.commit_parser_options]
-allowed_tags = [
-    "build",    # Changes that affect the build system or external dependencies
-    "chore",    # Changes to the build process or auxiliary tools and libraries such as documentation generation
-    "ci",       # CI related changes
-    "docs",     # Documentation only changes
-    "feat",     # A new feature
-    "fix",      # A bug fix
-    "perf",     # A code change that improves performance
-    "style",    # Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-    "refactor", # A code change that neither fixes a bug nor adds a feature
-    "test",     # Adding missing or correcting existing tests
-]
-# including BREAKING CHANGE: in the commit message will trigger a major release
-minor_tags = ["feat"] # tags which result in minor releases
-patch_tags = ["fix", "perf"] # tags which result in patch releases
-parse_squash_commits = false
-ignore_merge_commits = false
+[tool.codespell]
+ignore-words-list = ["montaj", "ore"]

@@ -969,7 +969,7 @@ def full_workflow_uncertainty_loop(
                     filt_type="lowpass",
                     pad_mode="linear_ramp",
                 )
-                sampled_grav["gravity_anomaly"] = filtered_grav.values.ravel()  # type: ignore[index]
+                sampled_grav["gravity_anomaly"] = filtered_grav.to_numpy().ravel()  # type: ignore[index]
 
             new_kwargs["grav_df"] = sampled_grav
         if sample_constraints is True:
