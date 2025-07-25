@@ -1,7 +1,5 @@
 PROJECT=invert4geom
-VERSION := $(shell grep -m 1 'version =' pyproject.toml | tr -s ' ' | tr -d '"' | tr -d "'" | cut -d' ' -f3)
 
-print-%  : ; @echo $* = $($*)
 ####
 ####
 # install commands
@@ -17,14 +15,6 @@ install:
 remove:
 	mamba env remove --name $(PROJECT)
 
-create_env:
-	mamba create --name invert4geom --yes polartoolkit --channel conda-forge
-
-pip_install:
-	pip install $(PROJECT)[test]==$(VERSION)
-
-conda_install:
-	mamba create --name $(PROJECT) --yes --channel conda-forge $(PROJECT)=$(VERSION) pytest pytest-cov ipykernel deepdiff
 
 ####
 ####
@@ -62,12 +52,6 @@ mypy:
 # chore commands
 ####
 ####
-
-release_check:
-	semantic-release --noop version
-
-changelog:
-	semantic-release changelog
 
 clean:
 	find . -name '*.pickle' -delete

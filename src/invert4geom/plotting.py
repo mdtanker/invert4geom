@@ -167,9 +167,9 @@ def plot_2_parameter_cv_scores_uneven(
     plt.figure(figsize=figsize)
     plt.title("Two parameter cross-validation")
 
-    x = df[param_names[0]].values
-    y = df[param_names[1]].values
-    z = df.value.values
+    x = df[param_names[0]].to_numpy()
+    y = df[param_names[1]].to_numpy()
+    z = df.value.to_numpy()
 
     x_buffer = (max(x) - min(x)) / 50
     y_buffer = (max(y) - min(y)) / 50
@@ -894,7 +894,7 @@ def plot_inversion_iteration_results(
                 robust = True
                 norm = None
             # plot grids
-            j[row].plot(
+            _y.plot(
                 ax=axes,
                 cmap=cmap,  # pylint: disable=possibly-used-before-assignment
                 norm=norm,  # pylint: disable=possibly-used-before-assignment
@@ -1209,7 +1209,7 @@ def show_prism_layers(
         # clip corner out of model to help visualize
         if clip_box is True:
             # extract region from first prism layer
-            reg = vd.get_region((j.easting.values, j.northing.values))
+            reg = vd.get_region((j.easting.to_numpy(), j.northing.to_numpy()))
             # box_buffer used make box slightly bigger
             box_buffer = kwargs.get("box_buffer", 5e3)
             # set 6 edges of cube to clip out
@@ -1298,7 +1298,7 @@ def combined_slice(
         f = optuna.visualization.plot_slice(
             study,
             params=parameter_name,
-            target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+            target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
             target_name=j,
         )
         if i == 0:
@@ -1396,7 +1396,7 @@ def plot_optuna_figures(
         for i, j in enumerate(target_names):
             optuna.visualization.plot_slice(
                 study,
-                target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
                 target_name=j,
             ).show()
         if include_duration is True and "duration" not in target_names:
@@ -1606,7 +1606,7 @@ def plot_latin_hypercube(
 
     dim = np.shape(df)[1]
 
-    param_values = df.values
+    param_values = df.to_numpy()
 
     problem = {
         "num_vars": dim,
@@ -1708,7 +1708,7 @@ def edge_effects(
         fig.show()
 
     dif = grav_ds.forward - grav_ds.forward_no_edge_effects
-    max_grav = grav_ds.forward.values.max()
+    max_grav = grav_ds.forward.to_numpy().max()
     percent_decay = 100 * (max_grav - (max_grav + dif)) / max_grav
 
     hist_vals = vd.grid_to_table(percent_decay).reset_index().scalars

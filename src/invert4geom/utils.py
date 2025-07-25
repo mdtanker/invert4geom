@@ -99,7 +99,9 @@ def _check_gravity_inside_topography_region(
     topography: xr.DataArray,
 ) -> None:
     """check that all gravity data is inside the region of the topography grid"""
-    topo_region = vd.get_region((topography.easting.values, topography.northing.values))
+    topo_region = vd.get_region(
+        (topography.easting.to_numpy(), topography.northing.to_numpy())
+    )
     inside = vd.inside((grav_df.easting, grav_df.northing), region=topo_region)
     if not inside.all():
         msg = (
@@ -172,7 +174,7 @@ def nearest_grid_fill(
         )
     elif method == "verde":
         df = vd.grid_to_table(grid)
-        df_dropped = df[df[grid.name].notnull()]
+        df_dropped = df[df[grid.name].notna()]
         coords = (df_dropped[grid.dims[1]], df_dropped[grid.dims[0]])
         region = vd.get_region((df[grid.dims[1]], df[grid.dims[0]]))
         filled = (
@@ -246,7 +248,7 @@ def filter_grid(
     original_name = grid.name
 
     # if there are nan's, fill them with nearest neighbor
-    if grid.isnull().any():
+    if grid.isna().any():
         filled = nearest_grid_fill(grid, method="verde")
     else:
         filled = grid.copy()
@@ -335,8 +337,8 @@ def filter_grid(
         }
     )
 
-    if grid.isnull().any():
-        result: xr.DataArray = xr.where(grid.notnull(), unpadded, grid)
+    if grid.isna().any():
+        result: xr.DataArray = xr.where(grid.notna(), unpadded, grid)
     else:
         result = unpadded.copy()
 
@@ -397,7 +399,7 @@ def dist_nearest_points(
             df_grid = vd.grid_to_table(data).dropna()
         df_data = df_grid[[coord_names[0], coord_names[1]]].copy()  # pylint: disable=unsubscriptable-object
 
-    min_dist, _ = KDTree(df_targets.values).query(df_data.values, 1)
+    min_dist, _ = KDTree(df_targets.to_numpy()).query(df_data.to_numpy(), 1)
 
     df_data["min_dist"] = min_dist
 
@@ -458,8 +460,8 @@ def normalize_xarray(
     xarray.DataArray
         a normalized grid
     """
-    # min_val = da.values.min()
-    # max_val = da.values.max()
+    # min_val = da.to_numpy().min()
+    # max_val = da.to_numpy().max()
 
     da = da.copy()
 
@@ -566,7 +568,7 @@ def normalized_mindist(
         new_min_dist = xr.where(new_min_dist.are_inside, new_min_dist, 0)
 
         # add nans back
-        new_min_dist = xr.where(min_dist.isnull(), np.nan, new_min_dist)
+        new_min_dist = xr.where(min_dist.isna(), np.nan, new_min_dist)
 
         min_dist = new_min_dist.min_dist
 
@@ -1065,7 +1067,7 @@ def create_topography(
             # make flat topography of value = upwards
             grid = vd.make_xarray_grid(
                 (x, y),
-                np.ones_like(x) * df.upward.values,
+                np.ones_like(x) * df.upward.to_numpy(),
                 data_names="upward",
                 dims=("northing", "easting"),
             ).upward
@@ -1109,7 +1111,7 @@ def create_topography(
             ).rename({"x": "easting", "y": "northing"})
 
             grid = inside_grid.where(
-                outside_grid.isnull(),
+                outside_grid.isna(),
                 outside_grid,
             )
 
@@ -1190,8 +1192,8 @@ def grids_to_prisms(
     # create layer of prisms based off input dataarrays
     prisms = hm.prism_layer(
         coordinates=(
-            surface[input_coord_names[0]].values,
-            surface[input_coord_names[1]].values,
+            surface[input_coord_names[0]].to_numpy(),
+            surface[input_coord_names[1]].to_numpy(),
         ),
         surface=surface,
         reference=reference,
@@ -1460,7 +1462,7 @@ def best_equivalent_source_damping(
     )
 
 
-@deprecation.deprecated(  # type: ignore[misc]
+@deprecation.deprecated(
     deprecated_in="0.8.0",
     removed_in="0.14.0",
     current_version=invert4geom.__version__,
@@ -1595,11 +1597,11 @@ def gravity_decay_buffer(
     # create prism layer
     if as_density_contrast:
         # create prisms around mean value to compare to to calculate decay
-        zref = surface.values.mean()
+        zref = surface.to_numpy().mean()
 
         # positive densities above, negative below
         dens = surface.copy()
-        dens.values[:] = density
+        dens.to_numpy()[:] = density
         dens = dens.where(surface >= zref, -density)
 
         # create prism layer with a mean zref
@@ -1616,11 +1618,11 @@ def gravity_decay_buffer(
         )
 
     # create prisms around mean value to compare to to calculate decay
-    zref = surface.values.mean()
+    zref = surface.to_numpy().mean()
 
     # positive densities above, negative below
     dens = surface.copy()
-    dens.values[:] = density
+    dens.to_numpy()[:] = density
     dens = dens.where(surface >= zref, -density)
 
     # create prism layer with a mean zref
@@ -1676,8 +1678,8 @@ def gravity_decay_buffer(
 
     dif = grav_ds.forward - grav_ds.forward_no_edge_effects
 
-    max_grav = grav_ds.forward.values.max()
-    max_decay = 100 * (max_grav - (max_grav + dif.values.min())) / max_grav
+    max_grav = grav_ds.forward.to_numpy().max()
+    max_decay = 100 * (max_grav - (max_grav + dif.to_numpy().min())) / max_grav
 
     if plot:
         try:

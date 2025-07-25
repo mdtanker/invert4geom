@@ -12,8 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Always build & lint package. Need to re-checkout after semantic-release in case it
-  # made a commit
+  # Always build & lint package.
   build-package:
     name: Build & verify package
     runs-on: ubuntu-latest

@@ -75,8 +75,8 @@ def resample_with_test_points(
 
     # subset training points, every other value
     train_df = full_df[  # pylint: disable=unsubscriptable-object
-        (full_df.easting.isin(full_points.easting.values[::2]))
-        & (full_df.northing.isin(full_points.northing.values[::2]))
+        (full_df.easting.isin(full_points.easting.to_numpy()[::2]))
+        & (full_df.northing.isin(full_points.northing.to_numpy()[::2]))
     ].copy()
     # set training points to not be test points
     train_df["test"] = False
@@ -234,7 +234,7 @@ def grav_cv_score(
     return score, results
 
 
-@deprecation.deprecated(  # type: ignore[misc]
+@deprecation.deprecated(
     deprecated_in="0.8.0",
     removed_in="0.14.0",
     current_version=invert4geom.__version__,
@@ -462,7 +462,7 @@ def constraints_cv_score(
 
 
 # pylint: disable=duplicate-code
-@deprecation.deprecated(  # type: ignore[misc]
+@deprecation.deprecated(
     deprecated_in="0.8.0",
     removed_in="0.14.0",
     current_version=invert4geom.__version__,

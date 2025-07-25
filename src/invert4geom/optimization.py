@@ -310,7 +310,7 @@ def _log_optuna_results(
     log.info("Trial with best score: ")
     log.info("\ttrial number: %s", trial.number)
     log.info("\tparameter: %s", trial.params)
-    log.info("\tscores: %s", trial.values)
+    log.info("\tscores: %s", trial.to_numpy())
 
 
 def _create_regional_separation_study(
@@ -372,13 +372,12 @@ def _create_regional_separation_study(
         direction = "minimize"
         metric_names = ["difference with true regional"]
         log.info("optimizing on minimizing the true regional misfit")
+    elif separate_metrics is True:
+        directions = ["minimize", "maximize"]
+        metric_names = ["residual at constraints", "amplitude of residual"]
     else:
-        if separate_metrics is True:
-            directions = ["minimize", "maximize"]
-            metric_names = ["residual at constraints", "amplitude of residual"]
-        else:
-            direction = "minimize"
-            metric_names = ["combined scores"]
+        direction = "minimize"
+        metric_names = ["combined scores"]
 
     study = optuna.create_study(
         direction=direction,
@@ -419,19 +418,18 @@ def _logging_callback(
                 frozen_trial.value,
                 frozen_trial.params,
             )
-    else:
-        if frozen_trial.number in [n.number for n in study.best_trials]:
-            msg = (
-                "Trial %s is on the Pareto front with value 1: %s, value 2: %s and "
-                "parameters: %s."
-            )
-            log.info(
-                msg,
-                frozen_trial.number,
-                frozen_trial.values[0],
-                frozen_trial.values[1],
-                frozen_trial.params,
-            )
+    elif frozen_trial.number in [n.number for n in study.best_trials]:
+        msg = (
+            "Trial %s is on the Pareto front with value 1: %s, value 2: %s and "
+            "parameters: %s."
+        )
+        log.info(
+            msg,
+            frozen_trial.number,
+            frozen_trial.to_numpy()[0],
+            frozen_trial.to_numpy()[1],
+            frozen_trial.params,
+        )
 
 
 def _warn_limits_better_than_trial_1_param(
@@ -469,12 +467,12 @@ def _warn_limits_better_than_trial_1_param(
     # if study direction is minimize
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
-        if trial.values[0] > max(lower_limit_score, upper_limit_score):
+        if trial.to_numpy()[0] > max(lower_limit_score, upper_limit_score):
             log.info(
                 msg,
                 trial.number,
                 trial.params,
-                trial.values[0],
+                trial.to_numpy()[0],
                 lower_limit_score,
                 upper_limit_score,
             )
@@ -484,12 +482,12 @@ def _warn_limits_better_than_trial_1_param(
     # if study direction is maximize
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
-        if trial.values[0] < min(lower_limit_score, upper_limit_score):
+        if trial.to_numpy()[0] < min(lower_limit_score, upper_limit_score):
             log.info(
                 msg,
                 trial.number,
                 trial.params,
-                trial.values[0],
+                trial.to_numpy()[0],
                 lower_limit_score,
                 upper_limit_score,
             )
@@ -537,12 +535,12 @@ def _warn_limits_better_than_trial_multi_params(
     # if study direction is minimize
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
-        if trial.values[0] > max(scores):
+        if trial.to_numpy()[0] > max(scores):
             log.info(
                 msg,
                 trial.number,
                 trial.params,
-                trial.values[0],
+                trial.to_numpy()[0],
             )
         else:
             pass
@@ -551,12 +549,12 @@ def _warn_limits_better_than_trial_multi_params(
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
         try:
-            if trial.values[0] < min(scores):
+            if trial.to_numpy()[0] < min(scores):
                 log.info(
                     msg,
                     trial.number,
                     trial.params,
-                    trial.values[0],
+                    trial.to_numpy()[0],
                 )
         except TypeError:
             pass
@@ -867,8 +865,8 @@ def optimize_inversion_damping(
     if plot_cv is True:
         try:
             plotting.plot_cv_scores(
-                study.trials_dataframe().value.values,
-                study.trials_dataframe().params_damping.values,
+                study.trials_dataframe().value.to_numpy(),
+                study.trials_dataframe().params_damping.to_numpy(),
                 param_name="Damping",
                 logx=logx,
                 logy=logy,
@@ -1741,8 +1739,8 @@ def optimize_inversion_zref_density_contrast(
         try:
             if zref_limits is None:
                 plotting.plot_cv_scores(
-                    study.trials_dataframe().value.values,
-                    study.trials_dataframe().params_density_contrast.values,
+                    study.trials_dataframe().value.to_numpy(),
+                    study.trials_dataframe().params_density_contrast.to_numpy(),
                     param_name="Density contrast (kg/m$^3$)",
                     plot_title="Density contrast Cross-validation",
                     logx=logx,
@@ -1750,41 +1748,40 @@ def optimize_inversion_zref_density_contrast(
                 )
             elif density_contrast_limits is None:
                 plotting.plot_cv_scores(
-                    study.trials_dataframe().value.values,
-                    study.trials_dataframe().params_zref.values,
+                    study.trials_dataframe().value.to_numpy(),
+                    study.trials_dataframe().params_zref.to_numpy(),
                     param_name="Reference level (m)",
                     plot_title="Reference level Cross-validation",
                     logx=logx,
                     logy=logy,
                 )
+            elif grid_search is True:
+                parameter_pairs = list(
+                    zip(
+                        study.trials_dataframe().params_zref,
+                        study.trials_dataframe().params_density_contrast,
+                    )
+                )
+                plotting.plot_2_parameter_cv_scores(
+                    study.trials_dataframe().value.to_numpy(),
+                    parameter_pairs,
+                    param_names=(
+                        "Reference level (m)",
+                        "Density contrast (kg/m$^3$)",
+                    ),
+                )
             else:
-                if grid_search is True:
-                    parameter_pairs = list(
-                        zip(
-                            study.trials_dataframe().params_zref,
-                            study.trials_dataframe().params_density_contrast,
-                        )
-                    )
-                    plotting.plot_2_parameter_cv_scores(
-                        study.trials_dataframe().value.values,
-                        parameter_pairs,
-                        param_names=(
-                            "Reference level (m)",
-                            "Density contrast (kg/m$^3$)",
-                        ),
-                    )
-                else:
-                    plotting.plot_2_parameter_cv_scores_uneven(
-                        study,
-                        param_names=(
-                            "params_zref",
-                            "params_density_contrast",
-                        ),
-                        plot_param_names=(
-                            "Reference level (m)",
-                            "Density contrast (kg/m$^3$)",
-                        ),
-                    )
+                plotting.plot_2_parameter_cv_scores_uneven(
+                    study,
+                    param_names=(
+                        "params_zref",
+                        "params_density_contrast",
+                    ),
+                    plot_param_names=(
+                        "Reference level (m)",
+                        "Density contrast (kg/m$^3$)",
+                    ),
+                )
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.error("plotting failed with error: %s", e)
 
@@ -2822,8 +2819,8 @@ def optimize_regional_filter(
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
+        best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
+        # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
 
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
@@ -2859,7 +2856,7 @@ def optimize_regional_filter(
                 for i, j in enumerate(study.metric_names):
                     optuna.visualization.plot_slice(
                         study,
-                        target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
                         target_name=j,
                     ).show()
             if plot_grid is True:
@@ -2994,8 +2991,8 @@ def optimize_regional_trend(
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
+        best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
+        # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
 
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
@@ -3031,7 +3028,7 @@ def optimize_regional_trend(
                 for i, j in enumerate(study.metric_names):
                     optuna.visualization.plot_slice(
                         study,
-                        target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
                         target_name=j,
                     ).show()
             if plot_grid is True:
@@ -3183,8 +3180,8 @@ def optimize_regional_eq_sources(
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
+        best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
+        # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
 
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
@@ -3237,7 +3234,7 @@ def optimize_regional_eq_sources(
                 for i, j in enumerate(study.metric_names):
                     optuna.visualization.plot_slice(
                         study,
-                        target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
                         target_name=j,
                     ).show()
             if plot_grid is True:
@@ -3492,8 +3489,8 @@ def optimize_regional_constraint_point_minimization(
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
+        best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
+        # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
 
         log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
@@ -3567,7 +3564,7 @@ def optimize_regional_constraint_point_minimization(
                 for i, j in enumerate(study.metric_names):
                     optuna.visualization.plot_slice(
                         study,
-                        target=lambda t: t.values[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
                         target_name=j,
                     ).show()
             if plot_grid is True:

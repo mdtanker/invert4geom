@@ -51,17 +51,15 @@ dependencies:
   - nbsphinx
   - nbconvert
   - sphinxcontrib-bibtex
-  # included with pip below
-  # - myst_parser
-  # - sphinx_copybutton
-  # - sphinx_autoapi
-  # - sphinx_autodoc_typehints
-  # - sphinx_design
+  - myst-parser
+  - sphinx-copybutton
+  - sphinx-autoapi
+  - sphinx-autodoc-typehints
+  - sphinx-design
   ## dev
   - nox
   - pre-commit
   - pylint>=3.2
-  - python-semantic-release>=8
   - ipykernel
   - jupyterlab
   - mypy
@@ -69,9 +67,4 @@ dependencies:
   # below packages need to be installed with pip
   - pip
   - pip:
-      - sphinx_design
-      - sphinx_copybutton
-      - sphinx_autodoc_typehints
-      - sphinx_autoapi
-      - myst_parser
       - numba_progress

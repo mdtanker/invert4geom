@@ -7,9 +7,14 @@ contrast.
 
 from __future__ import annotations
 
-__version__ = "1.0.1"
-
 import logging
+
+from ._version import version as __version__
+
+__all__ = ["__version__"]
+
+
+logging.basicConfig(level=logging.INFO)
 
 log = logging.getLogger(__name__)
 

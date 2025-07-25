@@ -1,7 +1,4 @@
 # Changelog
-Automatically updated by
-[python-semantic-release](https://python-semantic-release.readthedocs.io/en/latest/)
-with commit parsing of [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
 ## Unreleased
 ### 🧰 Chores / Maintenance
@@ -39,7 +36,7 @@ with commit parsing of [conventional commits](https://www.conventionalcommits.or
 * update python-semantic-release to v9.21 ([`4ed38ba`](https://github.com/mdtanker/invert4geom/commit/4ed38ba39ecfad52dbe2bb1e00024e08a7f77ec5))
 *  semantic release commit_parser from angular to conventional
 
-BREAKING CHANGE: this is to force a new minor version as accidently wasn't forced in last PR ([`b3a334d`](https://github.com/mdtanker/invert4geom/commit/b3a334d8ea9086304a6ea5aa63c151d91c4df9e1))
+BREAKING CHANGE: this is to force a new minor version as accidentally wasn't forced in last PR ([`b3a334d`](https://github.com/mdtanker/invert4geom/commit/b3a334d8ea9086304a6ea5aa63c151d91c4df9e1))
 * add uncert deps to testing env ([`334ac77`](https://github.com/mdtanker/invert4geom/commit/334ac770aea076b00425d869fd84d007b2576f16))
 * update testing of pip env ([`327fe4a`](https://github.com/mdtanker/invert4geom/commit/327fe4a9d6c25fa973a64c17320065dee5a8e4a7))
 ### ✏️ Formatting
@@ -211,7 +208,7 @@ BREAKING CHANGE: this is to force a new minor version as accidently wasn't force
 * fix notebook error ([`f7783e2`](https://github.com/mdtanker/invert4geom/commit/f7783e22614675839286159e2bc42572d4603ef7))
 * unindent docstring ([`e0715d6`](https://github.com/mdtanker/invert4geom/commit/e0715d63071ee543f8c53170708162d1da207d0d))
 ### 🚀 Features
-* add `constraint_style` to plotting inversion grav resutls ([`c062b43`](https://github.com/mdtanker/invert4geom/commit/c062b4365b529d3fd76c280f2a968eb0bc5eb3af))
+* add `constraint_style` to plotting inversion grav results ([`c062b43`](https://github.com/mdtanker/invert4geom/commit/c062b4365b529d3fd76c280f2a968eb0bc5eb3af))
 ###  🎨 Refactor
 * manually calculate `default` eq source depth until harmonica `v0.7` is released. ([`aeb675a`](https://github.com/mdtanker/invert4geom/commit/aeb675acafc185f1e5a7bcd17fb86e0c518005a3))
 * simplify UQpy import ([`783d3dc`](https://github.com/mdtanker/invert4geom/commit/783d3dcd08770b8eb95a134e7742d5382d14b1b7))
@@ -240,7 +237,7 @@ BREAKING CHANGE: this is to force a new minor version as accidently wasn't force
 * bug in `optimize_eq_source_params` ([`eb0ebbe`](https://github.com/mdtanker/invert4geom/commit/eb0ebbe73c8e22b62fdeba2af66453692287dfa9))
 * add warnings about constraints and regional separation ([`c6bc503`](https://github.com/mdtanker/invert4geom/commit/c6bc5033f4b82bfd71a278052ac2e84851ae0b6a))
 * add warning in run_inversion_workflow for using constraints with zref/density CV ([`88e9a86`](https://github.com/mdtanker/invert4geom/commit/88e9a86d985c4665ba3f6d44cd4be80ecf9b34ab))
-* add assert thay run_inversion_workflow uses correct zref and density values ([`5692da4`](https://github.com/mdtanker/invert4geom/commit/5692da412346e9f811a1c9978bfcca27cf13914a))
+* add assert that run_inversion_workflow uses correct zref and density values ([`5692da4`](https://github.com/mdtanker/invert4geom/commit/5692da412346e9f811a1c9978bfcca27cf13914a))
 * minor changes ([`dbe8ca5`](https://github.com/mdtanker/invert4geom/commit/dbe8ca5710653c7de8ce1c62c93ee2352b35e273))
 * bug in run_inversion_workflow ([`bf875f8`](https://github.com/mdtanker/invert4geom/commit/bf875f8cc4c9ba2141768d52a464a9aff9311ecd))
 * bug in `optimize_inversion_zref_density_contrast_kfolds` ([`8886438`](https://github.com/mdtanker/invert4geom/commit/8886438bb904a414adb67ee468572f2ddd4fb58f))
@@ -394,7 +391,7 @@ BREAKING CHANGE: please update all variables names as follows: `eq_damping`-> `d
 * consolidate optuna warning for best parameter values at their limits ([`5a3a7d1`](https://github.com/mdtanker/invert4geom/commit/5a3a7d1378b57fce36def211c56651611656f070))
 * overhaul `run_inversion_workflow` function to emit warnings at beginning, and enable kfolds CV for using constraints in regional separation with density/zref CV, and use better file names.
 
-BREAKING CHANGE: removed `starting_prisms_kwargs`, put `density_contrast` and `zef` into standard kwargs now. All `regional_grav_kwargs` are now directly passed to the relavent functions, same for `starting_topography_kwargs`. ([`a72c8a4`](https://github.com/mdtanker/invert4geom/commit/a72c8a4738432587a9c7f29bc7dc39c408a4badc))
+BREAKING CHANGE: removed `starting_prisms_kwargs`, put `density_contrast` and `zef` into standard kwargs now. All `regional_grav_kwargs` are now directly passed to the relevant functions, same for `starting_topography_kwargs`. ([`a72c8a4`](https://github.com/mdtanker/invert4geom/commit/a72c8a4738432587a9c7f29bc7dc39c408a4badc))
 * use context manager to temporarily change logging level ([`c14aaca`](https://github.com/mdtanker/invert4geom/commit/c14aaca1763fbc5681f5be389b1cd9d4cdbb3e12))
 * minor changes to `optimization` ([`18f2058`](https://github.com/mdtanker/invert4geom/commit/18f20580c459277b0c31ca1f4b2d8337f908332c))
 * set default of `source_depth` to 'default' in `regional_eq_sources` ([`ee7575f`](https://github.com/mdtanker/invert4geom/commit/ee7575fe5c7989ce3586694e6ffd041102b5914a))
@@ -683,7 +680,7 @@ BREAKING CHANGE: ([`77cc15d`](https://github.com/mdtanker/invert4geom/commit/77c
 * use lock_obj to fix file store for windows ([`f835c74`](https://github.com/mdtanker/invert4geom/commit/f835c74bfaeb47491f4a3f74be6b7428e2ef63a8))
 * replace psutil cpu affinity with new function
 
-used a function from a stack overlow answer which is able to get cpu core numbers for many operating systems since psutil doesn't seem to work for MacOS or Windows. ([`f3bf61e`](https://github.com/mdtanker/invert4geom/commit/f3bf61e6f497d6a70551b098f2b7e3e257fa39d4))
+used a function from a stack overflow answer which is able to get cpu core numbers for many operating systems since psutil doesn't seem to work for MacOS or Windows. ([`f3bf61e`](https://github.com/mdtanker/invert4geom/commit/f3bf61e6f497d6a70551b098f2b7e3e257fa39d4))
 * typos and formatting ([`9ce69c2`](https://github.com/mdtanker/invert4geom/commit/9ce69c21921ad0584f1fee6fc932ed24fd989864))
 ### 📦️ Build
 * restrict xrft version
@@ -698,7 +695,7 @@ Seems to be cause issues in conda-forge feedstock, harmonica requires >= 1.0, ma
 * numba-progress install from pip to conda ([`59099bf`](https://github.com/mdtanker/invert4geom/commit/59099bfa07dd082d77010c4d0e10fd78524f5527))
 * move changelog template location ([`2bdeccb`](https://github.com/mdtanker/invert4geom/commit/2bdeccbf43d3c4b6b494b38f4d4724d25207d729))
 * fix env.yml files ([`2735f09`](https://github.com/mdtanker/invert4geom/commit/2735f093543e59f660e8bb974de14f5ba3c6dcd8))
-* seperate RTD env and testing env ([`0d1621d`](https://github.com/mdtanker/invert4geom/commit/0d1621df983e3c6eedb36afdb7395974dd3f5012))
+* separate RTD env and testing env ([`0d1621d`](https://github.com/mdtanker/invert4geom/commit/0d1621df983e3c6eedb36afdb7395974dd3f5012))
 * remove build api docs to ci.yml ([`0bf7f87`](https://github.com/mdtanker/invert4geom/commit/0bf7f8780819a9376615a027c8c6924e2cc6e372))
 * add sphinx-apidoc call to ci.yml ([`9d0ff3a`](https://github.com/mdtanker/invert4geom/commit/9d0ff3a231d199a30943f8b05b065693d9c1ba76))
 ### 📖 Documentation
@@ -778,7 +775,7 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 
 ## v0.1.18 (2023-11-23)
 ### 🐛 Bug Fixes
-* use PAT instead of GH tocken ([`f2cb0d1`](https://github.com/mdtanker/invert4geom/commit/f2cb0d16e23535d56a9378113639814f2140a640))
+* use PAT instead of GH token ([`f2cb0d1`](https://github.com/mdtanker/invert4geom/commit/f2cb0d16e23535d56a9378113639814f2140a640))
 
 ## v0.1.17 (2023-11-23)
 ### 🐛 Bug Fixes
@@ -795,7 +792,7 @@ To run faster, this lowers the resolution of the user guide notebooks. It also a
 
 ## v0.1.15 (2023-11-23)
 ### 🐛 Bug Fixes
-* seperate push and release jobs ([`2f0284a`](https://github.com/mdtanker/invert4geom/commit/2f0284a1b25c831212c17ad32d45a5ba6a00217b))
+* separate push and release jobs ([`2f0284a`](https://github.com/mdtanker/invert4geom/commit/2f0284a1b25c831212c17ad32d45a5ba6a00217b))
 
 ## v0.1.14 (2023-11-23)
 ### 🐛 Bug Fixes
