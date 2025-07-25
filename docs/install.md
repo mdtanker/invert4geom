@@ -76,6 +76,7 @@ Run the following inside a Python interpreter:
 
 ```python
 import invert4geom
+
 invert4geom.__version__
 ```
 

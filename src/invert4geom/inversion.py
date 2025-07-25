@@ -22,7 +22,7 @@ from tqdm.autonotebook import tqdm
 from invert4geom import cross_validation, log, optimization, plotting, regional, utils
 
 
-@numba.jit(cache=True, nopython=True)  # type: ignore[misc]
+@numba.jit(cache=True, nopython=True)
 def grav_column_der(
     grav_easting: NDArray,
     grav_northing: NDArray,
@@ -89,7 +89,7 @@ def grav_column_der(
     )
 
 
-@numba.njit(parallel=True)  # type: ignore[misc]
+@numba.njit(parallel=True)
 def jacobian_annular(
     grav_easting: NDArray,
     grav_northing: NDArray,
@@ -179,7 +179,7 @@ def _prism_properties(
             prisms_properties.append(
                 [
                     *list(prisms_layer.prism_layer.get_prism((y, x))),
-                    prisms_layer.density.values[y, x],
+                    prisms_layer.density.to_numpy()[y, x],
                 ]
             )
         prisms_properties = np.array(prisms_properties)
@@ -190,7 +190,7 @@ def _prism_properties(
                 prisms_properties.append(
                     [
                         *list(prisms_layer.prism_layer.get_prism((y, x))),
-                        prisms_layer.density.values[y, x],
+                        prisms_layer.density.to_numpy()[y, x],
                     ]
                 )
         np.asarray(prisms_properties)
@@ -198,7 +198,7 @@ def _prism_properties(
         # slower, but doesn't allocate memory
         prisms_properties = [
             list(prisms_layer.prism_layer.get_prism((y, x)))  # noqa: RUF005
-            + [prisms_layer.density.values[y, x]]
+            + [prisms_layer.density.to_numpy()[y, x]]
             for y in range(prisms_layer.northing.size)
             for x in range(prisms_layer.easting.size)
         ]
@@ -432,7 +432,7 @@ def solver(
     #     """
     #     if damping not None, uses sklearn.linear_model.Ridge(alpha=damping)
     #     alpha: 0 to +inf. multiplies the L2 term, can also pass an array
-    #     https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html # noqa: E501
+    #     https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html
     #     """
     #     step = vd.base.least_squares(
     #         jacobian=jac,
@@ -444,7 +444,7 @@ def solver(
 
     # elif solver_type == "scipy constrained":
     #     """
-    #     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.lsq_linear.html#scipy.optimize.lsq_linear # noqa: E501
+    #     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.lsq_linear.html#scipy.optimize.lsq_linear
     #     """
     #     if bounds is None:
     #         step = sp.optimize.lsq_linear(
@@ -463,7 +463,7 @@ def solver(
     #         )["x"]
     # # elif solver_type == "scipy nonlinear lsqr":
     # #     """
-    # #     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html#scipy.optimize.least_squares # noqa: E501
+    # #     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html#scipy.optimize.least_squares
     # #     """
     # #     if bounds is None:
     # #         bounds = [-np.inf, np.inf]
@@ -510,7 +510,7 @@ def solver(
     # elif solver_type == "gauss newton":
     #     """
     #     Gauss Newton w/ 1st order Tikhonov regularization
-    #     from https://nbviewer.org/github/compgeolab/2020-aachen-inverse-problems/blob/main/gravity-inversion.ipynb # noqa: E501
+    #     from https://nbviewer.org/github/compgeolab/2020-aachen-inverse-problems/blob/main/gravity-inversion.ipynb
     #     """
     #     if damping in [None, 0]:
     #         hessian = jac.T @ jac
@@ -843,7 +843,7 @@ def run_inversion(
     utils._check_gravity_inside_topography_region(grav_df, prism_layer)  # pylint: disable=protected-access
 
     # check no nans in gravity df
-    if grav_df.res.isnull().values.any():
+    if grav_df.res.isna().to_numpy().any():
         msg = "gravity dataframe contains NaN values in the 'res' column"
         raise ValueError(msg)
 
@@ -932,7 +932,7 @@ def run_inversion(
         # calculate correction for each prism
         surface_correction = solver(
             jac=jac,
-            residuals=gravity.res.values,
+            residuals=gravity.res.to_numpy(),
             damping=solver_damping,
             solver_type=solver_type,
         )
@@ -1274,13 +1274,12 @@ def run_inversion_workflow(
             if split_kwargs is None:
                 msg = "split_kwargs must be provided if performing internal kfolds CV"
                 raise ValueError(msg)
-        else:
-            if "constraints_df" in regional_grav_kwargs:
-                msg = (
-                    "if performing density/zref CV, it's best to not use constraints "
-                    "in the regional separation"
-                )
-                log.warning(msg)
+        elif "constraints_df" in regional_grav_kwargs:
+            msg = (
+                "if performing density/zref CV, it's best to not use constraints "
+                "in the regional separation"
+            )
+            log.warning(msg)
         if density_contrast_limits is None:
             assert density_contrast is not None
         if zref_limits is None:

@@ -201,7 +201,7 @@ def load_synthetic_model(
 
     if density_contrast is not None:
         if zref is None:
-            zref = true_topography.values.mean()
+            zref = true_topography.to_numpy().mean()
         # prisms above zref have positive density contrast and prisms below zref have
         # negative density contrast
         density_grid = xr.where(
