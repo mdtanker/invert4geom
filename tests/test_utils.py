@@ -142,6 +142,10 @@ def test_nearest_grid_fill(test_input):
     assert filled.loc[{"easting": 100, "northing": 200}] in expected
 
 
+@pytest.mark.filterwarnings(
+    "ignore:dropping variables using `drop` is deprecated; use drop_vars."
+)
+@pytest.mark.filterwarnings("ignore:: FutureWarning")
 @pytest.mark.parametrize(
     "test_input",
     [
@@ -182,6 +186,10 @@ def test_filter_grid_wrong_filt_type():
         utils.filter_grid(grid, 10000, filt_type="wrong_filt_type")
 
 
+@pytest.mark.filterwarnings(
+    "ignore:dropping variables using `drop` is deprecated; use drop_vars."
+)
+@pytest.mark.filterwarnings("ignore:: FutureWarning")
 def test_filter_grid_nans():
     """
     test the filter_grid function with nans in input

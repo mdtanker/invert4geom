@@ -118,6 +118,8 @@ def test_regional_trend(trend):
     )
 
 
+@pytest.mark.filterwarnings("ignore:dropping variables using `drop` is deprecated")
+@pytest.mark.filterwarnings("ignore:Default ifft's behaviour")
 def test_regional_filter():
     """
     test the regional_filter function
@@ -177,6 +179,11 @@ def test_regional_eq_sources():
     assert reg_range < misfit_range
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The mindist parameter of verde.Spline is no longer required and will be removed in Verde 2.0.0. Use the default value to obtain the future behavior."
+)
+@pytest.mark.filterwarnings("ignore:: FutureWarning")
+@pytest.mark.filterwarnings("ignore:The following error was raised:")
 @pytest.mark.parametrize(
     "test_input",
     [
