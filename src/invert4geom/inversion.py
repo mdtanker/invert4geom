@@ -1,5 +1,3 @@
-from __future__ import annotations  # pylint: disable=too-many-lines
-
 import copy
 import itertools
 import logging

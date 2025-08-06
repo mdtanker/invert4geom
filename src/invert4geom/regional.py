@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import copy
 import typing
 
@@ -506,7 +504,7 @@ def regional_constraints(
         )
 
         # add reduced coordinates to a dictionary
-        coord_cols = dict(zip(["easting", "northing"], coordinates))
+        coord_cols = dict(zip(["easting", "northing"], coordinates, strict=False))
 
         # add reduced data to a dictionary
         if constraints_weights_column is None:

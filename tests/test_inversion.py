@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import harmonica as hm
 import numpy as np
 import numpy.testing as npt
