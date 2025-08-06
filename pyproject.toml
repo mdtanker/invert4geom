@@ -81,6 +81,10 @@ test = [
   "pytest-cov >=3",
   "deepdiff",
 ]
+dev = [
+  {include-group = "test"},
+  "jupyterlab",
+]
 docs = [
   "sphinx>=4.0",
   "sphinx-book-theme>=0.3",
@@ -90,21 +94,7 @@ docs = [
   "myst_parser",
   "sphinx_copybutton",
   "sphinx_autoapi",
-  "sphinx_autodoc_typehints",
   "sphinx_design",
-]
-dev = [
-  {include-group = "test"},
-  {include-group = "synth"},
-  {include-group = "uncert"},
-  {include-group = "docs"},
-  "nox",
-  "pre-commit",
-  "pylint>=3.2",
-  "ipykernel",
-  "jupyterlab",
-  "mypy",
-  "pathspec",
 ]
 all = [
   {include-group = "test"},

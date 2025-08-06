@@ -57,13 +57,7 @@ dependencies:
   - sphinx-autodoc-typehints
   - sphinx-design
   ## dev
-  - nox
-  - pre-commit
-  - pylint>=3.2
-  - ipykernel
   - jupyterlab
-  - mypy
-  - pathspec
   # below packages need to be installed with pip
   # - pip
   # - pip:
