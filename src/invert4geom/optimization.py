@@ -1,4 +1,4 @@
-import copy
+import copy  # pylint: disable=too-many-lines
 import logging
 import math
 import multiprocessing
@@ -470,7 +470,7 @@ def _warn_limits_better_than_trial_1_param(
                 msg,
                 trial.number,
                 trial.params,
-                trial.to_numpy()[0],
+                trial.values[0],  # noqa: PD011
                 lower_limit_score,
                 upper_limit_score,
             )
@@ -485,7 +485,7 @@ def _warn_limits_better_than_trial_1_param(
                 msg,
                 trial.number,
                 trial.params,
-                trial.to_numpy()[0],
+                trial.values[0],  # noqa: PD011
                 lower_limit_score,
                 upper_limit_score,
             )

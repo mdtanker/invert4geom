@@ -1,4 +1,4 @@
-import copy
+import copy  # pylint: disable=too-many-lines
 import itertools
 import logging
 import pathlib
@@ -953,24 +953,21 @@ def split_test_train(
             df = df.copy()
             for i in range(len(folds)):
                 if i == 0:
-                    fig = (None,)
+                    fig = None
                     origin_shift = "initialize"
                     xshift_amount = None
                     yshift_amount = None
                 elif i % ncols == 0:
-                    # fig = fig
                     origin_shift = "both"
                     xshift_amount = -ncols + 1
                     yshift_amount = -1
                 else:
-                    # fig= fig
                     origin_shift = "x"
                     xshift_amount = 1
                     yshift_amount = 1
 
                 df_test = df[df[f"fold_{i}"] == "test"]
                 df_train = df[df[f"fold_{i}"] == "train"]
-
                 region = vd.get_region((df.easting, df.northing))
                 plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
                 fig = maps.basemap(
@@ -997,7 +994,7 @@ def split_test_train(
                     label="Test",
                 )
                 fig.legend()
-            fig.show()  # type: ignore[attr-defined]
+            fig.show()  # type: ignore[union-attr]
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 

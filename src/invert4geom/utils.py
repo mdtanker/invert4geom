@@ -1,4 +1,4 @@
-import copy
+import copy  # pylint: disable=too-many-lines
 import os
 import typing
 import warnings
@@ -57,9 +57,9 @@ class DuplicateFilter:
     Adapted from https://stackoverflow.com/a/60462619/18686384
     """
 
-    def __init__(self, logger):  # type: ignore[no-untyped-def]
+    def __init__(self, log):  # type: ignore[no-untyped-def]
         self.msgs = set()
-        self.logger = logger
+        self.log = log
 
     def filter(self, record):  # type: ignore[no-untyped-def] # pylint: disable=missing-function-docstring
         msg = str(record.msg)
@@ -69,10 +69,10 @@ class DuplicateFilter:
         return not is_duplicate
 
     def __enter__(self):  # type: ignore[no-untyped-def]
-        self.logger.addFilter(self)
+        self.log.addFilter(self)
 
     def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
-        self.logger.removeFilter(self)
+        self.log.removeFilter(self)
 
 
 def _check_constraints_inside_gravity_region(
@@ -246,7 +246,7 @@ def filter_grid(
     original_name = grid.name
 
     # if there are nan's, fill them with nearest neighbor
-    if grid.isna().any():
+    if grid.isnull().any():  # noqa: PD003
         filled = nearest_grid_fill(grid, method="verde")
     else:
         filled = grid.copy()
@@ -470,7 +470,7 @@ def normalize_xarray(
         ((da - min_val) / (max_val - min_val)).clip(0, 1)
     ) + low
 
-    return da2.drop("quantile")
+    return da2.drop_vars("quantile")
 
 
 def scale_normalized(
@@ -816,7 +816,7 @@ def enforce_confining_surface(
 
     # check that when constrained correction is added to topo it doesn't intersect
     # either bounding layer
-    updated_topo: pd.Series[float] = df[f"iter_{iteration_number}_correction"] + df.topo
+    updated_topo = df[f"iter_{iteration_number}_correction"] + df.topo
     if "upper_bounds" in df and np.any((df.upper_bounds - updated_topo) < -0.001):
         msg = (
             "Constraining didn't work and updated topography intersects upper "
