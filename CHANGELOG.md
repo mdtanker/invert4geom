@@ -7,12 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### 🚀 Added
+- add `nomkl` dependency (except for Windows) to fix issue with PyGMT seg faulting
+- re-added `uqpy` as optional dependency
+- better instructions for contributors to get acknowledged as authors
+
 ### ✏️ Changed
-* replace Python-Semantic-Release with manual releases
-* fix binder env ([`d904f4e`](https://github.com/mdtanker/invert4geom/commit/d904f4e72ea033d4b1da919b0928a03471d0aa35))
-* update binder env ([`f86ba0a`](https://github.com/mdtanker/invert4geom/commit/f86ba0a2a2c977640aaf3596541a867e0601d4bc))
-* fix type checking issues ([`05654b0`](https://github.com/mdtanker/invert4geom/commit/05654b00e2a09d421adbe2a9689882ad5f472e79))
-* pre-commit fixes ([`0c9e877`](https://github.com/mdtanker/invert4geom/commit/0c9e8772a2163f7c41ef5e198e8df3b628179e71))
+- replace Python-Semantic-Release with manual releases
+- drop support for Python 3.9
+- use manual Zenodo releases with template for metadata
+- use new Optuna Journal Storage API and set min supported version to 4.0
+- replace some Make commands with nox
+- lots of changes to align with new version of my python packaging template
+- simplified ReadTheDocs environment using uv
+
+### 🐛 Fixed
+- undo suggestions from Ruff which caused errors
+- fix binder env ([`d904f4e`](https://github.com/mdtanker/invert4geom/commit/d904f4e72ea033d4b1da919b0928a03471d0aa35))
+- remove accidentally included inset maps in figures
 
 <!--
 Below is an example for a release
