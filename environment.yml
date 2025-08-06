@@ -26,7 +26,9 @@ dependencies:
   # optimization
   - optuna>=4.0 # need updated Journal Storage API
   - pytorch # needed for GPSampler of Optuna, called 'torch' for pypi
-  - nomkl # [not win] # needed to install pytorch dependencies from openblas instead of mkl
+  # - nomkl # [not win] # needed to install pytorch dependencies from openblas instead of mkl
+  - sel(linux): nomkl
+  - sel(osx): nomkl
   - joblib
   - psutil
   # visualization
