@@ -16,11 +16,11 @@ def test_run_optuna_parallel():
             warnings.filterwarnings(
                 "ignore", category=optuna.exceptions.ExperimentalWarning
             )
-            lock_obj = optuna.storages.JournalFileOpenLock(file.name)
-            file_storage = optuna.storages.JournalFileStorage(
+            lock_obj = optuna.storages.journal.JournalFileOpenLock(file.name)
+            file_storage = optuna.storages.journal.JournalFileBackend(
                 file.name, lock_obj=lock_obj
             )
-            storage = optuna.storages.JournalStorage(file_storage)
+            storage = optuna.storages.journal.JournalStorage(file_storage)
             study_name = file.name
 
         # create study

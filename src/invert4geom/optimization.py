@@ -20,7 +20,6 @@ import psutil
 import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
-from optuna.storages import JournalFileStorage, JournalStorage
 from tqdm.autonotebook import tqdm
 
 from invert4geom import (
@@ -357,7 +356,9 @@ def _create_regional_separation_study(
         pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
-        storage = JournalStorage(JournalFileStorage(f"{fname}.log"))
+        storage = optuna.storages.JournalStorage(
+            optuna.storages.journal.JournalFileBackend(f"{fname}.log"),
+        )
     else:
         storage = None
 
@@ -718,7 +719,9 @@ def optimize_inversion_damping(
         pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
-        storage = JournalStorage(JournalFileStorage(f"{fname}.log"))
+        storage = optuna.storages.JournalStorage(
+            optuna.storages.journal.JournalFileBackend(f"{fname}.log"),
+        )
     else:
         storage = None
 
@@ -1430,7 +1433,9 @@ def optimize_inversion_zref_density_contrast(
         pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
-        storage = JournalStorage(JournalFileStorage(f"{fname}.log"))
+        storage = optuna.storages.JournalStorage(
+            optuna.storages.journal.JournalFileBackend(f"{fname}.log"),
+        )
     else:
         storage = None
 
@@ -2039,7 +2044,9 @@ def optimize_eq_source_params(
         pathlib.Path(f"{study_fname}.log").unlink(missing_ok=True)
         pathlib.Path(f"{study_fname}.lock").unlink(missing_ok=True)
         pathlib.Path(f"{study_fname}.log.lock").unlink(missing_ok=True)
-        storage = JournalStorage(JournalFileStorage(f"{study_fname}.log"))
+        storage = optuna.storages.JournalStorage(
+            optuna.storages.journal.JournalFileBackend(f"{study_fname}.log"),
+        )
     else:
         storage = None
 
@@ -3632,7 +3639,9 @@ def optimal_buffer(
         pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
         pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
-        storage = JournalStorage(JournalFileStorage(f"{fname}.log"))
+        storage = optuna.storages.JournalStorage(
+            optuna.storages.journal.JournalFileBackend(f"{fname}.log"),
+        )
     else:
         storage = None
 
