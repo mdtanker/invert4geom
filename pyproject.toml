@@ -53,7 +53,7 @@ dependencies = [
 ###
 # optimization
 ###
-  "optuna>=3.6.0", # need GPSampler
+  "optuna>=4.0", # need updated Journal Storage API
   "torch", # needed for GPSampler of Optuna, 'torch' is PyPI name for pytorch
   "nomkl", # needed to install pytorch dependencies from openblas instead of mkl
   "joblib",
