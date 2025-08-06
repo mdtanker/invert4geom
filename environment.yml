@@ -24,7 +24,7 @@ dependencies:
   - pooch
   - scikit-learn
   # optimization
-  - optuna>=3.6.0 # need GPSampler
+  - optuna>=4.0 # need updated Journal Storage API
   - pytorch # needed for GPSampler of Optuna, called 'torch' for pypi
   - nomkl # needed to install pytorch dependencies from openblas instead of mkl
   - joblib

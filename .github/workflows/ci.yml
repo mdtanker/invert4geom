@@ -88,7 +88,7 @@ jobs:
             deprecation
             pooch
             scikit-learn
-            optuna>=3.6.0
+            optuna>=4.0
             pytorch
             nomkl
             joblib
