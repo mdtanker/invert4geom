@@ -39,7 +39,7 @@ dependencies:
   - plotly
   # Optional dependencies
   ## uncert
-  # - uqpy
+  - uqpy>=4.1.7 # need fixed issue with scipy
   ## synthetic data
   - xesmf
   ## test

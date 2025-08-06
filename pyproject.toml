@@ -78,6 +78,8 @@ synth = [
   "xesmf",
 ]
 test = [
+  {include-group = "uncert"},
+  {include-group = "synth"},
   "pytest >=6",
   "pytest-cov >=3",
   "deepdiff",

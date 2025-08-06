@@ -97,6 +97,7 @@ jobs:
             seaborn
             ipython
             plotly
+            uqpy>=4.1.7
             xesmf
             pytest>=6
             pytest-cov>=3
