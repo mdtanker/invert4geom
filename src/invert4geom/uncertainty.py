@@ -1,5 +1,3 @@
-from __future__ import annotations  # pylint: disable=too-many-lines
-
 import copy
 import logging
 import pathlib
@@ -1141,12 +1139,17 @@ def model_ensemble_stats(
     if weights is not None:
         assert len(da_list) == len(weights)
 
-        weighted_mean = sum(g * w for g, w in zip(da_list, weights)) / sum(weights)
+        weighted_mean = sum(
+            g * w for g, w in zip(da_list, weights, strict=False)
+        ) / sum(weights)
         weighted_mean = weighted_mean.rename("weighted_mean")
 
         # from https://stackoverflow.com/questions/30383270/how-do-i-calculate-the-standard-deviation-between-weighted-measurements
         weighted_var = (
-            sum(w * (g - weighted_mean) ** 2 for g, w in zip(da_list, weights))
+            sum(
+                w * (g - weighted_mean) ** 2
+                for g, w in zip(da_list, weights, strict=False)
+            )
         ) / sum(weights)
         weighted_stdev = np.sqrt(weighted_var)
         weighted_stdev = weighted_stdev.rename("weighted_stdev")

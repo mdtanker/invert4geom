@@ -1,5 +1,3 @@
-from __future__ import annotations  # pylint: disable=too-many-lines
-
 import copy
 import itertools
 import logging
@@ -340,7 +338,7 @@ def grav_optimal_parameter(
             logger.warning(msg)
 
     # print value and score pairs
-    for value, score in zip(param_values, scores, strict=False):  # type: ignore[call-overload]
+    for value, score in zip(param_values, scores, strict=False):
         logger.info("%s value: %s -> Score: %s", param_name, value, score)
 
     best_idx = np.argmin(scores)
@@ -683,7 +681,7 @@ def zref_density_optimal_parameter(
         scores.append(score)
 
     # print parameter and score pairs
-    for (zref, density_contrast), score in zip(parameter_pairs, scores, strict=False):  # type: ignore[call-overload]
+    for (zref, density_contrast), score in zip(parameter_pairs, scores, strict=False):
         logger.info(
             "Reference level: %s, Density contrast: %s -> Score: %s",
             zref,

@@ -11,7 +11,7 @@ description = "Constrained gravity inversion to recover the geometry of a densit
 keywords = ["inversion", "gravity", "geometry", "density", "Moho", "sediment", "geophysics", "geology", "geoscience"]
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -21,7 +21,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -160,7 +159,7 @@ report.exclude_also = [
 
 [tool.mypy]
 files = ["src", "tests"]
-python_version = "3.9"
+python_version = "3.10"
 warn_unused_configs = true
 strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
@@ -208,7 +207,6 @@ ignore = [
   "PD901",    # Bad variable name warning
   "UP038",    # slows down code
 ]
-isort.required-imports = ["from __future__ import annotations"]
 # Uncomment if using a _compat.typing backport
 # typing-modules = ["invert4geom._compat.typing"]
 
@@ -223,7 +221,7 @@ isort.required-imports = ["from __future__ import annotations"]
 ]
 
 [tool.pylint]
-py-version = "3.9"
+py-version = "3.10"
 ignore-patterns = ["CHANGELOG.md", ".*/_version.py"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"

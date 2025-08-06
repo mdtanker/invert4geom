@@ -1,5 +1,3 @@
-from __future__ import annotations  # pylint: disable=too-many-lines
-
 import copy
 import typing
 
@@ -180,7 +178,9 @@ def plot_2_parameter_cv_scores_uneven(
     xi, yi = np.meshgrid(xi, yi)
 
     try:
-        interp = sp.interpolate.CloughTocher2DInterpolator(list(zip(x, y)), z)
+        interp = sp.interpolate.CloughTocher2DInterpolator(
+            list(zip(x, y, strict=False)), z
+        )
     except ValueError as e:
         logger.error(
             "Error interpolating value in plot_2_parameter_cv_scores_uneven: %s", e

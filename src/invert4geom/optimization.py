@@ -1,5 +1,3 @@
-from __future__ import annotations  # pylint: disable=too-many-lines
-
 import copy
 import logging
 import math
@@ -1760,6 +1758,7 @@ def optimize_inversion_zref_density_contrast(
                     zip(
                         study.trials_dataframe().params_zref,
                         study.trials_dataframe().params_density_contrast,
+                        strict=False,
                     )
                 )
                 plotting.plot_2_parameter_cv_scores(
