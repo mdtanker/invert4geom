@@ -134,6 +134,7 @@ addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
   "error",
+  "ignore:.*Implicit None on return values is deprecated and will raise KeyErrors.*:DeprecationWarning",
 ]
 log_cli_level = "INFO"
 testpaths = [
