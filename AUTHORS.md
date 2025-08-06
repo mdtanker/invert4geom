@@ -1,4 +1,4 @@
-# Project Authors
+# Invert4Geom Authors
 
 The following people have made contributions to the project (in alphabetical
 order by last name) and are considered "The Invert4Geom Developers":
