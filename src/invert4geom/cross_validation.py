@@ -225,6 +225,7 @@ def grav_cv_score(
                 title=f"Score={score}",
                 rmse_in_title=False,
                 hist=True,
+                inset=False,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
