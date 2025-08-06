@@ -34,7 +34,7 @@ I really welcome all forms of contribution! If you have any questions, comments 
 
 Also, please feel free to share how you're using Invert4Geom, I'd love to know.
 
-Please, read our [Contributor Guide](https://invert4geom.readthedocs.io/en/latest/contributing.html) to learn
+Please, read our [Contributor Guide](contributing.md) to learn
 how you can contribute to the project.
 ```
 
