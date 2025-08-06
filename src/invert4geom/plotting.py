@@ -1,4 +1,4 @@
-import copy
+import copy  # pylint: disable=too-many-lines
 import typing
 
 import matplotlib as mpl
@@ -165,8 +165,8 @@ def plot_2_parameter_cv_scores_uneven(
     plt.figure(figsize=figsize)
     plt.title("Two parameter cross-validation")
 
-    x = df[param_names[0]].to_numpy()
-    y = df[param_names[1]].to_numpy()
+    x = df[param_names[0]].values  # noqa: PD011
+    y = df[param_names[1]].values  # noqa: PD011
     z = df.value.to_numpy()
 
     x_buffer = (max(x) - min(x)) / 50
