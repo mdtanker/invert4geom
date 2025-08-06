@@ -125,14 +125,12 @@ build.hooks.vcs.version-file = "src/invert4geom/_version.py"
 dependencies = []
 scripts.test = "pytest {args}"
 
+[tool.hatch.build.targets.sdist]
+only-include = ["src"]
+
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = [
-  "-ra",
-  "--showlocals",
-  "--strict-markers",
-  "--strict-config",
-  ]
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
   "error",
@@ -217,7 +215,7 @@ ignore = [
 
 [tool.pylint]
 py-version = "3.10"
-ignore-patterns = ["CHANGELOG.md", ".*/_version.py"]
+ignore-paths = ["CHANGELOG.md", ".*\\_version.py"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
 similarities.min-similarity-lines = 5
