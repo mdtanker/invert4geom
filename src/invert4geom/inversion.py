@@ -19,7 +19,14 @@ import xarray as xr
 from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
 
-from invert4geom import cross_validation, log, optimization, plotting, regional, utils
+from invert4geom import (
+    cross_validation,
+    logger,
+    optimization,
+    plotting,
+    regional,
+    utils,
+)
 
 
 @numba.jit(cache=True, nopython=True)
@@ -317,7 +324,7 @@ def jacobian(
             (len(grav_easting), prisms_layer.top.size),  # type: ignore[union-attr]
             dtype=np.float64,
         )
-        log.warning("no empty jacobian supplied")
+        logger.warning("no empty jacobian supplied")
 
     jac = empty_jac
 
@@ -632,7 +639,7 @@ def end_inversion(
         pass
     else:
         if l2_norm > np.min(l2_norms) * (1 + perc_increase_limit):
-            log.info(
+            logger.info(
                 "\nInversion terminated after %s iterations because L2 norm (%s) \n"
                 "was over %s times greater than minimum L2 norm (%s) \n"
                 "Change parameter 'perc_increase_limit' if desired.",
@@ -647,7 +654,7 @@ def end_inversion(
         if (delta_l2_norm <= delta_l2_norm_tolerance) & (
             previous_delta_l2_norm <= delta_l2_norm_tolerance
         ):
-            log.info(
+            logger.info(
                 "\nInversion terminated after %s iterations because there was no "
                 "significant variation in the L2-norm over 2 iterations \n"
                 "Change parameter 'delta_l2_norm_tolerance' if desired.",
@@ -658,7 +665,7 @@ def end_inversion(
             termination_reason.append("delta l2-norm tolerance")
 
         if l2_norm < l2_norm_tolerance:
-            log.info(
+            logger.info(
                 "\nInversion terminated after %s iterations because L2-norm (%s) was "
                 "less then set tolerance: %s \nChange parameter "
                 "'l2_norm_tolerance' if desired.",
@@ -671,7 +678,7 @@ def end_inversion(
             termination_reason.append("l2-norm tolerance")
 
     if iteration_number >= max_iterations:
-        log.info(
+        logger.info(
             "\nInversion terminated after %s iterations with L2-norm=%s because "
             "maximum number of iterations (%s) reached.",
             iteration_number,
@@ -687,7 +694,7 @@ def end_inversion(
             "Inversion terminated due to max_iterations limit. Consider increasing "
             "this limit."
         )
-        log.warning(msg)
+        logger.warning(msg)
 
     return end, termination_reason
 
@@ -847,7 +854,7 @@ def run_inversion(
         msg = "gravity dataframe contains NaN values in the 'res' column"
         raise ValueError(msg)
 
-    log.info("starting inversion")
+    logger.info("starting inversion")
 
     time_start = time.perf_counter()
 
@@ -898,7 +905,9 @@ def run_inversion(
         raise ValueError(msg)
 
     for iteration, _ in enumerate(pbar, start=1):
-        log.info("\n #################################### \n iteration %s", iteration)
+        logger.info(
+            "\n #################################### \n iteration %s", iteration
+        )
         # start iteration timer
         iter_time_start = time.perf_counter()
 
@@ -938,7 +947,7 @@ def run_inversion(
         )
 
         # log correction values
-        log.info(
+        logger.info(
             "Layer correction median: %s m, RMS:%s m",
             round(np.median(surface_correction), 6),
             round(utils.rmse(surface_correction), 6),
@@ -995,7 +1004,7 @@ def run_inversion(
 
         # update the misfit RMSE
         updated_rmse = utils.rmse(gravity[f"iter_{iteration}_final_misfit"])
-        log.info("updated misfit RMSE: %s", round(updated_rmse, 6))
+        logger.info("updated misfit RMSE: %s", round(updated_rmse, 6))
         final_rmse = updated_rmse
 
         # update the l2 and delta l2 norms
@@ -1009,10 +1018,10 @@ def run_inversion(
         l2_norms.append(l2_norm)
         delta_l2_norms.append(delta_l2_norm)
 
-        log.info(
+        logger.info(
             "updated L2-norm: %s, tolerance: %s", round(l2_norm, 6), l2_norm_tolerance
         )
-        log.info(
+        logger.info(
             "updated delta L2-norm : %s, tolerance: %s",
             round(delta_l2_norm, 6),
             delta_l2_norm_tolerance,
@@ -1091,7 +1100,7 @@ def run_inversion(
                 params,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     results = prisms_df, gravity, params, elapsed_time
     if results_fname is not None:
@@ -1099,7 +1108,7 @@ def run_inversion(
         pathlib.Path(f"{results_fname}.pickle").unlink(missing_ok=True)
         with pathlib.Path(f"{results_fname}.pickle").open("wb") as f:
             pickle.dump(results, f)
-        log.info("results saved to %s.pickle", results_fname)
+        logger.info("results saved to %s.pickle", results_fname)
 
     return results
 
@@ -1219,7 +1228,7 @@ def run_inversion_workflow(
     if fname is None:
         fname = f"tmp_{random.randint(0, 999)}"
 
-    log.info("saving all results with root name '%s'", fname)
+    logger.info("saving all results with root name '%s'", fname)
     ###
     ###
     # figure out what needs to be done
@@ -1235,10 +1244,10 @@ def run_inversion_workflow(
     # if calculating starting gravity, must also calculate gravity misfit
     if calculate_starting_gravity is True:
         calculate_regional_misfit = True
-    log.debug("creating starting topo: %s", create_starting_topography)
-    log.debug("creating starting prisms: %s", create_starting_prisms)
-    log.debug("calculating starting gravity: %s", calculate_starting_gravity)
-    log.debug("calculating regional misfit: %s", calculate_regional_misfit)
+    logger.debug("creating starting topo: %s", create_starting_topography)
+    logger.debug("creating starting prisms: %s", create_starting_prisms)
+    logger.debug("calculating starting gravity: %s", calculate_starting_gravity)
+    logger.debug("calculating regional misfit: %s", calculate_regional_misfit)
 
     # pylint: enable=duplicate-code
     ###
@@ -1279,7 +1288,7 @@ def run_inversion_workflow(
                 "if performing density/zref CV, it's best to not use constraints "
                 "in the regional separation"
             )
-            log.warning(msg)
+            logger.warning(msg)
         if density_contrast_limits is None:
             assert density_contrast is not None
         if zref_limits is None:
@@ -1331,14 +1340,14 @@ def run_inversion_workflow(
                 "provided"
             )
             raise ValueError(msg)
-        log.debug("not creating starting topo because it is provided")
+        logger.debug("not creating starting topo because it is provided")
     elif create_starting_topography is True:
         if starting_topography is not None:
             msg = (
                 "starting_topography provided but unused since "
                 "create_starting_topography is True"
             )
-            log.warning(msg)
+            logger.warning(msg)
         if starting_topography_kwargs is None:
             msg = (
                 "starting_topography_kwargs must be provided if "
@@ -1351,21 +1360,21 @@ def run_inversion_workflow(
             starting_topography = utils.create_topography(
                 **starting_topography_kwargs,
             )
-        log.debug("starting topo created")
+        logger.debug("starting topo created")
 
     # Starting Prism Model
     if create_starting_prisms is False:
         if (starting_prisms is None) & (run_zref_or_density_cv is False):
             msg = "starting_prisms must be provided if create_starting_prisms is False"
             raise ValueError(msg)
-        log.debug("not creating starting prisms because it is provided")
+        logger.debug("not creating starting prisms because it is provided")
     elif create_starting_prisms is True:
         if starting_prisms is not None:
             msg = (
                 "starting_prisms provided but unused since create_starting_prisms is "
                 "True"
             )
-            log.warning(msg)
+            logger.warning(msg)
         if starting_topography is None:
             msg = (
                 "starting_topography must be provided if create_starting_prisms is True"
@@ -1383,7 +1392,7 @@ def run_inversion_workflow(
             reference=zref,
             density=density_grid,
         )
-        log.debug("starting prisms created")
+        logger.debug("starting prisms created")
     # Starting Gravity of Prism Model
     if calculate_starting_gravity is False:
         if "starting_gravity" not in grav_df:
@@ -1392,14 +1401,14 @@ def run_inversion_workflow(
                 "calculate_starting_gravity is False"
             )
             raise ValueError(msg)
-        log.debug("not calculating starting gravity because it is provided")
+        logger.debug("not calculating starting gravity because it is provided")
     elif calculate_starting_gravity is True:
         if "starting_gravity" in grav_df:
             msg = (
                 "'starting_gravity' already a column of `grav_df`, but is being "
                 "overwritten since calculate_starting_gravity is True"
             )
-            log.warning(msg)
+            logger.warning(msg)
         if starting_grav_kwargs is None:
             starting_grav_kwargs = {
                 "field": "g_z",
@@ -1410,11 +1419,11 @@ def run_inversion_workflow(
                 ),
                 "progressbar": False,
             }
-        log.debug("calculating starting gravity")
+        logger.debug("calculating starting gravity")
         grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
             **starting_grav_kwargs,
         )
-        log.debug("starting gravity calculated")
+        logger.debug("starting gravity calculated")
 
     # Regional Component of Misfit
     if calculate_regional_misfit is False:
@@ -1430,16 +1439,16 @@ def run_inversion_workflow(
                 " False"
             )
             raise ValueError(msg)
-        log.debug("not calculating regional misfit because it is provided")
+        logger.debug("not calculating regional misfit because it is provided")
     elif calculate_regional_misfit is True:
         if "reg" in grav_df:
             msg = (
                 "'reg' already a column of `grav_df`, but is being overwritten since"
                 " calculate_regional_misfit is True"
             )
-            log.warning(msg)
-        log.debug("calculating regional misfit")
-        log.debug("regional_grav_kwargs: %s", regional_grav_kwargs)
+            logger.warning(msg)
+        logger.debug("calculating regional misfit")
+        logger.debug("regional_grav_kwargs: %s", regional_grav_kwargs)
 
         # pop out grav_df if in regional_grav_kwargs
         regional_grav_kwargs.pop("grav_df", None)
@@ -1448,7 +1457,7 @@ def run_inversion_workflow(
             grav_df=grav_df,
             **regional_grav_kwargs,
         )
-        log.debug("regional misfit calculated")
+        logger.debug("regional misfit calculated")
 
     inversion_kwargs = {
         key: value
@@ -1466,7 +1475,7 @@ def run_inversion_workflow(
         ]
     }
 
-    log.debug("inversion kwargs: %s", inversion_kwargs)
+    logger.debug("inversion kwargs: %s", inversion_kwargs)
 
     ###
     ###
@@ -1475,7 +1484,7 @@ def run_inversion_workflow(
     ###
     # run only the inversion with specified damping, density, and zref values
     if (run_damping_cv is False) & (run_zref_or_density_cv is False):
-        log.info("running individual inversion")
+        logger.info("running individual inversion")
         utils._check_gravity_inside_topography_region(grav_df, starting_prisms)  # pylint: disable=protected-access
         if inversion_kwargs.get("plot_dynamic_convergence", False) is True:
             with utils._log_level(logging.WARN):  # pylint: disable=protected-access
@@ -1502,7 +1511,7 @@ def run_inversion_workflow(
     ###
     ###
     if run_damping_cv is True:
-        log.info("running damping cross validation")
+        logger.info("running damping cross validation")
         utils._check_gravity_inside_topography_region(grav_df, starting_prisms)  # pylint: disable=protected-access
         study, inversion_results = optimization.optimize_inversion_damping(
             training_df=grav_df[grav_df.test == False],  # noqa: E712 pylint: disable=singleton-comparison
@@ -1527,7 +1536,7 @@ def run_inversion_workflow(
         pathlib.Path(f"{fname}_results.pickle").unlink(missing_ok=True)
         with pathlib.Path(f"{fname}_results.pickle").open("wb") as f:
             pickle.dump(inversion_results, f)
-        log.info("results saved to %s.pickle", f"{fname}_results.pickle")
+        logger.info("results saved to %s.pickle", f"{fname}_results.pickle")
 
         assert best_damping == inversion_results[2]["Solver damping"]
 
@@ -1539,12 +1548,12 @@ def run_inversion_workflow(
     # DENSITY / ZREF CV
     ###
     ###
-    log.info("running zref and/or density contrast cross validation")
+    logger.info("running zref and/or density contrast cross validation")
     # drop the testing data
     if "test" in grav_df.columns:
         grav_df = grav_df[grav_df.test == False].copy()  # noqa: E712 pylint: disable=singleton-comparison
         grav_df = grav_df.drop(columns=["test"])
-        log.debug("dropped testing data")
+        logger.debug("dropped testing data")
 
     zref_density_parameters = dict(  # pylint: disable=use-dict-literal
         grav_df=grav_df,
@@ -1567,7 +1576,7 @@ def run_inversion_workflow(
     # if chosen, run an internal K-folds CV for regional separation within the
     # density/Zref CV
     if run_kfolds_zref_or_density_cv is True:
-        log.info("running internal K-folds CV for regional separation")
+        logger.info("running internal K-folds CV for regional separation")
         study, inversion_results = (
             optimization.optimize_inversion_zref_density_contrast_kfolds(
                 constraints_df=constraints_df,
@@ -1590,7 +1599,7 @@ def run_inversion_workflow(
     pathlib.Path(f"{fname}_results.pickle").unlink(missing_ok=True)
     with pathlib.Path(f"{fname}_results.pickle").open("wb") as f:
         pickle.dump(inversion_results, f)
-    log.info("results saved to %s", f"{fname}_results.pickle")
+    logger.info("results saved to %s", f"{fname}_results.pickle")
 
     # ensure final inversion used the best parameters
     best_trial = study.best_trial

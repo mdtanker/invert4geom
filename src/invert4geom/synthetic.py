@@ -14,7 +14,7 @@ from numpy.typing import NDArray
 from polartoolkit import fetch, maps
 from polartoolkit import utils as polar_utils
 
-from invert4geom import cross_validation, log, utils
+from invert4geom import cross_validation, logger, utils
 
 try:
     import xesmf
@@ -152,7 +152,7 @@ def load_synthetic_model(
             constraint_points.upward - constraint_points.starting_topography
         )
         msg = "RMSE at the constraints between the starting and true topography: %s m"
-        log.info(msg, rmse)
+        logger.info(msg, rmse)
 
         if plot_topography_diff is True:
             try:
@@ -177,7 +177,7 @@ def load_synthetic_model(
                     region=region,
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
-                log.error("plotting failed with error: %s", e)
+                logger.error("plotting failed with error: %s", e)
     else:
         starting_topography = None
         constraint_points = None
@@ -197,7 +197,7 @@ def load_synthetic_model(
             )
             fig.show()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     if density_contrast is not None:
         if zref is None:
@@ -277,7 +277,7 @@ def load_synthetic_model(
                 )
                 fig.show()
             except Exception as e:  # pylint: disable=broad-exception-caught
-                log.error("plotting failed with error: %s", e)
+                logger.error("plotting failed with error: %s", e)
     else:
         grav_df = None
 
@@ -843,7 +843,7 @@ def contaminate(
             else:
                 stddev[i] = stddev[i] * abs(data[i])
         if percent_as_max_abs is True:
-            log.info("Standard deviation used for noise: %s", stddev)
+            logger.info("Standard deviation used for noise: %s", stddev)
         # use stdevs to generate random noise
         noise = rng.normal(scale=stddev[i], size=len(data[i]))
         # Subtract the mean so that the noise doesn't introduce a systematic shift in

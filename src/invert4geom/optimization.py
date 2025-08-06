@@ -28,7 +28,7 @@ from tqdm.autonotebook import tqdm
 from invert4geom import (
     cross_validation,
     inversion,
-    log,
+    logger,
     plotting,
     regional,
     utils,
@@ -248,7 +248,7 @@ def _optuna_set_cores(
     else:
         trials_per_job = 1
         n_jobs = int(n_trials / trials_per_job)
-    log.info(
+    logger.info(
         "Running %s trials with %s jobs with up to %s trials per job",
         n_trials,
         n_jobs,
@@ -265,7 +265,7 @@ def _optuna_set_cores(
             for i in range(n_trials)
         )
     except FileNotFoundError:
-        log.exception("FileNotFoundError occurred in parallel optimization")
+        logger.exception("FileNotFoundError occurred in parallel optimization")
         pathlib.Path(f"{study_name}.log.lock").unlink(missing_ok=True)
         pathlib.Path(f"{study_name}.lock").unlink(missing_ok=True)
 
@@ -285,7 +285,7 @@ def _warn_parameter_at_limits(
         dist = trial.distributions.get(k)
         lims = (dist.high, dist.low)
         if v in lims:
-            log.warning(
+            logger.warning(
                 "Best %s value (%s) is at the limit of provided values "
                 "%s and thus is likely not a global minimum, expand the range of "
                 "values tested to ensure the best parameter value is found.",
@@ -307,10 +307,10 @@ def _log_optuna_results(
         optuna trial
     """
 
-    log.info("Trial with best score: ")
-    log.info("\ttrial number: %s", trial.number)
-    log.info("\tparameter: %s", trial.params)
-    log.info("\tscores: %s", trial.to_numpy())
+    logger.info("Trial with best score: ")
+    logger.info("\ttrial number: %s", trial.number)
+    logger.info("\tparameter: %s", trial.params)
+    logger.info("\tscores: %s", trial.values)
 
 
 def _create_regional_separation_study(
@@ -371,7 +371,7 @@ def _create_regional_separation_study(
             raise ValueError(msg)
         direction = "minimize"
         metric_names = ["difference with true regional"]
-        log.info("optimizing on minimizing the true regional misfit")
+        logger.info("optimizing on minimizing the true regional misfit")
     elif separate_metrics is True:
         directions = ["minimize", "maximize"]
         metric_names = ["residual at constraints", "amplitude of residual"]
@@ -412,7 +412,7 @@ def _logging_callback(
         previous_best_value = study.user_attrs.get("previous_best_value", None)
         if previous_best_value != study.best_value:
             study.set_user_attr("previous_best_value", study.best_value)
-            log.info(
+            logger.info(
                 "Trial %s finished with best value: %s and parameters: %s.",
                 frozen_trial.number,
                 frozen_trial.value,
@@ -423,7 +423,7 @@ def _logging_callback(
             "Trial %s is on the Pareto front with value 1: %s, value 2: %s and "
             "parameters: %s."
         )
-        log.info(
+        logger.info(
             msg,
             frozen_trial.number,
             frozen_trial.to_numpy()[0],
@@ -467,8 +467,8 @@ def _warn_limits_better_than_trial_1_param(
     # if study direction is minimize
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
-        if trial.to_numpy()[0] > max(lower_limit_score, upper_limit_score):
-            log.info(
+        if trial.values[0] > max(lower_limit_score, upper_limit_score):  # noqa: PD011
+            logger.info(
                 msg,
                 trial.number,
                 trial.params,
@@ -482,8 +482,8 @@ def _warn_limits_better_than_trial_1_param(
     # if study direction is maximize
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
-        if trial.to_numpy()[0] < min(lower_limit_score, upper_limit_score):
-            log.info(
+        if trial.values[0] < min(lower_limit_score, upper_limit_score):  # noqa: PD011
+            logger.info(
                 msg,
                 trial.number,
                 trial.params,
@@ -535,8 +535,8 @@ def _warn_limits_better_than_trial_multi_params(
     # if study direction is minimize
     if study.direction == optuna.study.StudyDirection.MINIMIZE:
         # if current trial is worse than either limit, log a warning
-        if trial.to_numpy()[0] > max(scores):
-            log.info(
+        if trial.values[0] > max(scores):  # noqa: PD011
+            logger.info(
                 msg,
                 trial.number,
                 trial.params,
@@ -549,8 +549,8 @@ def _warn_limits_better_than_trial_multi_params(
     if study.direction == optuna.study.StudyDirection.MAXIMIZE:
         # if current trial is worse than either limit, log a warning
         try:
-            if trial.to_numpy()[0] < min(scores):
-                log.info(
+            if trial.values[0] < min(scores):  # noqa: PD011
+                logger.info(
                     msg,
                     trial.number,
                     trial.params,
@@ -741,7 +741,7 @@ def optimize_inversion_damping(
                 "if grid_search is True, n_trials must be at least 4, "
                 "resetting n_trials to 4 now."
             )
-            log.warning(msg)
+            logger.warning(msg)
             n_trials = 4
         space = np.logspace(
             np.log10(damping_limits[0]), np.log10(damping_limits[1]), n_trials
@@ -761,7 +761,7 @@ def optimize_inversion_damping(
         )
 
         # run optimization
-        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
             study = run_optuna(
                 study=study,
                 storage=storage,
@@ -777,9 +777,9 @@ def optimize_inversion_damping(
         if n_startup_trials is None:
             n_startup_trials = max(4, int(n_trials / 4))
             n_startup_trials = min(n_startup_trials, n_trials)
-        log.info("using %s startup trials", n_startup_trials)
+        logger.info("using %s startup trials", n_startup_trials)
         if n_startup_trials >= n_trials:
-            log.warning(
+            logger.warning(
                 "n_startup_trials is >= n_trials resulting in all trials sampled from "
                 "a QMC sampler instead of the GP sampler",
             )
@@ -801,7 +801,7 @@ def optimize_inversion_damping(
         study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
         study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
 
-        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
             study = run_optuna(
                 study=study,
                 storage=storage,
@@ -822,7 +822,7 @@ def optimize_inversion_damping(
                 deterministic_objective=True,
             )
         study.sampler = sampler
-        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
             study = run_optuna(
                 study=study,
                 storage=storage,
@@ -872,7 +872,7 @@ def optimize_inversion_damping(
                 logy=logy,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return study, inv_results
 
@@ -997,14 +997,14 @@ class OptimalInversionZrefDensity:
             "sets and provide the training set to `regional_grav_kwargs` and the "
             "testing set to `constraints_df` to use for scoring."
         )
-        log.debug("prism model created and forward gravity calculated")
+        logger.debug("prism model created and forward gravity calculated")
         ###
         ###
         # Single optimization
         ###
         ###
         if isinstance(self.constraints_df, pd.DataFrame):
-            log.debug("running single optimization")
+            logger.debug("running single optimization")
 
             # raise warning about using constraint point minimization for regional
             # estimation
@@ -1012,14 +1012,14 @@ class OptimalInversionZrefDensity:
                 len(reg_kwargs.get("constraints_df")) == len(self.constraints_df)  # type: ignore[arg-type]
             ):
                 assert isinstance(reg_kwargs.get("constraints_df"), pd.DataFrame)
-                log.warning(constraints_warning)
+                logger.warning(constraints_warning)
             # create starting topography model if not provided
             if self.starting_topography is None:
                 msg = (
                     "starting_topography not provided, creating a starting topography "
                     "model with the supplied starting_topography_kwargs"
                 )
-                log.info(msg)
+                logger.info(msg)
                 if starting_topography_kwargs is None:
                     msg = (
                         "must provide `starting_topography_kwargs` to be passed to the "
@@ -1028,7 +1028,7 @@ class OptimalInversionZrefDensity:
                     raise ValueError(msg)
                 if starting_topography_kwargs["method"] == "flat":
                     msg = "using zref to create a flat starting topography model"
-                    log.info(msg)
+                    logger.info(msg)
                     starting_topography_kwargs["upwards"] = zref
 
             # create starting topography model if not provided
@@ -1037,7 +1037,7 @@ class OptimalInversionZrefDensity:
                     "starting_topography not provided, creating a starting topography "
                     "model with the supplied starting_topography_kwargs"
                 )
-                log.info(msg)
+                logger.info(msg)
                 if starting_topography_kwargs is None:
                     msg = (
                         "must provide `starting_topography_kwargs` to be passed to the "
@@ -1046,7 +1046,7 @@ class OptimalInversionZrefDensity:
                     raise ValueError(msg)
                 if starting_topography_kwargs["method"] == "flat":
                     msg = "using zref to create a flat starting topography model"
-                    log.info(msg)
+                    logger.info(msg)
                     starting_topography_kwargs["upwards"] = zref
 
                 starting_topo = utils.create_topography(**starting_topography_kwargs)
@@ -1117,7 +1117,7 @@ class OptimalInversionZrefDensity:
                 **new_kwargs,
             )
             # log the termination reason
-            log.debug(
+            logger.debug(
                 "Trial %s termination reason: %s",
                 trial.number,
                 results[2]["Termination reason"],
@@ -1128,7 +1128,7 @@ class OptimalInversionZrefDensity:
         ###
         ###
         else:
-            log.debug("running k-folds optimization")
+            logger.debug("running k-folds optimization")
 
             training_constraints = reg_kwargs.pop("constraints_df", None)
 
@@ -1174,13 +1174,13 @@ class OptimalInversionZrefDensity:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
-            log.debug("Running %s folds", len(folds))
-            # log.debug(testing_constraints)
-            # log.debug(training_constraints)
+            logger.debug("Running %s folds", len(folds))
+            # logger.debug(testing_constraints)
+            # logger.debug(training_constraints)
             # for each fold, run CV
             scores = []
             for i, _ in enumerate(pbar):
-                log.debug(training_constraints[i])
+                logger.debug(training_constraints[i])
 
                 # create starting topography model if not provided
                 if self.starting_topography is None:
@@ -1188,17 +1188,17 @@ class OptimalInversionZrefDensity:
                         "starting_topography not provided, creating a starting "
                         "topography model with the supplied starting_topography_kwargs"
                     )
-                    log.info(msg)
+                    logger.info(msg)
                     if starting_topography_kwargs["method"] == "flat":
                         msg = "using zref to create a flat starting topography model"
-                        log.info(msg)
+                        logger.info(msg)
                         starting_topography_kwargs["upwards"] = zref
                     elif starting_topography_kwargs["method"] == "splines":
                         starting_topography_kwargs["constraints_df"] = (
                             training_constraints[i]
                         )
 
-                    with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+                    with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
                         starting_topo = utils.create_topography(
                             **starting_topography_kwargs,
                         )
@@ -1239,7 +1239,7 @@ class OptimalInversionZrefDensity:
                         constraints_df=training_constraints[i],
                         **reg_kwargs,
                     )
-                log.debug(grav_df)
+                logger.debug(grav_df)
                 new_kwargs = {
                     key: value
                     for key, value in kwargs.items()
@@ -1266,7 +1266,7 @@ class OptimalInversionZrefDensity:
                 scores.append(score)
 
                 # log the termination reason
-                log.debug(
+                logger.debug(
                     "Trial %s termination reason: %s",
                     trial.number,
                     results[2]["Termination reason"],
@@ -1463,7 +1463,7 @@ def optimize_inversion_zref_density_contrast(
                     "if grid_search is True, n_trials must be at least 4, "
                     "resetting n_trials to 4 now."
                 )
-                log.warning(msg)
+                logger.warning(msg)
                 n_trials = 4
 
             if zref_limits is None:
@@ -1489,7 +1489,7 @@ def optimize_inversion_zref_density_contrast(
                     "if grid_search is True, n_trials must be at least 16, "
                     "resetting n_trials to 16 now."
                 )
-                log.warning(msg)
+                logger.warning(msg)
                 n_trials = 16
 
             # n_trials needs to be square for 2 param grid search so each param has
@@ -1504,7 +1504,7 @@ def optimize_inversion_zref_density_contrast(
                     "root. Resetting n_trials to to next largest compatible value "
                     "now (%s)"
                 )
-                log.warning(msg, old_n_trials, n_trials)
+                logger.warning(msg, old_n_trials, n_trials)
 
             zref_space = np.linspace(
                 zref_limits[0],  # type: ignore[index]
@@ -1537,7 +1537,7 @@ def optimize_inversion_zref_density_contrast(
         )
 
         # run optimization
-        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
             study = run_optuna(
                 study=study,
                 storage=storage,
@@ -1555,9 +1555,9 @@ def optimize_inversion_zref_density_contrast(
         if n_startup_trials is None:
             n_startup_trials = max(num_params * 4, int(n_trials / 4))
             n_startup_trials = min(n_startup_trials, n_trials)
-        log.info("using %s startup trials", n_startup_trials)
+        logger.info("using %s startup trials", n_startup_trials)
         if n_startup_trials >= n_trials:
-            log.warning(
+            logger.warning(
                 "n_startup_trials is >= n_trials resulting in all trials sampled from "
                 "a QMC sampler instead of the GP sampler",
             )
@@ -1609,7 +1609,7 @@ def optimize_inversion_zref_density_contrast(
             study.enqueue_trial(x, skip_if_exists=True)
 
         # run optimization
-        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
             study = run_optuna(
                 study=study,
                 storage=storage,
@@ -1630,7 +1630,7 @@ def optimize_inversion_zref_density_contrast(
                 deterministic_objective=True,
             )
         study.sampler = sampler
-        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
             study = run_optuna(
                 study=study,
                 storage=storage,
@@ -1783,7 +1783,7 @@ def optimize_inversion_zref_density_contrast(
                     ),
                 )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return study, final_inversion_results
 
@@ -1853,7 +1853,7 @@ def optimize_inversion_zref_density_contrast_kfolds(
 
     # get list of training and testing dataframes
     test_dfs, train_dfs = cross_validation.kfold_df_to_lists(testing_training_df)
-    log.info("Constraints split into %s folds", len(test_dfs))
+    logger.info("Constraints split into %s folds", len(test_dfs))
 
     regional_grav_kwargs = kwargs.pop("regional_grav_kwargs", None)
 
@@ -1959,9 +1959,9 @@ class OptimalEqSourceParams:
                 **kwargs,
             )
         except ValueError as e:
-            log.error(e)
+            logger.error(e)
             msg = "score could not be calculated, returning NaN"
-            log.warning(msg)
+            logger.warning(msg)
             score = np.nan
         return score
 
@@ -2060,9 +2060,9 @@ def optimize_eq_source_params(
     # 4 x the number of parameters
     n_startup_trials = max(num_params * 4, int(n_trials / 4))
 
-    log.info("using %s startup trials", n_startup_trials)
+    logger.info("using %s startup trials", n_startup_trials)
     if n_startup_trials >= n_trials:
-        log.warning(
+        logger.warning(
             "n_startup_trials is >= n_trials resulting in all trials sampled from "
             "a QMC sampler instead of the GP sampler",
         )
@@ -2122,9 +2122,9 @@ def optimize_eq_source_params(
         **kwargs,
     )
 
-    log.debug("starting eq_source parameter optimization")
+    logger.debug("starting eq_source parameter optimization")
     # ignore skLearn LinAlg warnings
-    with (utils.environ(PYTHONWARNINGS="ignore")) and (utils.DuplicateFilter(log)):  # type: ignore[no-untyped-call, truthy-bool]
+    with (utils.environ(PYTHONWARNINGS="ignore")) and (utils.DuplicateFilter(logger)):  # type: ignore[no-untyped-call, truthy-bool]
         # run startup trials with QMC low-discrepancy sampling
         study = run_optuna(
             study=study,
@@ -2146,7 +2146,7 @@ def optimize_eq_source_params(
             deterministic_objective=True,
         )
     study.sampler = sampler
-    with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+    with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
         study = run_optuna(
             study=study,
             storage=storage,
@@ -2178,7 +2178,7 @@ def optimize_eq_source_params(
                 "No damping parameter value found in best params or kwargs, setting to "
                 "'None'"
             )
-            log.warning(msg)
+            logger.warning(msg)
             best_damping = None
     if best_depth is None:
         try:
@@ -2188,7 +2188,7 @@ def optimize_eq_source_params(
                 "No depth parameter value found in best params or kwargs, setting to "
                 "'default' (4.5 times mean distance between points)"
             )
-            log.warning(msg)
+            logger.warning(msg)
             best_depth = "default"
     if best_depth == "default":
         best_depth = 4.5 * np.mean(
@@ -2202,7 +2202,7 @@ def optimize_eq_source_params(
                 "No block size parameter value found in best params or kwargs, setting "
                 "to 'None'"
             )
-            log.warning(msg)
+            logger.warning(msg)
             best_block_size = None
 
     # refit EqSources with best parameters
@@ -2236,7 +2236,7 @@ def optimize_eq_source_params(
                 include_duration=False,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return study, eqs
 
@@ -2674,8 +2674,8 @@ class OptimizeRegionalConstraintsPointMinimization:
             except TypeError:
                 true_reg_score = None
 
-        log.debug("separate_metrics: %s", self.separate_metrics)
-        log.debug(
+        logger.debug("separate_metrics: %s", self.separate_metrics)
+        logger.debug(
             "optimize_on_true_regional_misfit: %s",
             self.optimize_on_true_regional_misfit,
         )
@@ -2822,7 +2822,7 @@ def optimize_regional_filter(
         best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
         # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
 
-        log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
@@ -2864,7 +2864,7 @@ def optimize_regional_filter(
                     ["northing", "easting"]
                 ).to_xarray().reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
 
@@ -2994,7 +2994,7 @@ def optimize_regional_trend(
         best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
         # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
 
-        log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
@@ -3036,7 +3036,7 @@ def optimize_regional_trend(
                     ["northing", "easting"]
                 ).to_xarray().reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
 
@@ -3183,7 +3183,7 @@ def optimize_regional_eq_sources(
         best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
         # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
 
-        log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
@@ -3242,7 +3242,7 @@ def optimize_regional_eq_sources(
                     ["northing", "easting"]
                 ).to_xarray().reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
 
@@ -3401,7 +3401,7 @@ def optimize_regional_constraint_point_minimization(
     test_dfs, train_dfs = cross_validation.kfold_df_to_lists(testing_training_df)
     assert len(test_dfs) == len(train_dfs)
 
-    log.info("Number of folds: %s", len(test_dfs))
+    logger.info("Number of folds: %s", len(test_dfs))
 
     # combine testing and training to get a full constraints dataframe
     constraints_df = (
@@ -3414,8 +3414,10 @@ def optimize_regional_constraint_point_minimization(
         test_dfs = test_dfs[0]
         train_dfs = train_dfs[0]
 
-    log.debug("separate_metrics: %s", separate_metrics)
-    log.debug("optimize_on_true_regional_misfit: %s", optimize_on_true_regional_misfit)
+    logger.debug("separate_metrics: %s", separate_metrics)
+    logger.debug(
+        "optimize_on_true_regional_misfit: %s", optimize_on_true_regional_misfit
+    )
 
     # enqueue limits as trials
     if grid_method == "pygmt":
@@ -3492,7 +3494,7 @@ def optimize_regional_constraint_point_minimization(
         best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
         # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
 
-        log.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     # warn if any best parameter values are at their limits
     _warn_parameter_at_limits(best_trial)
@@ -3500,7 +3502,9 @@ def optimize_regional_constraint_point_minimization(
     # log the results of the best trial
     _log_optuna_results(best_trial)
 
-    log.info("re-running regional separation with best parameters and all constraints")
+    logger.info(
+        "re-running regional separation with best parameters and all constraints"
+    )
 
     # get optimal hyperparameter values
     # if not included in optimization, get from kwargs
@@ -3572,7 +3576,7 @@ def optimize_regional_constraint_point_minimization(
                     ["northing", "easting"]
                 ).to_xarray().reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return study, resulting_grav_df, best_trial
 
@@ -3604,7 +3608,7 @@ def optimal_buffer(
                     "if grid_search is True, n_trials must be at least 4, "
                     "resetting n_trials to 4 now."
                 )
-                log.warning(msg)
+                logger.warning(msg)
                 n_trials = 4
             space = np.linspace(buffer_perc_limits[0], buffer_perc_limits[1], n_trials)
             # omit first and last since they will be enqueued separately
@@ -3651,7 +3655,7 @@ def optimal_buffer(
         warnings.filterwarnings(
             "ignore", message="logei_candidates_func is experimental"
         )
-        with utils.DuplicateFilter(log):  # type: ignore[no-untyped-call]
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
             study = run_optuna(
                 study=study,
                 storage=storage,
@@ -3691,7 +3695,7 @@ def optimal_buffer(
             plot1.show()
             plot2.show()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return study, results
 

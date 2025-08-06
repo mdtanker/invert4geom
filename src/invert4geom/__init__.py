@@ -13,9 +13,4 @@ from ._version import version as __version__
 
 __all__ = ["__version__"]
 
-
-logging.basicConfig(level=logging.INFO)
-
-log = logging.getLogger(__name__)
-
-log.addHandler(logging.NullHandler())
+logger = logging.getLogger(__name__)

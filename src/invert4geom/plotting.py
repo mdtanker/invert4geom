@@ -20,7 +20,7 @@ from numpy.typing import NDArray
 from polartoolkit import maps, profiles
 from polartoolkit import utils as polar_utils
 
-from invert4geom import log, utils
+from invert4geom import logger, utils
 
 # This ensures Plotly output works in multiple places:
 # plotly_mimetype: VS Code notebook UI
@@ -182,7 +182,7 @@ def plot_2_parameter_cv_scores_uneven(
     try:
         interp = sp.interpolate.CloughTocher2DInterpolator(list(zip(x, y)), z)
     except ValueError as e:
-        log.error(
+        logger.error(
             "Error interpolating value in plot_2_parameter_cv_scores_uneven: %s", e
         )
         return

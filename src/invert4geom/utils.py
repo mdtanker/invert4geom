@@ -20,18 +20,18 @@ from numpy.typing import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 import invert4geom
-from invert4geom import cross_validation, log, plotting
+from invert4geom import cross_validation, logger, plotting
 
 
 @contextmanager
 def _log_level(level):  # type: ignore[no-untyped-def]
     "Run body with logger at a different level"
-    saved_logger_level = log.level
-    log.setLevel(level)
+    saved_logger_level = logger.level
+    logger.setLevel(level)
     try:
         yield saved_logger_level
     finally:
-        log.setLevel(saved_logger_level)
+        logger.setLevel(saved_logger_level)
 
 
 @contextmanager
@@ -91,7 +91,7 @@ def _check_constraints_inside_gravity_region(
             "Some constraints are outside the region of the gravity data. "
             "This may result in unexpected behavior."
         )
-        log.warning(msg)
+        logger.warning(msg)
 
 
 def _check_gravity_inside_topography_region(
@@ -800,7 +800,7 @@ def enforce_confining_surface(
                 df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_above[
                     i
                 ]
-        log.info("enforced upper confining surface at %s prisms", number_enforced)
+        logger.info("enforced upper confining surface at %s prisms", number_enforced)
     if "lower_bounds" in df:
         # get max downward change allowed for each prism
         # negative values indicate max allowed downward change
@@ -814,7 +814,7 @@ def enforce_confining_surface(
                     i
                 ]
 
-        log.info("enforced lower confining surface at %s prisms", number_enforced)
+        logger.info("enforced lower confining surface at %s prisms", number_enforced)
 
     # check that when constrained correction is added to topo it doesn't intersect
     # either bounding layer
@@ -1285,12 +1285,12 @@ def best_spline_cv(
             )
             break
         except ValueError as e:
-            log.error(e)
+            logger.error(e)
             msg = "decreasing number of splits by 1 until ValueError is resolved"
-            log.warning(msg)
+            logger.warning(msg)
         if n_splits == 1:
             msg = "ValueError not resolved, fitting spline with no damping"
-            log.warning(msg)
+            logger.warning(msg)
             spline = vd.Spline(
                 damping=None,
                 **kwargs,
@@ -1304,11 +1304,11 @@ def best_spline_cv(
 
     if len(dampings) > 1:
         try:
-            log.info("Best SplineCV score: %s", spline.scores_.max())
+            logger.info("Best SplineCV score: %s", spline.scores_.max())
         except AttributeError:
-            log.info("Best SplineCV score: %s", max(dask.compute(spline.scores_)[0]))
+            logger.info("Best SplineCV score: %s", max(dask.compute(spline.scores_)[0]))
 
-        log.info("Best damping: %s", spline.damping_)
+        logger.info("Best damping: %s", spline.damping_)
 
     dampings_without_none = [i for i in dampings if i is not None]
 
@@ -1319,7 +1319,7 @@ def best_spline_cv(
             np.min(dampings_without_none),
             np.max(dampings_without_none),
         ]:
-            log.warning(
+            logger.warning(
                 "Best damping value (%s) is at the limit of provided values (%s, %s) "
                 "and thus is likely not a global minimum, expand the range of values "
                 "test to ensure the best parameter value value is found.",
@@ -1437,8 +1437,8 @@ def best_equivalent_source_damping(
         pass
 
     best = np.argmax(scores)
-    log.info("Best EqSources score: %s", scores[best])
-    log.info("Best damping: %s", dampings[best])
+    logger.info("Best EqSources score: %s", scores[best])
+    logger.info("Best damping: %s", dampings[best])
 
     dampings_without_none = [i for i in dampings if i is not None]
 
@@ -1448,7 +1448,7 @@ def best_equivalent_source_damping(
         np.min(dampings_without_none),
         np.max(dampings_without_none),
     ]:
-        log.warning(
+        logger.warning(
             "Best damping value (%s) is at the limit of provided values (%s, %s) and "
             "thus is likely not a global minimum, expand the range of values test to "
             "ensure the best parameter value value is found.",
@@ -1690,6 +1690,6 @@ def gravity_decay_buffer(
                 plot_profile=plot_profile,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return max_decay, buffer_width, int(buffer_cells), grav_ds
