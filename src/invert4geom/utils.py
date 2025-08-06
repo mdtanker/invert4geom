@@ -335,8 +335,8 @@ def filter_grid(
         }
     )
 
-    if grid.isna().any():
-        result: xr.DataArray = xr.where(grid.notna(), unpadded, grid)
+    if grid.isnull().any():  # noqa: PD003
+        result: xr.DataArray = xr.where(grid.notnull(), unpadded, grid)  # noqa: PD004
     else:
         result = unpadded.copy()
 
@@ -566,7 +566,7 @@ def normalized_mindist(
         new_min_dist = xr.where(new_min_dist.are_inside, new_min_dist, 0)
 
         # add nans back
-        new_min_dist = xr.where(min_dist.isna(), np.nan, new_min_dist)
+        new_min_dist = xr.where(min_dist.isnull(), np.nan, new_min_dist)  # noqa: PD003
 
         min_dist = new_min_dist.min_dist
 
@@ -1109,7 +1109,7 @@ def create_topography(
             ).rename({"x": "easting", "y": "northing"})
 
             grid = inside_grid.where(
-                outside_grid.isna(),
+                outside_grid.isnull(),  # noqa: PD003
                 outside_grid,
             )
 

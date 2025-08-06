@@ -424,8 +424,8 @@ def _logging_callback(
         logger.info(
             msg,
             frozen_trial.number,
-            frozen_trial.to_numpy()[0],
-            frozen_trial.to_numpy()[1],
+            frozen_trial.values[0],  # noqa: PD011
+            frozen_trial.values[1],  # noqa: PD011
             frozen_trial.params,
         )
 
@@ -538,7 +538,7 @@ def _warn_limits_better_than_trial_multi_params(
                 msg,
                 trial.number,
                 trial.params,
-                trial.to_numpy()[0],
+                trial.values[0],  # noqa: PD011
             )
         else:
             pass
@@ -552,7 +552,7 @@ def _warn_limits_better_than_trial_multi_params(
                     msg,
                     trial.number,
                     trial.params,
-                    trial.to_numpy()[0],
+                    trial.values[0],  # noqa: PD011
                 )
         except TypeError:
             pass
@@ -2818,8 +2818,8 @@ def optimize_regional_filter(
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
-        best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
-        # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
+        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
 
         logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
@@ -2855,7 +2855,7 @@ def optimize_regional_filter(
                 for i, j in enumerate(study.metric_names):
                     optuna.visualization.plot_slice(
                         study,
-                        target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
                         target_name=j,
                     ).show()
             if plot_grid is True:
@@ -2990,8 +2990,8 @@ def optimize_regional_trend(
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
-        best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
-        # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
+        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
 
         logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
@@ -3027,7 +3027,7 @@ def optimize_regional_trend(
                 for i, j in enumerate(study.metric_names):
                     optuna.visualization.plot_slice(
                         study,
-                        target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
                         target_name=j,
                     ).show()
             if plot_grid is True:
@@ -3179,8 +3179,8 @@ def optimize_regional_eq_sources(
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
-        best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
-        # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
+        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
 
         logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
@@ -3233,7 +3233,7 @@ def optimize_regional_eq_sources(
                 for i, j in enumerate(study.metric_names):
                     optuna.visualization.plot_slice(
                         study,
-                        target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
                         target_name=j,
                     ).show()
             if plot_grid is True:
@@ -3490,8 +3490,8 @@ def optimize_regional_constraint_point_minimization(
     if study._is_multi_objective() is False:  # pylint: disable=protected-access
         best_trial = study.best_trial
     else:
-        best_trial = min(study.best_trials, key=lambda t: t.to_numpy()[0])
-        # best_trial = max(study.best_trials, key=lambda t: t.to_numpy()[1])
+        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
+        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
 
         logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
@@ -3567,7 +3567,7 @@ def optimize_regional_constraint_point_minimization(
                 for i, j in enumerate(study.metric_names):
                     optuna.visualization.plot_slice(
                         study,
-                        target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
                         target_name=j,
                     ).show()
             if plot_grid is True:

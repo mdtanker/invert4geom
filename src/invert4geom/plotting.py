@@ -1298,7 +1298,7 @@ def combined_slice(
         f = optuna.visualization.plot_slice(
             study,
             params=parameter_name,
-            target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+            target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
             target_name=j,
         )
         if i == 0:
@@ -1396,7 +1396,7 @@ def plot_optuna_figures(
         for i, j in enumerate(target_names):
             optuna.visualization.plot_slice(
                 study,
-                target=lambda t: t.to_numpy()[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
+                target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
                 target_name=j,
             ).show()
         if include_duration is True and "duration" not in target_names:
