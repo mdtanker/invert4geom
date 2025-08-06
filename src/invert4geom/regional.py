@@ -10,7 +10,7 @@ import pygmt
 import verde as vd
 from numpy.typing import NDArray
 
-from invert4geom import cross_validation, log, optimization, utils
+from invert4geom import cross_validation, logger, optimization, utils
 
 
 def _check_grav_cols(grav_df: pd.DataFrame) -> None:
@@ -63,7 +63,7 @@ def regional_constant(
     pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
-    log.debug("starting regional_constant")
+    logger.debug("starting regional_constant")
     grav_df = grav_df.copy()
 
     _check_grav_cols(grav_df)
@@ -104,7 +104,7 @@ def regional_constant(
             "using median gravity misfit of constraint points for regional field: "
             f"{constant} mGal"
         )
-        log.info(msg)
+        logger.info(msg)
 
     grav_df["reg"] = constant + regional_shift  # type: ignore[operator]
 
@@ -145,7 +145,7 @@ def regional_filter(
     pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
-    log.debug("starting regional_filter")
+    logger.debug("starting regional_filter")
 
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
@@ -216,7 +216,7 @@ def regional_trend(
     pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
-    log.debug("starting regional_trend")
+    logger.debug("starting regional_trend")
 
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
@@ -294,7 +294,7 @@ def regional_eq_sources(
     pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
-    log.debug("starting regional_eq_sources")
+    logger.debug("starting regional_eq_sources")
 
     grav_df = grav_df.copy()
     _check_grav_cols(grav_df)
@@ -433,7 +433,7 @@ def regional_constraints(
     pandas.DataFrame
         grav_df with new columns 'misfit', 'reg', and 'res'.
     """
-    log.debug("starting regional_constraints")
+    logger.debug("starting regional_constraints")
 
     if constraints_df is None:
         msg = "need to provide constraints_df"
@@ -600,12 +600,12 @@ def regional_constraints(
                     **cv_kwargs,  # type: ignore[arg-type]
                 )
             except ValueError as e:
-                log.error(e)
+                logger.error(e)
                 msg = (
                     "eq sources optimization failed, using damping=None and "
                     "depth='default'"
                 )
-                log.error(msg)
+                logger.error(msg)
                 eqs = hm.EquivalentSources(
                     depth="default",
                     damping=None,
@@ -634,7 +634,7 @@ def regional_constraints(
                 weights=weights,
             )
         msg = "depth: %s, damping: %s"
-        log.debug(msg, eqs.depth, eqs.damping)
+        logger.debug(msg, eqs.depth, eqs.damping)
 
         # predict sources at gravity points and chosen height for upward continuation
         grav_df["reg"] = eqs.predict(
@@ -688,7 +688,7 @@ def regional_constraints_cv(
         a gravity dataframe with new columns 'misfit', 'reg', and 'res'.
     """
 
-    log.debug("starting regional_constraints_cv")
+    logger.debug("starting regional_constraints_cv")
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df, kwargs.get("grav_df")
@@ -751,7 +751,7 @@ def regional_separation(
     if remove_starting_grav_mean is True:
         regional_shift = np.nanmean(grav_df.starting_gravity)
         msg = f"adding {regional_shift} to the regional gravity data"
-        log.info(msg)
+        logger.info(msg)
         if "regional_shift" in kwargs:
             msg = (
                 "if remove_starting_grav_mean is True, do not provide"

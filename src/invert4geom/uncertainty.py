@@ -36,7 +36,7 @@ try:
 except ImportError:
     UQpy = None
 
-from invert4geom import inversion, log, plotting, regional, utils
+from invert4geom import inversion, logger, plotting, regional, utils
 
 
 def create_lhc(
@@ -133,7 +133,7 @@ def create_lhc(
         if v.get("dtype", None) is int:
             v["sampled_values"] = v["sampled_values"].round().astype(int)
 
-        log.info(
+        logger.info(
             "Sampled '%s' parameter values; mean: %s, min: %s, max: %s",
             k,
             v["sampled_values"].mean(),
@@ -353,7 +353,7 @@ def starting_topography_uncertainty(
                     points_style="x.3c",
                 )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return stats_ds, sampled_param_dict  # type: ignore[return-value]
     # pylint: enable=duplicate-code
@@ -550,7 +550,7 @@ def equivalent_sources_uncertainty(
                 )
                 # pylint: enable=duplicate-code
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return stats_ds, sampled_param_dict  # type: ignore[return-value]
 
@@ -728,7 +728,7 @@ def regional_misfit_uncertainty(
                 )
                 # pylint: enable=duplicate-code
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return stats_ds, sampled_param_dict  # type: ignore[return-value]
 
@@ -907,7 +907,7 @@ def full_workflow_uncertainty_loop(
                     break
         starting_run = len(params)
     except FileNotFoundError:
-        log.info(
+        logger.info(
             "No pickle files starting with '%s' found, creating new files\n", fname
         )
 
@@ -920,7 +920,7 @@ def full_workflow_uncertainty_loop(
             pass
         starting_run = 0
     if starting_run == runs:
-        log.info("all %s runs already complete, loading results from files.", runs)
+        logger.info("all %s runs already complete, loading results from files.", runs)
 
     if sample_constraints is True:
         constraints_df = new_kwargs.get("constraints_df", None)
@@ -934,7 +934,7 @@ def full_workflow_uncertainty_loop(
 
     for i in tqdm(range(starting_run, runs), desc="stochastic ensemble"):
         if i == starting_run:
-            log.info(
+            logger.info(
                 "starting stochastic uncertainty analysis at run %s of %s\n"
                 "saving results to pickle files with prefix: '%s'\n",
                 starting_run,
@@ -1057,7 +1057,7 @@ def full_workflow_uncertainty_loop(
         with pathlib.Path(f"{fname}_prism_dfs.pickle").open("ab") as file:
             pickle.dump(prism_df, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-        log.debug("Finished inversion %s of %s for stochastic ensemble", i + 1, runs)
+        logger.debug("Finished inversion %s of %s for stochastic ensemble", i + 1, runs)
 
     # load pickle files
     params = []
@@ -1285,6 +1285,6 @@ def merged_stats(
                 points_label="Topography constraints",
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return stats_ds

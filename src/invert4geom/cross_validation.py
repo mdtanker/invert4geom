@@ -22,7 +22,7 @@ from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
 import invert4geom
-from invert4geom import inversion, log, plotting, regional, utils
+from invert4geom import inversion, logger, plotting, regional, utils
 
 
 def resample_with_test_points(
@@ -100,7 +100,7 @@ def resample_with_test_points(
                     i,
                 )[i].astype(data[i].dtype)
             except pd.errors.IntCastingNaNError as e:
-                log.error(e)
+                logger.error(e)
                 df2[i] = utils.sample_grids(
                     df2,
                     grid[i],
@@ -229,7 +229,7 @@ def grav_cv_score(
                 hist=True,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return score, results
 
@@ -337,16 +337,16 @@ def grav_optimal_parameter(
                 "first score was lower than second, consider changing the lower"
                 " parameter value range"
             )
-            log.warning(msg)
+            logger.warning(msg)
 
     # print value and score pairs
-    for value, score in zip(param_values, scores):
-        log.info("%s value: %s -> Score: %s", param_name, value, score)
+    for value, score in zip(param_values, scores, strict=False):  # type: ignore[call-overload]
+        logger.info("%s value: %s -> Score: %s", param_name, value, score)
 
     best_idx = np.argmin(scores)
     best_score = scores[best_idx]
     best_param_value = param_values[best_idx]
-    log.info("Best score of %s with %s=%s", best_score, param_name, best_param_value)
+    logger.info("Best score of %s with %s=%s", best_score, param_name, best_param_value)
 
     # get best inversion result of each set
     with pathlib.Path(f"{results_fname}_trial_{best_idx}.pickle").open("rb") as f:
@@ -366,7 +366,7 @@ def grav_optimal_parameter(
     }
 
     if best_param_value in [np.min(param_values), np.max(param_values)]:
-        log.warning(
+        logger.warning(
             "Best parameter value (%s) for %s CV is at the limit of provided "
             "values (%s, %s) and thus is likely not a global minimum, expand the range "
             "of values tested to ensure the best parameter value is found.",
@@ -394,7 +394,7 @@ def grav_optimal_parameter(
                 # logy=True,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return inv_results, best_param_value, best_score, param_values, scores
 
@@ -569,7 +569,7 @@ def zref_density_optimal_parameter(
             "starting_topography not provided, will create a flat surface at each zref "
             "value to be the starting topography."
         )
-        log.warning(msg)
+        logger.warning(msg)
         if starting_topography_kwargs is None:
             msg = (
                 "must provide `starting_topography_kwargs` with items `region` "
@@ -593,7 +593,7 @@ def zref_density_optimal_parameter(
             "training set to `regional_grav_kwargs` and the testing set to "
             "constraints_df to use for scoring."
         )
-        log.warning(msg)
+        logger.warning(msg)
 
     # create all possible combinations of zref and density contrast
     parameter_pairs = list(itertools.product(zref_values, density_contrast_values))  # type: ignore[arg-type]
@@ -683,8 +683,8 @@ def zref_density_optimal_parameter(
         scores.append(score)
 
     # print parameter and score pairs
-    for (zref, density_contrast), score in zip(parameter_pairs, scores):
-        log.info(
+    for (zref, density_contrast), score in zip(parameter_pairs, scores, strict=False):  # type: ignore[call-overload]
+        logger.info(
             "Reference level: %s, Density contrast: %s -> Score: %s",
             zref,
             density_contrast,
@@ -695,7 +695,7 @@ def zref_density_optimal_parameter(
     best_score = scores[best_idx]
     best_zref = parameter_pairs[best_idx][0]
     best_density = parameter_pairs[best_idx][1]
-    log.info(
+    logger.info(
         "Best score of %s with reference level=%s and density contrast=%s",
         best_score,
         best_zref,
@@ -756,7 +756,7 @@ def zref_density_optimal_parameter(
                     # logy=True,
                 )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return inv_results, best_zref, best_density, best_score, parameter_pairs, scores
 
@@ -851,7 +851,7 @@ def random_split_test_train(
             fig.legend()
             fig.show()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return random_split_df
 
@@ -902,7 +902,7 @@ def split_test_train(
                 "n_splits must be less than or equal to the number of data points, "
                 "decreasing n_splits"
             )
-            log.warning(msg)
+            logger.warning(msg)
             n_splits = len(df)
 
         if n_splits == 1:
@@ -1000,7 +1000,7 @@ def split_test_train(
                 fig.legend()
             fig.show()  # type: ignore[attr-defined]
         except Exception as e:  # pylint: disable=broad-exception-caught
-            log.error("plotting failed with error: %s", e)
+            logger.error("plotting failed with error: %s", e)
 
     return df
 
@@ -1151,7 +1151,7 @@ def eq_sources_score(
                     "eq sources score is NaN, reducing n_splits (5) by 1 until "
                     "scoring metric is defined"
                 )
-                log.warning(msg)
+                logger.warning(msg)
 
             n_splits -= 1
             if n_splits == 0:
