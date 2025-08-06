@@ -128,11 +128,11 @@ def test_nearest_grid_fill(test_input):
     grid = dummy_grid().scalars
     grid.loc[{"easting": 100, "northing": 200}] = np.nan
     # check the grid has a hole
-    assert grid.isna().any()
+    assert grid.isnull().any()  # noqa: PD003
     # fill the hole
     filled = utils.nearest_grid_fill(grid, method=test_input, crs="epsg:3031")
     # check that the hole has been filled
-    assert not filled.isna().any()
+    assert not filled.isnull().any()  # noqa: PD003
     # check fill value is equal to one of the adjacent cells
     expected = [
         filled.loc[{"easting": 0, "northing": 200}],
@@ -191,7 +191,7 @@ def test_filter_grid_nans():
     # add a nan to the grid
     grid.loc[{"easting": 100, "northing": 200}] = np.nan
     # check the grid has a hole
-    assert grid.isna().any()
+    assert grid.isnull().any()  # noqa: PD003
     # filter the grid
     filtered = utils.filter_grid(grid, 10000, filt_type="lowpass")
     # check that the grid has been low-pass filtered
