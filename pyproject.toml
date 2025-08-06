@@ -86,13 +86,15 @@ dev = [
   "jupyterlab",
 ]
 docs = [
-  "sphinx>=4.0",
+  "sphinx>=7.0",
+  "myst_parser>=0.13",
+  "sphinx_copybutton",
+  "sphinx_autodoc_typehints",
   "sphinx-book-theme>=0.3",
   "nbsphinx",
+  "ipykernel",
   "nbconvert",
   "sphinxcontrib-bibtex",
-  "myst_parser",
-  "sphinx_copybutton",
   "sphinx_autoapi",
   "sphinx_design",
 ]
