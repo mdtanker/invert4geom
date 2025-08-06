@@ -90,7 +90,6 @@ jobs:
             scikit-learn
             optuna>=4.0
             pytorch
-            # nomkl
             joblib
             psutil
             pyvista
