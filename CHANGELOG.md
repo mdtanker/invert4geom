@@ -1,14 +1,39 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## Unreleased
-### 🧰 Chores / Maintenance
+
+### ✏️ Changed
 * replace Python-Semantic-Release with manual releases
 * fix binder env ([`d904f4e`](https://github.com/mdtanker/invert4geom/commit/d904f4e72ea033d4b1da919b0928a03471d0aa35))
 * update binder env ([`f86ba0a`](https://github.com/mdtanker/invert4geom/commit/f86ba0a2a2c977640aaf3596541a867e0601d4bc))
-### ✏️ Formatting
 * fix type checking issues ([`05654b0`](https://github.com/mdtanker/invert4geom/commit/05654b00e2a09d421adbe2a9689882ad5f472e79))
 * pre-commit fixes ([`0c9e877`](https://github.com/mdtanker/invert4geom/commit/0c9e8772a2163f7c41ef5e198e8df3b628179e71))
 
+<!--
+Below is an example for a release
+## v0.0.1
+Released on 2025-06-04
+Contributors:
+- author1
+- author2
+### 🚀 Added
+- function `function2` for calculating something important.
+### ✏️ Changed
+- Changed the lower bounds on the pandas dependency from v1.5 to v1.2.
+### ⚠️ Deprecated
+- marked `function1` as deprecated, used the new `function2` instead.
+### ❌ Removed
+- removed the previously deprecated `function0`.
+### 🐛 Fixed
+- fixed a bug in `function1` which cause some error.
+### 🛡️ Security
+- removed a password from the code.
+-->
 
 ## v1.0.1 (2025-06-04)
 ### 🐛 Bug Fixes
