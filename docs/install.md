@@ -9,7 +9,7 @@ This Binder environment can also be accessed by clicking the Binder icon in any 
 
 ## Install Python
 
-Before installing _Invert4Geom_, ensure you have Python 3.9 or greater downloaded.
+Before installing _Invert4Geom_, ensure you have Python 3.11 or greater downloaded.
 If you don't, I recommend setting up Python with Miniforge.
 See the install instructions [here](https://github.com/conda-forge/miniforge).
 
