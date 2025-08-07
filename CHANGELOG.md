@@ -5,7 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+<!-- ## Unreleased -->
+
+<!--
+Below is an example for a release
+
+## v0.0.1
+Released on 2025-06-04
+Contributors:
+- author1
+- author2
+
+### 🚀 Added
+- function `function2` for calculating something important.
+
+### ✏️ Changed
+- Changed the lower bounds on the pandas dependency from v1.5 to v1.2.
+
+### ⚠️ Deprecated
+- marked `function1` as deprecated, used the new `function2` instead.
+
+### ❌ Removed
+- removed the previously deprecated `function0`.
+
+### 🐛 Fixed
+- fixed a bug in `function1` which cause some error.
+
+### 🛡️ Security
+- removed a password from the code.
+
+-->
+## v1.1.0
+Released on 2025-08-07
+Contributors:
+- Matt Tankersley
 
 ### 🚀 Added
 - add `nomkl` dependency (except for Windows) to fix issue with PyGMT seg faulting
@@ -27,26 +60,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix binder env ([`d904f4e`](https://github.com/mdtanker/invert4geom/commit/d904f4e72ea033d4b1da919b0928a03471d0aa35))
 - remove accidentally included inset maps in figures
 
-<!--
-Below is an example for a release
-## v0.0.1
-Released on 2025-06-04
-Contributors:
-- author1
-- author2
-### 🚀 Added
-- function `function2` for calculating something important.
-### ✏️ Changed
-- Changed the lower bounds on the pandas dependency from v1.5 to v1.2.
-### ⚠️ Deprecated
-- marked `function1` as deprecated, used the new `function2` instead.
-### ❌ Removed
-- removed the previously deprecated `function0`.
-### 🐛 Fixed
-- fixed a bug in `function1` which cause some error.
-### 🛡️ Security
-- removed a password from the code.
--->
 
 ## v1.0.1 (2025-06-04)
 ### 🐛 Bug Fixes
