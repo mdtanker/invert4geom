@@ -42,6 +42,9 @@ alt="Latest version on conda-forge"/></a>
 <a href='https://readthedocs.org/projects/invert4geom/'><img src='https://readthedocs.org/projects/invert4geom/badge/?version=latest&style=flat-square' alt='Documentation Status' /></a>
  </p>
 
+ <p align="center">
+<a href="https://scientific-python.org/specs/spec-0000/"><img src="https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)" alt="SPEC 0 — Minimum Supported Dependencies"/></a>
+ </p>
 <!-- SPHINX-END-badges -->
 
 ![](docs/figures/cover_fig.png)
