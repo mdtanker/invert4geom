@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ✏️ Changed
 - replace Python-Semantic-Release with manual releases
-- drop support for Python 3.9
+- drop support for Python 3.9, 3.10 and add support for 3.11 following SPEC0
+- add minimum dependencies for some packages following SPEC0
 - use manual Zenodo releases with template for metadata
 - use new Optuna Journal Storage API and set min supported version to 4.0
 - replace some Make commands with nox
