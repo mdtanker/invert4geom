@@ -11,13 +11,13 @@ exclude: |
 
 repos:
   - repo: https://github.com/adamchainz/blacken-docs
-    rev: "1.19.1"
+    rev: "1.20.0"
     hooks:
       - id: blacken-docs
         additional_dependencies: [black==24.*]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: "v5.0.0"
+    rev: "v6.0.0"
     hooks:
       - id: check-added-large-files
         exclude: ^(docs/examples/bishop_basement_model.ipynb|docs/tutorial/05_density_optimization.ipynb|docs/tutorial/06_reference_level_optimization.ipynb|docs/examples/uieda_et_al_2017_CRUST1.ipynb|docs/quickstart.ipynb|docs/tutorial/02_simple_inversion.ipynb|docs/tutorial/08_combining_it_all.ipynb|docs/how_to/determining_buffer_width.ipynb)
@@ -49,14 +49,14 @@ repos:
         exclude: \.md|ci.yml
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.12.2"
+    rev: "v0.13.3"
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.16.1"
+    rev: "v1.18.2"
     hooks:
       - id: mypy
         files: src|tests
@@ -76,7 +76,7 @@ repos:
           --skip="*.ipynb,*.js,*.html,*.css,*.svg, *.bib,"
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: "v0.10.0.1"
+    rev: "v0.11.0.1"
     hooks:
       - id: shellcheck
 
@@ -95,7 +95,7 @@ repos:
         additional_dependencies: ["validate-pyproject-schema-store[all]"]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: "0.33.2"
+    rev: "0.34.0"
     hooks:
       - id: check-dependabot
       - id: check-github-workflows
