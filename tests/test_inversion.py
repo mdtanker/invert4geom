@@ -777,7 +777,7 @@ def test_run_inversion():
         delta_l2_norm_tolerance=1.005,
     )
 
-    topo_results, grav_results, parameters, elapsed_time = results
+    topo_results, _grav_results, _parameters, _elapsed_time = results
 
     final_topography = topo_results.set_index(["northing", "easting"]).to_xarray().topo
     starting_topography = (
