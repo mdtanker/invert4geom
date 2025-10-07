@@ -2612,7 +2612,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                     residual_constraint_score,
                     residual_amplitude_score,
                     true_reg_score,
-                    df,
+                    _df,
                 ) = cross_validation.regional_separation_score(
                     constraints_df=self.training_df,
                     testing_df=self.testing_df,
