@@ -1,3 +1,6 @@
+import pathlib
+import pickle
+
 import harmonica as hm
 import numpy as np
 import numpy.testing as npt
@@ -5,161 +8,54 @@ import pandas as pd
 import pytest
 import verde as vd
 import xarray as xr
-from numpy.typing import NDArray
-from polartoolkit import utils as polar_utils
 
-from invert4geom import inversion, synthetic
+import invert4geom
 
 pd.set_option("display.max_columns", None)
 
 ################
 ################
-# DUMMY FUNCTIONS
+# functions used for tests
 ################
 ################
 
 
-def dummy_df() -> pd.DataFrame:
-    data = {
-        "northing": [
-            200,
-            200,
-            400,
-            400,
-        ],
-        "easting": [
-            -100,
-            100,
-            -100,
-            100,
-        ],
-        "upward": [20, 20, 20, 20],
-        "observed_grav": [113, 111, 115, 114],
-        "forward_grav": [12, 13, 14, 15],
-    }
-    return pd.DataFrame(data)
-
-
-def dummy_misfit_df(regional: bool = True) -> pd.DataFrame:
-    data = {
-        "northing": [
-            200,
-            200,
-            400,
-            400,
-        ],
-        "easting": [
-            -100,
-            100,
-            -100,
-            100,
-        ],
-        "upward": [20, 20, 20, 20],
-        "gravity_anomaly": [6.5, 6.8, 7.2, 8.0],
-        "starting_gravity": [7.0, 7.0, 7.0, 7.0],
-    }
-    df = pd.DataFrame(data)
-    # calculate misfit -> [0.5, -0.2, 0.2, 2.0]
-    df["misfit"] = df.gravity_anomaly - df.starting_gravity
-    # set regional component of misfit
-    if regional is True:
-        df["reg"] = [3, 2, 1, 0]
-    elif regional is False:
-        df["reg"] = [0, 0, 0, 0]
-    # calculate residual component
-    df["res"] = df.misfit - df.reg
-    # without regional
-    #    northing  easting  upward  gravity_anomaly  starting_gravity  misfit  reg  res
-    # 0       200     -100      20            6.5           7.0    -0.5    0 -0.5
-    # 1       200      100      20            6.8           7.0    -0.2    0 -0.2
-    # 2       400     -100      20            7.2           7.0     0.2    0  0.2
-    # 3       400      100      20            8.0           7.0     1.0    0  1.0
-    # with regional
-    #    northing  easting  upward  gravity_anomaly  starting_gravity  misfit  reg  res
-    # 0       200     -100      20            6.5           7.0    -0.5    3 -3.5
-    # 1       200      100      20            6.8           7.0    -0.2    2 -2.2
-    # 2       400     -100      20            7.2           7.0     0.2    1 -0.8
-    # 3       400      100      20            8.0           7.0     1.0    0  1.0
-    return df
-
-
-def dummy_df_big() -> pd.DataFrame:
-    df = dummy_prism_layer().to_dataframe().reset_index().dropna().astype(float)
-    df = df.drop(columns=["top", "bottom", "density"])
-    df["upward"] = 20
-    df["misfit"] = [-1, -1, -1, 0, 0, 0, 1, 1, 1]
-    return df
-
-
-def dummy_prism_layer() -> xr.Dataset:
-    """
-    Create a dummy prism layer
-    """
-    (easting, northing) = vd.grid_coordinates(region=[-200, 200, 100, 500], spacing=200)
-    surface = [[0, 0, 0], [-30, -30, -30], [30, 30, 30]]
-    density = 2670.0 * np.ones_like(surface)
-    return hm.prism_layer(
-        coordinates=(easting[0, :], northing[:, 0]),
-        surface=surface,
-        reference=-100,
-        properties={"density": density},
+def true_topography() -> xr.Dataset:
+    easting = [0, 10000, 20000, 30000, 40000]
+    northing = [0, 10000, 20000, 30000]
+    surface = [
+        [637, 545, 474, 434, 430],
+        [494, 522, 448, 407, 435],
+        [646, 302, 486, 483, 443],
+        [718, 639, 439, 545, 541],
+    ]
+    return vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
     )
 
 
-def dummy_prism_layer_flat() -> xr.Dataset:
-    """
-    Create a dummy prism layer
-    """
-    (easting, northing) = vd.grid_coordinates(region=[-200, 200, 100, 500], spacing=200)
-    surface = np.zeros_like(easting)
-    density = 2670.0 * np.ones_like(surface)
-    return hm.prism_layer(
-        coordinates=(easting[0, :], northing[:, 0]),
-        surface=surface,
-        reference=-100,
-        properties={"density": density},
-    )
+def flat_topography_500m() -> xr.Dataset:
+    topo = true_topography()
+    topo["upward"] = xr.full_like(topo.upward, 500)
+    return topo
 
 
-def dummy_jacobian() -> NDArray:
-    """
-    Create a under-determined jacobian with vertical derivative values
-    """
-    grav = dummy_df()
-    prisms_layer = dummy_prism_layer_flat()
-    prisms_properties = inversion._prism_properties(prisms_layer, method="itertools")
-    jac = np.empty(
-        (len(grav), prisms_layer.top.size),
-        dtype=np.float64,
-    )
-    return inversion.jacobian_prism(
-        prisms_properties,
-        np.array(grav.easting),
-        np.array(grav.northing),
-        np.array(grav.upward),
-        0.001,
-        jac,
-    )
+def observed_gravity() -> xr.Dataset:
+    easting = [0, 10000, 20000, 30000, 40000]
+    northing = [0, 10000, 20000, 30000]
+    grav = [
+        [14.26481884, 4.71750172, -2.58265577, -6.88771746, -7.3176891],
+        [-0.22250109, 2.30457796, -5.20320139, -9.73491892, -7.06766808],
+        [15.05282739, -19.32882461, -2.17347104, -1.94021662, -6.00456422],
+        [22.84735344, 14.25307194, -6.03071986, 4.63738305, 4.47834945],
+    ]
 
-
-def dummy_jacobian_square() -> NDArray:
-    """
-    Create a square jacobian with vertical derivative values
-    """
-    grav = dummy_df_big()
-    prisms_layer = dummy_prism_layer_flat()
-    prisms_properties = inversion._prism_properties(prisms_layer, method="itertools")
-    jac = np.empty(
-        (len(grav), prisms_layer.top.size),
-        dtype=np.float64,
-    )
-    return inversion.jacobian_prism(
-        prisms_properties,
-        np.array(grav.easting),
-        np.array(grav.northing),
-        np.array(grav.upward),
-        0.001,
-        jac,
+    return vd.make_xarray_grid(
+        (easting, northing),
+        data=(grav, np.full_like(grav, 1000)),
+        data_names=("gravity_anomaly", "upward"),
     )
 
 
@@ -168,6 +64,1880 @@ def dummy_jacobian_square() -> NDArray:
 # TESTS
 ################
 ################
+
+
+def test_data_attributes():
+    """
+    test the data attributes are properly set
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+
+    attrs = {
+        "region": (0.0, 40000.0, 0.0, 30000.0),
+        "spacing": 10000.0,
+        "buffer_width": 10000.0,
+        "inner_region": (10000.0, 30000.0, 10000.0, 20000.0),
+        "dataset_type": "data",
+        "model_type": "prisms",
+    }
+    assert grav_data.attrs == attrs
+
+
+@pytest.mark.filterwarnings("ignore:Grid may have irregular spacing in the")
+@pytest.mark.filterwarnings("ignore:grid zmax can't be extracted")
+def test_model_attributes():
+    """
+    test the model attributes are properly set
+    """
+    model = true_topography()
+
+    # add mask to dataset
+    model["mask"] = xr.where(model.upward > 600, 1, 0)
+
+    model = invert4geom.inversion.create_model(
+        starting_topography=model, zref=100, density_contrast=200
+    )
+
+    attrs = {
+        "inner_region": (0.0, 10000.0, 0.0, 30000.0),
+        "zref": 100,
+        "density_contrast": 200,
+        "region": (0.0, 40000.0, 0.0, 30000.0),
+        "spacing": 10000.0,
+        "dataset_type": "model",
+        "model_type": "prisms",
+    }
+
+    assert model.attrs == attrs
+
+
+def test_inv_accessor_df():
+    """
+    test the inv accessor .df property
+    """
+    data = [
+        [0.00000000e00, 0.00000000e00, 1.42648188e01, 1.00000000e03],
+        [0.00000000e00, 1.00000000e04, 4.71750172e00, 1.00000000e03],
+        [0.00000000e00, 2.00000000e04, -2.58265577e00, 1.00000000e03],
+        [0.00000000e00, 3.00000000e04, -6.88771746e00, 1.00000000e03],
+        [0.00000000e00, 4.00000000e04, -7.31768910e00, 1.00000000e03],
+        [1.00000000e04, 0.00000000e00, -2.22501090e-01, 1.00000000e03],
+        [1.00000000e04, 1.00000000e04, 2.30457796e00, 1.00000000e03],
+        [1.00000000e04, 2.00000000e04, -5.20320139e00, 1.00000000e03],
+        [1.00000000e04, 3.00000000e04, -9.73491892e00, 1.00000000e03],
+        [1.00000000e04, 4.00000000e04, -7.06766808e00, 1.00000000e03],
+        [2.00000000e04, 0.00000000e00, 1.50528274e01, 1.00000000e03],
+        [2.00000000e04, 1.00000000e04, -1.93288246e01, 1.00000000e03],
+        [2.00000000e04, 2.00000000e04, -2.17347104e00, 1.00000000e03],
+        [2.00000000e04, 3.00000000e04, -1.94021662e00, 1.00000000e03],
+        [2.00000000e04, 4.00000000e04, -6.00456422e00, 1.00000000e03],
+        [3.00000000e04, 0.00000000e00, 2.28473534e01, 1.00000000e03],
+        [3.00000000e04, 1.00000000e04, 1.42530719e01, 1.00000000e03],
+        [3.00000000e04, 2.00000000e04, -6.03071986e00, 1.00000000e03],
+        [3.00000000e04, 3.00000000e04, 4.63738305e00, 1.00000000e03],
+        [3.00000000e04, 4.00000000e04, 4.47834945e00, 1.00000000e03],
+    ]
+    df = pd.DataFrame(
+        data, columns=["northing", "easting", "gravity_anomaly", "upward"]
+    )
+
+    grav_data = invert4geom.inversion.create_data(observed_gravity())
+
+    pd.testing.assert_frame_equal(grav_data.inv.df, df, check_dtype=False)
+
+
+def test_inv_accessor_inner_df():
+    """
+    test the inv accessor .df property
+    """
+    data = [
+        [1.00000000e04, 1.00000000e04, 2.30457796e00, 1.00000000e03],
+        [1.00000000e04, 2.00000000e04, -5.20320139e00, 1.00000000e03],
+        [1.00000000e04, 3.00000000e04, -9.73491892e00, 1.00000000e03],
+        [2.00000000e04, 1.00000000e04, -1.93288246e01, 1.00000000e03],
+        [2.00000000e04, 2.00000000e04, -2.17347104e00, 1.00000000e03],
+        [2.00000000e04, 3.00000000e04, -1.94021662e00, 1.00000000e03],
+    ]
+    df = pd.DataFrame(
+        data, columns=["northing", "easting", "gravity_anomaly", "upward"]
+    )
+
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+
+    pd.testing.assert_frame_equal(grav_data.inv.inner_df, df, check_dtype=False)
+
+
+def test_inv_accessor_inner():
+    """
+    test the inv accessor .inner property
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+
+    easting = [10000, 20000, 30000]
+    northing = [10000, 20000]
+    grav = [
+        [2.30457796, -5.20320139, -9.73491892],
+        [-19.32882461, -2.17347104, -1.94021662],
+    ]
+
+    true_ds = vd.make_xarray_grid(
+        (easting, northing),
+        data=(grav, np.full_like(grav, 1000)),
+        data_names=("gravity_anomaly", "upward"),
+    )
+    xr.testing.assert_equal(grav_data.inv.inner, true_ds)
+
+
+def test_inv_accessor_masked_df():
+    """
+    test the inv accessor .masked property
+    """
+    model = true_topography()
+    # add mask to dataset
+    model["mask"] = xr.where(model.upward > 600, 1, 0)
+
+    model = invert4geom.inversion.create_model(
+        starting_topography=model, zref=100, density_contrast=200
+    )
+
+    topo = [637.0, np.nan, 646.0, np.nan, 718.0, 639.0]
+
+    npt.assert_array_equal(topo, model.inv.masked_df.topography.to_numpy())
+
+    # check error is raised if called for data object
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    with pytest.raises(
+        ValueError, match="property is only available for the model dataset."
+    ):
+        _ = grav_data.inv.masked_df
+
+
+def test_inv_accessor_masked():
+    """
+    test the inv accessor .masked property
+    """
+    model = true_topography()
+    # add mask to dataset
+    model["mask"] = xr.where(model.upward > 600, 1, 0)
+
+    model = invert4geom.inversion.create_model(
+        starting_topography=model, zref=100, density_contrast=200
+    )
+
+    topo = [[637.0, np.nan], [646.0, np.nan], [718.0, 639.0]]
+
+    npt.assert_array_equal(topo, model.inv.masked.topography.values)
+
+    # check error is raised if called for data object
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    with pytest.raises(
+        ValueError, match="property is only available for the model dataset."
+    ):
+        _ = grav_data.inv.masked
+
+
+def test_forward_gravity():
+    """
+    test the forward gravity method
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+
+    grav_data.inv.forward_gravity(model, name="test_forward_gravity")
+
+    expected = np.array(
+        [
+            3.08686619,
+            3.15942294,
+            3.16671307,
+            3.15942294,
+            3.08686619,
+            3.15754725,
+            3.24517211,
+            3.25452486,
+            3.24517211,
+            3.15754725,
+            3.15754725,
+            3.24517211,
+            3.25452486,
+            3.24517211,
+            3.15754725,
+            3.08686619,
+            3.15942294,
+            3.16671307,
+            3.15942294,
+            3.08686619,
+        ]
+    )
+
+    npt.assert_allclose(
+        grav_data.inv.df.test_forward_gravity.to_numpy(), expected, rtol=1e-5
+    )
+
+    # check error is raised if called for model object
+    with pytest.raises(
+        ValueError, match="method is only available for the data dataset."
+    ):
+        model.inv.forward_gravity(model)
+
+    model = model.assign_attrs(model_type="no_prism")
+    with pytest.raises(ValueError, match="layer must have attribute 'model_type'"):
+        grav_data.inv.forward_gravity(model)
+
+
+def test_forward_gravity_rename():
+    """
+    test the forward gravity method is able to update an existing column
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+
+    grav_data.inv.forward_gravity(model, name="gravity_anomaly")
+
+    expected = np.array(
+        [
+            3.08686619,
+            3.15942294,
+            3.16671307,
+            3.15942294,
+            3.08686619,
+            3.15754725,
+            3.24517211,
+            3.25452486,
+            3.24517211,
+            3.15754725,
+            3.15754725,
+            3.24517211,
+            3.25452486,
+            3.24517211,
+            3.15754725,
+            3.08686619,
+            3.15942294,
+            3.16671307,
+            3.15942294,
+            3.08686619,
+        ]
+    )
+
+    npt.assert_allclose(
+        grav_data.inv.df.gravity_anomaly.to_numpy(), expected, rtol=1e-5
+    )
+
+
+def test_starting_gravity():
+    """
+    test the starting gravity method
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+
+    grav_data.inv.starting_gravity(model)
+
+    expected = np.array(
+        [
+            3.08686619,
+            3.15942294,
+            3.16671307,
+            3.15942294,
+            3.08686619,
+            3.15754725,
+            3.24517211,
+            3.25452486,
+            3.24517211,
+            3.15754725,
+            3.15754725,
+            3.24517211,
+            3.25452486,
+            3.24517211,
+            3.15754725,
+            3.08686619,
+            3.15942294,
+            3.16671307,
+            3.15942294,
+            3.08686619,
+        ]
+    )
+
+    npt.assert_allclose(
+        grav_data.inv.df.starting_gravity.to_numpy(), expected, rtol=1e-5
+    )
+    npt.assert_allclose(
+        grav_data.inv.df.starting_gravity.to_numpy(),
+        grav_data.inv.df.forward_gravity.to_numpy(),
+        rtol=1e-5,
+    )
+
+    # check error is raised if called for model object
+    with pytest.raises(
+        ValueError, match="method is only available for the data dataset."
+    ):
+        model.inv.starting_gravity(model)
+
+    model = model.assign_attrs(model_type="not_prism")
+    with pytest.raises(ValueError, match="layer must have attribute 'model_type'"):
+        grav_data.inv.starting_gravity(model)
+
+
+def test_regional_separation():
+    """
+    test the regional separation method
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+    grav_data.inv.starting_gravity(model)
+    grav_data = grav_data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    assert "reg" in grav_data.inv.df.columns
+    assert "res" in grav_data.inv.df.columns
+    assert "misfit" in grav_data.inv.df.columns
+    assert grav_data.inv.df.reg.eq(10).all()
+
+    # check error is raised if called for model object
+    with pytest.raises(
+        ValueError, match="method is only available for the data dataset."
+    ):
+        model.inv.regional_separation(
+            method="constant",
+            constant=10,
+        )
+
+
+def test_check_grav_vars_for_regional():
+    """
+    test an error is raised if gravity dataset missing variables needed for regional
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+
+    with pytest.raises(
+        AssertionError, match="`gravity dataset` needs all the following variables:"
+    ):
+        grav_data.inv.check_grav_vars_for_regional()
+
+    # check error is raised if called for model object
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+    with pytest.raises(
+        ValueError, match="method is only available for the data dataset."
+    ):
+        model.inv.check_grav_vars_for_regional()
+
+
+def test_check_grav_vars():
+    """
+    test an error is raised if gravity dataset missing variables needed for inversion
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+
+    with pytest.raises(
+        AssertionError, match="`gravity dataset` needs all the following variables:"
+    ):
+        grav_data.inv.check_grav_vars()
+
+    # check error is raised if called for model object
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+    with pytest.raises(
+        ValueError, match="method is only available for the data dataset."
+    ):
+        model.inv.check_grav_vars()
+
+
+def test_check_gravity_inside_topography_region():
+    """
+    test an error is raised if gravity is outside topography region method
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+
+    topo = flat_topography_500m()
+
+    # shift topo to east by 100km
+    topo = topo.assign_coords(easting=topo.easting + 100000)
+
+    with pytest.raises(
+        ValueError, match="Some gravity data are outside the region of the topography"
+    ):
+        grav_data.inv.check_gravity_inside_topography_region(topo)
+
+    # check error is raised if called for model object
+    model = invert4geom.inversion.create_model(
+        starting_topography=topo, zref=100, density_contrast=200
+    )
+    with pytest.raises(
+        ValueError, match="method is only available for the data dataset."
+    ):
+        model.inv.check_gravity_inside_topography_region(topo)
+
+
+def test_check_for_nans():
+    """
+    test an error is raised if residual gravity data contains NaNs
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+    grav_data.inv.starting_gravity(model)
+    grav_data = grav_data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    # replace 1 value with a nan
+    grav_data.res.loc[{"easting": 10000, "northing": 10000}] = np.nan
+
+    with pytest.raises(
+        ValueError, match="gravity dataframe contains NaN values in the 'res' column"
+    ):
+        grav_data.inv.check_for_nans()
+
+    # check error is raised if called for model object
+    with pytest.raises(
+        ValueError, match="method is only available for the data dataset."
+    ):
+        model.inv.check_for_nans()
+
+
+def test_update_gravity_and_residual():
+    """
+    test gravity variables 'res' and 'forward_gravity' are correctly updated with a new prism layer
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+    grav_data.inv.starting_gravity(model)
+    grav_data = grav_data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    # save current values for testing
+    res = grav_data.inv.df.res.to_numpy()
+    forward_gravity = grav_data.inv.df.forward_gravity.to_numpy()
+
+    # replace values to see if they get updated
+    grav_data["res"] = xr.full_like(grav_data.res, 100)
+    grav_data["forward_gravity"] = xr.full_like(grav_data.forward_gravity, 100)
+
+    # update the dataset with the model
+    grav_data.inv.update_gravity_and_residual(model)
+
+    npt.assert_equal(grav_data.inv.df.res.to_numpy(), res)
+    npt.assert_equal(grav_data.inv.df.forward_gravity.to_numpy(), forward_gravity)
+
+    # check error is raised if called for model object
+    with pytest.raises(
+        ValueError, match="method is only available for the data dataset."
+    ):
+        model.inv.update_gravity_and_residual(model)
+
+
+def test_add_topography_correction():
+    """
+    test the surface correction values are correctly added to the model dataset
+    """
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(),
+        zref=100,
+        density_contrast=200,
+    )
+    # set surface correction to be 10 m
+    step = np.full_like(model.inv.df.topography.to_numpy(), 10)
+
+    # update the dataset with the surface corrections
+    model = model.inv.add_topography_correction(step)
+
+    assert "topography_correction" in model.inv.df.columns
+    npt.assert_array_equal(model.inv.df.topography_correction.to_numpy(), step)
+
+    # check error is raised if called for data object
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    with pytest.raises(
+        ValueError, match="method is only available for the model dataset."
+    ):
+        grav_data.inv.add_topography_correction(step)
+
+
+def test_add_topography_correction_negated_density():
+    """
+    test the surface correction values are correctly added to the model dataset with
+    positive and negative densities
+    """
+    model = invert4geom.inversion.create_model(
+        starting_topography=true_topography(),
+        zref=500,  # this is in middle of topography
+        density_contrast=200,
+    )
+    # set surface correction to be 10 m
+    step = np.full_like(model.inv.df.topography.to_numpy(), 10)
+
+    # update the dataset with the surface corrections
+    model = model.inv.add_topography_correction(step)
+
+    assert "topography_correction" in model.inv.df.columns
+    npt.assert_array_equal(np.abs(model.inv.df.topography_correction.to_numpy()), step)
+
+
+def test_add_topography_correction_confining_layers():
+    """
+    test the surface correction values are correctly added to the model dataset with
+    confining layers
+    """
+    # make model confined below at 500 and above at 600 m
+    model = invert4geom.inversion.create_model(
+        starting_topography=true_topography(),
+        zref=500,
+        density_contrast=200,
+        upper_confining_layer=xr.full_like(flat_topography_500m().upward, 600),
+        lower_confining_layer=xr.full_like(flat_topography_500m().upward, 500),
+    )
+    # set surface correction to be 200 m, which would move the surface outside of both
+    # confining layers
+    step = np.full_like(model.inv.df.topography.to_numpy(), 200)
+
+    # update the dataset with the surface corrections
+    model = model.inv.add_topography_correction(step)
+
+    true_step = [
+        [-37, 55, 26, 66, 70],
+        [6, 78, 52, 93, 65],
+        [-46, 198, 14, 17, 57],
+        [-118, -39, 61, 55, 59],
+    ]
+
+    assert "topography_correction" in model.inv.df.columns
+    npt.assert_array_equal(model.topography_correction.to_numpy(), true_step)
+
+
+def test_update_model_ds():
+    """
+    test the model is update with the surface correction values
+    """
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(),
+        zref=100,
+        density_contrast=200,
+    )
+    # set surface correction to be 10 m
+    step = np.full_like(model.inv.df.topography.to_numpy(), 10)
+
+    # update the dataset with the surface corrections and update the model
+    model = model.inv.add_topography_correction(step)
+    model = model.inv.update_model_ds()
+
+    # test the topography is raised by 10m
+    npt.assert_array_equal(
+        model.topography.to_numpy(), (flat_topography_500m().upward + 10).to_numpy()
+    )
+
+    # test the top values are raised by 10m
+    npt.assert_array_equal(model.top, flat_topography_500m().upward + 10)
+
+    # check error is raised if called for data object
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    with pytest.raises(
+        ValueError, match="method is only available for the model dataset."
+    ):
+        grav_data.inv.update_model_ds()
+
+
+def test_create_data_variable_name_error_raised():
+    """
+    test the create_data function correctly raises an error
+    """
+    with pytest.raises(AssertionError, match="gravity dataset needs variables"):
+        invert4geom.inversion.create_data(
+            observed_gravity().rename({"upward": "not_upward"}),
+        )
+
+
+def test_create_data_coord_name_error_raised():
+    """
+    test the create_data function with prisms correctly raises an error
+    """
+    with pytest.raises(AssertionError, match="gravity dataset must have dims"):
+        invert4geom.inversion.create_data(
+            observed_gravity().rename({"easting": "not_easting"}),
+        )
+
+
+def test_create_data_buffer_spacing_error():
+    """
+    test the create_data function raises an error with buffer zone not being a multiple of spacing
+    """
+    with pytest.raises(
+        AssertionError,
+        match=r"buffer_width \(1111\) must be a multiple of the grid spacing",
+    ):
+        invert4geom.inversion.create_data(
+            observed_gravity(),
+            buffer_width=1111,
+        )
+
+
+def test_create_data_large_buffer_error():
+    """
+    test the create_data function raises an error with buffer zone being too big
+    """
+    with pytest.raises(
+        AssertionError,
+        match="buffer_width must be smaller than half the smallest dimension of the region",
+    ):
+        invert4geom.inversion.create_data(
+            observed_gravity(),
+            buffer_width=1000e3,
+        )
+
+
+def test_create_model():
+    """
+    test the create_model function works correctly
+    """
+    with pytest.raises(
+        ValueError, match="model_type must be either 'prisms' or 'tesseroids'"
+    ):
+        invert4geom.inversion.create_model(
+            starting_topography=flat_topography_500m(),
+            zref=100,
+            density_contrast=200,
+            model_type="not_prisms_or_tesseroids",
+        )
+
+    with pytest.raises(
+        ValueError, match=r"`density\_contrast` must be a float or xarray.DataArray"
+    ):
+        invert4geom.inversion.create_model(
+            starting_topography=flat_topography_500m(),
+            zref=100,
+            density_contrast=flat_topography_500m(),
+        )
+
+    with pytest.raises(AssertionError, match="density DataArray must have dims"):
+        invert4geom.inversion.create_model(
+            starting_topography=flat_topography_500m(),
+            zref=100,
+            density_contrast=flat_topography_500m().upward.rename(
+                {"easting": "not_easting"}
+            ),
+        )
+
+
+def test_create_model_variable_name_error_raised():
+    """
+    test the create_model function correctly raises an error
+    """
+    with pytest.raises(
+        AssertionError,
+        match="starting_topography Dataset must contain an 'upward' variable",
+    ):
+        invert4geom.inversion.create_model(
+            0,
+            2700,
+            true_topography().rename({"upward": "not_upward"}),
+        )
+
+
+def test_create_model_coord_name_error_raised():
+    """
+    test the create_model function with prisms correctly raises an error
+    """
+    with pytest.raises(
+        AssertionError,
+        match=r"topography DataArray must have dims \('easting', 'northing'\)",
+    ):
+        invert4geom.inversion.create_model(
+            0,
+            2700,
+            true_topography().rename({"easting": "not_easting"}),
+        )
+
+
+def test_inversion_properties():
+    """
+    test the inversion properties work correctly
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=1,
+    )
+    rmse = inv.rmse
+    l2_norm = inv.l2_norm
+
+    inv.invert(progressbar=False)
+
+    assert inv.already_inverted is True
+    assert rmse != inv.rmse
+    assert l2_norm != inv.l2_norm
+
+    assert inv.rmse == np.sqrt(np.mean(inv.data.inv.inner.res**2))
+    assert inv.l2_norm == np.sqrt(np.sqrt(np.mean(inv.data.inv.inner.res**2)))
+    assert inv.delta_l2_norm == l2_norm / np.sqrt(
+        np.sqrt(np.mean(inv.data.inv.inner.res**2))
+    )
+
+
+def test_end_inversion_l2_norm_increasing():
+    """
+    test the end_inversion method works correctly
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        perc_increase_limit=0.1,  # 10%
+    )
+    inv.iteration = 2
+    stats_df = pd.DataFrame(
+        data={
+            "iteration": [0, 1, 2],
+            "rmse": [10, 10, 10],
+            "l2_norm": [1, 1.08, 1.11],
+            "delta_l2_norm": [np.inf, np.inf, np.inf],
+            "iter_time_sec": [np.nan, np.nan, np.nan],
+        }
+    )
+    inv.stats_df = stats_df
+    inv.end_inversion()
+    assert inv.end is True
+    assert inv.termination_reason == ["l2-norm increasing"]
+
+    inv.perc_increase_limit = 0.2
+    inv.end_inversion()
+    assert inv.end is False
+
+
+def test_end_inversion_delta_l2_norm_tolerance_both_below():
+    """
+    test the end_inversion method works correctly
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        delta_l2_norm_tolerance=1.001,
+    )
+    inv.iteration = 2
+    stats_df = pd.DataFrame(
+        data={
+            "iteration": [0, 1, 2],
+            "rmse": [10, 10, 10],
+            "l2_norm": [1, 1, 1],
+            "delta_l2_norm": [np.inf, 1.0001, 1],
+        }
+    )
+    inv.stats_df = stats_df
+
+    inv.end_inversion()
+
+    assert inv.end is True
+    assert inv.termination_reason == ["delta l2-norm tolerance"]
+
+
+def test_end_inversion_delta_l2_norm_tolerance_one_below():
+    """
+    test the end_inversion method works correctly
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        delta_l2_norm_tolerance=1.001,
+    )
+    inv.iteration = 2
+    stats_df = pd.DataFrame(
+        data={
+            "iteration": [0, 1, 2],
+            "rmse": [10, 10, 10],
+            "l2_norm": [1, 1, 1],
+            "delta_l2_norm": [np.inf, 1.1, 1],
+        }
+    )
+    inv.stats_df = stats_df
+
+    inv.end_inversion()
+
+    assert inv.end is False
+
+
+def test_end_inversion_l2_norm_tolerance():
+    """
+    test the end_inversion method works correctly
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        l2_norm_tolerance=1,
+    )
+    inv.iteration = 2
+    stats_df = pd.DataFrame(
+        data={
+            "iteration": [0, 1, 2],
+            "rmse": [10, 10, 10],
+            "l2_norm": [1, 1, 0.9],
+            "delta_l2_norm": [np.inf, np.inf, np.inf],
+        }
+    )
+    inv.stats_df = stats_df
+    inv.end_inversion()
+    assert inv.end is True
+    assert inv.termination_reason == ["l2-norm tolerance"]
+
+    inv.l2_norm_tolerance = 0.8
+    inv.end_inversion()
+    assert inv.end is False
+
+
+def test_end_inversion_max_iterations():
+    """
+    test the end_inversion method works correctly
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=2,
+    )
+    inv.iteration = 2
+    stats_df = pd.DataFrame(
+        data={
+            "iteration": [0, 1, 2],
+            "rmse": [10, 10, 10],
+            "l2_norm": [1, 1, 1],
+            "delta_l2_norm": [np.inf, np.inf, np.inf],
+        }
+    )
+    inv.stats_df = stats_df
+
+    inv.end_inversion()
+    assert inv.end is True
+    assert inv.termination_reason == ["max iterations"]
+
+    inv.max_iterations = 3
+    inv.end_inversion()
+    assert inv.end is False
+
+
+def test_end_inversion_multiple_reasons():
+    """
+    test the end_inversion method works correctly
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=2,
+        l2_norm_tolerance=1,
+        delta_l2_norm_tolerance=1.001,
+    )
+    inv.iteration = 2
+    stats_df = pd.DataFrame(
+        data={
+            "iteration": [0, 1, 2],
+            "rmse": [10, 10, 10],
+            "l2_norm": [1, 1, 0.9],
+            "delta_l2_norm": [np.inf, 1.0001, 1],
+        }
+    )
+    inv.stats_df = stats_df
+
+    inv.end_inversion()
+    assert inv.end is True
+    assert inv.termination_reason == [
+        "delta l2-norm tolerance",
+        "l2-norm tolerance",
+        "max iterations",
+    ]
+
+
+def test_model_properties():
+    """
+    test the _model_properties function
+    """
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+    itertools_result = invert4geom.inversion._model_properties(
+        model, method="itertools"
+    )
+    forloops_result = invert4geom.inversion._model_properties(model, method="forloops")
+    generator_result = invert4geom.inversion._model_properties(
+        model, method="generator"
+    )
+    # test that the prism properties are the same with 3 methods
+    np.array_equal(itertools_result, forloops_result)
+    np.array_equal(itertools_result, generator_result)
+    # test that the first prism's properties are correct
+    np.array_equal(itertools_result[0], np.array([-300, -100, 0, 200, -100, 2670]))
+
+    with pytest.raises(ValueError, match="method must be"):
+        invert4geom.inversion._model_properties(model, method="wrong_input")
+
+
+@pytest.mark.use_numba
+def test_jacobian_error_raised():
+    """
+    test the jacobian method raises the correct errors
+    """
+    # create 2x2 topography grid
+    easting = [0, 5]
+    northing = [0, 5]
+    surface = [
+        [100, 100],
+        [100, 100],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 2x2 gravity dataset
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=([[10, 10], [10, 10]], [[100, 100], [100, 100]]),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(-1e3, 10000, topo)
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        deriv_type="annulus",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="All prism tops coincides exactly with the elevation of the gravity",
+    ):
+        inv.jacobian()
+
+    topo = xr.full_like(topo.upward, 80).to_dataset(name="upward")
+    model = invert4geom.inversion.create_model(-1e3, 10000, topo)
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        deriv_type="not_annulus_or_finite_difference",
+    )
+
+    with pytest.raises(ValueError, match="invalid string for deriv_type"):
+        inv.jacobian()
+
+
+@pytest.mark.use_numba
+def test_jacobian_annulus():
+    """
+    test the jacobian method works correctly
+    """
+    # create 2x2 topography grid
+    easting = [0, 5]
+    northing = [0, 5]
+    surface = [
+        [80, 80],
+        [100, 100],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 2x2 gravity dataset
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=([[10, 10], [10, 10]], [[120, 140], [120, 140]]),
+        data_names=("gravity_anomaly", "upward"),
+    )
+    # import matplotlib.pyplot as plt
+    # _, axs = plt.subplots(1, 2, figsize=(8, 4))
+    # topo.upward.plot(ax=axs[0])
+    # grav.upward.plot(ax=axs[1])
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(-1e3, 10000, topo)
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        deriv_type="annulus",
+    )
+    # create jacobian, will be 4x4 matrix, with a row for each grav point and a column
+    # for each prism
+    # so index (0,0) is the sensitivity of the first gravity point to the first prism
+    # and index (3,3) is the sensitivity of the last gravity point to the last prism
+    inv.jacobian()
+
+    # check shape is correct
+    assert np.shape(inv.jac) == (4, 4)
+
+    # pairs which are same distance apart should have same sensitivity
+    assert inv.jac[0, 0] == pytest.approx(inv.jac[3, 3])
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[2, 0])
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[3, 2])
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[1, 3])
+    assert inv.jac[0, 2] == pytest.approx(inv.jac[2, 3])
+    assert inv.jac[1, 0] == pytest.approx(inv.jac[3, 1])
+    assert inv.jac[1, 2] == pytest.approx(inv.jac[2, 1])
+
+    # highest sensitivity pair should be prism 2, grav 2
+    assert np.argmax(inv.jac) == 10
+
+    # lowest sensitivity pair should be prism 0, grav 3
+    assert np.argmin(inv.jac) == 12
+
+
+@pytest.mark.use_numba
+def test_jacobian_finite_difference():
+    """
+    test the jacobian method works correctly
+    """
+    # create 2x2 topography grid
+    easting = [0, 5]
+    northing = [0, 5]
+    surface = [
+        [80, 80],
+        [100, 100],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 2x2 gravity dataset
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=([[10, 10], [10, 10]], [[120, 140], [120, 140]]),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(-1e3, 10000, topo)
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        deriv_type="finite_difference",
+    )
+    # create jacobian, will be 4x4 matrix, with a row for each grav point and a column
+    # for each prism
+    # so index (0,0) is the sensitivity of the first gravity point to the first prism
+    # and index (3,3) is the sensitivity of the last gravity point to the last prism
+    inv.jacobian()
+
+    # check shape is correct
+    assert np.shape(inv.jac) == (4, 4)
+
+    # pairs which are same distance apart should have same sensitivity
+    assert inv.jac[0, 0] == pytest.approx(inv.jac[3, 3])
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[2, 0])
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[3, 2])
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[1, 3])
+    assert inv.jac[0, 2] == pytest.approx(inv.jac[2, 3])
+    assert inv.jac[1, 0] == pytest.approx(inv.jac[3, 1])
+    assert inv.jac[1, 2] == pytest.approx(inv.jac[2, 1])
+
+    # highest sensitivity pair should be prism 2, grav 2
+    assert np.argmax(inv.jac) == 10
+
+    # lowest sensitivity pair should be prism 0, grav 3
+    assert np.argmin(inv.jac) == 12
+
+
+@pytest.mark.use_numba
+def test_solver():
+    """
+    test the solver
+    """
+    # create 2x2 topography grid
+    easting = [0, 5]
+    northing = [0, 5]
+    surface = [
+        [0, 0],
+        [0, 0],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 2x2 gravity dataset
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=([[1, 1], [-1, -1]], [[100, 100], [100, 100]]),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(0, 2670, topo)
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        solver_damping=0.01,
+    )
+
+    inv.jacobian()
+
+    inv.solver()
+
+    # check step shape is correct
+    assert np.shape(inv.step) == (4,)
+
+    # check step sign matches sign of residual
+    assert np.sign(inv.step[0]) == np.sign(data.inv.df.res.to_numpy()[0])
+
+    # check approx correct values
+    # doesn't work cause of damping
+    # bouguer slab formula
+    # height = grav_anom (in mGal) / (0.42 * density_contrast (in g/cm3))
+    # 1 / (0.042 * 2.670) = 9 m
+    # print(inv.step)
+
+    inv.solver_type = "not_least_squares"
+    with pytest.raises(ValueError, match="invalid string for solver_type"):
+        inv.solver()
+
+
+def test_reinitialize_inversion():
+    """
+    test the reinitialize inversion function
+    """
+    # create 6x6 topography grid
+    easting = [0, 50, 100, 150, 200, 250]
+    northing = [0, 50, 100, 150, 200, 250]
+    surface = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 6x6 gravity dataset
+    grav_vals = [
+        [10, 10, 10, 10, 10, 10],
+        [10, 10, 9.5, 9.5, 10, 10],
+        [10, 9.5, 9, 9, 9.5, 10],
+        [10, 9.5, 9, 9, 9.5, 10],
+        [10, 10, 9.5, 9.5, 10, 10],
+        [10, 10, 10, 10, 10, 10],
+    ]
+
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=(grav_vals, np.full_like(surface, 100)),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(0, 2670, topo)
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=2,
+        solver_damping=0.01,
+        l2_norm_tolerance=0.12,
+        delta_l2_norm_tolerance=1.001,
+    )
+
+    inv.invert(
+        progressbar=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="this inversion object has already been used to run an inversion",
+    ):
+        inv.invert(
+            progressbar=False,
+        )
+
+    inv.reinitialize_inversion()
+
+    assert inv.iteration is None
+    # pd.testing.assert_series_equal(inv.data.inv.df.misfit, data.inv.df.misfit)
+    # pd.testing.assert_series_equal(inv.data.inv.df.res, data.inv.df.res)
+    # pd.testing.assert_series_equal(inv.data.inv.df.reg, data.inv.df.reg)
+    # assert not any("iter_" in var for var in inv.data.variables)
+    # npt.assert_equal(inv.model.topography.to_numpy(), model.topography.to_numpy())
+    xr.testing.assert_equal(inv.model, model)
+    xr.testing.assert_equal(inv.data, data)
+
+    # try to rerun inversion
+    inv.invert(
+        progressbar=False,
+    )
+
+    # check topography decreased in centre where residual gravity was negative
+    inner_topo = inv.model.topography.sel(
+        northing=slice(100, 150), easting=slice(100, 150)
+    )
+    assert np.mean(inner_topo) < 0
+
+
+def test_invert_annulus():
+    """
+    test the inversion
+    """
+    # create 6x6 topography grid
+    easting = [0, 50, 100, 150, 200, 250]
+    northing = [0, 50, 100, 150, 200, 250]
+    surface = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 6x6 gravity dataset
+    grav_vals = [
+        [10, 10, 10, 10, 10, 10],
+        [10, 10, 9.5, 9.5, 10, 10],
+        [10, 9.5, 9, 9, 9.5, 10],
+        [10, 9.5, 9, 9, 9.5, 10],
+        [10, 10, 9.5, 9.5, 10, 10],
+        [10, 10, 10, 10, 10, 10],
+    ]
+    # grav_vals = np.full_like(surface, -1)
+
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=(grav_vals, np.full_like(surface, 100)),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(0, 2670, topo)
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        solver_damping=0.01,
+        l2_norm_tolerance=0.12,
+        delta_l2_norm_tolerance=1.001,
+        max_iterations=10,
+        deriv_type="annulus",
+    )
+
+    inv.invert(
+        progressbar=False,
+    )
+
+    # inv.plot_inversion_results()
+    # print(inv.stats_df)
+
+    # check residual decreased
+    # assert inv.stats_df.rmse.iloc[-1] < inv.stats_df.rmse.iloc[0]
+
+    # check topography decreased in centre where residual gravity was negative
+    inner_topo = inv.model.topography.sel(
+        northing=slice(100, 150), easting=slice(100, 150)
+    )
+    assert np.mean(inner_topo) < 0
+
+    assert inv.deriv_type == "annulus"
+    # gravity anomaly of 1 mGal and density contrast of 2670 kg/m3 should result in a
+    # topography change of approx 9 m from bouguer slab formula
+    # 1 / (0.042 * 2.670) = 9 m
+    # print(np.mean(inner_topo))
+    # assert np.mean(inner_topo) == pytest.approx(-0.9, abs=0.5)
+
+
+def test_invert_finite_difference():
+    """
+    test the inversion
+    """
+    # create 6x6 topography grid
+    easting = [0, 50, 100, 150, 200, 250]
+    northing = [0, 50, 100, 150, 200, 250]
+    surface = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 6x6 gravity dataset
+    grav_vals = [
+        [10, 10, 10, 10, 10, 10],
+        [10, 10, 9.5, 9.5, 10, 10],
+        [10, 9.5, 9, 9, 9.5, 10],
+        [10, 9.5, 9, 9, 9.5, 10],
+        [10, 10, 9.5, 9.5, 10, 10],
+        [10, 10, 10, 10, 10, 10],
+    ]
+    # grav_vals = np.full_like(surface, -1)
+
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=(grav_vals, np.full_like(surface, 100)),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(0, 2670, topo)
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        solver_damping=0.01,
+        l2_norm_tolerance=0.12,
+        delta_l2_norm_tolerance=1.001,
+        max_iterations=10,
+        deriv_type="finite_difference",
+    )
+
+    inv.invert(
+        progressbar=False,
+    )
+
+    # inv.plot_inversion_results()
+    # print(inv.stats_df)
+
+    # check residual decreased
+    # assert inv.stats_df.rmse.iloc[-1] < inv.stats_df.rmse.iloc[0]
+
+    # check topography decreased in centre where residual gravity was negative
+    inner_topo = inv.model.topography.sel(
+        northing=slice(100, 150), easting=slice(100, 150)
+    )
+    assert np.mean(inner_topo) < 0
+
+    assert inv.deriv_type == "finite_difference"
+    # gravity anomaly of 1 mGal and density contrast of 2670 kg/m3 should result in a
+    # topography change of approx 9 m from bouguer slab formula
+    # 1 / (0.042 * 2.670) = 9 m
+    # print(np.mean(inner_topo))
+    # assert np.mean(inner_topo) == pytest.approx(-0.9, abs=0.5)
+
+
+def test_invert_weighting():
+    """
+    test the inversion with a weighting grid
+    """
+    # create 6x6 topography grid
+    easting = [0, 50, 100, 150, 200, 250]
+    northing = [0, 50, 100, 150, 200, 250]
+    surface = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 6x6 gravity dataset
+    grav_vals = [
+        [10, 10, 10, 10, 10, 10],
+        [10, 10, 9.5, 9.5, 10, 10],
+        [10, 9.5, 9, 9, 9.5, 10],
+        [10, 9.5, 9, 9, 9.5, 10],
+        [10, 10, 9.5, 9.5, 10, 10],
+        [10, 10, 10, 10, 10, 10],
+    ]
+
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=(grav_vals, np.full_like(surface, 100)),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(0, 2670, topo)
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+    weighting_grid = vd.make_xarray_grid(
+        (easting, northing),
+        data=[
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+            [
+                1,
+                1,
+                0,
+                1,
+                1,
+                1,
+            ],  # weight of zero at cell (100,100) so topography here shouldn't change
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+        ],
+        data_names="weight",
+    ).weight
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        solver_damping=0.01,
+        l2_norm_tolerance=0.12,
+        delta_l2_norm_tolerance=1.001,
+        max_iterations=10,
+        apply_weighting_grid=False,
+        weighting_grid=weighting_grid,
+    )
+    with pytest.raises(
+        ValueError,
+        match="weighting grid supplied but not used because apply_weighting_grid is False",
+    ):
+        inv.invert(
+            progressbar=False,
+        )
+
+    inv.weighting_grid = None
+    inv.apply_weighting_grid = True
+    with pytest.raises(
+        ValueError, match="must supply weighting grid if apply_weighting_grid is True"
+    ):
+        inv.invert(progressbar=False)
+
+    inv.weighting_grid = weighting_grid
+    inv.invert(
+        progressbar=False,
+    )
+    # check topography decreased in centre where residual gravity was negative
+    inner_topo = inv.model.topography.sel(
+        northing=slice(100, 150), easting=slice(100, 150)
+    )
+    assert np.mean(inner_topo) < 0
+
+    # check the topography didn't change at the cell that is constrained with the weighting grid
+    assert inv.model.topography.sel(northing=100, easting=100).item() == 0
+
+
+def test_invert_pickle(tmp_path):
+    """
+    test the invert function saving results to a pickle file
+    """
+    # Use tmp_path to create a temporary directory
+    temp_dir = tmp_path / "test_dir"
+    temp_dir.mkdir()
+
+    temp_file = temp_dir / "test_invert"
+    # temp_file = "test_invert"
+
+    data = invert4geom.inversion.create_data(observed_gravity(), buffer_width=10000)
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+    )
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=2,
+        solver_damping=0.01,
+        l2_norm_tolerance=0.12,
+        delta_l2_norm_tolerance=1.001,
+    )
+
+    inv.invert(progressbar=False, results_fname=temp_file)
+
+    assert pathlib.Path(f"{temp_file}.pickle").exists()
+
+    # load the pickle file
+    with pathlib.Path(f"{temp_file}.pickle").open("rb") as f:
+        inversion_results = pickle.load(f)
+
+    xr.testing.assert_equal(inv.model, inversion_results.model)
+    xr.testing.assert_equal(inv.data, inversion_results.data)
+    npt.assert_equal(inversion_results.params, inv.params)
+
+    # delete the file
+    pathlib.Path(f"{temp_file}.pickle").unlink()
+
+
+def test_invert_with_confining_layers():
+    """
+    test the inversion with confining layers
+    """
+    data = invert4geom.inversion.create_data(observed_gravity(), buffer_width=10000)
+    model = invert4geom.inversion.create_model(
+        starting_topography=flat_topography_500m(),
+        zref=100,
+        density_contrast=200,
+        upper_confining_layer=xr.full_like(flat_topography_500m().upward, 510),
+        lower_confining_layer=xr.full_like(flat_topography_500m().upward, 500),
+    )
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=2,
+        solver_damping=0.01,
+        l2_norm_tolerance=0.12,
+        delta_l2_norm_tolerance=1.001,
+    )
+
+    inv.invert(progressbar=False)
+
+    assert inv.params["Upper confining layer"] == "Enabled"
+    assert inv.params["Lower confining layer"] == "Enabled"
+
+    assert np.min(inv.model.topography) >= 500
+    assert np.max(inv.model.topography) <= 510
+
+
+def test_grav_cv_score():
+    """
+    test the grav_cv_score function
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    resampled = invert4geom.cross_validation.add_test_points(data)
+    resampled.inv.forward_gravity(model)
+    resampled = resampled.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+    inv = invert4geom.inversion.Inversion(
+        data=resampled,
+        model=model,
+        solver_damping=0.01,
+        max_iterations=2,
+    )
+    _ = inv.grav_cv_score()
+
+    assert inv.gravity_cv_best_score == pytest.approx(32.04, 0.01)
+
+    xr.testing.assert_equal(inv.model, model)
+    xr.testing.assert_equal(inv.data, resampled)
+
+
+@pytest.mark.filterwarnings("ignore:QMCSampler is experimental")
+@pytest.mark.filterwarnings("ignore:GPSampler is experimental")
+def test_optimize_inversion_damping():
+    """
+    test the optimize_inversion_damping function
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    resampled = invert4geom.cross_validation.add_test_points(data)
+    resampled.inv.forward_gravity(model)
+    resampled = resampled.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+    inv = invert4geom.inversion.Inversion(
+        data=resampled,
+        model=model,
+        max_iterations=10,
+    )
+
+    damping_cv_obj = inv.optimize_inversion_damping(
+        damping_limits=(0.001, 10),
+        n_trials=5,
+        grid_search=False,
+        plot_cv=False,
+        progressbar=False,
+        fname="test_damping",
+    )
+
+    assert damping_cv_obj.best_trial.params["damping"] == inv.solver_damping
+    assert inv.solver_damping == inv.params["Solver damping"]
+    assert inv.solver_damping == pytest.approx(0.25, rel=0.01)
+
+    assert pathlib.Path("test_damping.pickle").exists()
+    assert pathlib.Path("test_damping_study.pickle").exists()
+
+    # delete files
+    pathlib.Path("test_damping.pickle").unlink()
+    pathlib.Path("test_damping_study.pickle").unlink()
+
+    inv = invert4geom.inversion.Inversion(
+        data=resampled,
+        model=model,
+        max_iterations=10,
+    )
+
+    damping_cv_obj = inv.optimize_inversion_damping(
+        damping_limits=(0.001, 10),
+        n_trials=5,
+        grid_search=True,
+        plot_cv=False,
+        progressbar=False,
+        fname="test_damping2",
+    )
+    assert damping_cv_obj.best_trial.params["damping"] == inv.solver_damping
+    assert inv.solver_damping == inv.params["Solver damping"]
+    assert inv.solver_damping == 0.1
+    dampings = np.logspace(np.log10(0.001), np.log10(10), 5)
+    assert inv.solver_damping in dampings
+
+    # delete files
+    pathlib.Path("test_damping2.pickle").unlink()
+    pathlib.Path("test_damping2_study.pickle").unlink()
+
+
+def test_constraints_cv_score():
+    """
+    test the constraints_cv_score function
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    constraints_df = pd.DataFrame(
+        data={
+            "easting": [0, 1000],
+            "northing": [0, 1000],
+            "upward": [500, 500],
+        }
+    )
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=10,
+    )
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        solver_damping=0.01,
+        max_iterations=2,
+    )
+    _ = inv.constraints_cv_score(constraints_df)
+
+    assert inv.constraints_cv_best_score == pytest.approx(102.84, 0.01)
+
+    xr.testing.assert_equal(inv.model, model)
+    xr.testing.assert_equal(inv.data, data)
+
+
+@pytest.mark.filterwarnings("ignore:QMCSampler is experimental")
+@pytest.mark.filterwarnings("ignore:GPSampler is experimental")
+def test_optimize_inversion_zref_density_contrast():
+    """
+    test the optimize_inversion_zref_density_contrast function
+    """
+    data = invert4geom.inversion.create_data(observed_gravity())
+    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    constraints_df = pd.DataFrame(
+        data={
+            "easting": [0, 1000],
+            "northing": [0, 1000],
+            "upward": [500, 500],
+        }
+    )
+    data.inv.forward_gravity(model)
+    data = data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=10,
+    )
+
+    cv_obj = inv.optimize_inversion_zref_density_contrast(
+        zref_limits=(0, 2e3),
+        density_contrast_limits=(1000, 3000),
+        n_trials=5,
+        constraints_df=constraints_df,
+        grid_search=False,
+        plot_cv=False,
+        progressbar=False,
+        regional_grav_kwargs={"method": "constant", "constant": 0},
+        starting_topography_kwargs={
+            "method": "flat",
+            "region": inv.model.region,
+            "spacing": inv.model.spacing,
+        },
+        fname="test_zref_density_contrast",
+    )
+
+    assert cv_obj.best_trial.params["zref"] == inv.model.zref
+    assert inv.model.zref == float(inv.params["Reference level"][:-2])
+    assert inv.model.zref == pytest.approx(698.24, rel=0.01)
+
+    assert cv_obj.best_trial.params["density_contrast"] == inv.model.density_contrast
+    assert inv.model.density_contrast == float(inv.params["Density contrast(s)"][1:-7])
+    assert inv.model.density_contrast == pytest.approx(1774, rel=0.01)
+
+    assert pathlib.Path("test_zref_density_contrast.pickle").exists()
+    assert pathlib.Path("test_zref_density_contrast_study.pickle").exists()
+
+    # delete files
+    pathlib.Path("test_zref_density_contrast.pickle").unlink()
+    pathlib.Path("test_zref_density_contrast_study.pickle").unlink()
 
 
 @pytest.mark.use_numba
@@ -184,7 +1954,7 @@ def test_grav_column_der_relative_values():
     0  a-------b
        0       5
     """
-    a = inversion.grav_column_der(
+    a = invert4geom.inversion.grav_column_der(
         grav_easting=0,
         grav_northing=0,
         grav_upward=100,
@@ -194,7 +1964,7 @@ def test_grav_column_der_relative_values():
         prism_spacing=5,
         prism_density=np.array([2670]),
     )
-    b = inversion.grav_column_der(
+    b = invert4geom.inversion.grav_column_der(
         grav_easting=5,
         grav_northing=0,
         grav_upward=100,
@@ -204,7 +1974,7 @@ def test_grav_column_der_relative_values():
         prism_spacing=5,
         prism_density=np.array([2670]),
     )
-    c = inversion.grav_column_der(
+    c = invert4geom.inversion.grav_column_der(
         grav_easting=5,
         grav_northing=5,
         grav_upward=100,
@@ -214,7 +1984,7 @@ def test_grav_column_der_relative_values():
         prism_spacing=5,
         prism_density=np.array([2670]),
     )
-    d = inversion.grav_column_der(
+    d = invert4geom.inversion.grav_column_der(
         grav_easting=0,
         grav_northing=5,
         grav_upward=100,
@@ -224,7 +1994,7 @@ def test_grav_column_der_relative_values():
         prism_spacing=5,
         prism_density=np.array([2670]),
     )
-    e = inversion.grav_column_der(
+    e = invert4geom.inversion.grav_column_der(
         grav_easting=2.5,
         grav_northing=2.5,
         grav_upward=100,
@@ -234,7 +2004,7 @@ def test_grav_column_der_relative_values():
         prism_spacing=5,
         prism_density=np.array([2670]),
     )
-    f = inversion.grav_column_der(
+    f = invert4geom.inversion.grav_column_der(
         grav_easting=5,
         grav_northing=2.5,
         grav_upward=100,
@@ -244,7 +2014,7 @@ def test_grav_column_der_relative_values():
         prism_spacing=5,
         prism_density=np.array([2670]),
     )
-    g = inversion.grav_column_der(
+    g = invert4geom.inversion.grav_column_der(
         grav_easting=2.5,
         grav_northing=5,
         grav_upward=100,
@@ -254,7 +2024,7 @@ def test_grav_column_der_relative_values():
         prism_spacing=5,
         prism_density=np.array([2670]),
     )
-    h = inversion.grav_column_der(
+    h = invert4geom.inversion.grav_column_der(
         grav_easting=10,
         grav_northing=2.5,
         grav_upward=100,
@@ -280,7 +2050,7 @@ def test_grav_column_der():
     test the grav_column_der function against a small prism approximation
     """
     # expected result
-    dg_z = inversion.grav_column_der(
+    dg_z = invert4geom.inversion.grav_column_der(
         grav_easting=20,
         grav_northing=20,
         grav_upward=100,
@@ -305,185 +2075,67 @@ def test_grav_column_der():
     assert dg_z == pytest.approx(hm_dg_z, rel=1e-2)
 
 
-@pytest.mark.use_numba
-def test_jacobian_annular():
-    """
-    test the jacobian_annular function
-    """
-    grav = dummy_df()
-    prisms_layer = dummy_prism_layer()
-    prisms_df = prisms_layer.to_dataframe().reset_index().dropna().astype(float)
-    jac = np.empty(
-        (len(grav), prisms_layer.top.size),
-        dtype=np.float64,
-    )
-    jac = inversion.jacobian_annular(
-        np.array(grav.easting),
-        np.array(grav.northing),
-        np.array(grav.upward),
-        np.array(prisms_df.easting),
-        np.array(prisms_df.northing),
-        np.array(prisms_df.top),
-        np.array(prisms_df.density),
-        200,
-        jac,
-    )
-    # test that prisms above observation point have negative vertical derivatives
-    assert jac[:, -3:].max() < 0
-    # test that prisms below observation point have positive vertical derivatives
-    assert jac[:, 0:-3].min() > 0
+# @pytest.mark.use_numba
+# def test_jacobian_annular():
+#     """
+#     test the jacobian_annular function
+#     """
+#     grav_df = dummy_grav_ds().to_dataframe().reset_index()
+
+#     model = dummy_prism_layer()
+
+#     prisms_df = model.inv.df
+
+#     # prisms_df = prisms_layer.to_dataframe().reset_index().dropna().astype(float)
+#     jac = np.empty(
+#         (len(grav_df), model.top.size),
+#         dtype=np.float64,
+#     )
+#     jac = inversion.jacobian_annular(
+#         np.array(grav_df.easting),
+#         np.array(grav_df.northing),
+#         np.array(grav_df.upward),
+#         np.array(prisms_df.easting),
+#         np.array(prisms_df.northing),
+#         np.array(prisms_df.top),
+#         np.array(prisms_df.density),
+#         model.spacing,
+#         jac,
+#     )
+#     # test that prisms above observation point have negative vertical derivatives
+#     assert jac[:, -3:].max() < 0
+#     # test that prisms below observation point have positive vertical derivatives
+#     assert jac[:, 0:-3].min() > 0
 
 
-def test_prism_properties():
-    """
-    test the _prism_properties function
-    """
-    prisms_layer = dummy_prism_layer()
-    itertools_result = inversion._prism_properties(prisms_layer, method="itertools")
-    forloops_result = inversion._prism_properties(prisms_layer, method="forloops")
-    generator_result = inversion._prism_properties(prisms_layer, method="generator")
-    # test that the prism properties are the same with 3 methods
-    np.array_equal(itertools_result, forloops_result)
-    np.array_equal(itertools_result, generator_result)
-    # test that the first prism's properties are correct
-    np.array_equal(itertools_result[0], np.array([-300, -100, 0, 200, -100, 2670]))
+# solver_types = [
+#     "scipy least squares",
+#     # "verde least squares",
+#     # "scipy constrained",
+#     # "scipy nonlinear lsqr",
+#     # "CLR",
+#     # "scipy conjugate",
+#     # "numpy least squares",
+#     # "steepest descent", # off by 2 orders of magnitude
+#     # "gauss newton",
+# ]
 
 
-def test_prism_properties_error():
-    """
-    test the _prism_properties function raises the correct error
-    """
-    prisms_layer = dummy_prism_layer()
-    with pytest.raises(ValueError, match="method must be"):
-        inversion._prism_properties(prisms_layer, method="wrong_input")
-
-
-@pytest.mark.use_numba
-def test_jacobian_prism():
-    """
-    test the jacobian_prism function
-    """
-    grav = dummy_df()
-    prisms_layer = dummy_prism_layer()
-    prisms_properties = inversion._prism_properties(prisms_layer, method="itertools")
-    jac = np.empty(
-        (len(grav), prisms_layer.top.size),
-        dtype=np.float64,
-    )
-    jac = inversion.jacobian_prism(
-        prisms_properties,
-        np.array(grav.easting),
-        np.array(grav.northing),
-        np.array(grav.upward),
-        0.001,
-        jac,
-    )
-    # test that prisms above observation point have negative vertical derivatives
-    assert jac[:, -3:].max() < 0
-    # test that prisms below observation point have positive vertical derivatives
-    assert jac[:, 0:-3].min() > 0
-
-
-@pytest.mark.use_numba
-def test_jacobian():
-    """
-    test the jacobian dispatcher function
-    """
-    grav = dummy_df()
-    prisms_layer = dummy_prism_layer()
-    annulus_jac = inversion.jacobian(
-        deriv_type="annulus",
-        coordinates=grav,
-        empty_jac=None,
-        prisms_layer=prisms_layer,
-        prism_spacing=200,
-        prism_size=None,
-        prisms_properties_method="itertools",
-    )
-    prisms_jac = inversion.jacobian(
-        deriv_type="prisms",
-        coordinates=grav,
-        empty_jac=None,
-        prisms_layer=prisms_layer,
-        prism_spacing=200,
-        prism_size=0.01,
-        prisms_properties_method="itertools",
-    )
-    np.array_equal(annulus_jac, prisms_jac)
-
-
-def test_jacobian_error():
-    """
-    test the jacobian dispatcher function raises the correct error
-    """
-    prisms_layer = dummy_prism_layer()
-    with pytest.raises(ValueError, match="invalid string"):
-        inversion.jacobian(
-            deriv_type="wrong_input",
-            coordinates=dummy_df(),
-            empty_jac=None,
-            prisms_layer=prisms_layer,
-            prism_spacing=200,
-            prism_size=None,
-            prisms_properties_method="itertools",
-        )
-
-
-def test_jacobian_prism_height():
-    """
-    test the jacobian dispatcher function raises error for no prism height
-    """
-    prisms_layer = dummy_prism_layer()
-    with pytest.raises(ValueError, match="need to set"):
-        inversion.jacobian(
-            deriv_type="prisms",
-            coordinates=dummy_df(),
-            empty_jac=None,
-            prisms_layer=prisms_layer,
-            prism_spacing=200,
-            prism_size=None,
-            prisms_properties_method="itertools",
-        )
-
-
-def test_solver_square_error():
-    """
-    test the solver function raises the correct error
-    """
-    misfit = dummy_df_big().misfit.to_numpy()
-    jac = dummy_jacobian_square()
-    with pytest.raises(ValueError, match="invalid string"):
-        inversion.solver(jac, misfit, solver_type="wrong_input")
-
-
-solver_types = [
-    "scipy least squares",
-    # "verde least squares",
-    # "scipy constrained",
-    # "scipy nonlinear lsqr",
-    # "CLR",
-    # "scipy conjugate",
-    # "numpy least squares",
-    # "steepest descent", # off by 2 orders of magnitude
-    # "gauss newton",
-]
-
-
-@pytest.mark.use_numba
-@pytest.mark.parametrize("solver_type", solver_types)
-def test_solver_square(solver_type):
-    """
-    test the solver function with equal number of prisms and misfit values
-    """
-    misfit = dummy_df_big().misfit.to_numpy()
-    jac = dummy_jacobian_square()
-    correction = inversion.solver(jac, misfit, solver_type=solver_type)
-    # test that correction is negative for negative misfits
-    assert correction[0:3].max() < -9
-    # test that correction is near 0 for misfits with values of 0
-    npt.assert_allclose(correction[3:6], np.array([0, 0, 0]), atol=1e-8)
-    # test that correction is positive for positive misfits
-    assert correction[6:9].min() > 9
+# @pytest.mark.use_numba
+# @pytest.mark.parametrize("solver_type", solver_types)
+# def test_solver_square(solver_type):
+#     """
+#     test the solver function with equal number of prisms and misfit values
+#     """
+#     misfit = dummy_grav_ds_big().misfit.to_numpy()
+#     jac = dummy_jacobian_square()
+#     correction = inversion.solver(jac, misfit, solver_type=solver_type)
+#     # test that correction is negative for negative misfits
+#     assert correction[0:3].max() < -9
+#     # test that correction is near 0 for misfits with values of 0
+#     npt.assert_allclose(correction[3:6], np.array([0, 0, 0]), atol=1e-8)
+#     # test that correction is positive for positive misfits
+#     assert correction[6:9].min() > 9
 
 
 # solver_types = [
@@ -523,334 +2175,3 @@ def test_solver_square(solver_type):
 #     misfit = np.array([-100, -100, 100, 100])
 #     correction = inversion.solver(jac.copy(), misfit, solver_type=solver_type)
 #     assert correction.mean() == pytest.approx(0, abs=1e-5)
-
-
-def test_update_l2_norms_updated_l2_norm():
-    """
-    Test if the updated L2 norm is correctly computed.
-    """
-    rmse = 4.0
-    l2_norm = 2.0
-    updated_l2_norm, _ = inversion.update_l2_norms(rmse, l2_norm)
-    expected_updated_l2_norm = np.sqrt(rmse)
-    assert updated_l2_norm == pytest.approx(expected_updated_l2_norm, rel=1e-6)
-
-
-def test_update_l2_norms_updated_delta_l2_norm():
-    """
-    Test if the updated delta L2 norm is correctly computed.
-    """
-    rmse = 4.0
-    l2_norm = 2.0
-    _, updated_delta_l2_norm = inversion.update_l2_norms(rmse, l2_norm)
-    expected_updated_delta_l2_norm = l2_norm / np.sqrt(rmse)
-    assert updated_delta_l2_norm == pytest.approx(
-        expected_updated_delta_l2_norm, rel=1e-6
-    )
-
-
-def test_end_inversion_first_iteration():
-    """
-    Test that the inversion is not terminated in the first iteration even if the L2 norm
-    is below the tolerance.
-    """
-    iteration_number = 1
-    max_iterations = 100
-    l2_norms = [1.0]
-    l2_norm_tolerance = 2.0
-    delta_l2_norm = 0.01
-    previous_delta_l2_norm = 0.01
-    delta_l2_norm_tolerance = 0.01
-    perc_increase_limit = 0.20
-    end, termination_reason = inversion.end_inversion(
-        iteration_number,
-        max_iterations,
-        l2_norms,
-        l2_norm_tolerance,
-        delta_l2_norm,
-        previous_delta_l2_norm,
-        delta_l2_norm_tolerance,
-        perc_increase_limit,
-    )
-    assert not end
-    assert termination_reason == []
-
-
-def test_end_inversion_l2_norm_increasing():
-    """
-    Test that the inversion is terminated when L2 norm increases beyond a limit.
-    """
-    iteration_number = 3
-    max_iterations = 100
-    l2_norms = [1.0, 1.15, 1.21]
-    l2_norm_tolerance = 0.1
-    delta_l2_norm = 0.01
-    previous_delta_l2_norm = 0.01
-    delta_l2_norm_tolerance = 0.01
-    perc_increase_limit = 0.20
-    end, termination_reason = inversion.end_inversion(
-        iteration_number,
-        max_iterations,
-        l2_norms,
-        l2_norm_tolerance,
-        delta_l2_norm,
-        previous_delta_l2_norm,
-        delta_l2_norm_tolerance,
-        perc_increase_limit,
-    )
-    assert end
-    assert "l2-norm increasing" in termination_reason
-
-
-def test_end_inversion_delta_l2_norm_tolerance():
-    """
-    Test that the inversion is terminated when delta L2 norm is below a tolerance.
-    """
-    iteration_number = 2
-    max_iterations = 100
-    l2_norms = [1.0, 1.0]
-    l2_norm_tolerance = 0.1
-    delta_l2_norm = 0.01
-    previous_delta_l2_norm = 0.01
-    delta_l2_norm_tolerance = 0.01
-    perc_increase_limit = 0.20
-    end, termination_reason = inversion.end_inversion(
-        iteration_number,
-        max_iterations,
-        l2_norms,
-        l2_norm_tolerance,
-        delta_l2_norm,
-        previous_delta_l2_norm,
-        delta_l2_norm_tolerance,
-        perc_increase_limit,
-    )
-    assert end
-    assert "delta l2-norm tolerance" in termination_reason
-
-
-def test_end_inversion_l2_norm_tolerance():
-    """
-    Test that the inversion is terminated when L2 norm is below a tolerance.
-    """
-    iteration_number = 2
-    max_iterations = 100
-    l2_norms = [1.0, 0.05]
-    l2_norm_tolerance = 0.1
-    delta_l2_norm = 0.01
-    previous_delta_l2_norm = 0.01
-    delta_l2_norm_tolerance = 0.01
-    perc_increase_limit = 0.20
-    end, termination_reason = inversion.end_inversion(
-        iteration_number,
-        max_iterations,
-        l2_norms,
-        l2_norm_tolerance,
-        delta_l2_norm,
-        previous_delta_l2_norm,
-        delta_l2_norm_tolerance,
-        perc_increase_limit,
-    )
-    assert end
-    assert "l2-norm tolerance" in termination_reason
-
-
-def test_end_inversion_max_iterations():
-    """
-    Test that the inversion is terminated when the maximum number of iterations is
-    reached.
-    """
-    iteration_number = 101
-    max_iterations = 100
-    l2_norms = [1.0, 0.5]
-    l2_norm_tolerance = 0.1
-    delta_l2_norm = 0.01
-    previous_delta_l2_norm = 0.01
-    delta_l2_norm_tolerance = 0.01
-    perc_increase_limit = 0.20
-    end, termination_reason = inversion.end_inversion(
-        iteration_number,
-        max_iterations,
-        l2_norms,
-        l2_norm_tolerance,
-        delta_l2_norm,
-        previous_delta_l2_norm,
-        delta_l2_norm_tolerance,
-        perc_increase_limit,
-    )
-    assert end
-    assert "max iterations" in termination_reason
-
-
-def test_update_gravity_and_misfit_forward_gravity():
-    """
-    Test if the forward gravity is correctly updated.
-    """
-    gravity_df_copy = dummy_misfit_df(regional=False)
-    # without regional
-    #    northing  easting  upward  observed_grav  forward_grav  misfit  reg  res
-    # 0       200     -100      20            6.5           7.0    -0.5    0 -0.5
-    # 1       200      100      20            6.8           7.0    -0.2    0 -0.2
-    # 2       400     -100      20            7.2           7.0     0.2    0  0.2
-    # 3       400      100      20            8.0           7.0     1.0    0  1.0
-
-    updated_gravity_df = inversion.update_gravity_and_misfit(
-        gravity_df=gravity_df_copy,
-        prisms_ds=dummy_prism_layer(),
-        iteration_number=1,
-    )
-    # Check that 'iter_1_forward_grav' column is created
-    assert "iter_1_forward_grav" in updated_gravity_df.columns
-    # Ensure that the 'iter_1_forward_grav' values are as expected
-    expected_forward_grav = [7.18, 7.18, 7.70, 7.70]
-    assert updated_gravity_df.iter_1_forward_grav.tolist() == pytest.approx(
-        expected_forward_grav, 0.01
-    )
-    # Check that 'iter_1_final_misfit' column is created
-    assert "iter_1_final_misfit" in updated_gravity_df.columns
-    # Ensure that the 'iter_1_final_misfit' values are as expected
-    # since regional is 0, the new misfit should be observed grav - iter_1_forward_grav
-    expected_misfit = [-0.68, -0.38, -0.5, 0.30]
-    assert updated_gravity_df.iter_1_final_misfit.tolist() == pytest.approx(
-        expected_misfit, 0.01
-    )
-
-
-def test_update_gravity_and_misfit_forward_gravity_regional():
-    """
-    Test if the forward gravity is correctly updated with regional.
-    """
-    gravity_df_copy = dummy_misfit_df(regional=True)
-    # with regional
-    #    northing  easting  upward  observed_grav  forward_grav  misfit  reg  res
-    # 0       200     -100      20            6.5           7.0    -0.5    3 -3.5
-    # 1       200      100      20            6.8           7.0    -0.2    2 -2.2
-    # 2       400     -100      20            7.2           7.0     0.2    1 -0.8
-    # 3       400      100      20            8.0           7.0     1.0    0  1.0
-    updated_gravity_df = inversion.update_gravity_and_misfit(
-        gravity_df=gravity_df_copy,
-        prisms_ds=dummy_prism_layer(),
-        iteration_number=1,
-    )
-    # expected_forward_grav = [7.18, 7.18, 7.70, 7.70]
-    # Ensure that the 'iter_1_final_misfit' values are as expected
-    # new misfit should be observed grav - iter_5_forward_grav - regional
-    expected_misfit = [-3.68, -2.38, -1.5, 0.30]
-    assert updated_gravity_df.iter_1_final_misfit.tolist() == pytest.approx(
-        expected_misfit, 0.01
-    )
-
-
-@pytest.mark.use_numba
-def test_run_inversion():
-    """
-    Test a basic inversion
-    """
-    spacing = 10000
-    region = (0, 40000, 0, 30000)
-    true_density_contrast = 2500
-    true_zref = 500
-
-    true_topography, _, _, grav_df = synthetic.load_synthetic_model(
-        spacing=spacing,
-        region=region,
-        density_contrast=true_density_contrast,
-        zref=true_zref,
-        gravity_noise=0.2,
-        plot_gravity=False,
-    )
-
-    results = inversion.run_inversion_workflow(
-        grav_df=grav_df,
-        create_starting_topography=True,
-        starting_topography_kwargs={
-            "method": "flat",
-            "upwards": true_zref,
-            "region": region,
-            "spacing": spacing,
-        },
-        regional_grav_kwargs={"method": "constant", "constant": 0},
-        density_contrast=true_density_contrast,
-        zref=true_zref,
-        solver_damping=0.1,
-        max_iterations=20,
-        l2_norm_tolerance=0.45,
-        delta_l2_norm_tolerance=1.005,
-    )
-
-    topo_results, _grav_results, _parameters, _elapsed_time = results
-
-    final_topography = topo_results.set_index(["northing", "easting"]).to_xarray().topo
-    starting_topography = (
-        topo_results.set_index(["northing", "easting"]).to_xarray().starting_topo
-    )
-
-    starting_rmse = polar_utils.rmse(true_topography - starting_topography)
-    final_rmse = polar_utils.rmse(true_topography - final_topography)
-
-    assert starting_rmse > final_rmse
-    assert final_rmse == pytest.approx(2.78217, 0.001)
-
-
-# @pytest.mark.use_numba()
-# def test_run_inversion_returns():
-#     """
-#     Test the inversions returned values.
-#     """
-#     gravity_df = dummy_misfit_df(regional=False)
-#     prisms_ds = dummy_prism_layer()
-#     print(gravity_df)
-#     print(prisms_ds)
-#     results = inversion.run_inversion(
-#         grav_df=gravity_df,
-#         grav_data_column="observed_grav",
-#         prism_layer=prisms_ds,
-#         max_iterations=3,
-#     )
-#     prisms_df, gravity, params, elapsed_time = results
-#     # print(prisms_df)
-#     # print(gravity)
-#     # print(params)
-
-#     # check elapsed time is reasonable
-#     assert elapsed_time < 30
-
-
-# def test_update_gravity_and_misfit_forward_gravity():
-#     """
-#     Test if the forward gravity is correctly updated.
-#     """
-#     gravity_df_copy = dummy_misfit_df(regional=False)
-#     # print(dummy_misfit_df(regional=False))
-#     # print(dummy_misfit_df(regional=True))
-#     # without regional
-#     #    northing  easting  upward  observed_grav  forward_grav  misfit  reg  res
-#     # 0       200     -100      20            6.5           7.0    -0.5    0 -0.5
-#     # 1       200      100      20            6.8           7.0    -0.2    0 -0.2
-#     # 2       400     -100      20            7.2           7.0     0.2    0  0.2
-#     # 3       400      100      20            8.0           7.0     1.0    0  1.0
-#     gravity_df_copy["iter_4_forward_grav"] = [6.9, 6.9, 7.1, 7.4]
-#     # calculate misfit -> [-0.4, -0.1, 0.1, 0.6]
-#     gravity_df_copy["iter_4_final_misfit"] = gravity_df_copy.observed_grav -
-# gravity_df_copy.iter_4_forward_grav
-#     # print(gravity_df_copy)
-#     updated_gravity_df = inversion.update_gravity_and_misfit(
-#         gravity_df=gravity_df_copy,
-#         prisms_ds=dummy_prism_layer(),
-#         grav_data_column="observed_grav",
-#         iteration_number=5,
-#     )
-#     # Check that 'iter_5_forward_grav' column is created
-#     assert 'iter_5_forward_grav' in updated_gravity_df.columns
-#     # Ensure that the 'iter_5_forward_grav' values are as expected
-#     expected_forward_grav = [7.18, 7.18, 7.70, 7.70]
-#     assert updated_gravity_df.iter_5_forward_grav.tolist() == pytest.approx(
-#      expected_forward_grav, 0.01)
-#     # Check that 'iter_5_final_misfit' column is created
-#     assert 'iter_5_final_misfit' in updated_gravity_df.columns
-#     # Ensure that the 'iter_5_final_misfit' values are as expected
-#     # since regional is 0, the new misfit should be observed grav -
-#       iter_5_forward_grav
-#     expected_misfit = [-0.68, -0.38, -0.5, 0.30]
-#     assert updated_gravity_df.iter_5_final_misfit.tolist() == pytest.approx(
-#           expected_misfit, 0.01)
-#     print(updated_gravity_df)
