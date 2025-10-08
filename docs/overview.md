@@ -12,12 +12,10 @@ Here, instead, we are performing _geometric inversions_.
 Geometric inversions are essentially the opposite.
 The density values of the volumes in the discretized model remain unchanged, while their geometry is
 altered.
-Here we use layers of vertical right-rectangular prisms and alter their _tops_ and _bottoms_ during the inversion.
+Here we use layers of vertical right-rectangular prisms or tesseroids and alter their _tops_ and _bottoms_ during the inversion.
 Typically use cases for these style of inversion are modeling the topography of the Moho, the contact between sediment and basement, or the shape of the seafloor in locations where it is not easily mapped.
 
-Currently, this package is only intended to perform inversions using right rectangular prisms.
-Other types of volumes, such as tesseroids, are currently not implemented.
-If you have interest in these, please raise an issue in GitHub.
+Currently, this package is intended to perform inversions using right rectangular prisms, but support for tesseroids is coming zoom.
 
 Much of this software was developed as part of my Ph.D. thesis.
 For detailed description of the theory and implementation of this inversion, as well as many synthetic tests and a real-world application to modelling bathymetry, see chapter 3 and 4 of my thesis, available [here](https://doi.org/10.26686/wgtn.24408304).
@@ -28,25 +26,22 @@ The code was originally included in [this GitHub repository](https://github.com/
 This package has a few conventions which need to be followed for the code to work.
 1) Coordinates names for gravity data, topography, and _a priori_ constraints need to be projected units (meters) and named `easting`, `northing`, and  `upward`.
 If you use names such as `x`, `y`, and `z`, please rename them.
-2) The observed gravity data, whether its a Free Air anomaly, gravity disturbance, or some other form of anomaly, needs to be in a column called `gravity_anomaly` in the gravity dataframe. The forward gravity of your starting model (set equal to 0 if you're starting model is flat) needs to be in a column called `starting_gravity`.
-3) Similarly, the gravity misfit must be in a column called `misfit`, the regional component in a column named `reg`, and the residual component in a column named `res`.
-If you use the regional separation functions in `regional.py`, these names will automatically be used.
-4) Gravity data must be in projected coordinates and gridded!
-If your data is in geographic coordinates (latitude/longitude) and consists of only the observations points, it must be gridded into an Xarray DataArray with projected coordinates. Please see the Python packages `Harmonica` for a geophysically-informed method of gridding discrete gravity data (the Equivalent Source technique), and `Verde` for projecting data.
+2) Gravity data is expected to be gridded (interpolated), and in the form of an xarray Dataset with variable `gravity_anomaly`, defined the observed gravity data, whether its a Free Air anomaly, gravity disturbance, or some other form of anomaly, and variable `upward`, defined the elevation of the observation points. It should have coordinates `easting` and `northing`, in meters. If your data is in geographic coordinates (latitude/longitude), see python package `Verde` for reprojecting. If your data consist of point-observations (not interpolated), see the equivalent source interpolation tools of the Python package `Harmonica` for a geophysically-informed method of gridding the data.
+3) Prior to inversion, the gravity dataset must also have variables `misfit`, `reg`, and `res`, which define the gravity misfit (difference between `gravity_anomaly` and the forward gravity of the starting model), and it's regional and residual components. If you use the regional separation functions in `regional.py`, these names will automatically be used.
 
 ## Modules
 
-**Invert4Geom** consists of 8 modules:
+**Invert4Geom** consists of 8 modules, but functions intended for users to call can all be accessed through the main namespace `invert4geom`. Simply import the package `import invert4geom`, and access your function `invert4geom.function_name()`. The 8 modules are described below:
 
 ### Inversion
 
 The {mod}`.inversion` module contains the core tools for performing the inversion.
-These tools allow for creating the Jacobian matrix, performing the least squares solution, running the inversion, determining when to end the inversion, and updating the misfit and gravity values between each iteration. The core function for running an inversion is {func}`~.inversion.run_inversion`. A function is also provided ({func}`~.inversion.run_inversion_workflow`) which allows the entire inversion workflow to be run from one function. This workflow includes creating the starting topography, creating the starting prism model, calculating for the forward gravity of the prism model, calculating the misfit and regional/residual components, running a standard inversion, or running cross-validation for determining the optimal damping, reference level, or density contrast values.
+These tools allow for creating the Jacobian matrix, performing the least squares solution, running the inversion, determining when to end the inversion, and updating the misfit and gravity values between each iteration. The class `Inversion` allows access to these methods, and the core inversion functionality is accessed through class method {meth}`~.invert`.
 
 ### Cross Validation
 
-The {mod}`.cross_validation` module contains the code necessary for calculating cross-validation scores. This include scores for regional separation ({func}`~.cross_validation.regional_separation_score`), fitting equivalent sources ({func}`~.cross_validation.eq_sources_score`), inversion performance based on gravity data ({func}`~.cross_validation.grav_cv_score`) and based on constraint points ({func}`~.cross_validation.constraints_cv_score`). These scores are used in the {mod}`.optimization` module for hyperparameter optimization for regional separation parameters, damping, reference level, and density contrast values.
-It also contains functions for separating data into testing and training sets ({func}`~.cross_validation.resample_with_test_points`, {func}`~.cross_validation.random_split_test_train`) and K-folds ({func}`~.cross_validation.split_test_train`).
+The {mod}`.cross_validation` module contains the code necessary for calculating cross-validation scores. This include scores for regional separation ({func}`~.cross_validation.regional_separation_score`), fitting equivalent sources ({func}`~.cross_validation.eq_sources_score`), inversion performance based on gravity data ({meth}`~.inversion.grav_cv_score`) and based on constraint points ({meth}`~.inversion.constraints_cv_score`). These scores are used in the {mod}`.optimization` module for hyperparameter optimization for regional separation parameters, damping, reference level, and density contrast values.
+It also contains functions for separating data into testing and training sets ({meth}`~.inversion.add_test_points`, {func}`~.cross_validation.random_split_test_train`) and K-folds ({func}`~.cross_validation.split_test_train`).
 
 
 ### Regional
@@ -78,9 +73,9 @@ The {mod}`.optimization` module contains tools for performing hyperparameter opt
 * {func}`~.optimization.optimize_regional_constraint_point_minimization`
 
 **Inversion parameters**
-* {func}`~.optimization.optimize_inversion_damping`
-* {func}`~.optimization.optimize_inversion_zref_density_contrast`
-* {func}`~.optimization.optimize_inversion_zref_density_contrast_kfolds`
+* {meth}`~.inversion.optimize_inversion_damping`
+* {meth}`~.inversion.optimize_inversion_zref_density_contrast`
+* {meth}`~.inversion.optimize_inversion_zref_density_contrast_kfolds`
 
 ### Uncertainty
 
@@ -89,7 +84,7 @@ The {mod}`.uncertainty` module contains the tools needed for performing stochast
 2) the regional component of gravity misfit ({func}`~.uncertainty.regional_misfit_uncertainty`)
 3) the final inverted topography model ({func}`~.uncertainty.full_workflow_uncertainty_loop`)
 
-The stochastic approach works be performing the tasks (interpolation, regional estimation, or inversion) a range of time, each with slightly different chosen parameter values or input data values. This results in an ensemble of results. The cell-wise standard deviation (optionally weighted) is used as an estimate for uncertainty of the result.
+The stochastic approach works by performing the tasks (interpolation, regional estimation, or inversion) a range of time, each with slightly different chosen parameter values or input data values. This results in an ensemble of results. The cell-wise standard deviation (optionally weighted) is used as an estimate for uncertainty of the result.
 
 ### Plotting
 
