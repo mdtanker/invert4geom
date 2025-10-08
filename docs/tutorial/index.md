@@ -16,5 +16,6 @@ You should follow these in order, then refer to the [how-to guides](../how_to/in
 06_reference_level_optimization
 07_estimating_regional_field
 08_combining_it_all
-09_uncertainty_analysis
+09_combining_it_all_alternative_CV_technique
+10_uncertainty_analysis
 ```
