@@ -5,7 +5,6 @@ import warnings
 from contextlib import contextmanager
 
 import dask
-import deprecation
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -17,8 +16,7 @@ import xrft
 from numpy.typing import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
-import invert4geom
-from invert4geom import cross_validation, logger, plotting
+from invert4geom import logger, plotting
 
 
 @contextmanager
@@ -90,23 +88,6 @@ def _check_constraints_inside_gravity_region(
             "This may result in unexpected behavior."
         )
         logger.warning(msg)
-
-
-def _check_gravity_inside_topography_region(
-    grav_df: pd.DataFrame,
-    topography: xr.DataArray,
-) -> None:
-    """check that all gravity data is inside the region of the topography grid"""
-    topo_region = vd.get_region(
-        (topography.easting.to_numpy(), topography.northing.to_numpy())
-    )
-    inside = vd.inside((grav_df.easting, grav_df.northing), region=topo_region)
-    if not inside.all():
-        msg = (
-            "Some gravity data are outside the region of the topography grid. "
-            "This may result in unexpected behavior."
-        )
-        raise ValueError(msg)
 
 
 def rmse(data: NDArray, as_median: bool = False) -> float:
@@ -197,6 +178,20 @@ def nearest_grid_fill(
                 list(filled.dims)[1]: original_dims[1],
             }
         )
+
+
+def region_mask(
+    grid: xr.DataArray,
+    region: tuple[float, float, float, float],
+) -> xr.DataArray:
+    """
+    Make a mask with values of 1 inside a region and 0 outside the region.
+    """
+
+    mask_easting = (grid.easting >= region[0]) & (grid.easting <= region[1])
+    mask_northing = (grid.northing >= region[2]) & (grid.northing <= region[3])
+
+    return xr.where(mask_easting & mask_northing, 1, 0)
 
 
 def filter_grid(
@@ -658,66 +653,13 @@ def sample_grids(
     return df4
 
 
-def extract_prism_data(
-    prism_layer: xr.Dataset,
-) -> tuple[
-    pd.DataFrame,
-    xr.Dataset,
-    float,
-    xr.DataArray,
-]:
+def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
     """
-    extract the grid spacing from the starting prism layer and adds variables 'topo' and
-    'starting_topo', which are the both the starting topography elevation.
-    'starting_topo' remains unchanged, while 'topo' is updated at each iteration.
-
-    Parameters
-    ----------
-    prism_layer : xarray.Dataset
-       starting model prism layer
-
-    Returns
-    -------
-    prisms_df : pandas.DataFrame
-        dataframe of prism layer
-    prisms_ds : xarray.Dataset
-        prism layer with added variables 'topo' and 'starting_topo'
-    spacing : float
-        spacing of prisms
-    topo_grid : xarray.DataArray
-        grid of starting topography
+    DEPRECATED: function has been removed
     """
-
-    prisms_ds = copy.deepcopy(prism_layer.load())
-
-    # add starting topo to dataset
-    topo_grid = xr.where(prisms_ds.density > 0, prisms_ds.top, prisms_ds.bottom)
-    prisms_ds["topo"] = topo_grid
-    prisms_ds["starting_topo"] = topo_grid
-
-    # turn dataset into dataframe
-    prisms_df = prisms_ds.to_dataframe().reset_index().dropna().astype(float)
-
-    spacing = get_spacing(prisms_df)
-
-    return prisms_df, prisms_ds, spacing, topo_grid
-
-
-def get_spacing(prisms_df: pd.DataFrame) -> float:
-    """
-    Extract spacing of harmonica prism layer using a dataframe representation.
-
-    Parameters
-    ----------
-    prisms_df : pandas.DataFrame
-        dataframe of harmonica prism layer
-
-    Returns
-    -------
-    float
-        spacing of prisms
-    """
-    return float(abs(prisms_df.northing.unique()[1] - prisms_df.northing.unique()[0]))
+    # pylint: disable=W0613
+    msg = "Function `get_spacing` deprecated"
+    raise DeprecationWarning(msg)
 
 
 def sample_bounding_surfaces(
@@ -759,207 +701,6 @@ def sample_bounding_surfaces(
             sampled_name="lower_bounds",
         )
         assert len(df.lower_bounds) != 0
-    return df
-
-
-def enforce_confining_surface(
-    prisms_df: pd.DataFrame,
-    iteration_number: int,
-) -> pd.DataFrame:
-    """
-    alter the surface correction values to ensure when added to the current iteration's
-    topography it doesn't intersect optional confining layers.
-
-    Parameters
-    ----------
-    prisms_df : pandas.DataFrame
-        prism layer dataframe with optional 'upper_bounds' or 'lower_bounds' columns,
-        and current iteration's topography.
-    iteration_number : int
-        number of the current iteration, starting at 1 not 0
-
-    Returns
-    -------
-    pandas.DataFrame
-        a dataframe with added column 'iter_{iteration_number}_correction
-    """
-
-    df = prisms_df.copy()
-
-    if "upper_bounds" in df:
-        # get max upward change allowed for each prism
-        # positive values indicate max allowed upward change
-        # negative values indicate topography is already too far above upper bound
-        df["max_change_above"] = df.upper_bounds - df.topo
-        number_enforced = 0
-        for i, j in enumerate(df[f"iter_{iteration_number}_correction"]):
-            if j > df.max_change_above[i]:
-                number_enforced += 1
-                df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_above[
-                    i
-                ]
-        logger.info("enforced upper confining surface at %s prisms", number_enforced)
-    if "lower_bounds" in df:
-        # get max downward change allowed for each prism
-        # negative values indicate max allowed downward change
-        # positive values indicate topography is already too far below lower bound
-        df["max_change_below"] = df.lower_bounds - df.topo
-        number_enforced = 0
-        for i, j in enumerate(df[f"iter_{iteration_number}_correction"]):
-            if j < df.max_change_below[i]:
-                number_enforced += 1
-                df.loc[i, f"iter_{iteration_number}_correction"] = df.max_change_below[
-                    i
-                ]
-
-        logger.info("enforced lower confining surface at %s prisms", number_enforced)
-
-    # check that when constrained correction is added to topo it doesn't intersect
-    # either bounding layer
-    updated_topo = df[f"iter_{iteration_number}_correction"] + df.topo
-    if "upper_bounds" in df and np.any((df.upper_bounds - updated_topo) < -0.001):
-        msg = (
-            "Constraining didn't work and updated topography intersects upper "
-            "constraining surface"
-        )
-        raise ValueError(msg)
-    if "lower_bounds" in df and np.any((updated_topo - df.lower_bounds) < -0.001):
-        msg = (
-            "Constraining didn't work and updated topography intersects lower "
-            "constraining surface"
-        )
-        raise ValueError(msg)
-    return df
-
-
-def apply_surface_correction(
-    prisms_df: pd.DataFrame,
-    iteration_number: int,
-) -> tuple[pd.DataFrame, xr.DataArray]:
-    """
-    update the prisms dataframe and dataset with the surface correction. Ensure that
-    the updated surface doesn't intersect the optional confining surfaces.
-
-    Parameters
-    ----------
-    prisms_df : pandas.DataFrame
-        dataframe of prism properties
-    iteration_number : int
-        the iteration number, starting at 1 not 0
-
-    Returns
-    -------
-    tuple[pandas.DataFrame, xarray.DataArray]
-        updated prisms dataframe and correction grid
-    """
-
-    df = prisms_df.copy()
-
-    # for negative densities, negate the correction
-    df.loc[df.density < 0, f"iter_{iteration_number}_correction"] *= -1
-
-    # optionally constrain the surface correction with bounding surfaces
-    df = enforce_confining_surface(df, iteration_number)
-
-    # grid the corrections
-    correction_grid = (
-        df.rename(columns={f"iter_{iteration_number}_correction": "z"})
-        .set_index(["northing", "easting"])
-        .to_xarray()
-        .z
-    )
-
-    return df, correction_grid
-
-
-def update_prisms_ds(
-    prisms_ds: xr.Dataset,
-    correction_grid: xr.DataArray,
-) -> xr.Dataset:
-    """
-    apply the corrections grid and update the prism tops, bottoms, topo, and
-    densities.
-
-    Parameters
-    ----------
-    prisms_ds : xarray.Dataset
-        harmonica prism layer
-    correction_grid : xarray.DataArray
-        grid of corrections to apply to the prism layer
-
-    Returns
-    -------
-    xarray.Dataset
-        updated prism layer with new tops, bottoms, topo, and densities
-    """
-
-    ds = prisms_ds.copy()
-
-    # extract the reference value used to create the prisms
-    zref = ds.attrs.get("zref")
-
-    # extract the element-wise absolute value of the density contrast
-    density_contrast = np.fabs(ds.density)
-
-    # create topo from top and bottom
-    topo_grid = xr.where(ds.density > 0, ds.top, ds.bottom)
-
-    # apply correction to topo
-    topo_grid += correction_grid
-
-    # update the prism layer
-    ds.prism_layer.update_top_bottom(surface=topo_grid, reference=zref)
-
-    # update the density
-    ds["density"] = xr.where(ds.top > zref, density_contrast, -density_contrast)
-
-    # update the topo
-    ds["topo"] = topo_grid
-
-    return ds
-
-
-def add_updated_prism_properties(
-    prisms_df: pd.DataFrame,
-    prisms_ds: xr.Dataset,
-    iteration_number: int,
-) -> pd.DataFrame:
-    """
-    update the prisms dataframe the the new prism tops, bottoms, topo, and densities
-    the iteration number, starting at 1 not 0
-
-    Parameters
-    ----------
-    prisms_df : pandas.DataFrame
-        dataframe of prism properties
-    prisms_ds : xarray.Dataset
-        dataset of prism properties
-    iteration_number : int
-        the iteration number, starting at 1 not 0
-
-    Returns
-    -------
-    pandas.DataFrame
-        updated prism dataframe with new tops, bottoms, topo, and densities
-    """
-
-    df = prisms_df.copy()
-    ds = prisms_ds.copy()
-
-    # turn back into dataframe
-    prisms_iter = ds.to_dataframe().reset_index().dropna().astype(float)
-
-    # add new cols to dict
-    dict_of_cols = {
-        f"iter_{iteration_number}_top": prisms_iter.top,
-        f"iter_{iteration_number}_bottom": prisms_iter.bottom,
-        f"iter_{iteration_number}_density": prisms_iter.density,
-        f"iter_{iteration_number}_layer": prisms_iter.topo,
-    }
-
-    df = pd.concat([df, pd.DataFrame(dict_of_cols)], axis=1)
-    df["topo"] = prisms_iter.topo
-
     return df
 
 
@@ -1149,61 +890,91 @@ def create_topography(
     return grid
 
 
-def grids_to_prisms(
+def grid_to_model(
     surface: xr.DataArray,
     reference: float | xr.DataArray,
     density: float | int | xr.DataArray,
-    input_coord_names: tuple[str, str] = ("easting", "northing"),
+    model_type: str,
 ) -> xr.Dataset:
     """
-    create a Harmonica layer of prisms with assigned densities.
+    create a Harmonica layer of prisms or tesseroids with assigned densities.
 
     Parameters
     ----------
     surface : xarray.DataArray
-        data to use for prism surface
+        data to use for model surface
     reference : float | xarray.DataArray
-        data or constant to use for prism reference, if value is below surface, prism
-        will be inverted
+        data or constant to use for model reference, if value is below surface,
+        prism/tesseroid will be inverted
     density : float | int | xarray.DataArray
-        data or constant to use for prism densities, should be in the form of a density
+        data or constant to use for model densities, should be in the form of a density
         contrast across a surface (i.e. between air and rock).
-    input_coord_names : tuple[str, str], optional
-        names of the coordinates in the input dataarray, by default
-        ("easting", "northing")
+    model_type : str
+        type of model to create, either 'prisms' or 'tesseroids'
+
     Returns
     -------
     xarray.Dataset
-       a prisms layer with assigned densities
+       a prism or tesseroid layer with assigned densities
     """
 
-    # if density provided as a single number, use it for all prisms
+    # if density provided as a single number, use it for all prisms/tesseroids
     if isinstance(density, (float, int)):
         dens = density * np.ones_like(surface)
-    # if density provided as a dataarray, map each density to the correct prisms
+    # if density provided as a dataarray, map each density to the correct prisms/tesseroids
     elif isinstance(density, xr.DataArray):
         dens = density
     else:
         msg = "invalid density type, should be a number or DataArray"
         raise ValueError(msg)
 
-    # create layer of prisms based off input dataarrays
-    prisms = hm.prism_layer(
-        coordinates=(
-            surface[input_coord_names[0]].to_numpy(),
-            surface[input_coord_names[1]].to_numpy(),
-        ),
-        surface=surface,
-        reference=reference,
-        properties={
-            "density": dens,
-        },
-    )
+    # create layer of prisms/tesseroids based off input dataarrays
+    if model_type == "tesseroids":
+        model = hm.tesseroid_layer(
+            coordinates=(
+                surface["longitude"].to_numpy(),
+                surface["latitude"].to_numpy(),
+            ),
+            surface=surface,
+            reference=reference,
+            properties={
+                "density": dens,
+            },
+        )
+    elif model_type == "prisms":
+        model = hm.prism_layer(
+            coordinates=(
+                surface["easting"].to_numpy(),
+                surface["northing"].to_numpy(),
+            ),
+            surface=surface,
+            reference=reference,
+            properties={
+                "density": dens,
+            },
+        )
+    else:
+        msg = "model_type must be 'prisms' or 'tesseroids'"
+        raise ValueError(msg)
 
-    prisms["thickness"] = prisms.top - prisms.bottom
+    model["thickness"] = model.top - model.bottom
 
     # add zref as an attribute
-    return prisms.assign_attrs(zref=reference)
+    return model.assign_attrs(zref=reference, model_type=model_type)
+
+
+def grids_to_prisms(
+    surface: xr.DataArray,  # noqa: ARG001
+    reference: float | xr.DataArray,  # noqa: ARG001
+    density: float | int | xr.DataArray,  # noqa: ARG001
+    input_coord_names: tuple[str, str] = ("easting", "northing"),  # noqa: ARG001
+) -> None:
+    """
+    DEPRECATED: use the function `grid_to_model` instead
+    """
+    # pylint: disable=W0613
+    msg = "Function `grids_to_prisms` deprecated, use `grid_to_model` instead"
+    raise DeprecationWarning(msg)
 
 
 def best_spline_cv(
@@ -1460,19 +1231,6 @@ def best_equivalent_source_damping(
     )
 
 
-@deprecation.deprecated(
-    deprecated_in="0.8.0",
-    removed_in="0.14.0",
-    current_version=invert4geom.__version__,
-    details="function eq_sources_score has been moved to the cross_validation model.",
-)
-def eq_sources_score(kwargs: typing.Any) -> float:
-    """
-    deprecated function, use cross_validation.eq_sources_score instead.
-    """
-    return cross_validation.eq_sources_score(**kwargs)
-
-
 def gravity_decay_buffer(
     buffer_perc: float,
     spacing: float,
@@ -1481,6 +1239,7 @@ def gravity_decay_buffer(
     zref: float,
     obs_height: float,
     density: float,
+    model_type: str = "prisms",
     amplitude: float | None = None,
     wavelength: float | None = None,
     checkerboard: bool = False,
@@ -1510,6 +1269,8 @@ def gravity_decay_buffer(
         gravity observation height
     density : float
         density value for the prisms
+    model_type : str, optional
+        type of model to create, either 'prisms' or 'tesseroids', by default 'prisms'
     amplitude : float | None, optional
         if using `checkerboard`, this is the amplitude of each undulation, by default
         None
@@ -1603,16 +1364,18 @@ def gravity_decay_buffer(
         dens = dens.where(surface >= zref, -density)
 
         # create prism layer with a mean zref
-        prisms = grids_to_prisms(
+        model = grid_to_model(
             surface,
             zref,
             density=dens,
+            model_type=model_type,
         )
     else:
-        prisms = grids_to_prisms(
+        model = grid_to_model(
             surface,
             zref,
             density=density,
+            model_type=model_type,
         )
 
     # create prisms around mean value to compare to to calculate decay
@@ -1624,10 +1387,11 @@ def gravity_decay_buffer(
     dens = dens.where(surface >= zref, -density)
 
     # create prism layer with a mean zref
-    prisms_mean_zref = grids_to_prisms(
+    model_mean_zref = grid_to_model(
         surface,
         zref,
         density=dens,
+        model_type=model_type,
     )
 
     # create set of observation points
@@ -1644,28 +1408,50 @@ def gravity_decay_buffer(
             "upward": data[2].ravel(),
         }
     )
-
-    # calculate forward gravity of prism layer
-    forward_df["forward"] = prisms.prism_layer.gravity(
-        coordinates=(
-            forward_df.easting,
-            forward_df.northing,
-            forward_df.upward,
-        ),
-        field="g_z",
-        progressbar=progressbar,
-    )
+    # calculate forward gravity of layer
+    if model_type == "prisms":
+        forward_df["forward"] = model.prism_layer.gravity(
+            coordinates=(
+                forward_df.easting,
+                forward_df.northing,
+                forward_df.upward,
+            ),
+            field="g_z",
+            progressbar=progressbar,
+        )
+    elif model_type == "tesseroids":
+        forward_df["forward"] = model.tesseroid_layer.gravity(
+            coordinates=(
+                forward_df.easting,
+                forward_df.northing,
+                forward_df.upward,
+            ),
+            field="g_z",
+            progressbar=progressbar,
+        )
 
     # if checkerboard:
-    forward_df["forward_no_edge_effects"] = prisms_mean_zref.prism_layer.gravity(
-        coordinates=(
-            forward_df.easting,
-            forward_df.northing,
-            forward_df.upward,
-        ),
-        field="g_z",
-        progressbar=progressbar,
-    )
+    # calculate forward gravity of layer
+    if model_type == "prisms":
+        forward_df["forward_no_edge_effects"] = model_mean_zref.prism_layer.gravity(
+            coordinates=(
+                forward_df.easting,
+                forward_df.northing,
+                forward_df.upward,
+            ),
+            field="g_z",
+            progressbar=progressbar,
+        )
+    elif model_type == "tesseroids":
+        forward_df["forward_no_edge_effects"] = model_mean_zref.tesseroid_layer.gravity(
+            coordinates=(
+                forward_df.easting,
+                forward_df.northing,
+                forward_df.upward,
+            ),
+            field="g_z",
+            progressbar=progressbar,
+        )
 
     grav_ds = forward_df.set_index(["northing", "easting"]).to_xarray()
 
@@ -1683,7 +1469,7 @@ def gravity_decay_buffer(
         try:
             plotting.edge_effects(
                 grav_ds=grav_ds,
-                prism_layer=prisms,
+                layer=model,
                 inner_region=inner_region,
                 plot_profile=plot_profile,
             )

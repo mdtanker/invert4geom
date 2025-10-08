@@ -314,7 +314,6 @@ def starting_topography_uncertainty(
                     stdev,
                     fig_height=12,
                     region=plot_region,
-                    plot=True,
                     grid1_name="True error",
                     grid2_name="Stochastic uncertainty",
                     robust=True,
@@ -334,7 +333,6 @@ def starting_topography_uncertainty(
                     mean,
                     fig_height=12,
                     region=plot_region,
-                    plot=True,
                     grid1_name="True topography",
                     grid2_name="Mean topography",
                     robust=True,
@@ -502,7 +500,6 @@ def equivalent_sources_uncertainty(
                     stdev,
                     fig_height=12,
                     region=plot_region,
-                    plot=True,
                     grid1_name="Stochastic error",
                     grid2_name="Stochastic uncertainty",
                     robust=True,
@@ -519,7 +516,6 @@ def equivalent_sources_uncertainty(
                         stdev,
                         fig_height=12,
                         region=plot_region,
-                        plot=True,
                         grid1_name="Deterministic error",
                         grid2_name="Stochastic uncertainty",
                         robust=True,
@@ -535,7 +531,6 @@ def equivalent_sources_uncertainty(
                     mean,
                     fig_height=12,
                     region=plot_region,
-                    plot=True,
                     grid1_name="True gravity",
                     grid2_name="Mean gravity",
                     robust=True,
@@ -599,7 +594,10 @@ def regional_misfit_uncertainty(
     """
     new_kwargs = copy.deepcopy(kwargs)
     constraints_df = new_kwargs.pop("constraints_df", None)
-    grav_df = new_kwargs.pop("grav_df", None)
+    grav_ds = new_kwargs.pop("grav_ds", None)
+    if isinstance(grav_ds, pd.DataFrame):
+        msg = "DataFrame representation of gravity data is deprecated, use a dataset created through function `create_data`"
+        raise DeprecationWarning(msg)
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -611,33 +609,30 @@ def regional_misfit_uncertainty(
     else:
         sampled_param_dict = None
 
-    # print(sampled_param_dict)
     regional_grids = []
     for i in tqdm(range(runs), desc="starting regional ensemble"):
         # create random generator
         rand = np.random.default_rng(seed=i)
         if sample_gravity is True:
-            sampled_grav = grav_df.copy()
+            sampled_grav = grav_ds.copy()
             gobs_sampled = rand.normal(
                 sampled_grav.gravity_anomaly, sampled_grav.uncert
             )
             sampled_grav["gravity_anomaly"] = gobs_sampled
-            grav_df = sampled_grav.copy()
+            grav_ds = sampled_grav.copy()
 
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
                 new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-            grav_df = regional.regional_separation(
+            grav_ds = regional.regional_separation(
                 constraints_df=constraints_df,
-                grav_df=grav_df,
+                grav_ds=grav_ds,
                 **new_kwargs,
             )
 
-        regional_grids.append(
-            grav_df.set_index(["northing", "easting"]).to_xarray().reg
-        )
+        regional_grids.append(grav_ds.reg)
 
     # merge all topos into 1 dataset
     merged = merge_simulation_results(regional_grids)
@@ -689,7 +684,6 @@ def regional_misfit_uncertainty(
                     stdev,
                     fig_height=12,
                     region=plot_region,
-                    plot=True,
                     grid1_name="True error",
                     grid2_name="Stochastic uncertainty",
                     robust=True,
@@ -709,7 +703,6 @@ def regional_misfit_uncertainty(
                     mean,
                     fig_height=12,
                     region=plot_region,
-                    plot=True,
                     grid1_name="True regional",
                     grid2_name="Mean regional",
                     robust=True,
@@ -732,21 +725,21 @@ def regional_misfit_uncertainty(
 
 
 def full_workflow_uncertainty_loop(
+    inversion_object: inversion.Inversion,
     runs: int,
     fname: str | None = None,
     sample_gravity: bool = False,
     gravity_filter_width: float | None = None,
+    constraints_df: pd.DataFrame | None = None,
     sample_constraints: bool = False,
     starting_topography_parameter_dict: dict[str, typing.Any] | None = None,
     regional_misfit_parameter_dict: dict[str, typing.Any] | None = None,
     parameter_dict: dict[str, typing.Any] | None = None,
     create_starting_topography: bool = False,
-    create_starting_prisms: bool = False,
     calculate_starting_gravity: bool = False,
     calculate_regional_misfit: bool = False,
     regional_grav_kwargs: dict[str, typing.Any] | None = None,
     starting_topography_kwargs: dict[str, typing.Any] | None = None,
-    **kwargs: typing.Any,
 ) -> tuple[
     dict[str, typing.Any], list[pd.DataFrame], list[pd.DataFrame], dict[str, typing.Any]
 ]:
@@ -794,6 +787,8 @@ def full_workflow_uncertainty_loop(
 
     Parameters
     ----------
+    inversion_object : inversion.Inversion
+        an Inversion object created through the :class:`.Inversion` class
     runs : int
         number of inversion workflows to run
     fname : str | None, optional
@@ -806,6 +801,9 @@ def full_workflow_uncertainty_loop(
     gravity_filter_width : float | None, optional
         the width in meters of a low-pass filter to apply to the gravity data after
         sampling, by default None
+    constraints_df : pandas.DataFrame | None, optional
+        dataframe of constraints with columns "easting", "northing", and "upward", by
+        default None
     sample_constraints : bool, optional
         choose to randomly sample the constraint elevations from a normal distribution
         with a mean of each data value and a standard deviation given by the column
@@ -821,8 +819,6 @@ def full_workflow_uncertainty_loop(
         by default None
     create_starting_topography : bool, optional
         choose to recreate the starting topography model, by default False
-    create_starting_prisms : bool, optional
-        choose to recreate the starting prism model, by default False
     calculate_starting_gravity : bool, optional
         choose to recalculate the starting gravity, by default False
     calculate_regional_misfit : bool, optional
@@ -836,15 +832,32 @@ def full_workflow_uncertainty_loop(
     -------
     params : list[dict[str, typing.Any]]
         list of inversion parameters dictionaries with added key for the run number
-    grav_dfs : list[pandas.DataFrame]
-        list of gravity dataframes from each inversion run
+    grav_datasets : list[xr.Dataset]
+        list of gravity datasets from each inversion run
     prism_dfs : list[pandas.DataFrame]
         list of prism dataframes from each inversion run
     sampled_params : dict[str, typing.Any]
         dictionary of sampled parameter values from the Latin Hypercube sampling
     """
+
+    if isinstance(inversion_object, int):
+        msg = "`full_workflow_uncertainty_loop` function has been updated, first parameter must be an Inversion object created through the `Inversion` class"
+        raise DeprecationWarning(msg)
+
+    inv = copy.deepcopy(inversion_object)
+    original_constraints_df = (
+        constraints_df.copy() if constraints_df is not None else None
+    )
+    original_grav_df = inv.data.inv.df.copy()
+
+    if sample_constraints is True:
+        if original_constraints_df is None:
+            msg = "constraints_df must be provided if sample_constraints is True"
+            raise ValueError(msg)
+        sampled_constraints = original_constraints_df.copy()
+        test_constraint_value = copy.deepcopy(constraints_df.upward.iloc[0])  # type: ignore[union-attr]
+
     # ensure kwargs are not altered by making copies before sampling values
-    new_kwargs = copy.deepcopy(kwargs)
     if regional_grav_kwargs is not None:
         new_regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
     else:
@@ -853,11 +866,6 @@ def full_workflow_uncertainty_loop(
         new_starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
     else:
         new_starting_topography_kwargs = None
-
-    # print("before loop")
-    # print(new_regional_grav_kwargs["constraints_df"].upward.mean())
-    # print(new_starting_topography_kwargs["constraints_df"].upward.mean())
-    # print(new_kwargs["constraints_df"].upward.mean())
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -912,7 +920,7 @@ def full_workflow_uncertainty_loop(
         # create / overwrite pickle files
         with pathlib.Path(f"{fname}_params.pickle").open("wb") as _:
             pass
-        with pathlib.Path(f"{fname}_grav_dfs.pickle").open("wb") as _:
+        with pathlib.Path(f"{fname}_grav_datasets.pickle").open("wb") as _:
             pass
         with pathlib.Path(f"{fname}_prism_dfs.pickle").open("wb") as _:
             pass
@@ -920,15 +928,9 @@ def full_workflow_uncertainty_loop(
     if starting_run == runs:
         logger.info("all %s runs already complete, loading results from files.", runs)
 
-    if sample_constraints is True:
-        constraints_df = new_kwargs.get("constraints_df", None)
-        sampled_constraints = copy.deepcopy(constraints_df)
-        test_constraint_value = copy.deepcopy(constraints_df.upward.iloc[0])  # type: ignore[union-attr]
-
     if sample_gravity is True:
-        grav_df = new_kwargs.get("grav_df", None)
-        sampled_grav = copy.deepcopy(grav_df)
-        test_grav_value = copy.deepcopy(grav_df.gravity_anomaly.iloc[0])  # type: ignore[union-attr]
+        sampled_grav = original_grav_df.copy()
+        test_grav_value = copy.deepcopy(inv.data.inv.df.gravity_anomaly.iloc[0])
 
     for i in tqdm(range(starting_run, runs), desc="stochastic ensemble"):
         if i == starting_run:
@@ -945,43 +947,45 @@ def full_workflow_uncertainty_loop(
         rand = np.random.default_rng(seed=i)
 
         if sample_gravity is True:
-            new_kwargs.pop("grav_df", None)
-            if grav_df is None:
-                msg = "grav_df must be provided"
-                raise ValueError(msg)
-
             # assert original gravity values are unaltered
-            assert test_grav_value == grav_df.gravity_anomaly.iloc[0]
-
-            sampled_grav["gravity_anomaly"] = rand.normal(  # type: ignore[index]
-                grav_df.gravity_anomaly, grav_df.uncert
+            assert test_grav_value == original_grav_df.gravity_anomaly.iloc[0], (
+                "original gravity values have been altered by sampling!"
             )
-
+            sampled_grav["gravity_anomaly"] = rand.normal(
+                inv.data.inv.df.gravity_anomaly, inv.data.inv.df.uncert
+            )
             # low-pass filter the sampled gravity data
             if gravity_filter_width is not None:
                 filtered_grav = utils.filter_grid(
-                    sampled_grav.set_index(["northing", "easting"])  # type: ignore[union-attr]
+                    sampled_grav.set_index(["northing", "easting"])
                     .to_xarray()
                     .gravity_anomaly,
                     gravity_filter_width,
                     filt_type="lowpass",
                     pad_mode="linear_ramp",
                 )
-                sampled_grav["gravity_anomaly"] = filtered_grav.to_numpy().ravel()  # type: ignore[index]
+                # df = inv.data.inv.df.copy()
+                sampled_grav["gravity_anomaly"] = filtered_grav.to_numpy().ravel()
+                # sampled_grav["gravity_anomaly"] = df.set_index(["northing", "easting"]).to_xarray().gravity_anomaly
+            # update the inversion object with the sampled gravity data
+            ds = sampled_grav.set_index(["northing", "easting"]).to_xarray()
+            inv.data["gravity_anomaly"] = ds.gravity_anomaly
+            # sampled_grav.attrs.update(inv.data.attrs)  # type: ignore[union-attr]
+            # inv.data = sampled_grav
 
-            new_kwargs["grav_df"] = sampled_grav
         if sample_constraints is True:
-            new_kwargs.pop("constraints_df")
-            if constraints_df is None:
+            if original_constraints_df is None:
                 msg = "constraints_df must be provided if sample_constraints is True"
                 raise ValueError(msg)
 
             # assert original constraint values are unaltered
-            assert test_constraint_value == constraints_df.upward.iloc[0]
+            assert test_constraint_value == original_constraints_df.upward.iloc[0], (
+                "original constraint values have been altered by sampling!"
+            )
 
             sampled_constraints = randomly_sample_data(
                 seed=i,
-                data_df=constraints_df,
+                data_df=original_constraints_df,
                 data_col="upward",
                 uncert_col="uncert",
             )
@@ -993,12 +997,36 @@ def full_workflow_uncertainty_loop(
                 new_regional_grav_kwargs.get("constraints_df", None) is not None
             ):
                 new_regional_grav_kwargs["constraints_df"] = sampled_constraints
-            new_kwargs["constraints_df"] = sampled_constraints
+            constraints_df = sampled_constraints
 
         # if parameters provided, sampled and add back to kwargs
         if sampled_param_dict is not None:
-            for k, v in sampled_param_dict.items():
-                new_kwargs[k] = v["sampled_values"][i]
+            if "solver_damping" in sampled_param_dict:
+                sampled_solver_damping = sampled_param_dict["solver_damping"][
+                    "sampled_values"
+                ][i]
+                inv.solver_damping = sampled_solver_damping
+                assert inv.solver_damping == sampled_solver_damping, (
+                    "sampled damping hasn't been correctly set"
+                )
+            if "density_contrast" in sampled_param_dict:
+                sampled_density_contrast = sampled_param_dict["density_contrast"][
+                    "sampled_values"
+                ][i]
+                inv.model = inv.model.assign_attrs(
+                    {"density_contrast": sampled_density_contrast}
+                )
+                assert inv.model.density_contrast == sampled_density_contrast, (
+                    "sampled density contrast hasn't been correctly set"
+                )
+                calculate_starting_gravity = True
+            if "zref" in sampled_param_dict:
+                sampled_zref = sampled_param_dict["zref"]["sampled_values"][i]
+                inv.model = inv.model.assign_attrs({"zref": sampled_zref})
+                assert inv.model.zref == sampled_zref, (
+                    "sampled zref hasn't been correctly set"
+                )
+                calculate_starting_gravity = True
         if sampled_starting_topography_parameter_dict is not None:
             for k, v in sampled_starting_topography_parameter_dict.items():
                 new_starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
@@ -1011,49 +1039,62 @@ def full_workflow_uncertainty_loop(
             calculate_starting_gravity = True
         if sample_constraints is True:
             create_starting_topography = True
-        if sampled_param_dict is not None:  # noqa: SIM102
-            if ("density_contrast" in sampled_param_dict) or (
-                "zref" in sampled_param_dict
-            ):
-                create_starting_prisms = True
         if sampled_starting_topography_parameter_dict is not None:
             create_starting_topography = True
         if sampled_regional_misfit_parameter_dict is not None:
             calculate_regional_misfit = True
         # if certain things are recalculated, other must be as well
         if create_starting_topography is True:
-            create_starting_prisms = True
-        if create_starting_prisms is True:
             calculate_starting_gravity = True
         if calculate_starting_gravity is True:
             calculate_regional_misfit = True
 
+        inversion_kwargs = {
+            k: inv.__dict__[k]
+            for k in (
+                "max_iterations",
+                "l2_norm_tolerance",
+                "delta_l2_norm_tolerance",
+                "perc_increase_limit",
+                "deriv_type",
+                "jacobian_finite_step_size",
+                "model_properties_method",
+                "solver_type",
+                "solver_damping",
+                "apply_weighting_grid",
+                "weighting_grid",
+            )
+        }
         # run inversion
         with utils._log_level(logging.ERROR):  # pylint: disable=protected-access
             inv_results = inversion.run_inversion_workflow(
+                grav_ds=inv.data,
                 create_starting_topography=create_starting_topography,
-                create_starting_prisms=create_starting_prisms,
                 calculate_starting_gravity=calculate_starting_gravity,
                 calculate_regional_misfit=calculate_regional_misfit,  # pylint: disable=possibly-used-before-assignment
-                regional_grav_kwargs=new_regional_grav_kwargs,
-                starting_topography_kwargs=new_starting_topography_kwargs,
+                run_damping_cv=False,
+                run_zref_or_density_cv=False,
                 fname=f"{fname}_{i}",
-                **new_kwargs,
+                starting_topography=inv.model.starting_topography.to_dataset(
+                    name="upward"
+                ),
+                starting_topography_kwargs=new_starting_topography_kwargs,
+                density_contrast=inv.model.density_contrast,
+                zref=inv.model.zref,
+                regional_grav_kwargs=new_regional_grav_kwargs,
+                constraints_df=constraints_df,
+                inversion_kwargs=inversion_kwargs,
             )
-
-        # get results
-        prism_df, final_grav_df, params, _ = inv_results  # type: ignore[assignment]
-
         # add run number to the parameter values
-        params["run_num"] = i  # type: ignore[call-overload]
+        inv_results.params["run_num"] = i  # type: ignore[index]
 
         # save results
         with pathlib.Path(f"{fname}_params.pickle").open("ab") as file:
-            pickle.dump(params, file, protocol=pickle.HIGHEST_PROTOCOL)
-        with pathlib.Path(f"{fname}_grav_dfs.pickle").open("ab") as file:
-            pickle.dump(final_grav_df, file, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(inv_results.params, file, protocol=pickle.HIGHEST_PROTOCOL)
+        with pathlib.Path(f"{fname}_grav_datasets.pickle").open("ab") as file:
+            pickle.dump(inv_results.data, file, protocol=pickle.HIGHEST_PROTOCOL)
         with pathlib.Path(f"{fname}_prism_dfs.pickle").open("ab") as file:
-            pickle.dump(prism_df, file, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(inv_results.model, file, protocol=pickle.HIGHEST_PROTOCOL)
 
         logger.debug("Finished inversion %s of %s for stochastic ensemble", i + 1, runs)
 
@@ -1065,11 +1106,11 @@ def full_workflow_uncertainty_loop(
                 params.append(pickle.load(file))
             except EOFError:
                 break
-    grav_dfs = []
-    with pathlib.Path(f"{fname}_grav_dfs.pickle").open("rb") as file:
+    grav_datasets = []
+    with pathlib.Path(f"{fname}_grav_datasets.pickle").open("rb") as file:
         while 1:
             try:
-                grav_dfs.append(pickle.load(file))
+                grav_datasets.append(pickle.load(file))
             except EOFError:
                 break
     prism_dfs = []
@@ -1082,7 +1123,7 @@ def full_workflow_uncertainty_loop(
 
     return (
         params,
-        grav_dfs,
+        grav_datasets,
         prism_dfs,
         sampled_param_dict,
     )  # type: ignore[return-value]
@@ -1199,7 +1240,7 @@ def merge_simulation_results(
     for i, j in enumerate(grids):
         da = j.rename(f"run_{i}")
         renamed_grids.append(da)
-    return xr.merge(renamed_grids)
+    return xr.merge(renamed_grids, compat="override")
 
 
 def merged_stats(
@@ -1240,25 +1281,23 @@ def merged_stats(
         weighted standard deviation of the ensemble of inverted topographies.
     """
     # unpack results
-    _, grav_dfs, prism_dfs, _ = results  # type: ignore[misc]
+    _params, grav_datasets, prism_dss, _ = results  # type: ignore[misc]
 
     # get merged dataset
-    merged = merge_simulation_results(
-        [df.set_index(["northing", "easting"]).to_xarray()["topo"] for df in prism_dfs]
-    )
-
+    merged = merge_simulation_results([ds.topography for ds in prism_dss])
     # get final gravity residual RMS of each model
     if weight_by == "residual":
         # get the RMS of the final gravity residual of each model
-        weight_vals = [utils.rmse(df[list(df.columns)[-1]]) for df in grav_dfs]
+        weight_vals = [
+            utils.rmse(ds[list(ds.inv.df.columns)[-1]]) for ds in grav_datasets
+        ]
         # convert residuals into weights
         weights = [1 / (x**2) for x in weight_vals]
     # get constraint point RMSE of each model
     elif weight_by == "constraints":
         weight_vals = []
-        for df in prism_dfs:
-            ds = df.set_index(["northing", "easting"]).to_xarray()
-            bed = ds["topo"]
+        for ds in prism_dss:
+            bed = ds["topography"]
             points = utils.sample_grids(
                 constraints_df,
                 bed,

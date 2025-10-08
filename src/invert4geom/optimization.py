@@ -267,7 +267,7 @@ def _optuna_set_cores(
         pathlib.Path(f"{study_name}.lock").unlink(missing_ok=True)
 
 
-def _warn_parameter_at_limits(
+def warn_parameter_at_limits(
     trial: optuna.trial.FrozenTrial,
 ) -> None:
     """
@@ -292,7 +292,7 @@ def _warn_parameter_at_limits(
             )
 
 
-def _log_optuna_results(
+def log_optuna_results(
     trial: optuna.trial.FrozenTrial,
 ) -> None:
     """
@@ -570,14 +570,16 @@ class OptimalInversionDamping:
 
     def __init__(
         self,
-        damping_limits: tuple[float, float],
+        inversion_obj: inversion.Inversion,
         fname: str,
+        damping_limits: tuple[float, float],
+        rmse_as_median: bool = False,
         plot_grids: bool = False,
-        **kwargs: typing.Any,
     ) -> None:
+        self.inversion_obj = inversion_obj
         self.fname = fname
+        self.rmse_as_median = rmse_as_median
         self.damping_limits = damping_limits
-        self.kwargs = kwargs
         self.plot_grids = plot_grids
 
     def __call__(self, trial: optuna.trial) -> float:
@@ -592,290 +594,54 @@ class OptimalInversionDamping:
         float
             the score of the eq_sources fit
         """
-        damping = trial.suggest_float(
+        self.inversion_obj.solver_damping = trial.suggest_float(
             "damping",
             self.damping_limits[0],
             self.damping_limits[1],
             log=True,
         )
 
-        new_kwargs = {
-            key: value
-            for key, value in self.kwargs.items()
-            if key
-            not in [
-                "solver_damping",
-                "progressbar",
-                "results_fname",
-            ]
-        }
-
         trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
-        score, results = cross_validation.grav_cv_score(
-            solver_damping=damping,
-            progressbar=False,
-            results_fname=trial.user_attrs.get("fname"),
+        _new_inversion_obj = self.inversion_obj.grav_cv_score(
+            rmse_as_median=self.rmse_as_median,
             plot=self.plot_grids,
-            **new_kwargs,
+            results_fname=trial.user_attrs.get("fname"),
         )
 
-        trial.set_user_attr("results", results)
+        # trial.set_user_attr("results", new_inversion_obj.damping_cv_results)
 
-        return score
+        return self.inversion_obj.gravity_cv_best_score  # type: ignore[return-value]
 
 
 def optimize_inversion_damping(
-    training_df: pd.DataFrame,
-    testing_df: pd.DataFrame,
-    n_trials: int,
-    damping_limits: tuple[float, float],
-    n_startup_trials: int | None = None,
-    score_as_median: bool = False,
-    sampler: optuna.samplers.BaseSampler | None = None,
-    grid_search: bool = False,
-    fname: str | None = None,
-    plot_cv: bool = True,
-    plot_grids: bool = False,
-    logx: bool = True,
-    logy: bool = True,
-    progressbar: bool = True,
-    parallel: bool = False,
-    seed: int = 0,
-    **kwargs: typing.Any,
-) -> tuple[
-    optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
-]:
+    training_df: pd.DataFrame,  # noqa: ARG001
+    testing_df: pd.DataFrame,  # noqa: ARG001
+    n_trials: int,  # noqa: ARG001
+    damping_limits: tuple[float, float],  # noqa: ARG001
+    n_startup_trials: int | None = None,  # noqa: ARG001
+    score_as_median: bool = False,  # noqa: ARG001
+    sampler: optuna.samplers.BaseSampler | None = None,  # noqa: ARG001
+    grid_search: bool = False,  # noqa: ARG001
+    fname: str | None = None,  # noqa: ARG001
+    plot_cv: bool = True,  # noqa: ARG001
+    plot_grids: bool = False,  # noqa: ARG001
+    logx: bool = True,  # noqa: ARG001
+    logy: bool = True,  # noqa: ARG001
+    progressbar: bool = True,  # noqa: ARG001
+    parallel: bool = False,  # noqa: ARG001
+    seed: int = 0,  # noqa: ARG001
+    **kwargs: typing.Any,  # noqa: ARG001
+) -> None:
     """
-    Use Optuna to find the optimal damping regularization parameter for a gravity
-    inversion. The optimization aims to minimize the cross-validation score,
-    represented by the root mean (or median) squared error (RMSE), between the testing
-    gravity data, and the predict gravity data after and inversion. Follows methods of
-    :footcite:t:`uiedafast2017`.
-
-    Provide upper and low damping values, number of trials to run, and specify to let
-    Optuna choose the best damping value for each trial or to use a grid search. The
-    results are saved to a pickle file with the best inversion results and the study.
-
-    Parameters
-    ----------
-    training_df : pandas.DataFrame
-        rows of the gravity data frame which are just the training data
-    testing_df : pandas.DataFrame
-        rows of the gravity data frame which are just the testing data
-    n_trials : int
-        number of damping values to try
-    n_startup_trials : int | None, optional
-        number of startup trials, by default is automatically determined
-    damping_limits : tuple[float, float]
-        upper and lower limits
-    score_as_median : bool, optional
-        if True, changes the scoring from the root mean square to the root median
-        square, by default False
-    sampler : optuna.samplers.BaseSampler | None, optional
-        customize the optuna sampler, by default either GPsampler or GridSampler
-        depending on if grid_search is True or False
-    grid_search : bool, optional
-        search the entire parameter space between damping_limits in n_trial steps, by
-        default False
-    fname : str, optional
-        file name to save both study and inversion results to as pickle files, by
-        default fname is `tmp_x_damping_cv` where x is a random integer between 0 and
-        999 and will save study to <fname>_study.pickle and tuple of inversion results
-        to <fname>_results.pickle.
-    plot_cv : bool, optional
-        plot the cross-validation results, by default True
-    plot_grids : bool, optional
-        for each damping value, plot comparison of predicted and testing gravity data,
-        by default False
-    logx : bool, optional
-        make x axis of CV result plot on log scale, by default True
-    logy : bool, optional
-        make y axis of CV result plot on log scale, by default True
-    progressbar : bool, optional
-        add a progressbar, by default True
-    parallel : bool, optional
-        run the optimization in parallel, by default False
-    seed : int, optional
-        random seed for the samplers, by default 0
-
-    Returns
-    -------
-    study : optuna.study
-        the completed optuna study
-    inv_results : tuple[pandas.DataFrame, pandas.DataFrame, dict[str, typing.Any], \
-            float]
-        a tuple of the inversion results: topography dataframe, gravity dataframe,
-        parameter values and elapsed time.
+    DEPRECATED: use the `Inversion` class method `optimize_inversion_damping` instead
     """
-
-    optuna.logging.set_verbosity(optuna.logging.WARN)
-
-    # set file name for saving results with random number between 0 and 999
-    if fname is None:
-        fname = f"tmp_{random.randint(0, 999)}_damping_cv"
-
-    if parallel:
-        pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
-        pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
-        pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
-        storage = optuna.storages.JournalStorage(
-            optuna.storages.journal.JournalFileBackend(f"{fname}.log"),
-        )
-    else:
-        storage = None
-
-    # define the objective function
-    objective = OptimalInversionDamping(
-        damping_limits=damping_limits,
-        rmse_as_median=score_as_median,
-        training_data=training_df,
-        testing_data=testing_df,
-        fname=fname,
-        plot_grids=plot_grids,
-        **kwargs,
+    # pylint: disable=W0613
+    msg = (
+        "Function `optimize_inversion_damping` deprecated, use the `Inversion` class method "
+        "`optimize_inversion_damping` instead"
     )
-
-    if grid_search:
-        if n_trials < 4:
-            msg = (
-                "if grid_search is True, n_trials must be at least 4, "
-                "resetting n_trials to 4 now."
-            )
-            logger.warning(msg)
-            n_trials = 4
-        space = np.logspace(
-            np.log10(damping_limits[0]), np.log10(damping_limits[1]), n_trials
-        )
-        sampler = optuna.samplers.GridSampler(
-            search_space={"damping": space},
-            seed=seed,
-        )
-
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=sampler,
-            load_if_exists=False,
-            study_name=fname,
-            storage=storage,
-            pruner=DuplicateIterationPruner,
-        )
-
-        # run optimization
-        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-            study = run_optuna(
-                study=study,
-                storage=storage,
-                objective=objective,
-                n_trials=n_trials,
-                # callbacks=[_warn_limits_better_than_trial_1_param],
-                maximize_cpus=True,
-                parallel=parallel,
-                progressbar=progressbar,
-            )
-    else:
-        # define number of startup trials, whichever is bigger; 1/4 of trials or 4
-        if n_startup_trials is None:
-            n_startup_trials = max(4, int(n_trials / 4))
-            n_startup_trials = min(n_startup_trials, n_trials)
-        logger.info("using %s startup trials", n_startup_trials)
-        if n_startup_trials >= n_trials:
-            logger.warning(
-                "n_startup_trials is >= n_trials resulting in all trials sampled from "
-                "a QMC sampler instead of the GP sampler",
-            )
-        # create study
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=optuna.samplers.QMCSampler(
-                seed=seed,
-                qmc_type="halton",
-                scramble=True,
-            ),
-            load_if_exists=False,
-            study_name=fname,
-            storage=storage,
-            pruner=DuplicateIterationPruner,
-        )
-
-        # explicitly add the limits as trials
-        study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
-        study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
-
-        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-            study = run_optuna(
-                study=study,
-                storage=storage,
-                objective=objective,
-                n_trials=n_startup_trials,
-                # callbacks=[_warn_limits_better_than_trial_1_param],
-                maximize_cpus=True,
-                parallel=parallel,
-                progressbar=progressbar,
-            )
-
-        # continue with remaining trials with user-defined sampler
-        # if sampler not provided, used GPsampler as default
-        if sampler is None:
-            sampler = optuna.samplers.GPSampler(
-                n_startup_trials=0,
-                seed=seed,
-                deterministic_objective=True,
-            )
-        study.sampler = sampler
-        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-            study = run_optuna(
-                study=study,
-                storage=storage,
-                objective=objective,
-                n_trials=n_trials - n_startup_trials,
-                # callbacks=[_warn_limits_better_than_trial_1_param],
-                maximize_cpus=True,
-                parallel=parallel,
-                progressbar=progressbar,
-            )
-
-    best_trial = study.best_trial
-
-    # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
-
-    # log the results of the best trial
-    _log_optuna_results(best_trial)
-
-    # get best inversion result of each set
-    with pathlib.Path(f"{fname}_trial_{best_trial.number}.pickle").open("rb") as f:
-        inv_results = pickle.load(f)
-
-    # remove if exists
-    pathlib.Path(f"{fname}_study.pickle").unlink(missing_ok=True)
-    pathlib.Path(f"{fname}_results.pickle").unlink(missing_ok=True)
-
-    # save study to pickle
-    with pathlib.Path(f"{fname}_study.pickle").open("wb") as f:
-        pickle.dump(study, f)
-
-    # save inversion results tuple to pickle
-    with pathlib.Path(f"{fname}_results.pickle").open("wb") as f:
-        pickle.dump(inv_results, f)
-
-    # delete all inversion results
-    for i in range(n_trials):
-        pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
-
-    if plot_cv is True:
-        try:
-            plotting.plot_cv_scores(
-                study.trials_dataframe().value.to_numpy(),
-                study.trials_dataframe().params_damping.to_numpy(),
-                param_name="Damping",
-                logx=logx,
-                logy=logy,
-            )
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error("plotting failed with error: %s", e)
-
-    return study, inv_results
+    raise DeprecationWarning(msg)
 
 
 class OptimalInversionZrefDensity:
@@ -892,31 +658,27 @@ class OptimalInversionZrefDensity:
 
     def __init__(
         self,
+        inversion_obj: inversion.Inversion,
+        constraints_df: pd.DataFrame,
         fname: str,
-        grav_df: pd.DataFrame,
-        constraints_df: pd.DataFrame | list[pd.DataFrame],
         regional_grav_kwargs: dict[str, typing.Any],
-        zref: float | None = None,
+        starting_topography: xr.Dataset | None = None,
+        starting_topography_kwargs: dict[str, typing.Any] | None = None,
         zref_limits: tuple[float, float] | None = None,
         density_contrast_limits: tuple[float, float] | None = None,
-        density_contrast: float | None = None,
-        starting_topography: xr.DataArray | None = None,
-        starting_topography_kwargs: dict[str, typing.Any] | None = None,
+        rmse_as_median: bool = False,
         progressbar: bool = True,
-        **kwargs: typing.Any,
     ) -> None:
+        self.inversion_obj = inversion_obj
+        self.constraints_df = constraints_df.copy()
         self.fname = fname
-        self.grav_df = grav_df
-        self.constraints_df = constraints_df
         self.regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
         self.zref_limits = zref_limits
         self.density_contrast_limits = density_contrast_limits
-        self.zref = zref
-        self.density_contrast = density_contrast
         self.starting_topography = starting_topography
         self.starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+        self.rmse_as_median = rmse_as_median
         self.progressbar = progressbar
-        self.kwargs = kwargs
 
     def __call__(self, trial: optuna.trial) -> float:
         """
@@ -930,21 +692,7 @@ class OptimalInversionZrefDensity:
         float
             the score of the eq_sources fit
         """
-        grav_df = self.grav_df.copy()
-
-        cols = [
-            "easting",
-            "northing",
-            "upward",
-            "gravity_anomaly",
-        ]
-        if all(i in grav_df.columns for i in cols) is False:
-            msg = f"`grav_df` needs all the following columns: {cols}"
-            raise ValueError(msg)
-
-        kwargs = copy.deepcopy(self.kwargs)
-
-        if kwargs.get("apply_weighting_grid", None) is True:
+        if self.inversion_obj.apply_weighting_grid is True:
             msg = (
                 "Using the weighting grid within the inversion for regularization. "
                 "This makes the inversion not update the topography at constraint "
@@ -959,32 +707,25 @@ class OptimalInversionZrefDensity:
             raise ValueError(msg)
 
         if self.zref_limits is not None:
-            zref = trial.suggest_float(
-                "zref",
-                self.zref_limits[0],
-                self.zref_limits[1],
+            self.inversion_obj.model = self.inversion_obj.model.assign_attrs(
+                {
+                    "zref": trial.suggest_float(
+                        "zref",
+                        self.zref_limits[0],
+                        self.zref_limits[1],
+                    )
+                }
             )
-        else:
-            zref = self.zref
-            if zref is None:
-                msg = "must provide zref if zref_limits not provided"
-                raise ValueError(msg)
-
         if self.density_contrast_limits is not None:
-            density_contrast = trial.suggest_int(
-                "density_contrast",
-                self.density_contrast_limits[0],
-                self.density_contrast_limits[1],
+            self.inversion_obj.model = self.inversion_obj.model.assign_attrs(
+                {
+                    "density_contrast": trial.suggest_int(
+                        "density_contrast",
+                        self.density_contrast_limits[0],
+                        self.density_contrast_limits[1],
+                    )
+                }
             )
-        else:
-            density_contrast = self.density_contrast
-            if density_contrast is None:
-                msg = (
-                    "must provide density_contrast if density_contrast_limits not "
-                    "provided"
-                )
-                raise ValueError(msg)
-
         starting_topography_kwargs = copy.deepcopy(self.starting_topography_kwargs)
 
         reg_kwargs = copy.deepcopy(self.regional_grav_kwargs)
@@ -1030,7 +771,9 @@ class OptimalInversionZrefDensity:
                 if starting_topography_kwargs["method"] == "flat":
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
-                    starting_topography_kwargs["upwards"] = zref
+                    starting_topography_kwargs["upwards"] = (
+                        self.inversion_obj.model.zref
+                    )
 
             # create starting topography model if not provided
             if self.starting_topography is None:
@@ -1048,9 +791,13 @@ class OptimalInversionZrefDensity:
                 if starting_topography_kwargs["method"] == "flat":
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
-                    starting_topography_kwargs["upwards"] = zref
+                    starting_topography_kwargs["upwards"] = (
+                        self.inversion_obj.model.zref
+                    )
 
-                starting_topo = utils.create_topography(**starting_topography_kwargs)
+                starting_topo = utils.create_topography(
+                    **starting_topography_kwargs,
+                ).to_dataset(name="upward")
             else:
                 if starting_topography_kwargs is not None:
                     msg = (
@@ -1060,69 +807,37 @@ class OptimalInversionZrefDensity:
                     raise ValueError(msg)
                 starting_topo = self.starting_topography.copy()
 
-            utils._check_gravity_inside_topography_region(grav_df, starting_topo)
-
-            # re-calculate density grid with new density contrast
-            density_grid = xr.where(
-                starting_topo >= zref,
-                density_contrast,
-                -density_contrast,  # pylint: disable=invalid-unary-operand-type
-            )
-
-            # create layer of prisms
-            starting_prisms = utils.grids_to_prisms(
-                starting_topo,
-                reference=zref,
-                density=density_grid,
+            # update model with new topography
+            self.inversion_obj.model = inversion.create_model(
+                zref=self.inversion_obj.model.zref,
+                density_contrast=self.inversion_obj.model.density_contrast,
+                model_type=self.inversion_obj.model.model_type,
+                starting_topography=starting_topo,
+                upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
+                lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
             )
 
             # calculate forward gravity of starting prism layer
-            grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
-                coordinates=(
-                    grav_df.easting,
-                    grav_df.northing,
-                    grav_df.upward,
-                ),
-                field="g_z",
-                progressbar=False,
-            )
+            self.inversion_obj.data.inv.forward_gravity(self.inversion_obj.model)
 
             # calculate regional field
             with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-                grav_df = regional.regional_separation(
-                    grav_df=grav_df,
-                    **reg_kwargs,
-                )
-
-            new_kwargs = {
-                key: value
-                for key, value in kwargs.items()
-                if key
-                not in [
-                    "zref",
-                    "density_contrast",
-                    "progressbar",
-                    "results_fname",
-                    "prism_layer",
-                ]
-            }
+                self.inversion_obj.data.inv.regional_separation(**reg_kwargs)
 
             trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
             # run cross validation
-            score, results = cross_validation.constraints_cv_score(
-                grav_df=grav_df,
-                constraints_df=self.constraints_df,
+            constraints_cv_object = self.inversion_obj.constraints_cv_score(
                 results_fname=trial.user_attrs.get("fname"),
-                prism_layer=starting_prisms,
-                **new_kwargs,
+                constraints_df=self.constraints_df,
             )
             # log the termination reason
             logger.debug(
                 "Trial %s termination reason: %s",
                 trial.number,
-                results[2]["Termination reason"],
+                constraints_cv_object.params.get("Termination reason"),  # type: ignore[attr-defined]
             )
+
         ###
         ###
         # K-Folds optimization
@@ -1179,7 +894,7 @@ class OptimalInversionZrefDensity:
             # logger.debug(testing_constraints)
             # logger.debug(training_constraints)
             # for each fold, run CV
-            scores = []
+            scores: list[float] = []
             for i, _ in enumerate(pbar):
                 logger.debug(training_constraints[i])
 
@@ -1193,7 +908,9 @@ class OptimalInversionZrefDensity:
                     if starting_topography_kwargs["method"] == "flat":
                         msg = "using zref to create a flat starting topography model"
                         logger.info(msg)
-                        starting_topography_kwargs["upwards"] = zref
+                        starting_topography_kwargs["upwards"] = (
+                            self.inversion_obj.model.zref
+                        )
                     elif starting_topography_kwargs["method"] == "splines":
                         starting_topography_kwargs["constraints_df"] = (
                             training_constraints[i]
@@ -1202,692 +919,85 @@ class OptimalInversionZrefDensity:
                     with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
                         starting_topo = utils.create_topography(
                             **starting_topography_kwargs,
-                        )
+                        ).to_dataset(name="upward")
                 else:
                     starting_topo = self.starting_topography.copy()
 
-                utils._check_gravity_inside_topography_region(grav_df, starting_topo)
-
-                # re-calculate density grid with new density contrast
-                density_grid = xr.where(
-                    starting_topo >= zref,
-                    density_contrast,
-                    -density_contrast,  # pylint: disable=invalid-unary-operand-type
-                )
-
-                # create layer of prisms
-                starting_prisms = utils.grids_to_prisms(
-                    starting_topo,
-                    reference=zref,
-                    density=density_grid,
+                # update model with new topography
+                self.inversion_obj.model = inversion.create_model(
+                    zref=self.inversion_obj.model.zref,
+                    density_contrast=self.inversion_obj.model.density_contrast,
+                    model_type=self.inversion_obj.model.model_type,
+                    starting_topography=starting_topo,
+                    upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
+                    lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
                 )
 
                 # calculate forward gravity of starting prism layer
-                grav_df["starting_gravity"] = starting_prisms.prism_layer.gravity(
-                    coordinates=(
-                        grav_df.easting,
-                        grav_df.northing,
-                        grav_df.upward,
-                    ),
-                    field="g_z",
-                    progressbar=False,
-                )
+                self.inversion_obj.data.inv.forward_gravity(self.inversion_obj.model)
 
                 # calculate regional field
                 with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-                    grav_df = regional.regional_separation(
-                        grav_df=grav_df,
+                    self.inversion_obj.data.inv.regional_separation(
                         constraints_df=training_constraints[i],
                         **reg_kwargs,
                     )
-                logger.debug(grav_df)
-                new_kwargs = {
-                    key: value
-                    for key, value in kwargs.items()
-                    if key
-                    not in [
-                        "zref",
-                        "density_contrast",
-                        "progressbar",
-                        "results_fname",
-                        "prism_layer",
-                    ]
-                }
 
                 trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
                 # run cross validation
-                score, results = cross_validation.constraints_cv_score(
-                    grav_df=grav_df,
+                constraints_cv_object = self.inversion_obj.constraints_cv_score(
                     constraints_df=testing_constraints[i],
                     results_fname=trial.user_attrs.get("fname"),
-                    prism_layer=starting_prisms,
-                    **new_kwargs,
                 )
-                scores.append(score)
+                scores.append(self.inversion_obj.constraints_cv_best_score)  # type: ignore[arg-type]
 
                 # log the termination reason
                 logger.debug(
                     "Trial %s termination reason: %s",
                     trial.number,
-                    results[2]["Termination reason"],
+                    constraints_cv_object.params.get("Termination reason"),  # type: ignore[attr-defined]
                 )
             # get mean of scores of all folds
-            score = np.mean(scores)
+            self.inversion_obj.constraints_cv_best_score = np.mean(scores)
 
-        return score
+        return self.inversion_obj.constraints_cv_best_score  # type: ignore[return-value]
 
 
 def optimize_inversion_zref_density_contrast(
-    grav_df: pd.DataFrame,
-    constraints_df: pd.DataFrame | list[pd.DataFrame],
-    n_trials: int,
-    n_startup_trials: int | None = None,
-    starting_topography: xr.DataArray | None = None,
-    zref_limits: tuple[float, float] | None = None,
-    density_contrast_limits: tuple[float, float] | None = None,
-    zref: float | None = None,
-    density_contrast: float | None = None,
-    starting_topography_kwargs: dict[str, typing.Any] | None = None,
-    regional_grav_kwargs: dict[str, typing.Any] | None = None,
-    score_as_median: bool = False,
-    sampler: optuna.samplers.BaseSampler | None = None,
-    grid_search: bool = False,
-    fname: str | None = None,
-    plot_cv: bool = True,
-    logx: bool = False,
-    logy: bool = False,
-    progressbar: bool = True,
-    parallel: bool = False,
-    fold_progressbar: bool = True,
-    seed: int = 0,
-    **kwargs: typing.Any,
-) -> tuple[
-    optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
-]:
+    grav_df: pd.DataFrame,  # noqa: ARG001
+    constraints_df: pd.DataFrame | list[pd.DataFrame],  # noqa: ARG001
+    n_trials: int,  # noqa: ARG001
+    n_startup_trials: int | None = None,  # noqa: ARG001
+    starting_topography: xr.DataArray | None = None,  # noqa: ARG001
+    zref_limits: tuple[float, float] | None = None,  # noqa: ARG001
+    density_contrast_limits: tuple[float, float] | None = None,  # noqa: ARG001
+    zref: float | None = None,  # noqa: ARG001
+    density_contrast: float | None = None,  # noqa: ARG001
+    starting_topography_kwargs: dict[str, typing.Any] | None = None,  # noqa: ARG001
+    regional_grav_kwargs: dict[str, typing.Any] | None = None,  # noqa: ARG001
+    score_as_median: bool = False,  # noqa: ARG001
+    sampler: optuna.samplers.BaseSampler | None = None,  # noqa: ARG001
+    grid_search: bool = False,  # noqa: ARG001
+    fname: str | None = None,  # noqa: ARG001
+    plot_cv: bool = True,  # noqa: ARG001
+    logx: bool = False,  # noqa: ARG001
+    logy: bool = False,  # noqa: ARG001
+    progressbar: bool = True,  # noqa: ARG001
+    parallel: bool = False,  # noqa: ARG001
+    fold_progressbar: bool = True,  # noqa: ARG001
+    seed: int = 0,  # noqa: ARG001
+    **kwargs: typing.Any,  # noqa: ARG001
+) -> None:
     """
-    Run an Optuna optimization to find the optimal zref and or density contrast values
-    for a gravity inversion. The optimization aims to minimize the cross-validation
-    score, represented by the root mean (or median) squared error (RMSE), between
-    points of known topography and the inverted topography. Follows methods of
-    :footcite:t:`uiedafast2017`. This can optimize for either zref, density contrast,
-    or both at the same time. Provide upper and low limits for each parameter, number of
-    trials and let Optuna choose the best parameter values for each trial or use a grid
-    search to test all values between the limits in intervals of n_trials. The results
-    are saved to a pickle file with the best inversion results and the study. Since each
-    new set of zref and density values changes the starting model, for each set of
-    parameters this function re-calculates the starting gravity, the gravity misfit
-    and its regional and residual components. `regional_grav_kwargs` are passed to
-    `regional.regional_separation`. Once the optimal parameters are found, the regional
-    separation and inversion are performed again and saved to <fname>_results.pickle and
-    the study is saved to <fname>_study.pickle.
-    The constraint point minimization regional separation technique uses constraints
-    points to estimate the regional field, and since constraints are used to calculating
-    the scoring metric of this function, the constraints need to be separated into
-    training (regional estimation) and testing (scoring) sets. To do this, supply the
-    training constraints to`regional_grav_kwargs` via `method="constraint"` or
-    `method="constraint_cv"` and `constraints_df`, and the testing constraints to this
-    function as `constraints_df`.
-    Typically there are not many constraints and omitting some of them from the training
-    set will significantly impact the regional estimation. To help with this, we can use
-    a K-Folds approach, where for each set of parameter values, we perform this entire
-    procedure K times, each time with a different separation of training and testing
-    points, called a fold. The score associated with that parameter set is the mean of
-    the K scores. Once the optimal parameter values are found, we then repeat the
-    inversion using all of the constraints in the regional estimation. For a K-folds
-    approach, supply lists of dataframes containing only each fold's testing or training
-    points to the two `constraints_df` arguments. To automatically perform the
-    test/train split and K-folds optimization, you can also use the convenience function
-    `optimize_inversion_zref_density_contrast_kfolds`.
-
-    Parameters
-    ----------
-    grav_df : pandas.DataFrame
-        gravity data frame with columns `easting`, `northing`, `upward`, and
-        `gravity_anomaly`
-    constraints_df : pandas.DataFrame or list[pandas.DataFrame]
-        constraints data frame with columns `easting`, `northing`, and `upward`, or list
-        of dataframes for each fold of a cross-validation
-    n_trials : int
-        number of trials, if grid_search is True, needs to be a perfect square and >=16.
-    n_startup_trials : int | None, optional
-        number of startup trials, by default is automatically determined
-    starting_topography : xarray.DataArray | None, optional
-        a starting topography grid used to create the prisms layers. If not provided,
-        must provide region, spacing and dampings to starting_topography_kwargs, by
-        default None
-    zref_limits : tuple[float, float] | None, optional
-        upper and lower limits for the reference level, in meters, by default None
-    density_contrast_limits : tuple[float, float] | None, optional
-        upper and lower limits for the density contrast, in kg/m^-3, by default None
-    zref : float | None, optional
-        if zref_limits not provided, must provide a constant zref value, by default None
-    density_contrast : float | None, optional
-        if density_contrast_limits not provided, must provide a constant density
-        contrast value, by default None
-    starting_topography_kwargs : dict[str, typing.Any] | None, optional
-        dictionary with key: value pairs of "region":tuple[float, float, float, float].
-        "spacing":float, and "dampings":float | list[float] | None, used to create
-        a flat starting topography at each zref value if starting_topography not
-        provided, by default None
-    regional_grav_kwargs : dict[str, typing.Any] | None, optional
-        dictionary with kwargs to supply to `regional.regional_separation()`, by default
-        None
-    score_as_median : bool, optional
-        change scoring metric from root mean square to root median square, by default
-        False
-    sampler : optuna.samplers.BaseSampler | None, optional
-        customize the optuna sampler, by default uses GPsampler unless grid_search
-        is True, then uses GridSampler.
-    grid_search : bool, optional
-        Switch the sampler to GridSampler and search entire parameter space between
-        provided limits in intervals set by n_trials (for 1 parameter optimizations), or
-        by the square root of n_trials (for 2 parameter optimizations), by default False
-    fname : str | None, optional
-        file name to save both study and inversion results to as pickle files, by
-        default fname is `tmp_x_zref_density_cv` where x is a random integer between 0
-        and 999 and will save study to <fname>_study.pickle and tuple of inversion
-        results to <fname>_results.pickle.
-    plot_cv : bool, optional
-        plot the cross-validation results, by default True
-    logx : bool, optional
-        use a log scale for the cross-validation plot x-axis, by default False
-    logy : bool, optional
-        use a log scale for the cross-validation plot y-axis, by default False
-    progressbar : bool, optional
-        add a progressbar, by default True
-    parallel : bool, optional
-        run the optimization in parallel, by default False
-    fold_progressbar : bool, optional
-        show a progress bar for each fold of the constraint-point minimization
-        cross-validation, by default True
-    seed : int, optional
-        random seed for the samplers, by default 0
-
-    Returns
-    -------
-    study : optuna.study
-        the completed optuna study
-    final_inversion_results : tuple[pandas.DataFrame, pandas.DataFrame, dict[str, \
-            typing.Any], float]
-        a tuple of the inversion results: topography dataframe, gravity dataframe,
-        parameter values and elapsed time.
+    DEPRECATED: use the `Inversion` class method `optimize_inversion_zref_density_contrast` instead
     """
-
-    if "test" in grav_df.columns:
-        assert grav_df.test.any(), (
-            "test column contains True value, not needed except for during damping CV"
-        )
-
-    optuna.logging.set_verbosity(optuna.logging.WARN)
-    if regional_grav_kwargs is not None:
-        regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
-    if starting_topography_kwargs is not None:
-        starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
-
-    # set file name for saving results with random number between 0 and 999
-    if fname is None:
-        fname = f"tmp_{random.randint(0, 999)}_zref_density_cv"
-
-    if parallel:
-        pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
-        pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
-        pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
-        storage = optuna.storages.JournalStorage(
-            optuna.storages.journal.JournalFileBackend(f"{fname}.log"),
-        )
-    else:
-        storage = None
-
-    # get number of parameters included in optimization
-    num_params = sum(x is not None for x in [zref_limits, density_contrast_limits])
-
-    # define the objective function
-    objective = OptimalInversionZrefDensity(
-        grav_df=grav_df,
-        constraints_df=constraints_df,
-        zref_limits=zref_limits,
-        density_contrast_limits=density_contrast_limits,
-        zref=zref,
-        density_contrast=density_contrast,
-        starting_topography=starting_topography,
-        starting_topography_kwargs=starting_topography_kwargs,
-        regional_grav_kwargs=regional_grav_kwargs,  # type: ignore[arg-type]
-        rmse_as_median=score_as_median,
-        fname=fname,
-        progressbar=fold_progressbar,
-        **kwargs,
+    # pylint: disable=W0613
+    msg = (
+        "Function `optimize_inversion_zref_density_contrast` deprecated, use the `Inversion` class method "
+        "`optimize_inversion_zref_density_contrast` instead"
     )
-
-    if grid_search:
-        if num_params == 1:
-            if n_trials < 4:
-                msg = (
-                    "if grid_search is True, n_trials must be at least 4, "
-                    "resetting n_trials to 4 now."
-                )
-                logger.warning(msg)
-                n_trials = 4
-
-            if zref_limits is None:
-                space = np.linspace(
-                    int(density_contrast_limits[0]),  # type: ignore[index]
-                    int(density_contrast_limits[1]),  # type: ignore[index]
-                    n_trials,
-                    dtype=int,
-                )
-                sampler = optuna.samplers.GridSampler(
-                    search_space={"density_contrast": space},
-                    seed=seed,
-                )
-            if density_contrast_limits is None:
-                space = np.linspace(zref_limits[0], zref_limits[1], n_trials)  # type: ignore[index]
-                sampler = optuna.samplers.GridSampler(
-                    search_space={"zref": space},
-                    seed=seed,
-                )
-        else:
-            if n_trials < 16:
-                msg = (
-                    "if grid_search is True, n_trials must be at least 16, "
-                    "resetting n_trials to 16 now."
-                )
-                logger.warning(msg)
-                n_trials = 16
-
-            # n_trials needs to be square for 2 param grid search so each param has
-            # sqrt(n_trials).
-            if np.sqrt(n_trials).is_integer() is False:
-                # get next largest square number
-                old_n_trials = n_trials
-                n_trials = (math.floor(math.sqrt(n_trials)) + 1) ** 2
-                msg = (
-                    "if grid_search is True with provided limits for both zref and "
-                    "density contrast, n_trials (%s) must have an integer square "
-                    "root. Resetting n_trials to to next largest compatible value "
-                    "now (%s)"
-                )
-                logger.warning(msg, old_n_trials, n_trials)
-
-            zref_space = np.linspace(
-                zref_limits[0],  # type: ignore[index]
-                zref_limits[1],  # type: ignore[index]
-                int(np.sqrt(n_trials)),
-            )
-
-            density_contrast_space = np.linspace(
-                int(density_contrast_limits[0]),  # type: ignore[index]
-                int(density_contrast_limits[1]),  # type: ignore[index]
-                int(np.sqrt(n_trials)),
-                dtype=int,
-            )
-
-            sampler = optuna.samplers.GridSampler(
-                search_space={
-                    "zref": zref_space,
-                    "density_contrast": density_contrast_space,
-                },
-                seed=seed,
-            )
-
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=sampler,
-            load_if_exists=False,
-            study_name=fname,
-            storage=storage,
-            pruner=DuplicateIterationPruner,
-        )
-
-        # run optimization
-        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-            study = run_optuna(
-                study=study,
-                storage=storage,
-                objective=objective,
-                n_trials=n_trials,
-                # callbacks=[_warn_limits_better_than_trial_multi_params],
-                maximize_cpus=True,
-                parallel=parallel,
-                progressbar=progressbar,
-            )
-
-    else:
-        # define number of startup trials, whichever is bigger between 1/4 of trials, or
-        # 4 x the number of parameters
-        if n_startup_trials is None:
-            n_startup_trials = max(num_params * 4, int(n_trials / 4))
-            n_startup_trials = min(n_startup_trials, n_trials)
-        logger.info("using %s startup trials", n_startup_trials)
-        if n_startup_trials >= n_trials:
-            logger.warning(
-                "n_startup_trials is >= n_trials resulting in all trials sampled from "
-                "a QMC sampler instead of the GP sampler",
-            )
-
-        # if sampler not provided, use GPsampler as default unless grid_search is True
-        if sampler is None:
-            sampler = optuna.samplers.GPSampler(
-                n_startup_trials=0,
-                seed=seed,
-                deterministic_objective=True,
-            )
-
-        # create study
-        study = optuna.create_study(
-            direction="minimize",
-            sampler=optuna.samplers.QMCSampler(
-                seed=seed,
-                qmc_type="halton",
-                scramble=True,
-            ),
-            load_if_exists=False,
-            study_name=fname,
-            storage=storage,
-            pruner=DuplicateIterationPruner,
-        )
-
-        # explicitly add the limits as trials
-        to_enqueue = []
-
-        if zref_limits is not None:
-            zref_trials = [
-                {"zref": zref_limits[0]},
-                {"zref": zref_limits[1]},
-            ]
-            to_enqueue.append(zref_trials)
-        if density_contrast_limits is not None:
-            density_contrast_trials = [
-                {"density_contrast": density_contrast_limits[0]},
-                {"density_contrast": density_contrast_limits[1]},
-            ]
-            to_enqueue.append(density_contrast_trials)
-
-        # get 2 lists of lists of dicts to enqueue (2 trials)
-        to_enqueue = np.array(to_enqueue).transpose()
-
-        for i in to_enqueue:
-            # turn list of dicts into single dict
-            x = {k: v for d in i for k, v in d.items()}
-            study.enqueue_trial(x, skip_if_exists=True)
-
-        # run optimization
-        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-            study = run_optuna(
-                study=study,
-                storage=storage,
-                objective=objective,
-                n_trials=n_startup_trials,
-                # callbacks=[_warn_limits_better_than_trial_multi_params],
-                maximize_cpus=True,
-                parallel=parallel,
-                progressbar=progressbar,
-            )
-
-        # continue with remaining trials with user-defined sampler
-        # if sampler not provided, used GPsampler as default
-        if sampler is None:
-            sampler = optuna.samplers.GPSampler(
-                n_startup_trials=0,
-                seed=seed,
-                deterministic_objective=True,
-            )
-        study.sampler = sampler
-        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-            study = run_optuna(
-                study=study,
-                storage=storage,
-                objective=objective,
-                n_trials=n_trials - n_startup_trials,
-                # callbacks=[_warn_limits_better_than_trial_multi_params],
-                maximize_cpus=True,
-                parallel=parallel,
-                progressbar=progressbar,
-            )
-
-    best_trial = study.best_trial
-
-    # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
-
-    # log the results of the best trial
-    _log_optuna_results(best_trial)
-
-    # combine testing and training to get a full constraints dataframe
-    reg_constraints = regional_grav_kwargs.pop("constraints_df", None)  # type: ignore[union-attr]
-    if starting_topography_kwargs is not None:
-        starting_topography_kwargs.pop("constraints_df", None)
-
-    if isinstance(constraints_df, pd.DataFrame):
-        constraints_df = (
-            pd.concat([constraints_df, reg_constraints])
-            .drop_duplicates(subset=["easting", "northing", "upward"])
-            .sort_index()
-        )
-    else:
-        constraints_df = (
-            pd.concat(constraints_df + reg_constraints)
-            .drop_duplicates(subset=["easting", "northing", "upward"])
-            .sort_index()
-        )
-    # add to regional grav kwargs
-    if reg_constraints is not None:
-        regional_grav_kwargs["constraints_df"] = constraints_df  # type: ignore[index]
-        if starting_topography_kwargs is not None:
-            starting_topography_kwargs["constraints_df"] = constraints_df
-            if "weights" in starting_topography_kwargs:
-                starting_topography_kwargs["weights_col"] = starting_topography_kwargs[
-                    "weights"
-                ].name
-
-    # redo inversion with best parameters
-    best_zref = best_trial.params.get("zref", zref)
-    best_density_contrast = best_trial.params.get("density_contrast", density_contrast)
-
-    if starting_topography_kwargs is not None:
-        starting_topography_kwargs["upwards"] = best_zref
-    new_kwargs = {
-        key: value
-        for key, value in kwargs.items()
-        if key
-        not in [
-            "progressbar",
-            "prism_layer",
-            "density_contrast_limits",
-            "zref_limits",
-            "n_trials",
-            "grid_search",
-            "parallel",
-            "constraints_df",
-        ]
-    }
-    # run the inversion workflow with the new best parameters
-    with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-        create_starting_topography = True if starting_topography is None else False  # noqa: SIM210  # pylint: disable=simplifiable-if-expression
-
-        final_inversion_results = inversion.run_inversion_workflow(
-            grav_df=grav_df,
-            create_starting_topography=create_starting_topography,
-            create_starting_prisms=True,
-            starting_topography=starting_topography,
-            starting_topography_kwargs=starting_topography_kwargs,
-            regional_grav_kwargs=regional_grav_kwargs,
-            calculate_regional_misfit=True,
-            zref=best_zref,
-            density_contrast=best_density_contrast,
-            fname=fname,
-            **new_kwargs,
-        )
-
-    used_zref = float(final_inversion_results[2]["Reference level"][:-2])
-    used_density_contrast = float(
-        final_inversion_results[2]["Density contrast(s)"][1:-7]
-    )
-
-    assert math.isclose(used_density_contrast, best_density_contrast, rel_tol=0.02)
-    assert math.isclose(used_zref, best_zref, rel_tol=0.02)
-
-    # remove if exists
-    pathlib.Path(f"{fname}_study.pickle").unlink(missing_ok=True)
-
-    # save study to pickle
-    with pathlib.Path(f"{fname}_study.pickle").open("wb") as f:
-        pickle.dump(study, f)
-
-    # delete all inversion results
-    for i in range(n_trials):
-        pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
-
-    if plot_cv is True:
-        try:
-            if zref_limits is None:
-                plotting.plot_cv_scores(
-                    study.trials_dataframe().value.to_numpy(),
-                    study.trials_dataframe().params_density_contrast.to_numpy(),
-                    param_name="Density contrast (kg/m$^3$)",
-                    plot_title="Density contrast Cross-validation",
-                    logx=logx,
-                    logy=logy,
-                )
-            elif density_contrast_limits is None:
-                plotting.plot_cv_scores(
-                    study.trials_dataframe().value.to_numpy(),
-                    study.trials_dataframe().params_zref.to_numpy(),
-                    param_name="Reference level (m)",
-                    plot_title="Reference level Cross-validation",
-                    logx=logx,
-                    logy=logy,
-                )
-            elif grid_search is True:
-                parameter_pairs = list(
-                    zip(
-                        study.trials_dataframe().params_zref,
-                        study.trials_dataframe().params_density_contrast,
-                        strict=False,
-                    )
-                )
-                plotting.plot_2_parameter_cv_scores(
-                    study.trials_dataframe().value.to_numpy(),
-                    parameter_pairs,
-                    param_names=(
-                        "Reference level (m)",
-                        "Density contrast (kg/m$^3$)",
-                    ),
-                )
-            else:
-                plotting.plot_2_parameter_cv_scores_uneven(
-                    study,
-                    param_names=(
-                        "params_zref",
-                        "params_density_contrast",
-                    ),
-                    plot_param_names=(
-                        "Reference level (m)",
-                        "Density contrast (kg/m$^3$)",
-                    ),
-                )
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error("plotting failed with error: %s", e)
-
-    return study, final_inversion_results
-
-
-def optimize_inversion_zref_density_contrast_kfolds(
-    constraints_df: pd.DataFrame,
-    split_kwargs: dict[str, typing.Any] | None = None,
-    **kwargs: typing.Any,
-) -> tuple[
-    optuna.study, tuple[pd.DataFrame, pd.DataFrame, dict[str, typing.Any], float]
-]:
-    """
-    Perform an optimization for zref and density contrast values same as
-    function `optimize_inversion_zref_density_contrast`, but pass a dataframe of
-    constraint points and `split_kwargs` which are both passed `split_test_train` create
-    K-folds of testing and training constraints. For each set of zref/density values,
-    regional separation and inversion are performed for each of the K-folds in the
-    constraints dataframe. The score for each parameter set will be the mean of the
-    K-folds scores.
-    This then repeats for all parameters. Within each parameter set and fold, the
-    training constraints are used for the regional separation and the testing
-    constraints are used for scoring. This optimization performs a total number of
-    inversions equal to  K-folds * number of parameter sets. For 20 parameter sets and 5
-    K-folds, this is 100 inversions. This extra computational expense is only useful if
-    the regional separation technique you supply via `regional_grav_kwargs` uses
-    constraints points for the estimations, such as constraint point minimization
-    (method='constraints_cv' or method='constraints'). It is more
-    efficient, but less accurate, to simple use a different regional estimation
-    technique, which doesn't require constraint points, to find the optimal zref and
-    density values. Then use these again in another inversion with the desired regional
-    separation technique. Using the regional method of "constraints" will simply use the
-    training points and supplied `grid_method` parameter values to calculate a regional
-    field. Using the regional method of "constraints_cv" will take the training points
-    and split these into a secondary set of training and testing points. These will be
-    used internally in the regional separation to find the optimal `grid_method`
-    parameters.
-
-    Parameters
-    ----------
-    constraints_df
-        constraints dataframe with columns "easting", "northing", and "upward".
-    split_kwargs : dict[str, typing.Any] | None, optional
-        kwargs to be passed to `split_test_train` for splitting constraints_df into
-        test and train sets, by default None
-    **kwargs : typing.Any
-        kwargs to be passed to `optimize_inversion_zref_density_contrast`
-
-    Returns
-    -------
-    study : optuna.study
-        the completed optuna study
-    inversion_results : tuple[pandas.DataFrame, pandas.DataFrame, dict[str, \
-            typing.Any], float]]
-        tuple of the best inversion results.
-    """
-    # drop any existing fold columns
-    df = constraints_df.copy()
-    df = df[df.columns.drop(list(df.filter(regex="fold_")))]
-
-    kwargs = copy.deepcopy(kwargs)
-
-    # split into test and training sets
-    testing_training_df = cross_validation.split_test_train(
-        df,
-        **split_kwargs,  # type: ignore[arg-type]
-    )
-
-    # get list of training and testing dataframes
-    test_dfs, train_dfs = cross_validation.kfold_df_to_lists(testing_training_df)
-    logger.info("Constraints split into %s folds", len(test_dfs))
-
-    regional_grav_kwargs = kwargs.pop("regional_grav_kwargs", None)
-
-    starting_topography_kwargs = kwargs.pop("starting_topography_kwargs", None)
-
-    if regional_grav_kwargs is None:
-        msg = "must provide regional_grav_kwargs"
-        raise ValueError(msg)
-
-    if starting_topography_kwargs is None:
-        msg = "must provide starting_topography_kwargs"
-        raise ValueError(msg)
-
-    regional_grav_kwargs["constraints_df"] = train_dfs
-
-    starting_topography_kwargs["constraints_df"] = train_dfs
-
-    if "weights" in starting_topography_kwargs:
-        starting_topography_kwargs["weights_col"] = starting_topography_kwargs[
-            "weights"
-        ].name
-
-    study, inversion_results = optimize_inversion_zref_density_contrast(
-        constraints_df=test_dfs,
-        regional_grav_kwargs=regional_grav_kwargs,
-        starting_topography_kwargs=starting_topography_kwargs,
-        **kwargs,
-    )
-
-    return study, inversion_results
+    raise DeprecationWarning(msg)
 
 
 class OptimalEqSourceParams:
@@ -2129,6 +1239,7 @@ def optimize_eq_source_params(
     )
 
     logger.debug("starting eq_source parameter optimization")
+    # pylint: enable=duplicate-code
     # ignore skLearn LinAlg warnings
     with (utils.environ(PYTHONWARNINGS="ignore")) and (utils.DuplicateFilter(logger)):  # type: ignore[no-untyped-call, truthy-bool]
         # run startup trials with QMC low-discrepancy sampling
@@ -2163,14 +1274,14 @@ def optimize_eq_source_params(
             parallel=parallel,
             progressbar=progressbar,
         )
-
+    # pylint: disable=duplicate-code
     best_trial = study.best_trial
 
     # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
+    warn_parameter_at_limits(best_trial)
 
     # log the results of the best trial
-    _log_optuna_results(best_trial)
+    log_optuna_results(best_trial)
 
     best_damping = best_trial.params.get("damping", None)
     best_depth = best_trial.params.get("depth", None)
@@ -2702,7 +1813,7 @@ class OptimizeRegionalConstraintsPointMinimization:
 
 def optimize_regional_filter(
     testing_df: pd.DataFrame,
-    grav_df: pd.DataFrame,
+    grav_ds: xr.Dataset,
     filter_width_limits: tuple[float, float],
     score_as_median: bool = False,
     remove_starting_grav_mean: bool = False,
@@ -2717,7 +1828,7 @@ def optimize_regional_filter(
     parallel: bool = False,
     fname: str | None = None,
     seed: int = 0,
-) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal filter width for estimating the
     regional component of gravity misfit. For synthetic testing, if the true regional
@@ -2733,8 +1844,8 @@ def optimize_regional_filter(
     testing_df : pandas.DataFrame
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
-    grav_df : pandas.DataFrame
-        gravity dataframe with columns "easting", "northing", "reg", and
+    grav_ds : xarray.Dataset
+        gravity dataset with coordinates "easting", "northing", and variables "reg" and
         `gravity_anomaly`.
     filter_width_limits : tuple[float, float]
         limits to use for the filter width in meters.
@@ -2777,11 +1888,14 @@ def optimize_regional_filter(
     -------
     study : optuna.study,
         the completed Optuna study
-    resulting_grav_df : pandas.DataFrame
-        the resulting gravity dataframe of the best trial
+    resulting_grav_ds : xarray.Dataset
+        the resulting gravity dataset of the best trial
     best_trial : optuna.trial.FrozenTrial
         the best trial
     """
+    if isinstance(grav_ds, xr.Dataset) is False:
+        msg = "Function `optimize_regional_filter` has been changed, data must be provided to parameter `grav_ds` as an xarray dataset initialized through function `create_data`"
+        raise DeprecationWarning(msg)
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
@@ -2810,7 +1924,7 @@ def optimize_regional_filter(
         objective=OptimizeRegionalFilter(
             filter_width_limits=filter_width_limits,
             testing_df=testing_df,
-            grav_df=grav_df,
+            grav_ds=grav_ds,
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
@@ -2831,16 +1945,16 @@ def optimize_regional_filter(
         logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
+    warn_parameter_at_limits(best_trial)
 
     # log the results of the best trial
-    _log_optuna_results(best_trial)
+    log_optuna_results(best_trial)
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_df = regional.regional_separation(
+    resulting_grav_ds = regional.regional_separation(
         method="filter",
         filter_width=best_trial.params["filter_width"],
-        grav_df=grav_df,
+        grav_ds=grav_ds,
         remove_starting_grav_mean=remove_starting_grav_mean,
     )
 
@@ -2866,18 +1980,16 @@ def optimize_regional_filter(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_df.set_index(
-                    ["northing", "easting"]
-                ).to_xarray().reg.plot()
+                resulting_grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_df, best_trial
+    return study, resulting_grav_ds, best_trial
 
 
 def optimize_regional_trend(
     testing_df: pd.DataFrame,
-    grav_df: pd.DataFrame,
+    grav_ds: xr.Dataset,
     trend_limits: tuple[int, int],
     score_as_median: bool = False,
     remove_starting_grav_mean: bool = False,
@@ -2891,7 +2003,7 @@ def optimize_regional_trend(
     parallel: bool = False,
     fname: str | None = None,
     seed: int = 0,
-) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal trend order for estimating the
     regional component of gravity misfit. For synthetic testing, if the true regional
@@ -2907,8 +2019,8 @@ def optimize_regional_trend(
     testing_df : pandas.DataFrame
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
-    grav_df : pandas.DataFrame
-        gravity dataframe with columns "easting", "northing", "reg" and
+    grav_ds : xarray.Dataset
+        gravity dataset with coordinates "easting", "northing", and variables "reg" and
         `gravity_anomaly`.
     trend_limits : tuple[int, int]
         limits to use for the trend order in degrees.
@@ -2949,11 +2061,17 @@ def optimize_regional_trend(
     -------
     study : optuna.study,
         the completed Optuna study
-    resulting_grav_df : pandas.DataFrame
-        the resulting gravity dataframe of the best trial
+    resulting_grav_ds : xarray.Dataset
+        the resulting gravity dataset of the best trial
     best_trial : optuna.trial.FrozenTrial
         the best trial
     """
+    if isinstance(grav_ds, xr.Dataset) is False:
+        msg = "Function `optimize_regional_trend` has been changed, data must be provided to parameter `grav_ds` as an xarray dataset initialized through function `create_data`"
+        raise DeprecationWarning(msg)
+
+    optuna.logging.set_verbosity(optuna.logging.WARN)
+
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
     # if sampler not provided, use GridSampler as default
@@ -2981,7 +2099,7 @@ def optimize_regional_trend(
         objective=OptimizeRegionalTrend(  # type: ignore[arg-type]
             trend_limits=trend_limits,
             testing_df=testing_df,
-            grav_df=grav_df,
+            grav_ds=grav_ds,
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
@@ -3003,16 +2121,16 @@ def optimize_regional_trend(
         logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
+    warn_parameter_at_limits(best_trial)
 
     # log the results of the best trial
-    _log_optuna_results(best_trial)
+    log_optuna_results(best_trial)
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_df = regional.regional_separation(
+    resulting_grav_ds = regional.regional_separation(
         method="trend",
         trend=best_trial.params["trend"],
-        grav_df=grav_df,
+        grav_ds=grav_ds,
         remove_starting_grav_mean=remove_starting_grav_mean,
     )
 
@@ -3038,18 +2156,16 @@ def optimize_regional_trend(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_df.set_index(
-                    ["northing", "easting"]
-                ).to_xarray().reg.plot()
+                resulting_grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_df, best_trial
+    return study, resulting_grav_ds, best_trial
 
 
 def optimize_regional_eq_sources(
     testing_df: pd.DataFrame,
-    grav_df: pd.DataFrame,
+    grav_ds: xr.Dataset,
     score_as_median: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
@@ -3067,7 +2183,7 @@ def optimize_regional_eq_sources(
     fname: str | None = None,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal equivalent source parameters for
     estimating the regional component of gravity misfit. For synthetic testing, if the
@@ -3083,8 +2199,8 @@ def optimize_regional_eq_sources(
     testing_df : pandas.DataFrame
         constraint points to use for calculating the score with columns "easting",
         "northing" and "upward".
-    grav_df : pandas.DataFrame
-        gravity dataframe with columns "easting", "northing", "reg", and
+    grav_ds : xarray.Dataset
+        gravity dataset with coordinates "easting", "northing", and variables "reg" and
         `gravity_anomaly`.
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
@@ -3132,11 +2248,16 @@ def optimize_regional_eq_sources(
     -------
     study : optuna.study,
         the completed Optuna study
-    resulting_grav_df : pandas.DataFrame
-        the resulting gravity dataframe of the best trial
+    resulting_grav_ds : xarray.Dataset
+        the resulting gravity dataset of the best trial
     best_trial : optuna.trial.FrozenTrial
         the best trial
     """
+    if isinstance(grav_ds, xr.Dataset) is False:
+        msg = "Function `optimize_regional_eq_sources` has been changed, data must be provided to parameter `grav_ds` as an xarray dataset initialized through function `create_data`"
+        raise DeprecationWarning(msg)
+
+    optuna.logging.set_verbosity(optuna.logging.WARN)
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
@@ -3170,7 +2291,7 @@ def optimize_regional_eq_sources(
             damping_limits=damping_limits,
             grav_obs_height_limits=grav_obs_height_limits,
             testing_df=testing_df,
-            grav_df=grav_df,
+            grav_ds=grav_ds,
             true_regional=true_regional,
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
@@ -3192,17 +2313,17 @@ def optimize_regional_eq_sources(
         logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
+    warn_parameter_at_limits(best_trial)
 
     # log the results of the best trial
-    _log_optuna_results(best_trial)
+    log_optuna_results(best_trial)
 
     # get optimal hyperparameter values
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     if depth == "default":
         # calculate 4.5 times the mean distance between points
         depth = 4.5 * np.mean(
-            vd.median_distance((grav_df.easting, grav_df.northing), k_nearest=1)
+            vd.median_distance((grav_ds.easting, grav_ds.northing), k_nearest=1)
         )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
     block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))
@@ -3211,13 +2332,13 @@ def optimize_regional_eq_sources(
         kwargs.pop("grav_obs_height", None),
     )
     # redo the regional separation with best parameters
-    resulting_grav_df = regional.regional_separation(
+    resulting_grav_ds = regional.regional_separation(
         method="eq_sources",
         depth=depth,
         damping=damping,
         block_size=block_size,
         grav_obs_height=grav_obs_height,
-        grav_df=grav_df,
+        grav_ds=grav_ds,
         **kwargs,
     )
     if plot is True:
@@ -3244,19 +2365,17 @@ def optimize_regional_eq_sources(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_df.set_index(
-                    ["northing", "easting"]
-                ).to_xarray().reg.plot()
+                resulting_grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_df, best_trial
+    return study, resulting_grav_ds, best_trial
 
 
 def optimize_regional_constraint_point_minimization(
     testing_training_df: pd.DataFrame,
     grid_method: str,
-    grav_df: pd.DataFrame,
+    grav_ds: xr.Dataset,
     n_trials: int,
     tension_factor_limits: tuple[float, float] = (0, 1),
     spline_damping_limits: tuple[float, float] | None = None,
@@ -3277,7 +2396,7 @@ def optimize_regional_constraint_point_minimization(
     fname: str | None = None,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, pd.DataFrame, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal hyperparameters for the Constraint
     Point Minimization (CPM) technique for estimating the regional component of gravity
@@ -3316,9 +2435,9 @@ def optimize_regional_constraint_point_minimization(
         constraint point minimization method to use, choose between "verde" for
         bi-harmonic spline gridding, "pygmt" for tensioned minimum curvature gridding,
         or "eq_sources" for equivalent sources gridding.
-    grav_df : pandas.DataFrame
-        gravity dataframe with columns "easting", "northing", "reg", and
-        "gravity_anomaly".
+    grav_ds : xarray.Dataset
+        gravity dataset with coordinates "easting", "northing", and variables "reg" and
+        `gravity_anomaly`.
     n_trials : int
         number of trials to run
     tension_factor_limits : tuple[float, float], optional
@@ -3374,12 +2493,15 @@ def optimize_regional_constraint_point_minimization(
     -------
     study : optuna.study,
         the completed Optuna study
-    resulting_grav_df : pandas.DataFrame
-        the resulting gravity dataframe of the best trial
+    resulting_grav_ds : xarray.Dataset
+        the resulting gravity dataset of the best trial
     best_trial : optuna.trial.FrozenTrial
         the best trial
     """
 
+    if isinstance(grav_ds, xr.Dataset) is False:
+        msg = "Function `optimize_regional_constraint_point_minimization` has been changed, data must be provided to parameter `grav_ds` as an xarray dataset initialized through function `create_data`"
+        raise DeprecationWarning(msg)
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
     kwargs = copy.deepcopy(kwargs)
@@ -3472,7 +2594,7 @@ def optimize_regional_constraint_point_minimization(
             training_df=train_dfs,
             testing_df=test_dfs,
             # kwargs for regional.regional_constraints:
-            grav_df=grav_df,
+            grav_ds=grav_ds,
             grid_method=grid_method,
             tension_factor_limits=tension_factor_limits,
             spline_damping_limits=spline_damping_limits,
@@ -3503,10 +2625,10 @@ def optimize_regional_constraint_point_minimization(
         logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
 
     # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
+    warn_parameter_at_limits(best_trial)
 
     # log the results of the best trial
-    _log_optuna_results(best_trial)
+    log_optuna_results(best_trial)
 
     logger.info(
         "re-running regional separation with best parameters and all constraints"
@@ -3531,9 +2653,9 @@ def optimize_regional_constraint_point_minimization(
     )
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_df = regional.regional_separation(
+    resulting_grav_ds = regional.regional_separation(
         method="constraints",
-        grav_df=grav_df,
+        grav_ds=grav_ds,
         constraints_df=constraints_df,
         grid_method=grid_method,
         tension_factor=tension_factor,
@@ -3578,13 +2700,11 @@ def optimize_regional_constraint_point_minimization(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_df.set_index(
-                    ["northing", "easting"]
-                ).to_xarray().reg.plot()
+                resulting_grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_df, best_trial
+    return study, resulting_grav_ds, best_trial
 
 
 def optimal_buffer(
@@ -3605,7 +2725,7 @@ def optimal_buffer(
     """
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
-
+    # pylint: enable=duplicate-code
     # if sampler not provided, use GPSampler as default unless grid_search is True
     if sampler is None:
         if grid_search is True:
@@ -3630,7 +2750,7 @@ def optimal_buffer(
                     seed=seed,
                     deterministic_objective=True,
                 )
-
+    # pylint: disable=duplicate-code
     # set file name for saving results with random number between 0 and 999
     if fname is None:
         fname = f"tmp_{random.randint(0, 999)}"
@@ -3683,10 +2803,10 @@ def optimal_buffer(
     best_trial = study.best_trial
 
     # warn if any best parameter values are at their limits
-    _warn_parameter_at_limits(best_trial)
+    warn_parameter_at_limits(best_trial)
 
     # log the results of the best trial
-    _log_optuna_results(best_trial)
+    log_optuna_results(best_trial)
 
     # re-run decay calculation with optimal buffer
     results = utils.gravity_decay_buffer(

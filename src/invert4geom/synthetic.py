@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from polartoolkit import fetch, maps
 from polartoolkit import utils as polar_utils
 
-from invert4geom import cross_validation, logger, utils
+from invert4geom import logger, utils
 
 try:
     import xesmf
@@ -31,11 +31,10 @@ def load_synthetic_model(
     zref: float | None = None,
     gravity_obs_height: float = 1000,
     gravity_noise: float | None = 0.2,
-    resample_for_cv: bool = False,
     plot_topography: bool = False,
     plot_topography_diff: bool = True,
     plot_gravity: bool = True,
-) -> tuple[xr.DataArray, xr.DataArray, pd.DataFrame, pd.DataFrame]:
+) -> tuple[xr.DataArray, xr.DataArray, pd.DataFrame, xr.DataArray]:
     """
     Function to perform all necessary steps to create a synthetic model for the examples
     in the documentation.
@@ -64,9 +63,6 @@ def load_synthetic_model(
         gravity observation height to use, by default 1000
     gravity_noise : float | None, optional
         decimal percentage noise level to add to gravity data, by default 0.2
-    resample_for_cv : bool, optional
-        resample gravity data at half spacing to create train and test sets, by default
-        False
     plot_topography : bool, optional
         plot the topography, by default False
     plot_topography_diff : bool, optional
@@ -82,7 +78,7 @@ def load_synthetic_model(
         the starting topography
     constraint_points : pandas.DataFrame
         the constraint points
-    grav_df : pandas.DataFrame
+    grav_ds : xarray.Dataset
         the gravity data
     """
 
@@ -157,7 +153,6 @@ def load_synthetic_model(
                 _ = polar_utils.grd_compare(
                     true_topography,
                     starting_topography,
-                    plot=True,
                     grid1_name="True topography",
                     grid2_name="Starting topography",
                     robust=True,
@@ -173,6 +168,7 @@ def load_synthetic_model(
                     ),
                     points_style="x.3c",
                     region=region,
+                    hemisphere="south",
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("plotting failed with error: %s", e)
@@ -190,8 +186,10 @@ def load_synthetic_model(
                 reverse_cpt=True,
                 cmap="rain",
                 cbar_label="elevation (m)",
+                hist=True,
                 frame=["nSWe", "xaf10000", "yaf10000"],
                 region=region,
+                hemisphere="south",
             )
             fig.show()
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -209,10 +207,11 @@ def load_synthetic_model(
         )
 
         # create layer of prisms
-        prisms = utils.grids_to_prisms(
+        prisms = utils.grid_to_model(
             true_topography,
             zref,
             density=density_grid,
+            model_type="prisms",
         )
 
         # make pandas dataframe of locations to calculate gravity
@@ -235,11 +234,6 @@ def load_synthetic_model(
 
         grav_df = vd.grid_to_table(observations)
 
-        # resample to half spacing
-        if resample_for_cv is True:
-            grav_df = cross_validation.resample_with_test_points(
-                spacing, grav_df, region
-            )
         # pylint: disable=duplicate-code
         grav_df["gravity_anomaly"] = prisms.prism_layer.gravity(
             coordinates=(
@@ -250,11 +244,13 @@ def load_synthetic_model(
             field="g_z",
             progressbar=False,
         )
+        grav_ds = grav_df.set_index(["northing", "easting"]).to_xarray()
+
         # pylint: enable=duplicate-code
         # contaminate gravity with random noise
         if gravity_noise is not None:
-            grav_df["gravity_anomaly"], _ = contaminate(
-                grav_df.gravity_anomaly,
+            grav_ds["gravity_anomaly"], _ = contaminate(
+                grav_ds.gravity_anomaly,
                 stddev=gravity_noise,
                 percent=False,
                 seed=0,
@@ -263,23 +259,22 @@ def load_synthetic_model(
             try:
                 # plot the observed gravity
                 fig = maps.plot_grd(
-                    grav_df.set_index(["northing", "easting"])
-                    .to_xarray()
-                    .gravity_anomaly,
+                    grav_ds.gravity_anomaly,
                     fig_height=10,
                     title="Forward gravity of true topography",
                     cmap="balance+h0",
                     cbar_label="mGal",
                     frame=["nSWe", "xaf10000", "yaf10000"],
                     hist=True,
+                    hemisphere="south",
                 )
                 fig.show()
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("plotting failed with error: %s", e)
     else:
-        grav_df = None
+        grav_ds = None
 
-    return true_topography, starting_topography, constraint_points, grav_df
+    return true_topography, starting_topography, constraint_points, grav_ds
 
 
 def contaminate_with_long_wavelength_noise(
@@ -360,24 +355,24 @@ def contaminate_with_long_wavelength_noise(
             list(low_res_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
             list(low_res_grid.sizes.keys())[1]: original_dims[1],
         }
-    ).rename(original_name)
+    ).to_dataset(name=original_name)
 
     # turn to dataframe and contaminate with noise
-    df = low_res_grid.to_dataframe()
+    # df = low_res_grid.to_dataframe()
 
-    df["noisy"], _ = contaminate(
-        df[original_name],
+    low_res_grid["noisy"], _ = contaminate(
+        low_res_grid[original_name],
         stddev=noise,
         percent=noise_as_percent,
         seed=seed,
     )
-    df["noise"] = df[original_name] - df.noisy
+    low_res_grid["noise"] = low_res_grid[original_name] - low_res_grid.noisy
 
-    new_grid = df.to_xarray().noise
+    # new_grid = df.to_xarray().noise
 
     # resample back to original spacing
     new_grid = fetch.resample_grid(
-        new_grid,
+        low_res_grid.noise,
         spacing=original_spacing,
         region=original_region,
     )
@@ -514,6 +509,8 @@ def synthetic_topography_simple(
     registration: str = "g",
     scale: float = 1,
     yoffset: float = 0,
+    plot: bool = False,
+    title: str = "Topography",
 ) -> xr.Dataset:
     """
     Create a synthetic topography dataset with a few features.
@@ -636,12 +633,25 @@ def synthetic_topography_simple(
 
     topo += yoffset
 
-    return vd.make_xarray_grid(
+    grid = vd.make_xarray_grid(
         (x, y),
         topo,
         data_names="upward",
         dims=("northing", "easting"),
     ).upward
+    if plot is True:
+        fig = maps.plot_grd(
+            grid,
+            title=title,
+            cmap="rain",
+            reverse_cpt=True,
+            hist=True,
+            cbar_label="elevation (m)",
+            frame=True,
+        )
+        fig.show()
+
+    return grid
 
 
 def synthetic_topography_regional(
@@ -750,108 +760,83 @@ def synthetic_topography_regional(
 
 
 def contaminate(
-    data: NDArray | list[NDArray],
-    stddev: float | list[float],
+    data: xr.DataArray,
+    stddev: float,
     percent: bool = False,
     percent_as_max_abs: bool = True,
     seed: float = 0,
 ) -> tuple[NDArray | list[NDArray], float | list[float]]:
     """
-    Add pseudorandom gaussian noise to an array.
+    Add pseudorandom gaussian noise to a xarray.DataArray.
     Noise added is normally distributed with zero mean and a standard deviation from
     *stddev*.
 
     Parameters
     ----------
-    data : numpy.ndarray | list[numpy.ndarray]
+    data : xarray.DataArray
         data to contaminate, can be a single array, or a list of arrays.
-    stddev : float | list[float]
+    stddev : float
         standard deviation of the Gaussian noise that will be added to
-        *data*. Length must be the same as *data* if *data* is a list.
+        `data`.
     percent : bool, optional
-        If ``True``, will consider *stddev* as a decimal percentage of the **data** and
+        If ``True``, will consider `stddev` as a decimal percentage of the `data` and
         the standard deviation of the Gaussian noise will be calculated with this, by
         default False
-    percent_as_max_abs : bool, optional
-        If ``True``, and **percent** is ``True``, the *stddev* used as the standard
-        deviation of the Gaussian noise will be the max absolute value of the **data**.
-        If ``False``, and **percent** is ``True``, the *stddev* will be calculated on a
-        point-by-point basis, so each **data** points' noise will be the same
+    percent_as_max_abs : bool, optional`
+        If ``True``, and `percent` is ``True``, the `stddev` used as the standard
+        deviation of the Gaussian noise will be the max absolute value of the `data`.
+        If ``False``, and `percent` is ``True``, the `stddev` will be calculated on a
+        point-by-point basis, so each `data` points' noise will be the same
         percentage, by default True
     seed : float, optional
         seed to use for the random number generator, by default 0
 
     Returns
     -------
-    contam : numpy.ndarray | list[numpy.ndarray]
-        contaminated data. If *data* is a list, will return a list of arrays.
-    stddev : float | list[float]
-        standard deviation of the Gaussian noise added to the data. If *stddev* is a
-        list, will return a list of floats.
+    contam : xarray.DataArray
+        contaminated data array.
+    stddev : float
+        standard deviation of the Gaussian noise added to the data.
 
     Notes
     -----
     This function was adapted from the Fatiando-Legacy function
     gaussian2d: https://legacy.fatiando.org/api/utils.html?highlight=gaussian#fatiando.utils.contaminate
-
-    Examples
-    --------
-
-    >>> import numpy as np
-    >>> data = np.ones(5)
-    >>> noisy, std = contaminate(data, 0.05, seed=0, percent=True)
-    >>> print(std)
-    0.05
-    >>> print(noisy)
-    array([1.00425372, 0.99136197, 1.02998834, 1.00321222, 0.97118374])
-    >>> data = [np.zeros(5), np.ones(3)]
-    >>> noisy = contaminate(data, [0.1, 0.2], seed=0)
-    >>> print(noisy[0])
-    array([ 0.00850745, -0.01727606,  0.05997669,  0.00642444, -0.05763251])
-    >>> print(noisy[1])
-    array([0.89814061, 1.0866216 , 1.01523779])
-
     """
+
+    if isinstance(data, xr.DataArray) is False:
+        msg = "Function `contaminate` has been changed, data now must be a xarray dataarray"
+        raise DeprecationWarning(msg)
+
+    # convert dataarray to dataframe
+    data_df = data.to_dataframe().reset_index()
+
     # initiate a random number generator
     rng = np.random.default_rng(seed)
 
-    # Check if dealing with an array or list of arrays
-    if not isinstance(stddev, list):
-        stddev = [stddev]
-    if not isinstance(data, list):
-        data = [data]
+    # ensure stddev is a float
+    stddev = float(stddev)
 
-    # Check that length of stdevs and data are the same
-    assert len(stddev) == len(data), "Length of stddev and data must be the same"
+    # Contaminate the data
+    # get list of standard deviations to use in Normal distribution
+    # if stdev is zero, just add the uncontaminated data
+    if stddev == 0.0:
+        pass
+    if percent:
+        if percent_as_max_abs:
+            stddev = stddev * max(abs(data_df[data.name]))
+        else:
+            stddev = stddev * abs(data_df[data.name])
+    if percent_as_max_abs is True:
+        logger.info("Standard deviation used for noise: %s", stddev)
+    # use stdevs to generate random noise
+    noise = rng.normal(scale=stddev, size=len(data_df[data.name]))
+    # Subtract the mean so that the noise doesn't introduce a systematic shift in
+    # the data
+    noise -= noise.mean()
 
-    # ensure all stddevs are floats
-    stddev = [float(i) for i in stddev]
+    # add the noise to the data
+    data_df[data.name] += noise
 
-    # Contaminate each array
-    contam = []
-    for i, _ in enumerate(stddev):
-        # get list of standard deviations to use in Normal distribution
-        # if stdev is zero, just add the uncontaminated data
-        if stddev[i] == 0.0:
-            contam.append(np.array(data[i]))
-            continue
-        if percent:
-            if percent_as_max_abs:
-                stddev[i] = stddev[i] * max(abs(data[i]))
-            else:
-                stddev[i] = stddev[i] * abs(data[i])
-        if percent_as_max_abs is True:
-            logger.info("Standard deviation used for noise: %s", stddev)
-        # use stdevs to generate random noise
-        noise = rng.normal(scale=stddev[i], size=len(data[i]))
-        # Subtract the mean so that the noise doesn't introduce a systematic shift in
-        # the data
-        noise -= noise.mean()
-        # add the noise to the data
-        contam.append(np.array(data[i]) + noise)
-
-    if len(contam) == 1:
-        contam = contam[0]
-        stddev = stddev[0]
-
-    return contam, stddev
+    da = data_df.set_index(list(data.dims)).to_xarray()[data.name]
+    return da, stddev

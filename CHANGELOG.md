@@ -7,13 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+This release is a major refactor of code with the goal of simplifying the user experience. Before, most of the code was written as functions, which required passing many parameters between functions, and outputs of one function to be used as input to the next function. This made using the library complicated, leading to easy mistakes and bugs. Most of the code has now been update to use object oriented programming (OOP), where it makes sense. **Unfortunately, this major refactor completely breaks the codebase!** For a small single-developer project like this, it is currently not worth the effort of proper slow deprecation of changed functions! Make sure to go through the documentation and examples and update your code accordingly before your update to this or future versions of the software.
+
+### ✏️ Changed
+- Gravity data inputs should now be in xarray Datasets, instead of pandas DataFrames.
+- An xarray dataset accessor `inv` has been added, which enables properties and methods to be performed on xarray Dataset objects.
+- An new class, `Inversion`, now holds the gravity data, the physical model, and all the user-defined inversion settings, such as stopping criteria, domain extents, etc.
+- Inversions, cross-validation, and parameter optimization are all run through methods of the `Inversion` class, and results are saved as attributes to the class.
+- Current topography variable of prism model dataset renamed from `topo` to `topography`.
+- Starting topography variable of prism model dataset renamed from `starting_topo` to `starting_topography`.
+- forward gravity, misfit, residual, and regional gravity values prior to inversion are all saved as variables with prefix "starting_".
+- build the API docs with autodoc instead of autoapi
+
+### 🚀 Added
+- gravity data now includes an inner domain, which is created by zooming in on the data extent by a default of 10% of domain width. This inner-region of the gravity data is used for plotting and calculating statistics, such as L2-norms, and cross validation score, since edge effects can skew these values when a buffer is not included.
+- add preliminary support for using tesseroids instead of vertical prisms (NOT COMPLETE)
+- Regularization damping, model reference level (zref), and density contrast values found through the optimization routines are now saved to the Inversion class instance, so future inversions automatically use the optimally-found values.
+- optional `mask` variable can be added to the prism model dataset so only prisms with mask value of 1 are inverted, others are not changed during inversion.
 
 ### 🐛 Fixed
 - fix some issues with ReadTheDocs
-
-### ✏️ Changed
-- build the API docs with autodoc instead of autoapi
-
 <!--
 Below is an example for a release
 
