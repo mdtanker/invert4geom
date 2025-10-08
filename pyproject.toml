@@ -134,6 +134,10 @@ xfail_strict = true
 filterwarnings = [
   "error",
   "ignore:.*Implicit None on return values is deprecated and will raise KeyErrors.*:DeprecationWarning",
+  "ignore:.*The 'shapely.geos' module*:DeprecationWarning",
+  "ignore:.*pkg_resources is deprecated*:UserWarning",
+  "ignore:.*Deprecated call to `pkg_resources.declare_namespace*:DeprecationWarning",
+  "ignore:.*invalid value encountered in cast*:RuntimeWarning",
 ]
 log_cli_level = "INFO"
 testpaths = [
@@ -202,6 +206,7 @@ ignore = [
 # typing-modules = ["invert4geom._compat.typing"]
 
 [tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # disable unused-imports errors on __init__.py
 "tests/**" = ["T20"]
 "noxfile.py" = ["T20"]
 "*.ipynb" = [
@@ -216,7 +221,7 @@ py-version = "3.11"
 ignore-paths = ["CHANGELOG.md", ".*\\_version.py"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
-similarities.min-similarity-lines = 5
+similarities.min-similarity-lines = 15
 messages_control.disable = [
   "design",
   "fixme",

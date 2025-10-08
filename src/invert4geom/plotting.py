@@ -13,7 +13,6 @@ import scipy as sp
 import seaborn as sns
 import verde as vd
 import xarray as xr
-from IPython.display import clear_output
 from numpy.typing import NDArray
 from polartoolkit import maps, profiles
 from polartoolkit import utils as polar_utils
@@ -337,221 +336,40 @@ def plot_cv_scores(
 
 
 def plot_convergence(
-    results: pd.DataFrame,
-    params: dict[str, typing.Any],
-    inversion_region: tuple[float, float, float, float] | None = None,
-    figsize: tuple[float, float] = (5, 3.5),
-    fname: str | None = None,
+    results: pd.DataFrame,  # noqa: ARG001
+    params: dict[str, typing.Any],  # noqa: ARG001
+    inversion_region: tuple[float, float, float, float] | None = None,  # noqa: ARG001
+    figsize: tuple[float, float] = (5, 3.5),  # noqa: ARG001
+    fname: str | None = None,  # noqa: ARG001
 ) -> None:
     """
-    plot a graph of L2-norm and delta L2-norm vs iteration number.
-
-    Parameters
-    ----------
-    results : pandas.DataFrame
-        gravity result dataframe
-    params : dict[str, typing.Any]
-        inversion parameters output from function `run_inversion()`
-    inversion_region : tuple[float, float, float, float] | None, optional
-        inside region of inversion, by default None
-    figsize : tuple[float, float], optional
-        width and height of figure, by default (5, 3.5)
-    fname : str | None, optional
-        filename to save figure, by default None
+    DEPRECATED: use the `Inversion` class method `plot_convergence` instead
     """
-
-    sns.set_theme()
-
-    # get misfit data at end of each iteration
-    cols = [s for s in results.columns.to_list() if "_final_misfit" in s]
-    iters = len(cols)
-
-    if inversion_region is not None:
-        l2_norms = [np.sqrt(utils.rmse(results[results.inside][i])) for i in cols]
-        starting_misfit = utils.rmse(results[results.inside]["iter_1_initial_misfit"])
-        starting_l2_norm = np.sqrt(starting_misfit)
-    else:
-        l2_norms = [np.sqrt(utils.rmse(results[i])) for i in cols]
-        starting_misfit = utils.rmse(results["iter_1_initial_misfit"])
-        starting_l2_norm = np.sqrt(starting_misfit)
-
-    # add starting l2 norm to the beginning of the list
-    l2_norms.insert(0, starting_l2_norm)
-
-    # calculate delta L2-norms
-    delta_l2_norms = []
-    for i, m in enumerate(l2_norms):
-        if i == 0:
-            delta_l2_norms.append(np.nan)
-        else:
-            delta_l2_norms.append(l2_norms[i - 1] / m)
-
-    # get tolerance values
-    l2_norm_tolerance = float(params["L2 norm tolerance"])
-    delta_l2_norm_tolerance = float(params["Delta L2 norm tolerance"])
-
-    # create figure instance
-    _fig, ax1 = plt.subplots(figsize=figsize)
-
-    # make second y axis for delta l2 norm
-    ax2 = ax1.twinx()
-
-    # plot L2-norm convergence
-    ax1.plot(range(iters + 1), l2_norms, "b-")
-
-    # plot delta L2-norm convergence
-    ax2.plot(range(iters + 1), delta_l2_norms, "g-")
-
-    # set axis labels, ticks and gridlines
-    ax1.set_xlabel("Iteration")
-    ax1.set_ylabel("L2-norm", color="b")
-    ax1.tick_params(axis="y", colors="b", which="both")
-    ax2.set_ylabel("Δ L2-norm", color="g")
-    ax2.tick_params(axis="y", colors="g", which="both")
-    ax2.grid(False)
-
-    # add buffer to y axis limits
-    ax1.set_ylim(0.9 * l2_norm_tolerance, starting_l2_norm)
-    ax2.set_ylim(delta_l2_norm_tolerance, np.nanmax(delta_l2_norms))
-
-    # set x axis to integer values
-    ax1.xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
-
-    # make both y axes align at tolerance levels
-    align_yaxis(ax1, l2_norm_tolerance, ax2, delta_l2_norm_tolerance)
-
-    # plot horizontal line of tolerances
-    ax2.axhline(
-        y=delta_l2_norm_tolerance,
-        linewidth=1,
-        color="r",
-        linestyle="dashed",
-        label="tolerances",
+    # pylint: disable=W0613
+    msg = (
+        "Function `plot_convergence` deprecated, use the `Inversion` class method "
+        "`plot_convergence` instead"
     )
-
-    # ask matplotlib for the plotted objects and their labels
-    lines, labels = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax2.legend(lines + lines2, labels + labels2, loc="upper right")
-
-    plt.title("Inversion convergence")
-    plt.tight_layout()
-
-    if fname is not None:
-        plt.savefig(fname)
-
-    plt.show()
+    raise DeprecationWarning(msg)
 
 
 def plot_dynamic_convergence(
-    l2_norms: list[float],
-    l2_norm_tolerance: float,
-    delta_l2_norms: list[float],
-    delta_l2_norm_tolerance: float,
-    starting_misfit: float,
-    figsize: tuple[float, float] = (5, 3.5),
+    l2_norms: list[float],  # noqa: ARG001
+    l2_norm_tolerance: float,  # noqa: ARG001
+    delta_l2_norms: list[float],  # noqa: ARG001
+    delta_l2_norm_tolerance: float,  # noqa: ARG001
+    starting_misfit: float,  # noqa: ARG001
+    figsize: tuple[float, float] = (5, 3.5),  # noqa: ARG001
 ) -> None:
     """
-    plot a dynamic graph of L2-norm and delta L2-norm vs iteration number.
-
-    Parameters
-    ----------
-    l2_norms : list[float]
-        list of l2 norm values
-    l2_norm_tolerance : float
-        l2 norm tolerance
-    delta_l2_norms : list[float]
-        list of delta l2 norm values
-    delta_l2_norm_tolerance : float
-        delta l2 norm tolerance
-    starting_misfit : float
-        starting misfit rmse
-    figsize : tuple[float, float], optional
-        width and height of figure, by default (5, 3.5)
+    DEPRECATED: use the `Inversion` class method `plot_dynamic_convergence` instead
     """
-
-    sns.set_theme()
-
-    clear_output(wait=True)
-
-    l2_norms = copy.deepcopy(l2_norms)
-    delta_l2_norms = copy.deepcopy(delta_l2_norms)
-
-    assert len(delta_l2_norms) == len(l2_norms)
-
-    l2_norms.insert(0, np.sqrt(starting_misfit))
-    delta_l2_norms.insert(0, np.nan)
-
-    iters = len(l2_norms)
-
-    # create figure instance
-    _fig, ax1 = plt.subplots(figsize=figsize)
-
-    # make second y axis for delta l2 norm
-    ax2 = ax1.twinx()
-
-    # plot L2-norm convergence
-    ax1.plot(list(range(len(l2_norms))), l2_norms, "b-")
-
-    # plot delta L2-norm convergence
-    if iters > 1:
-        ax2.plot(list(range(len(delta_l2_norms))), delta_l2_norms, "g-")
-
-    # set axis labels, ticks and gridlines
-    ax1.set_xlabel("Iteration")
-    ax1.set_ylabel("L2-norm", color="b")
-    ax1.tick_params(axis="y", colors="b", which="both")
-    ax2.set_ylabel("Δ L2-norm", color="g")
-    ax2.tick_params(axis="y", colors="g", which="both")
-    ax2.grid(False)
-
-    # add buffer to y axis limits
-    ax1.set_ylim(0.9 * (l2_norm_tolerance), np.sqrt(starting_misfit))
-    if iters > 1:
-        ax2.set_ylim(delta_l2_norm_tolerance, np.nanmax(delta_l2_norms))
-
-    # set x axis to integer values
-    ax1.xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
-
-    # plot current L2-norm and Δ L2-norm
-    ax1.plot(
-        iters - 1,
-        l2_norms[-1],
-        "^",
-        markersize=6,
-        color=sns.color_palette()[3],
-        # label="current L2-norm",
+    # pylint: disable=W0613
+    msg = (
+        "Function `plot_dynamic_convergence` deprecated, use the `Inversion` class method "
+        "`plot_dynamic_convergence` instead"
     )
-    if iters > 1:
-        ax2.plot(
-            iters - 1,
-            delta_l2_norms[-1],
-            "^",
-            markersize=6,
-            color=sns.color_palette()[3],
-            # label="current Δ L2-norm",
-        )
-
-    # make both y axes align at tolerance levels
-    align_yaxis(ax1, l2_norm_tolerance, ax2, delta_l2_norm_tolerance)
-
-    # plot horizontal line of tolerances
-    ax2.axhline(
-        y=delta_l2_norm_tolerance,
-        linewidth=1,
-        color="r",
-        linestyle="dashed",
-        label="tolerances",
-    )
-
-    # ask matplotlib for the plotted objects and their labels
-    lines, labels = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax2.legend(lines + lines2, labels + labels2, loc="upper right")
-
-    plt.title("Inversion convergence")
-    plt.tight_layout()
-    plt.show()
+    raise DeprecationWarning(msg)
 
 
 def align_yaxis(
@@ -636,7 +454,6 @@ def grid_inversion_results(
 
 def plot_inversion_topo_results(
     prisms_ds: xr.Dataset,
-    region: tuple[float, float, float, float] | None = None,
     constraints_df: pd.DataFrame | None = None,
     constraint_style: str = "x.3c",
     fig_height: float = 12,
@@ -660,9 +477,9 @@ def plot_inversion_topo_results(
         height of the figure, by default 12
     """
 
-    initial_topo = prisms_ds.starting_topo
+    initial_topo = prisms_ds.starting_topography
 
-    final_topo = prisms_ds.topo
+    final_topo = prisms_ds.topography
 
     points = constraints_df if constraints_df is not None else None
 
@@ -671,8 +488,6 @@ def plot_inversion_topo_results(
         initial_topo,
         final_topo,
         fig_height=fig_height,
-        region=region,
-        plot=True,
         grid1_name="Initial topography",
         grid2_name="Inverted topography",
         robust=True,
@@ -685,6 +500,7 @@ def plot_inversion_topo_results(
         cmap="rain",
         points=points,
         points_style=constraint_style,
+        hemisphere="south",
     )
     # pylint: enable=duplicate-code
 
@@ -692,7 +508,6 @@ def plot_inversion_topo_results(
 def plot_inversion_grav_results(
     grav_results: pd.DataFrame,
     region: tuple[float, float, float, float],
-    iterations: list[int],
     constraints_df: pd.DataFrame | None = None,
     fig_height: float = 12,
     constraint_style: str = "x.3c",
@@ -718,17 +533,17 @@ def plot_inversion_grav_results(
 
     grid = grav_results.set_index(["northing", "easting"]).to_xarray()
 
-    initial_misfit = grid["iter_1_initial_misfit"]
-    final_misfit = grid[f"iter_{max(iterations)}_final_misfit"]
+    initial_residual = grid["iter_1_initial_residual"]
+    final_residual = grid.res
 
-    initial_rmse = utils.rmse(grav_results["iter_1_initial_misfit"])
-    final_rmse = utils.rmse(grav_results[f"iter_{max(iterations)}_final_misfit"])
+    initial_rmse = utils.rmse(grav_results["iter_1_initial_residual"])
+    final_rmse = utils.rmse(grav_results.res)
 
     points = constraints_df if constraints_df is not None else None
 
     dif, initial, final = polar_utils.grd_compare(
-        initial_misfit,
-        final_misfit,
+        initial_residual,
+        final_residual,
         plot=False,
     )
     robust = True
@@ -744,9 +559,10 @@ def plot_inversion_grav_results(
         cpt_lims=(-initial_maxabs, initial_maxabs),
         hist=True,
         cbar_label="mGal",
-        title=f"Initial misfit: RMSE:{round(initial_rmse, 2)} mGal",
+        title=f"Initial residual: RMSE:{round(initial_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
+        hemisphere="south",
     )
     fig = maps.plot_grd(
         dif,
@@ -761,6 +577,7 @@ def plot_inversion_grav_results(
         title=f"difference: RMSE:{round(utils.rmse(dif), 2)} mGal",
         points=points,
         points_style=constraint_style,
+        hemisphere="south",
     )
     fig = maps.plot_grd(
         final,
@@ -773,9 +590,10 @@ def plot_inversion_grav_results(
         cpt_lims=(-final_maxabs, final_maxabs),
         hist=True,
         cbar_label="mGal",
-        title=f"Final misfit: RMSE:{round(final_rmse, 2)} mGal",
+        title=f"Final residual: RMSE:{round(final_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
+        hemisphere="south",
     )
     fig.show()
 
@@ -912,9 +730,9 @@ def plot_inversion_iteration_results(
             # add subplot titles
             if column == 0:  # misfit grids
                 rmse = utils.rmse(
-                    grav_results[f"iter_{iterations[row]}_initial_misfit"]
+                    grav_results[f"iter_{iterations[row]}_initial_residual"]
                 )
-                axes.set_title(f"initial misfit RMSE = {round(rmse, 2)} mGal")
+                axes.set_title(f"initial residual RMSE = {round(rmse, 2)} mGal")
             elif column == 1:  # topography grids
                 axes.set_title("updated topography")
             elif column == 2:  # correction grids
@@ -998,133 +816,26 @@ def plot_inversion_iteration_results(
 
 
 def plot_inversion_results(
-    grav_results: pd.DataFrame | str,
-    topo_results: pd.DataFrame | str,
-    parameters: dict[str, typing.Any] | str,
-    grav_region: tuple[float, float, float, float] | None,
-    iters_to_plot: int | None = None,
-    plot_iter_results: bool = True,
-    plot_topo_results: bool = True,
-    plot_grav_results: bool = True,
-    constraints_df: pd.DataFrame | None = None,
-    **kwargs: typing.Any,
+    grav_results: pd.DataFrame | str,  # noqa: ARG001
+    topo_results: pd.DataFrame | str,  # noqa: ARG001
+    parameters: dict[str, typing.Any] | str,  # noqa: ARG001
+    grav_region: tuple[float, float, float, float] | None,  # noqa: ARG001
+    iters_to_plot: int | None = None,  # noqa: ARG001
+    plot_iter_results: bool = True,  # noqa: ARG001
+    plot_topo_results: bool = True,  # noqa: ARG001
+    plot_grav_results: bool = True,  # noqa: ARG001
+    constraints_df: pd.DataFrame | None = None,  # noqa: ARG001
+    **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
     """
-    plot various results from the inversion
-
-    Parameters
-    ----------
-    grav_results : pandas.DataFrame | str
-        gravity results dataframe or filename
-    topo_results : pandas.DataFrame | str
-        topography results dataframe or filename
-    parameters : dict[str, typing.Any] | str
-        inversion parameters dictionary or filename
-    grav_region : tuple[float, float, float, float] | None
-        region to use for gridding in format (xmin, xmax, ymin, ymax), by default None
-    iters_to_plot : int | None, optional
-        number of iterations to plot, including the first and last, by default None
-    plot_iter_results : bool, optional
-        plot the iteration results, by default True
-    plot_topo_results : bool, optional
-        plot the topography results, by default True
-    plot_grav_results : bool, optional
-        plot the gravity results, by default True
-    constraints_df : pandas.DataFrame, optional
-        constraint points to include in the plots
+    DEPRECATED: use the `Inversion` class method `plot_inversion_results` instead
     """
-    # if results are given as filenames (strings), load them
-    if isinstance(grav_results, str):
-        grav_results = pd.read_csv(
-            grav_results,
-            sep=",",
-            header="infer",
-            index_col=None,
-            compression="gzip",
-        )
-    if isinstance(topo_results, str):
-        topo_results = pd.read_csv(
-            topo_results,
-            sep=",",
-            header="infer",
-            index_col=None,
-            compression="gzip",
-        )
-    if isinstance(parameters, str):
-        params = np.load(parameters, allow_pickle="TRUE").item()
-    else:
-        params = parameters
-
-    prisms_ds = topo_results.set_index(["northing", "easting"]).to_xarray()
-
-    # either set input inversion region or get from input gravity data extent
-    if grav_region is None:
-        grav_region = vd.get_region((grav_results.easting, grav_results.northing))
-
-    # get lists of columns to grid
-    misfits = [s for s in grav_results.columns.to_list() if "initial_misfit" in s]
-    topos = [s for s in topo_results.columns.to_list() if "_layer" in s]
-    corrections = [s for s in topo_results.columns.to_list() if "_correction" in s]
-
-    # list of iterations, e.g. [1,2,3,4]
-    its = [int(s[5:][:-15]) for s in misfits]
-
-    # get on x amount of iterations to plot
-    if iters_to_plot is not None:
-        if iters_to_plot > max(its):
-            iterations = its
-        else:
-            iterations = list(np.linspace(1, max(its), iters_to_plot, dtype=int))
-    else:
-        iterations = its
-
-    # subset columns based on iterations to plot
-    misfits = [misfits[i] for i in [x - 1 for x in iterations]]
-    topos = [topos[i] for i in [x - 1 for x in iterations]]
-    corrections = [corrections[i] for i in [x - 1 for x in iterations]]
-
-    # grid all results
-    grids = grid_inversion_results(
-        misfits,
-        topos,
-        corrections,
-        prisms_ds,
-        grav_results,
-        grav_region,
+    # pylint: disable=W0613
+    msg = (
+        "Function `plot_inversion_results` deprecated, use the `Inversion` class method "
+        "`plot_inversion_results` instead"
     )
-
-    if plot_iter_results is True:
-        plot_inversion_iteration_results(
-            grids,
-            grav_results,
-            topo_results,
-            params,
-            iterations,
-            topo_cmap_perc=kwargs.get("topo_cmap_perc", 1),
-            misfit_cmap_perc=kwargs.get("misfit_cmap_perc", 1),
-            corrections_cmap_perc=kwargs.get("corrections_cmap_perc", 1),
-            constraints_df=constraints_df,
-            constraint_size=kwargs.get("constraint_size", 1),
-        )
-
-    if plot_topo_results is True:
-        plot_inversion_topo_results(
-            prisms_ds,
-            region=grav_region,
-            constraints_df=constraints_df,
-            constraint_style=kwargs.get("constraint_style", "x.3c"),
-            fig_height=kwargs.get("fig_height", 12),
-        )
-
-    if plot_grav_results is True:
-        plot_inversion_grav_results(
-            grav_results,
-            grav_region,
-            iterations,
-            constraints_df=constraints_df,
-            fig_height=kwargs.get("fig_height", 12),
-            constraint_style=kwargs.get("constraint_style", "x.3c"),
-        )
+    raise DeprecationWarning(msg)
 
 
 def add_light(
@@ -1204,7 +915,11 @@ def show_prism_layers(
             )
 
         # turn prisms into pyvista object
-        pv_grid = j.prism_layer.to_pyvista()
+        if j.model_type == "prisms":
+            pv_grid = j.prism_layer.to_pyvista()
+        elif j.model_type == "tesseroids":
+            msg = "Cannot plot tesseroids with PyVista, only prisms"
+            raise NotImplementedError(msg)
 
         # clip corner out of model to help visualize
         if clip_box is True:
@@ -1661,7 +1376,7 @@ def projection_2d(
 
 def edge_effects(
     grav_ds: xr.Dataset,
-    prism_layer: xr.DataArray,
+    layer: xr.DataArray,
     inner_region: tuple[float, float, float, float],
     plot_profile: bool = True,
 ) -> None:
@@ -1673,8 +1388,8 @@ def edge_effects(
     ----------
     grav_ds : xr.Dataset
         the gravity dataset
-    prism_layer : xr.DataArray
-        the prism layer
+    layer : xr.DataArray
+        the prism/tesseroid layer
     inner_region : tuple[float, float, float, float]
         the inside region, where forward gravity is calculated
     plot_profile : bool, optional
@@ -1683,14 +1398,14 @@ def edge_effects(
     # plot profiles
     if plot_profile:
         data_dict = profiles.make_data_dict(
-            ["forward gravity", "without edge effects"],
+            ["calculated forward gravity", "true gravity (without edge effects)"],
             [grav_ds.forward, grav_ds.forward_no_edge_effects],
             ["black", "red"],
         )
 
         layers_dict = profiles.make_data_dict(
             ["surface", "reference"],
-            [prism_layer.top, prism_layer.bottom],
+            [layer.top, layer.bottom],
             ["blue", "darkorange"],
         )
 
@@ -1704,6 +1419,7 @@ def edge_effects(
             fig_width=10,
             fig_height=8,
             data_height=6,
+            hemisphere="south",
         )
         fig.show()
 
@@ -1730,6 +1446,7 @@ def edge_effects(
         cbar_label="mGal",
         scalebar=False,
         hist=True,
+        hemisphere="south",
     )
 
     fig = maps.plot_grd(
@@ -1742,6 +1459,7 @@ def edge_effects(
         cbar_label="Percentage decay",
         scalebar=False,
         hist=True,
+        hemisphere="south",
     )
 
     fig.grdcontour(grid=percent_decay)
