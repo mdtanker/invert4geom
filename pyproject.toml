@@ -98,7 +98,6 @@ docs = [
   "ipykernel",
   "nbconvert",
   "sphinxcontrib-bibtex",
-  "sphinx_autoapi",
   "sphinx_design",
 ]
 all = [

@@ -1,21 +1,21 @@
-import invert4geom
+import importlib.metadata
 
 project = "invert4geom"
 copyright = "2023, Matt Tankersley"
 author = "Matt Tankersley"
-version = release = invert4geom.__version__
+version = release = importlib.metadata.version("invert4geom")
 extensions = [
-    "sphinx.ext.autodoc",  # needed for typehints
-    "sphinx.ext.viewcode",
-    "sphinx.ext.intersphinx",
-    "sphinx.ext.napoleon",
-    "autoapi.extension",
-    "sphinx.ext.mathjax",
-    "sphinx_copybutton",
     "myst_parser",
-    "sphinx_design",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.napoleon",
+    "sphinx_autodoc_typehints",
+    "sphinx_copybutton",
+    "sphinx.ext.viewcode",
     "nbsphinx",
     "sphinxcontrib.bibtex",
+    "sphinx_design",
 ]
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
@@ -28,8 +28,6 @@ exclude_patterns = [
 ]
 
 bibtex_bibfiles = ["_invert4geom_refs.bib"]
-
-nbsphinx_execute = "never"
 
 myst_enable_extensions = [
     "colon_fence",
@@ -49,7 +47,7 @@ intersphinx_mapping = {
     "xrft": ("https://xrft.readthedocs.io/en/stable/", None),
     "harmonica": ("https://www.fatiando.org/harmonica/latest/", None),
     "polartoolkit": ("https://polartoolkit.readthedocs.io/en/latest/", None),
-    "numba": ("https://numba.pydata.org/numba-doc/latest/", None),
+    "numba": ("https://numba.readthedocs.io/en/stable/index.html", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     # numba_progress
     "sklearn": ("https://scikit-learn.org/stable/", None),
@@ -85,12 +83,14 @@ always_document_param_types = True
 add_module_names = False
 add_function_parentheses = False
 
-# API doc configuration
-# -----------------------------------------------------------------------------
-autoapi_dirs = ["../src/invert4geom"]
-autoapi_type = "python"
-autoapi_add_toctree_entry = False
-autodoc_typehints = "description"
+nbsphinx_execute = "never"
+
+nbsphinx_execute_arguments = [
+    "--InlineBackend.figure_formats={'png2x'}",
+    "--InlineBackend.rc=figure.dpi=96",
+]
+
+nbsphinx_kernel_name = "python3"
 
 # HTML output configuration
 # -----------------------------------------------------------------------------
