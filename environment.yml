@@ -26,7 +26,7 @@ dependencies:
   # optimization
   - optuna>=4.0
   - pytorch
-  - sel(unix): nomkl
+  # - sel(unix): nomkl
   - joblib
   - psutil
   # visualization
