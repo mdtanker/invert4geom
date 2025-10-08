@@ -24,8 +24,8 @@ dependencies:
   - numba-progress
   - dask
   # optimization
-  - optuna>=4.0 
-  - pytorch 
+  - optuna>=4.0
+  - pytorch
   - sel(unix): nomkl
   - joblib
   - psutil
@@ -56,7 +56,6 @@ dependencies:
   - ipykernel
   - nbconvert
   - sphinxcontrib-bibtex
-  - sphinx-autoapi
   - sphinx-design
   ## dev
   - jupyterlab

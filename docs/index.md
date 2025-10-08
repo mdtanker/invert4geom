@@ -73,10 +73,8 @@ examples/index.md
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: 📖 Reference documentation
-autoapi/invert4geom/index
-changelog.md
-references.rst
+:caption: 📖 API
+api/invert4geom
 ```
 
 ```{toctree}
@@ -84,6 +82,8 @@ references.rst
 :hidden:
 :caption: ℹ️ Other resources
 contributing.md
+changelog.md
+references.rst
 Source code on GitHub <https://github.com/mdtanker/invert4geom>
 ```
 
@@ -115,7 +115,7 @@ Start a discussion on GitHub!
 :::{grid-item-card} {octicon}`file-badge` Reference documentation
 :text-align: center
 A list of modules and functions
-```{button-ref} autoapi/invert4geom/index
+```{button-ref} api/invert4geom
     :click-parent:
     :color: primary
     :outline:
