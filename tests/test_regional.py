@@ -1,5 +1,4 @@
 # %%
-import pathlib
 
 import numpy as np
 import pandas as pd
@@ -7,73 +6,100 @@ import pytest
 import verde as vd
 import xarray as xr
 
-from invert4geom import regional, synthetic
-
-# %%
+import invert4geom
 
 
-def dummy_grid() -> xr.DataArray:
-    (x, y, z) = vd.grid_coordinates(
-        region=[0, 200, 200, 400],
-        spacing=50,
-        extra_coords=20,
-    )
+def observed_gravity() -> xr.Dataset:
+    easting = [0.0, 10000.0, 20000.0, 30000.0, 40000.0]
+    northing = [0.0, 10000.0, 20000.0, 30000.0]
 
     # create synthetic data
-    observed_grav = y**2 + x**2
+    # x, y = np.meshgrid(easting, northing)
+    # grav = (y**2 + x**2)/1e7
+    grav = [
+        [0.0, 10.0, 40.0, 90.0, 160.0],
+        [10.0, 20.0, 50.0, 100.0, 170.0],
+        [40.0, 50.0, 80.0, 130.0, 200.0],
+        [90.0, 100.0, 130.0, 180.0, 250.0],
+    ]
 
-    return vd.make_xarray_grid(
-        (x, y),
-        (observed_grav, z),
-        data_names=("gravity_anomaly", "upward"),
-        dims=("northing", "easting"),
+    ds = vd.make_xarray_grid(
+        (easting, northing),
+        data=(grav, np.full_like(grav, 1000), np.full_like(grav, 100)),
+        data_names=("gravity_anomaly", "upward", "forward_gravity"),
     )
 
-
-def dummy_df() -> pd.DataFrame:
-    df = dummy_grid().to_dataframe().reset_index()
-    df["starting_gravity"] = 20000
-    return df
+    return invert4geom.inversion.create_data(ds)
 
 
-# %%
 def test_regional_constant_constraints():
     """
     test the regional_constant function with a supplied constraints
     """
-    grav_df = dummy_df()
-    region = (0, 200, 200, 400)
+    grav_data = observed_gravity()
 
-    # create 10 random point within the region
-    num_constraints = 10
-    coords = vd.scatter_points(region=region, size=num_constraints, random_state=0)
-    points = pd.DataFrame(data={"easting": coords[0], "northing": coords[1]})
-
-    df = regional.regional_constant(
-        grav_df=grav_df,
-        constraints_df=points,
+    constraints = pd.DataFrame(
+        data={
+            "easting": [10000, 20000],
+            "northing": [10000, 30000],
+            "upward": [500, 500],
+        }
     )
 
-    # test whether regional field has been removed correctly
-    # by whether the means of the reg and misfit are similar
-    # print(np.mean(df.reg), np.mean(df.misfit))
-    assert np.mean(df.reg) == pytest.approx(np.mean(df.misfit), rel=1000)
+    ds = invert4geom.regional.regional_constant(
+        grav_ds=grav_data,
+        constraints_df=constraints,
+    )
+
+    # the constant regional value should be the mean of `misfit` at the constraints
+    gravity_anomaly_at_constraints = [
+        (y**2 + x**2) / 1e7
+        for x, y in zip(constraints.easting, constraints.northing, strict=False)
+    ]
+    misfit_at_constraints = [x - 100 for x in gravity_anomaly_at_constraints]
+    expected_regional_value = np.mean(misfit_at_constraints)
+
+    assert np.mean(ds.reg) == expected_regional_value
 
 
 def test_regional_constant():
     """
     test the regional_constant function with a supplied constant value
     """
+    grav_data = observed_gravity()
 
-    # grav_df = dummy_grid().to_dataframe().reset_index()
-    grav_df = dummy_df()
-
-    df = regional.regional_constant(
-        grav_df=grav_df,
+    ds = invert4geom.regional.regional_constant(
+        grav_ds=grav_data,
         constant=-200,
     )
 
-    assert df.reg.mean() == -200
+    assert ds.reg.mean() == -200
+
+
+@pytest.mark.filterwarnings("ignore:dropping variables using `drop` is deprecated")
+@pytest.mark.filterwarnings("ignore:Default ifft's behaviour")
+def test_regional_filter():
+    """
+    test the regional_filter function
+    """
+    grav_data = observed_gravity()
+
+    ds = invert4geom.regional.regional_filter(
+        filter_width=300e3,
+        grav_ds=grav_data,
+    )
+
+    assert len(ds.misfit) == len(ds.reg)
+
+    reg_range = np.max(ds.reg) - np.min(ds.reg)
+    misfit_range = np.max(ds.misfit) - np.min(ds.misfit)
+
+    # test  whether regional field has been remove correctly
+    # by whether the limits of the regional are smaller than the limits of the gravity
+    assert reg_range < misfit_range
+    # test that the mean regional value is in the range of the misfit values
+    assert np.mean(ds.reg) < np.max(ds.misfit)
+    assert np.mean(ds.reg) > np.min(ds.misfit)
 
 
 @pytest.mark.parametrize("trend", [0, 2])
@@ -81,16 +107,14 @@ def test_regional_trend(trend):
     """
     test the regional_trend function
     """
-    anomalies = dummy_df()
-    # print(fill_method, trend)
+    grav_data = observed_gravity()
 
-    df = regional.regional_trend(
+    ds = invert4geom.regional.regional_trend(
         trend=trend,
-        grav_df=anomalies,
+        grav_ds=grav_data,
     )
 
-    # grid = df.set_index(["northing", "easting"]).to_xarray()
-    # polar_utils.grd_compare(grid.reg, grid.misfit, plot=True, plot_type="xarray")
+    df = ds.inv.df
 
     assert len(df.misfit) == len(df.reg)
 
@@ -103,7 +127,6 @@ def test_regional_trend(trend):
     # misfit
     reg_range = np.max(df.reg) - np.min(df.reg)
     misfit_range = np.max(df.misfit) - np.min(df.misfit)
-    # print(reg_range, misfit_range)
 
     # assert reg_range < misfit_range or at least close
     assert reg_range < misfit_range or reg_range == pytest.approx(
@@ -118,62 +141,29 @@ def test_regional_trend(trend):
     )
 
 
-@pytest.mark.filterwarnings("ignore:dropping variables using `drop` is deprecated")
-@pytest.mark.filterwarnings("ignore:Default ifft's behaviour")
-def test_regional_filter():
-    """
-    test the regional_filter function
-    """
-    grav_df = dummy_df()
-
-    df = regional.regional_filter(
-        filter_width=300e3,
-        grav_df=grav_df,
-        # registration="g",
-    )
-
-    # grid = df.set_index(["northing", "easting"]).to_xarray()
-    # polar_utils.grd_compare(grid.reg, grid.misfit, plot=True, plot_type="xarray")
-
-    assert len(df.misfit) == len(df.reg)
-
-    reg_range = np.max(df.reg) - np.min(df.reg)
-    misfit_range = np.max(df.misfit) - np.min(df.misfit)
-
-    # test  whether regional field has been remove correctly
-    # by whether the limits of the regional are smaller than the limits of the gravity
-    assert reg_range < misfit_range
-    # test that the mean regional value is in the range of the misfit values
-    assert np.mean(df.reg) < np.max(df.misfit)
-    assert np.mean(df.reg) > np.min(df.misfit)
-
-
 def test_regional_eq_sources():
     """
     test the regional_eq_sources function
     """
-    grav_df = dummy_df()
-    # grav_df["Gobs"] = np.random.normal(100, 100, len(grav_df))
-
-    # grav_df = dummy_grid().to_dataframe().reset_index()
+    grav_data = observed_gravity()
 
     # add noise
-    grav_df["starting_gravity"], _ = synthetic.contaminate(
-        grav_df.starting_gravity,
-        stddev=0.2,
+    grav_data["forward_gravity"], _ = invert4geom.synthetic.contaminate(
+        grav_data.forward_gravity,
+        stddev=0.01,
         percent=True,
         seed=0,
     )
 
-    df = regional.regional_eq_sources(
-        depth=500e3,
-        damping=10,
-        grav_df=grav_df,
+    ds = invert4geom.regional.regional_eq_sources(
+        depth=100e3,
+        damping=1,
+        grav_ds=grav_data,
     )
-    # print(df)
-    reg_range = np.max(df.reg) - np.min(df.reg)
-    misfit_range = np.max(df.misfit) - np.min(df.misfit)
-    # print(reg_range, misfit_range)
+
+    reg_range = np.max(ds.reg) - np.min(ds.reg)
+    misfit_range = np.max(ds.misfit) - np.min(ds.misfit)
+
     # test whether regional field has been remove correctly
     # by whether the range of regional values are lower than the range of misfit values
     assert reg_range < misfit_range
@@ -184,11 +174,14 @@ def test_regional_eq_sources():
 )
 @pytest.mark.filterwarnings("ignore:: FutureWarning")
 @pytest.mark.filterwarnings("ignore:The following error was raised:")
+@pytest.mark.filterwarnings("ignore:Cannot have number of splits")
+@pytest.mark.filterwarnings("ignore:decreasing number of splits by 1")
+@pytest.mark.filterwarnings("ignore:: sklearn.exceptions.UndefinedMetricWarning")
 @pytest.mark.parametrize(
     "test_input",
     [
         "verde",
-        # "pygmt", # issue with pygmt RuntimeWarning
+        "pygmt",  # issue with pygmt RuntimeWarning
         "eq_sources",
     ],
 )
@@ -196,46 +189,67 @@ def test_regional_constraints(test_input):
     """
     test the regional_constraints function
     """
-    anomalies = dummy_df()
-    region = (0, 200, 200, 400)
-    # points = pd.DataFrame(
-    #     {
-    #         # "easting": [-50, -40, -30, -20, 0, 5, 7, 9, 10, 30, 50],
-    #         # "northing": [210, 220, 280, 260, 240, 300, 310, 320, 360, 300, 310]
-    #         "easting": np.linspace(10, 190, 10),
-    #         "northing": np.linspace(210, 390, 10),
-    #     }
-    # )
-    # create 10 random point within the region
-    num_constraints = 10
-    coords = vd.scatter_points(region=region, size=num_constraints, random_state=0)
-    points = pd.DataFrame(data={"easting": coords[0], "northing": coords[1]})
+    grav_data = observed_gravity()
 
-    df = regional.regional_constraints(
-        constraints_df=points,
-        grav_df=anomalies,
+    # 1 point near each corner of the grid
+    constraints = pd.DataFrame(
+        data={
+            "easting": [5000, 35000, 5000, 35000],
+            "northing": [5000, 25000, 25000, 5000],
+            "upward": [500, 500, 500, 500],
+        }
+    )
+
+    ds = invert4geom.regional.regional_constraints(
+        constraints_df=constraints,
+        grav_ds=grav_data,
         grid_method=test_input,
         grav_obs_height=1e3,
         depth=100e3,
         spline_dampings=1e-3,
     )
 
-    # grid = df.set_index(["northing", "easting"]).to_xarray()
     # polar_utils.grd_compare(
-    #     grid.reg, grid.misfit, plot=True, plot_type="xarray",
-    #     points=points.rename(columns={"easting":"x", "northing":"y"}),
-    #     )
+    #     ds.reg,
+    #     ds.misfit,
+    #     points=constraints,
+    #     hemisphere="south",
+    #     grid1_name="reg",
+    #     grid2_name="misfit",
+    # )
+
+    if test_input == "verde":
+        expected = [
+            [-129.87915086, -86.90383075, -46.64122827, -6.83913916, 33.70990694],
+            [-97.36785292, -55.07908713, -15.51259498, 23.75995967, 64.35825028],
+            [-67.2664448, -25.44787136, 14.23583785, 53.39117545, 94.4596584],
+            [-37.42348908, 4.35522248, 44.57059026, 84.41991407, 126.16556872],
+        ]
+    elif test_input == "pygmt":
+        expected = [
+            [-126.25, -86.25, -46.25, -6.25, 33.75],
+            [-96.25, -56.25, -16.25, 23.75, 63.75],
+            [-66.25, -26.25, 13.75, 53.75, 93.75],
+            [-36.25, 3.75, 43.75, 83.75, 123.75],
+        ]
+    elif test_input == "eq_sources":
+        expected = [
+            [-121.35803396, -86.18668308, -46.75683717, -6.1701828, 32.34455063],
+            [-94.98293087, -57.77247606, -16.86896395, 24.44519832, 62.84220412],
+            [-65.33154372, -26.96784838, 14.3349387, 55.249826, 92.49359128],
+            [-34.81156908, 3.67070039, 44.24627242, 83.68720067, 118.89101551],
+        ]
+
+    assert not np.testing.assert_allclose(ds.reg.values, expected)
 
     # delete the temp files created by optuna
-    pathlib.Path("tmp.log").unlink(missing_ok=True)
-    pathlib.Path("tmp.log.lock").unlink(missing_ok=True)
-
-    assert len(df.misfit) == len(df.reg)
+    # pathlib.Path("tmp.log").unlink(missing_ok=True)
+    # pathlib.Path("tmp.log.lock").unlink(missing_ok=True)
 
     # test whether regional field has been removed correctly
     # by whether the means of the reg and misfit are similar
-    # print(np.mean(df.reg), np.mean(df.misfit))
-    assert np.mean(df.reg) == pytest.approx(np.mean(df.misfit), rel=1000)
+    # print(np.mean(ds.reg), np.mean(ds.misfit))
+    # assert np.mean(ds.reg) == pytest.approx(np.mean(ds.misfit)-100)
 
     # test whether regional field has been remove correctly by ensuring the limits of
     # the regional are not much larger than the range of the misfit
@@ -252,6 +266,13 @@ def test_regional_constraints(test_input):
     #   (np.max(df.reg) == pytest.approx(np.max(df.misfit), rel=1e-10))
     # assert np.min(df.reg) > np.min(df.misfit) or
     #   (np.min(df.reg) == pytest.approx(np.min(df.misfit), rel=1e-10))
+
+    # reg_range = np.max(ds.reg) - np.min(ds.reg)
+    # misfit_range = np.max(ds.misfit) - np.min(ds.misfit)
+
+    # # test whether regional field has been remove correctly
+    # # by whether the range of regional values are lower than the range of misfit values
+    # assert reg_range < misfit_range
 
 
 # %%
