@@ -27,9 +27,11 @@ from invert4geom import (
     inversion,
     logger,
     plotting,
-    regional,
     utils,
 )
+
+if typing.TYPE_CHECKING:
+    from invert4geom.inversion import Inversion
 
 warnings.simplefilter(
     "ignore",
@@ -565,12 +567,12 @@ class OptimalInversionDamping:
     """
     Objective function to use in an Optuna optimization for finding the optimal damping
     regularization value for a gravity inversion. Used within function
-    `optimize_inversion_damping()`.
+    :func:`optimize_inversion_damping`.
     """
 
     def __init__(
         self,
-        inversion_obj: inversion.Inversion,
+        inversion_obj: "Inversion",
         fname: str,
         damping_limits: tuple[float, float],
         rmse_as_median: bool = False,
@@ -658,7 +660,7 @@ class OptimalInversionZrefDensity:
 
     def __init__(
         self,
-        inversion_obj: inversion.Inversion,
+        inversion_obj: "Inversion",
         constraints_df: pd.DataFrame,
         fname: str,
         regional_grav_kwargs: dict[str, typing.Any],
@@ -1094,7 +1096,7 @@ def optimize_eq_source_params(
     fname: str | None = None,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, hm.EquivalentSources]:
+) -> tuple[optuna.study.Study, hm.EquivalentSources]:
     """
     Use Optuna to find the optimal parameters for fitting equivalent sources to gravity
     data. The 3 parameters are damping, depth, and block size. Any or all of these can
@@ -1133,13 +1135,13 @@ def optimize_eq_source_params(
     kwargs : typing.Any
         additional keyword arguments to pass to `OptimalEqSourceParams`, which are
         passed to `eq_sources_score`. These can include parameters to pass to
-        `harmonica.EquivalentSources`; "damping", "points", "depth", "block_size",
+        `harmonica.EquivalentSources`; "damping", "depth", "block_size",
         "parallel", and "dtype", or parameters to pass to `vd.cross_val_score`;
         "delayed", or "weights".
 
     Returns
     -------
-    study : optuna.study
+    study : optuna.study.Study
         the completed optuna study
     eqs : harmonica.EquivalentSources
         the fitted equivalent sources model
@@ -1241,7 +1243,7 @@ def optimize_eq_source_params(
     logger.debug("starting eq_source parameter optimization")
     # pylint: enable=duplicate-code
     # ignore skLearn LinAlg warnings
-    with (utils.environ(PYTHONWARNINGS="ignore")) and (utils.DuplicateFilter(logger)):  # type: ignore[no-untyped-call, truthy-bool]
+    with (utils._environ(PYTHONWARNINGS="ignore")) and (utils.DuplicateFilter(logger)):  # type: ignore[no-untyped-call, truthy-bool] # pylint: disable=protected-access
         # run startup trials with QMC low-discrepancy sampling
         study = run_optuna(
             study=study,
@@ -1327,7 +1329,6 @@ def optimize_eq_source_params(
         damping=best_damping,
         depth=best_depth,
         block_size=best_block_size,
-        points=kwargs.pop("points", None),
         parallel=kwargs.pop("parallel", True),
         dtype=kwargs.pop("dtype", "float64"),
     )
@@ -1816,7 +1817,6 @@ def optimize_regional_filter(
     grav_ds: xr.Dataset,
     filter_width_limits: tuple[float, float],
     score_as_median: bool = False,
-    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
     sampler: optuna.samplers.BaseSampler | None = None,
@@ -1828,7 +1828,7 @@ def optimize_regional_filter(
     parallel: bool = False,
     fname: str | None = None,
     seed: int = 0,
-) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal filter width for estimating the
     regional component of gravity misfit. For synthetic testing, if the true regional
@@ -1852,9 +1852,6 @@ def optimize_regional_filter(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
-    remove_starting_grav_mean : bool, optional
-        remove the mean of the starting gravity data before estimating the regional.
-        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xarray.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -1886,7 +1883,7 @@ def optimize_regional_filter(
 
     Returns
     -------
-    study : optuna.study,
+    study : optuna.study.Study,
         the completed Optuna study
     resulting_grav_ds : xarray.Dataset
         the resulting gravity dataset of the best trial
@@ -1929,7 +1926,6 @@ def optimize_regional_filter(
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
             separate_metrics=separate_metrics,
-            remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=n_trials,
         progressbar=progressbar,
@@ -1951,18 +1947,16 @@ def optimize_regional_filter(
     log_optuna_results(best_trial)
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_ds = regional.regional_separation(
+    grav_ds.inv.regional_separation(
         method="filter",
         filter_width=best_trial.params["filter_width"],
-        grav_ds=grav_ds,
-        remove_starting_grav_mean=remove_starting_grav_mean,
     )
 
     if plot is True:
         try:
             if study._is_multi_objective() is False:  # pylint: disable=protected-access
                 if optimize_on_true_regional_misfit is True:
-                    plotting.combined_slice(
+                    plotting.plot_optimization_combined_slice(
                         study,
                         attribute_names=[
                             "residual constraint score",
@@ -1980,11 +1974,11 @@ def optimize_regional_filter(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_ds.reg.plot()
+                grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_ds, best_trial
+    return study, grav_ds, best_trial
 
 
 def optimize_regional_trend(
@@ -1992,7 +1986,6 @@ def optimize_regional_trend(
     grav_ds: xr.Dataset,
     trend_limits: tuple[int, int],
     score_as_median: bool = False,
-    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
     plot: bool = False,
@@ -2003,7 +1996,7 @@ def optimize_regional_trend(
     parallel: bool = False,
     fname: str | None = None,
     seed: int = 0,
-) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal trend order for estimating the
     regional component of gravity misfit. For synthetic testing, if the true regional
@@ -2027,9 +2020,6 @@ def optimize_regional_trend(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
-    remove_starting_grav_mean : bool, optional
-        remove the mean of the starting gravity data before estimating the regional.
-        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xarray.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -2059,7 +2049,7 @@ def optimize_regional_trend(
 
     Returns
     -------
-    study : optuna.study,
+    study : optuna.study.Study,
         the completed Optuna study
     resulting_grav_ds : xarray.Dataset
         the resulting gravity dataset of the best trial
@@ -2104,7 +2094,6 @@ def optimize_regional_trend(
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
             separate_metrics=separate_metrics,
-            remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=len(list(range(trend_limits[0], trend_limits[1] + 1))),
         maximize_cpus=True,
@@ -2127,18 +2116,16 @@ def optimize_regional_trend(
     log_optuna_results(best_trial)
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_ds = regional.regional_separation(
+    grav_ds.inv.regional_separation(
         method="trend",
         trend=best_trial.params["trend"],
-        grav_ds=grav_ds,
-        remove_starting_grav_mean=remove_starting_grav_mean,
     )
 
     if plot is True:
         try:
             if study._is_multi_objective() is False:  # pylint: disable=protected-access
                 if optimize_on_true_regional_misfit is True:
-                    plotting.combined_slice(
+                    plotting.plot_optimization_combined_slice(
                         study,
                         attribute_names=[
                             "residual constraint score",
@@ -2156,11 +2143,11 @@ def optimize_regional_trend(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_ds.reg.plot()
+                grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_ds, best_trial
+    return study, grav_ds, best_trial
 
 
 def optimize_regional_eq_sources(
@@ -2183,7 +2170,7 @@ def optimize_regional_eq_sources(
     fname: str | None = None,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal equivalent source parameters for
     estimating the regional component of gravity misfit. For synthetic testing, if the
@@ -2242,11 +2229,11 @@ def optimize_regional_eq_sources(
     seed : int, optional
         random seed for the samplers, by default 0
     kwargs : typing.Any
-        additional keyword arguments to pass to the regional.regional_separation
+        additional keyword arguments to pass to the :meth:`DatasetAccessorInvert4Geom.regional_separation`
 
     Returns
     -------
-    study : optuna.study,
+    study : optuna.study.Study
         the completed Optuna study
     resulting_grav_ds : xarray.Dataset
         the resulting gravity dataset of the best trial
@@ -2332,13 +2319,12 @@ def optimize_regional_eq_sources(
         kwargs.pop("grav_obs_height", None),
     )
     # redo the regional separation with best parameters
-    resulting_grav_ds = regional.regional_separation(
+    grav_ds.inv.regional_separation(
         method="eq_sources",
         depth=depth,
         damping=damping,
         block_size=block_size,
         grav_obs_height=grav_obs_height,
-        grav_ds=grav_ds,
         **kwargs,
     )
     if plot is True:
@@ -2346,7 +2332,7 @@ def optimize_regional_eq_sources(
             if study._is_multi_objective() is False:  # pylint: disable=protected-access
                 if optimize_on_true_regional_misfit is True:
                     for p in best_trial.params:
-                        plotting.combined_slice(
+                        plotting.plot_optimization_combined_slice(
                             study,
                             attribute_names=[
                                 "residual constraint score",
@@ -2365,11 +2351,11 @@ def optimize_regional_eq_sources(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_ds.reg.plot()
+                grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_ds, best_trial
+    return study, grav_ds, best_trial
 
 
 def optimize_regional_constraint_point_minimization(
@@ -2396,10 +2382,10 @@ def optimize_regional_constraint_point_minimization(
     fname: str | None = None,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal hyperparameters for the Constraint
-    Point Minimization (CPM) technique for estimating the regional component of gravity
+    Point Minimization technique for estimating the regional component of gravity
     misfit. Since constraints are used both for determining the regional field, and for
     the scoring of the performance, we must split the constraints into testing and
     training sets. This function can perform both single and K-Folds cross validations,
@@ -2412,14 +2398,14 @@ def optimize_regional_constraint_point_minimization(
     By default this will perform a multi-objective optimization to
     find the best trade-off between the lowest RMSE of the residual misfit at the
     constraints and the highest RMS amplitude of the residual at all locations.
-    Choose which CPM gridding method with the `grid_method` parameter, and supplied the
-    associated method parameter limits via parameters <parameter>_limits. For grid
-    method "eq_sources" which has multiple parameters, if limits aren't provided for one
-    of the parameters, supply a constant value for the parameter in the keyword
-    arguments, which are past direction to `regional.regional_separation`.
-    For synthetic testing, if the true regional grid is provided, the optimization can
-    be set to optimize on the RMSE of the predicted and true regional gravity, by
-    setting `optimize_on_true_regional_misfit=True`.
+    Choose which Constraint Point Minimization gridding method with the `grid_method`
+    parameter, and supplied the associated method parameter limits via parameters
+    <parameter>_limits. For grid method "eq_sources" which has multiple parameters, if
+    limits aren't provided for one of the parameters, supply a constant value for the
+    parameter in the keyword arguments, which are past direction to
+    :meth:`DatasetAccessorInvert4Geom.regional_separation`. For synthetic testing, if the true regional grid is
+    provided, the optimization can be set to optimize on the RMSE of the predicted and
+    true regional gravity, by setting `optimize_on_true_regional_misfit=True`.
 
     Parameters
     ----------
@@ -2487,11 +2473,11 @@ def optimize_regional_constraint_point_minimization(
     seed : int, optional
         random seed for the samplers, by default 0
     kwargs : typing.Any
-        additional keyword arguments to pass to the regional.regional_separation
+        additional keyword arguments to pass to the :meth:`DatasetAccessorInvert4Geom.regional_separation`
 
     Returns
     -------
-    study : optuna.study,
+    study : optuna.study.Study,
         the completed Optuna study
     resulting_grav_ds : xarray.Dataset
         the resulting gravity dataset of the best trial
@@ -2593,7 +2579,7 @@ def optimize_regional_constraint_point_minimization(
         objective=OptimizeRegionalConstraintsPointMinimization(
             training_df=train_dfs,
             testing_df=test_dfs,
-            # kwargs for regional.regional_constraints:
+            # kwargs for regional_constraints:
             grav_ds=grav_ds,
             grid_method=grid_method,
             tension_factor_limits=tension_factor_limits,
@@ -2653,9 +2639,8 @@ def optimize_regional_constraint_point_minimization(
     )
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_ds = regional.regional_separation(
+    grav_ds.inv.regional_separation(
         method="constraints",
-        grav_ds=grav_ds,
         constraints_df=constraints_df,
         grid_method=grid_method,
         tension_factor=tension_factor,
@@ -2681,7 +2666,7 @@ def optimize_regional_constraint_point_minimization(
             if study._is_multi_objective() is False:  # pylint: disable=protected-access
                 if optimize_on_true_regional_misfit is True:
                     for p in best_trial.params:
-                        plotting.combined_slice(
+                        plotting.plot_optimization_combined_slice(
                             study,
                             attribute_names=[
                                 "residual constraint score",
@@ -2700,11 +2685,11 @@ def optimize_regional_constraint_point_minimization(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_ds.reg.plot()
+                grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_ds, best_trial
+    return study, grav_ds, best_trial
 
 
 def optimal_buffer(
@@ -2719,7 +2704,7 @@ def optimal_buffer(
     plot: bool = True,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, tuple[float, float, int, xr.Dataset]]:
+) -> tuple[optuna.study.Study, tuple[float, float, int, xr.Dataset]]:
     """
     Run an optimization to find best buffer zone width.
     """

@@ -1,4 +1,3 @@
-import copy
 import typing
 
 import harmonica as hm
@@ -7,7 +6,7 @@ import pandas as pd
 import pygmt
 import verde as vd
 import xarray as xr
-from numpy.typing import NDArray
+from polartoolkit import utils as polar_utils
 
 from invert4geom import cross_validation, logger, optimization, utils
 
@@ -18,7 +17,7 @@ def regional_constant(
     constraints_df: pd.DataFrame | None = None,
     regional_shift: float = 0,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     approximate the regional field with a constant value. If constraint points of the
     layer of interested are supplied, the constant value will be the median misfit value
@@ -38,11 +37,6 @@ def regional_constant(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
 
     if isinstance(grav_ds, xr.Dataset) is False:
@@ -50,7 +44,7 @@ def regional_constant(
         raise DeprecationWarning(msg)
 
     logger.debug("starting regional_constant")
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
@@ -95,16 +89,13 @@ def regional_constant(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    # return the new dataset
-    return grav_ds
-
 
 def regional_filter(
     grav_ds: xr.Dataset,
     filter_width: float,
     regional_shift: float = 0,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     separate the regional field with a low-pass filter
 
@@ -120,11 +111,6 @@ def regional_filter(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_filter` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -132,17 +118,17 @@ def regional_filter(
 
     logger.debug("starting regional_filter")
 
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
     # remove the mean from the data
     data_mean = grav_ds.misfit.mean()
-    grav_ds["misfit"] -= data_mean
+    misfit = grav_ds.misfit - data_mean
 
     # filter the gravity grid with the provided filter in meters
     regional_grid = utils.filter_grid(
-        grav_ds.misfit,
+        misfit,
         filter_width,
         filt_type="lowpass",
     )
@@ -159,15 +145,13 @@ def regional_filter(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    return grav_ds
-
 
 def regional_trend(
     grav_ds: xr.Dataset,
     trend: int,
     regional_shift: float = 0,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     separate the regional field with a trend
 
@@ -183,11 +167,6 @@ def regional_trend(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_trend` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -195,7 +174,7 @@ def regional_trend(
 
     logger.debug("starting regional_trend")
 
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
@@ -218,22 +197,19 @@ def regional_trend(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    return grav_ds
-
 
 def regional_eq_sources(
     grav_ds: xr.Dataset,
     depth: float | str = "default",
     damping: float | None = None,
     block_size: float | None = None,
-    points: list[NDArray] | None = None,
     grav_obs_height: float | None = None,
     regional_shift: float = 0,
     cv: bool = False,
     weights_column: str | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     separate the regional field by estimating deep equivalent sources
 
@@ -248,8 +224,6 @@ def regional_eq_sources(
         smoothness to impose on estimated coefficients, by default None
     block_size : float | None, optional
         block reduce the data to speed up, by default None
-    points : list[numpy.ndarray] | None, optional
-        specify source locations for equivalent source fitting, by default None
     grav_obs_height: float, optional
         Observation height to use predicting the eq sources, by default None and will
         use the data height from grav_ds.
@@ -266,11 +240,6 @@ def regional_eq_sources(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_eq_sources` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -278,7 +247,7 @@ def regional_eq_sources(
 
     logger.debug("starting regional_eq_sources")
 
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
@@ -292,7 +261,6 @@ def regional_eq_sources(
         _, eqs = optimization.optimize_eq_source_params(
             coordinates=coords,
             data=grav_df.misfit,
-            points=points,
             weights=weights,
             depth=depth,
             damping=damping,
@@ -305,7 +273,6 @@ def regional_eq_sources(
             depth=depth,
             damping=damping,
             block_size=block_size,
-            points=points,
         )
 
         # fit the source coefficients to the data
@@ -332,8 +299,6 @@ def regional_eq_sources(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    return grav_ds
-
 
 def regional_constraints(
     grav_ds: xr.Dataset,
@@ -342,18 +307,16 @@ def regional_constraints(
     constraints_block_size: float | None = None,
     constraints_weights_column: str | None = None,
     tension_factor: float = 1,
-    registration: str = "g",
     spline_dampings: float | list[float] | None = None,
     depth: float | str | None = None,
     damping: float | None = None,
     cv: bool = False,
     block_size: float | None = None,
-    points: list[NDArray] | None = None,
     grav_obs_height: float | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
     regional_shift: float = 0,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     Separate the regional field by sampling and re-gridding the gravity misfit at
     points of known topography (constraint points). The re-gridding can be done with:
@@ -364,7 +327,7 @@ def regional_constraints(
 
     Parameters
     ----------
-    grav_ds : xr.Dataset
+    grav_ds : xarray.Dataset
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "forward_gravity".
     constraints_df : pandas.DataFrame
@@ -381,8 +344,6 @@ def regional_constraints(
        "eq_sources", by default None
     tension_factor : float, optional
         Tension factor used if `grid_method` is "pygmt", by default 1
-    registration : str, optional
-       grid registration used if `grid_method` is "pygmt",, by default "g"
     spline_dampings : float | list[float] | None, optional
         damping values used if `grid_method` is "verde", by default None
     depth : float | str | None, optional
@@ -397,25 +358,18 @@ def regional_constraints(
         "damping_limits", "depth_limits", "block_size_limits", and "progressbar".
     block_size : float | None, optional
         block size used if `grid_method` is "eq_sources", by default None
-    points : list[numpy.ndarray] | None, optional
-        specify source locations for equivalent source fitting, by default None
     grav_obs_height : float, optional
         Observation height to use if `grid_method` is "eq_sources", by default None
     cv_kwargs : dict[str, typing.Any] | None, optional
         additional keyword arguments for the cross-validation optimization of
         equivalent source parameters, by default None. Can contain: "n_trials",
-        "damping_limits", "depth_limits", "block_size_limits", "points", "sampler",
+        "damping_limits", "depth_limits", "block_size_limits", "sampler",
         "plot", "progressbar", "parallel", "fname", "dtype", or "delayed".
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated residual field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
 
     if isinstance(grav_ds, xr.Dataset) is False:
@@ -428,7 +382,7 @@ def regional_constraints(
         msg = "need to provide constraints_df"
         raise ValueError(msg)
 
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     constraints_df = constraints_df.copy()
 
@@ -507,11 +461,12 @@ def regional_constraints(
         constraints_df = constraints_df.dropna(how="any")
     ###
     ###
-    # Tensioned minimum curvature with PyGMT
+    # Tensioned splines with PyGMT
     ###
     ###
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
+        registration = polar_utils.get_grid_info(grav_ds.forward_gravity)[-1]
         da = pygmt.surface(
             data=constraints_df[["easting", "northing", "sampled_grav"]],
             region=grav_ds.region,
@@ -527,7 +482,7 @@ def regional_constraints(
     ###
     ###
     elif grid_method == "verde":
-        spline = utils.best_spline_cv(
+        spline = utils.optimal_spline_damping(
             coordinates=(
                 constraints_df.easting,
                 constraints_df.northing,
@@ -584,7 +539,6 @@ def regional_constraints(
                     depth="default",
                     damping=None,
                     block_size=block_size,
-                    points=points,
                 )
                 eqs.fit(
                     coords,
@@ -598,7 +552,6 @@ def regional_constraints(
                 depth=depth,
                 damping=damping,
                 block_size=block_size,
-                points=points,
             )
 
             # fit the source coefficients to the data
@@ -631,14 +584,16 @@ def regional_constraints(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    return grav_ds
+    assert grav_ds.reg.notnull().all(), "regional grid has NaN values!"  # noqa: PD004
+    assert grav_ds.res.notnull().all(), "residual grid has NaN values!"  # noqa: PD004
 
 
 def regional_constraints_cv(
+    grav_ds: xr.Dataset,
     constraints_df: pd.DataFrame,
     split_kwargs: dict[str, typing.Any] | None = None,
     **kwargs: typing.Any,
-) -> xr.Dataset:
+) -> None:
     """
     This is a convenience function to wrap
     `optimization.optimize_regional_constraint_point_minimization`. It takes a full
@@ -647,27 +602,25 @@ def regional_constraints_cv(
     hyperparameter optimization to find the set of parameter values which estimates the
     best regional field. It then uses the optimal parameter values and all of the
     constraint points to re-calculate the best regional field. All kwargs are passed to
-    the function :func:`.optimize_regional_constraint_point_minimization`
+    the function :func:`optimize_regional_constraint_point_minimization`
 
     Parameters
     ----------
+    grav_ds : xr.Dataset
+        gravity data with columns "easting", "northing", "gravity_anomaly", and
+        "forward_gravity".
     constraints_df : pandas.DataFrame
         dataframe of un-separated constraints
     split_kwargs : dict[str, typing.Any] | None, optional
         kwargs to be passed to `split_test_train`, by default None
     **kwargs : typing.Any
         kwargs to be passed to `optimize_regional_constraint_point_minimization`
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
     logger.debug("starting regional_constraints_cv")
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df,
-        kwargs.get("grav_ds").inv.df,  # type: ignore[union-attr]
+        grav_ds.inv.df,
     )
 
     df = constraints_df.copy()
@@ -683,99 +636,7 @@ def regional_constraints_cv(
     )
 
     _, grav_ds, _ = optimization.optimize_regional_constraint_point_minimization(
+        grav_ds=grav_ds,
         testing_training_df=testing_training_df,
         **kwargs,
     )
-
-    return grav_ds
-
-
-def regional_separation(
-    method: str,
-    grav_ds: xr.Dataset,
-    remove_starting_grav_mean: bool = False,
-    **kwargs: typing.Any,
-) -> xr.Dataset:
-    """
-    Separate the regional field from the gravity data using the specified method
-    and return the dataset with a new variable for the regional field.
-
-    Parameters
-    ----------
-    method : str
-        choose method to apply; one of "constant", "filter", "trend",
-        "eq_sources", "constraints" or "constraints_cv".
-    grav_ds : xarray.Dataset
-        gravity data with coordinates "easting", "northing", and variables
-        "gravity_anomaly", and "forward_gravity".
-    remove_starting_grav_mean : bool, optional
-        add the mean of the starting gravity to the regional gravity field, by default
-        False.
-    **kwargs : typing.Any
-        additional keyword arguments for the specified method.
-
-    Returns
-    -------
-    xarray.Dataset
-        grav_ds with new variables 'misfit', 'reg', and 'res'.
-    """
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_separation` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    grav_ds.inv.check_grav_vars_for_regional()
-
-    kwargs = copy.deepcopy(kwargs)
-
-    if remove_starting_grav_mean is True:
-        regional_shift = np.nanmean(grav_ds.inv.df.forward_gravity)
-        msg = f"adding {regional_shift} to the regional gravity data"
-        logger.info(msg)
-        if "regional_shift" in kwargs:
-            msg = (
-                "if remove_starting_grav_mean is True, do not provide"
-                "`regional_shift` in kwargs"
-            )
-            raise ValueError(msg)
-    else:
-        regional_shift = kwargs.pop("regional_shift", 0)
-
-    if method == "constant":
-        return regional_constant(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "filter":
-        return regional_filter(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "trend":
-        return regional_trend(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "eq_sources":
-        return regional_eq_sources(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "constraints":
-        return regional_constraints(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "constraints_cv":
-        return regional_constraints_cv(
-            grav_ds=grav_ds,
-            remove_starting_grav_mean=remove_starting_grav_mean,
-            **kwargs,
-        )
-
-    msg = "invalid string for regional method"
-    raise ValueError(msg)

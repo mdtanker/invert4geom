@@ -14,6 +14,7 @@ import verde as vd
 import xarray as xr
 import xrft
 from numpy.typing import NDArray
+from polartoolkit import fetch
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 from invert4geom import logger, plotting
@@ -31,7 +32,7 @@ def _log_level(level):  # type: ignore[no-untyped-def]
 
 
 @contextmanager
-def environ(**env):  # type: ignore[no-untyped-def] # pylint: disable=missing-function-docstring
+def _environ(**env):  # type: ignore[no-untyped-def] # pylint: disable=missing-function-docstring
     """temporarily set/reset an environment variable"""
     originals = {k: os.environ.get(k) for k in env}
     for k, val in env.items():
@@ -114,7 +115,7 @@ def rmse(data: NDArray, as_median: bool = False) -> float:
     return value
 
 
-def nearest_grid_fill(
+def _nearest_grid_fill(
     grid: xr.DataArray,
     method: str = "verde",
     crs: str | None = None,
@@ -242,7 +243,7 @@ def filter_grid(
 
     # if there are nan's, fill them with nearest neighbor
     if grid.isnull().any():  # noqa: PD003
-        filled = nearest_grid_fill(grid, method="verde")
+        filled = _nearest_grid_fill(grid, method="verde")
     else:
         filled = grid.copy()
 
@@ -720,31 +721,32 @@ def create_topography(
     """
     Create a grid of topography data from either the interpolation of point data or
     creating a grid of constant value. Optionally, a subset of point data can be
-    interpolated and then merged with an existing grid. The this, constraints_df must
-    contain two additional columns of booleans, `inside` which is True for points inside
-    the region of interest, and False otherwise, and `buffer` which is True for points
-    within a buffer region around the region of interest, and False otherwise. Inside
-    and Buffer points are used to interpolated the data, and then the interpolated data
-    (without the buffer zone) is merged with the points outside the region of interest.
+    interpolated and then merged with an existing grid. To do this, ``constraints_df``
+    must contain two additional columns of booleans, ``inside`` which is True for points
+    inside the region of interest, and False otherwise, and ``buffer`` which is True for
+    points within a buffer region around the region of interest, and False otherwise.
+    Inside and Buffer points are used to interpolated the data, and then the
+    interpolated data (without the buffer zone) is merged with the points outside the
+    region of interest.
 
     Parameters
     ----------
     method : str
-        method to use, either 'flat' or 'splines'
+        method to use, either ``flat`` or ``splines``
     region : tuple[float, float, float, float]
         region of the grid
     spacing : float
         spacing of the grid
     dampings : list[float] | None, optional
-        damping values to use in spline cross validation for method "spline", by default
+        damping values to use in spline cross validation for method ``spline``, by default
         None
     registration : str, optional
-        choose between gridline "g" or pixel "p" registration, by default "g"
+        choose between gridline ``g`` or pixel ``p`` registration, by default ``g``
     upwards : float | None, optional
-        constant value to use for method "flat", by default None
+        constant value to use for method ``flat``, by default None
     constraints_df : pandas.DataFrame | None, optional
-        dataframe with column 'upwards' to use for method "splines", and optionally
-        columns 'inside' and 'buffer', by default None
+        dataframe with column 'upwards' to use for method ``splines``, and optionally
+        columns ``inside`` and ``buffer``, by default None
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
@@ -820,7 +822,7 @@ def create_topography(
                 weights = df_to_interpolate[weights_col]
 
             # run CV for fitting a spline to the data
-            spline = best_spline_cv(
+            spline = optimal_spline_damping(
                 coordinates=coords,
                 data=df_to_interpolate.upward,
                 weights=weights,
@@ -860,7 +862,7 @@ def create_topography(
                 weights = df[weights_col]
 
             # run CV for fitting a spline to the data
-            spline = best_spline_cv(
+            spline = optimal_spline_damping(
                 coordinates=coords,
                 data=df.upward,
                 weights=weights,
@@ -883,9 +885,21 @@ def create_topography(
 
     # ensure grid doesn't cross supplied confining layers
     if upper_confining_layer is not None:
-        grid = grid.where(grid <= upper_confining_layer, upper_confining_layer)
+        da = fetch.fetch.resample_grid(
+            upper_confining_layer,
+            spacing=spacing,
+            region=region,
+            registration=registration,
+        )
+        grid = grid.where(grid <= da, da)
     if lower_confining_layer is not None:
-        grid = grid.where(grid >= lower_confining_layer, lower_confining_layer)
+        da = fetch.fetch.resample_grid(
+            lower_confining_layer,
+            spacing=spacing,
+            region=region,
+            registration=registration,
+        )
+        grid = grid.where(grid >= da, da)
 
     return grid
 
@@ -978,6 +992,19 @@ def grids_to_prisms(
 
 
 def best_spline_cv(
+    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray],  # noqa: ARG001 # pylint: disable=unused-argument
+    data: pd.Series | NDArray,  # noqa: ARG001 # pylint: disable=unused-argument
+    weights: pd.Series | NDArray | None = None,  # noqa: ARG001 # pylint: disable=unused-argument
+    **kwargs: typing.Any,  # noqa: ARG001 # pylint: disable=unused-argument
+) -> None:
+    """
+    DEPRECATED: use the function `optimal_spline_damping` instead
+    """
+    msg = "Function `best_spline_cv` deprecated, use `optimal_spline_damping` instead"
+    raise DeprecationWarning(msg)
+
+
+def optimal_spline_damping(
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray],
     data: pd.Series | NDArray,
     weights: pd.Series | NDArray | None = None,
@@ -1467,7 +1494,7 @@ def gravity_decay_buffer(
 
     if plot:
         try:
-            plotting.edge_effects(
+            plotting.plot_edge_effects(
                 grav_ds=grav_ds,
                 layer=model,
                 inner_region=inner_region,

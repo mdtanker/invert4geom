@@ -34,7 +34,10 @@ try:
 except ImportError:
     UQpy = None
 
-from invert4geom import inversion, logger, plotting, regional, utils
+from invert4geom import inversion, logger, plotting, utils
+
+if typing.TYPE_CHECKING:
+    from invert4geom.inversion import Inversion
 
 
 def create_lhc(
@@ -626,9 +629,8 @@ def regional_misfit_uncertainty(
                 new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-            grav_ds = regional.regional_separation(
+            grav_ds.inv.regional_separation(
                 constraints_df=constraints_df,
-                grav_ds=grav_ds,
                 **new_kwargs,
             )
 
@@ -725,7 +727,7 @@ def regional_misfit_uncertainty(
 
 
 def full_workflow_uncertainty_loop(
-    inversion_object: inversion.Inversion,
+    inversion_object: "Inversion",
     runs: int,
     fname: str | None = None,
     sample_gravity: bool = False,
@@ -767,7 +769,7 @@ def full_workflow_uncertainty_loop(
     `parameter_dict` which can contain parameters density_contrast, zref, and
     solver_damping. The other two dictionaries are `starting_topography_parameter_dict`
     and `regional_misfit_parameter_dict` which can contain any parameters that are used
-    in `utils.create_topography` and `regional.regional_separation` respectively. Any
+    in :func:`create_topography` and :meth:`DatasetAccessorInvert4Geom.regional_separation` respectively. Any
     parameters in these 3 dictionaries will be sampled with a Latin Hypercube sampling
     technique and the sampled values will be past to `inversion.run_inversion`. These
     dictionaries should be formatted as follows: `{"parameter_name": {"distribution":
@@ -784,11 +786,10 @@ def full_workflow_uncertainty_loop(
     filename to add more iterations to the stochastic ensemble but increasing the run
     number if you are using parameter sampling.
 
-
     Parameters
     ----------
-    inversion_object : inversion.Inversion
-        an Inversion object created through the :class:`.Inversion` class
+    inversion_object : Inversion
+        an Inversion object created through
     runs : int
         number of inversion workflows to run
     fname : str | None, optional
@@ -824,9 +825,9 @@ def full_workflow_uncertainty_loop(
     calculate_regional_misfit : bool, optional
         choose to recalculate the regional gravity, by default False
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
-        kwargs passed to :func:`.regional.regional_separation`, by default None
+        kwargs passed to :meth:`DatasetAccessorInvert4Geom.regional_separation`, by default None
     starting_topography_kwargs : dict[str, typing.Any] | None, optional
-        kwargs passed to :func:`.utils.create_topography`, by default None
+        kwargs passed to :func:`create_topography`, by default None
 
     Returns
     -------

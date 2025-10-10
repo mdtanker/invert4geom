@@ -288,10 +288,6 @@ If your edits haven't changed any part of the core package, then there is no nee
 
 You can build the docs using:
 ```bash
-    nox -s build_api_docs
-```
-
-```bash
     nox -s docs
 ```
 
@@ -303,7 +299,7 @@ Add, commit, and push all changes to GitHub in a Pull Request, and `RTD` should 
 
 In each PR, you will see section of the checks for `RTD`. Click on this to preview the docs for the PR.
 
-`RTD` uses the conda environment specified in `environment.yml` when it's building.
+`RTD` uses the conda environment specified in `docs/environment.yml` when it's building.
 
 ### Committing changes
 

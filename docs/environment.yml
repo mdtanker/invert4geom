@@ -1,0 +1,71 @@
+name: invert4geom
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  # Required dependencies
+  - numpy>=1.25.0
+  - pandas>=2.0.0
+  - xarray>=2023.4.0
+  - scipy>=1.11.0
+  - scikit-learn>=1.3.0
+  - verde
+  - pooch
+  - rioxarray
+  - tqdm
+  - pygmt
+  - harmonica>=0.7
+  - deprecation
+  - pykdtree
+  - xrft
+  - polartoolkit
+  - numba
+  - numba-progress
+  - dask
+  # optimization
+  - optuna>=4.0
+  - pytorch
+  # - sel(unix): nomkl
+  - joblib
+  - psutil
+  # visualization
+  - pyvista
+  - ipywidgets
+  - jupyter-server-proxy
+  - nest-asyncio
+  - trame-client>=2.12.7
+  - trame-server>=2.11.7
+  - trame-vtk>=2.5.8
+  - trame-vuetify>=2.3.1
+  - trame>=2.5.2
+  - matplotlib
+  - seaborn
+  - ipython
+  - plotly
+  # Optional dependencies
+  ## uncert
+  - uqpy>=4.1.7
+  ## synthetic data
+  - xesmf
+  ## test
+  - pytest>=6
+  - pytest-cov>=3
+  - deepdiff
+  ## docs
+  - sphinx>=7.0
+  - myst-parser>=0.13
+  - sphinx-copybutton
+  - sphinx-autodoc-typehints
+  - sphinx-book-theme>=0.3
+  - nbsphinx
+  - ipykernel
+  - nbconvert
+  - sphinxcontrib-bibtex
+  - sphinx-design
+  ## dev
+  - jupyterlab
+  # below packages need to be installed with pip
+  # - pip
+  # - pip:
+  #     -
