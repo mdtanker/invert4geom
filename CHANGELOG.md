@@ -7,13 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+This release is a major refactor of code with the goal of simplifying the user experience. Before, most of the code was written as functions, which required passing many parameters between functions, and outputs of one function to be used as input to the next function. This made using the library complicated, leading to easy mistakes and bugs. Most of the code has now been update to use object oriented programming (OOP), where it makes sense. **Unfortunately, this major refactor completely breaks the codebase!** For a small single-developer project like this, it is currently not worth the effort of proper slow deprecation of changed functions! Make sure to go through the documentation and examples and update your code accordingly before your update to this or future versions of the software.
+
+### ✏️ Changed
+- Gravity data inputs should now be in xarray Datasets, instead of pandas DataFrames.
+- An xarray dataset accessor `inv` has been added, which enables properties and methods to be performed on xarray Dataset objects.
+- An new class, `Inversion`, now holds the gravity data, the physical model, and all the user-defined inversion settings, such as stopping criteria, domain extents, etc.
+- Inversions, cross-validation, and parameter optimization are all run through methods of the `Inversion` class, and results are saved as attributes to the class.
+- Current topography variable of prism model dataset renamed from `topo` to `topography`.
+- Starting topography variable of prism model dataset renamed from `starting_topo` to `starting_topography`.
+- forward gravity, misfit, residual, and regional gravity values prior to inversion are all saved as variables with prefix "starting_".
+- build the API docs with autodoc instead of autoapi
+
+### 🚀 Added
+- gravity data now includes an inner domain, which is created by zooming in on the data extent by a default of 10% of domain width. This inner-region of the gravity data is used for plotting and calculating statistics, such as L2-norms, and cross validation score, since edge effects can skew these values when a buffer is not included.
+- add preliminary support for using tesseroids instead of vertical prisms (NOT COMPLETE)
+- Regularization damping, model reference level (zref), and density contrast values found through the optimization routines are now saved to the Inversion class instance, so future inversions automatically use the optimally-found values.
+- optional `mask` variable can be added to the prism model dataset so only prisms with mask value of 1 are inverted, others are not changed during inversion.
 
 ### 🐛 Fixed
 - fix some issues with ReadTheDocs
-
-### ✏️ Changed
-- build the API docs with autodoc instead of autoapi
-
 <!--
 Below is an example for a release
 
@@ -160,7 +173,7 @@ BREAKING CHANGE: this is to force a new minor version as accidentally wasn't for
 * add progressbar and plot kwargs for `run_inversoin_workflow` ([`f544081`](https://github.com/mdtanker/invert4geom/commit/f5440817c539fd0de4727566e8413fb022657c57))
 * allow choosing startup trails for damping cv and density/zref cv in `run_inversion_workflow` ([`3b0aa1e`](https://github.com/mdtanker/invert4geom/commit/3b0aa1e9a6386aeaf844c8ecbead90c23a3b3ba2))
 * specify seed in `contaminate_with_long_wavelength_noise` ([`103fc15`](https://github.com/mdtanker/invert4geom/commit/103fc1520d3f3cfc23a150da931082ba6766984b))
-* add `region` and `clip_box` options to `show_prism_layers` ([`77f4b76`](https://github.com/mdtanker/invert4geom/commit/77f4b76ed37871e6b54fe4344ce3972df8541639))
+* add `region` and `clip_box` options to `plot_prism_layers` ([`77f4b76`](https://github.com/mdtanker/invert4geom/commit/77f4b76ed37871e6b54fe4344ce3972df8541639))
 * add functions for determining gravity decay and optimal buffer zone widths to limit edge effects ([`c7d5671`](https://github.com/mdtanker/invert4geom/commit/c7d5671ee01ce66dee6887313cc5bf43035c7d15))
 * allow setting pad width in `filter_grid` ([`b4c30b4`](https://github.com/mdtanker/invert4geom/commit/b4c30b420bfaeca462c815739dd39262b5f201a2))
 * allow multiplying (masking) of residual value via a `mask_column` in `grav_df` in the regional estimation functions ([`a6cd747`](https://github.com/mdtanker/invert4geom/commit/a6cd747dd52dc5674d2dcc4bc769d8d361244edd))
@@ -309,7 +322,7 @@ BREAKING CHANGE: this is to force a new minor version as accidentally wasn't for
 * bug in CPM kfolds optimization ([`30e6763`](https://github.com/mdtanker/invert4geom/commit/30e6763f19b2f3e734d5ea1f5023993573b52d6d))
 * updating plotting of optuna results in `optimization` ([`af78985`](https://github.com/mdtanker/invert4geom/commit/af78985c1476e85e32879353e25f0870d4302608))
 * add regional scores to trial user attrs in regional hyperparameter optimizations ([`9ac1bdf`](https://github.com/mdtanker/invert4geom/commit/9ac1bdf974e73bec857eabdc835a2fe716e5fcda))
-* update `best_spline_cv` and use within `create_topography` ([`5c3d6c5`](https://github.com/mdtanker/invert4geom/commit/5c3d6c56e4a0baeeabab9493ac42ba8e61b1750f))
+* update `optimal_spline_damping` and use within `create_topography` ([`5c3d6c5`](https://github.com/mdtanker/invert4geom/commit/5c3d6c56e4a0baeeabab9493ac42ba8e61b1750f))
 * raise error if index column already exists in `sample_grids` ([`7ca6c83`](https://github.com/mdtanker/invert4geom/commit/7ca6c83b3f992ae156c94c054615b8ce7b77fc60))
 * update optuna plotting funcs ([`d3b1552`](https://github.com/mdtanker/invert4geom/commit/d3b15528988ee0b0602b0e37b7293d40adea7271))
 * update `plot_2_parameter_cv_scores_unven` function ([`8b73d43`](https://github.com/mdtanker/invert4geom/commit/8b73d433ee4e5a3735d7817360cc64db63687c8b))
@@ -439,7 +452,7 @@ BREAKING CHANGE: `plot_convergence` now takes parameter `params` (output dict fr
 * change equivalent source param names
 
 BREAKING CHANGE: update parameter `eq_cv`->`cv` in `regional_eq_sources` and `regional_constraints`, and use parameter `cv_kwargs` to pass args to `optimize_eq_source_params` ([`10e47ef`](https://github.com/mdtanker/invert4geom/commit/10e47ef7b6bc19f0b303755d37bdc4ffde6d35cc))
-* update `utils.best_spline_cv` to pass all kwargs directly to verde.SplineCV.
+* update `utils.optimal_spline_damping` to pass all kwargs directly to verde.SplineCV.
 
 BREAKING CHANGE: update parameter `spline_damping` to `spline_dampings` in function `regional.regional_constraints` and all functions which feed into it (i.e. `regional.regional_separation`) ([`1546d06`](https://github.com/mdtanker/invert4geom/commit/1546d06437bfcb63f1c3abd6dfec283a5fea73dd))
 * change all equivalent source parameter variable names.
@@ -512,7 +525,7 @@ BREAKING CHANGE: the `run_inversion` function now doesn't take `density_contrast
 * add missing imports ([`bbc4825`](https://github.com/mdtanker/invert4geom/commit/bbc4825a4f66b575e3d4e3c0636603630776e726))
 * update imports ([`362d79d`](https://github.com/mdtanker/invert4geom/commit/362d79ddfad41f9edab89b47cd6edfed83188716))
 * use median not RMSE for constraint point minimization ([`6d1c686`](https://github.com/mdtanker/invert4geom/commit/6d1c686ee72c5752c897d621408d5009925c3e06))
-* fix warning for best_spline_cv ([`abb5976`](https://github.com/mdtanker/invert4geom/commit/abb59766f4285353744f8c0f81797e69865178e3))
+* fix warning for optimal_spline_damping ([`abb5976`](https://github.com/mdtanker/invert4geom/commit/abb59766f4285353744f8c0f81797e69865178e3))
 ### 📦️ Build
 * add plotly as optional dep ([`0745e2a`](https://github.com/mdtanker/invert4geom/commit/0745e2ac3cc045bc8a6e0b1d670498eeceb7d5dc))
 ### 🧰 Chores / Maintenance
@@ -712,7 +725,7 @@ BREAKING CHANGE: ([`77cc15d`](https://github.com/mdtanker/invert4geom/commit/77c
 * enable nbgallery for user guide ([`2bcc0aa`](https://github.com/mdtanker/invert4geom/commit/2bcc0aaadbb0a3e915f453d04388570191d6fe76))
 * enable binder links ([`e134b4a`](https://github.com/mdtanker/invert4geom/commit/e134b4aa8c495ae7d77b3fbd1b46756fcd1cb583))
 ### 🚀 Features
-* add plotting options to show_prism_layers ([`8c1874e`](https://github.com/mdtanker/invert4geom/commit/8c1874e746a19a07f4cf5815316a88ddab6c034e))
+* add plotting options to plot_prism_layers ([`8c1874e`](https://github.com/mdtanker/invert4geom/commit/8c1874e746a19a07f4cf5815316a88ddab6c034e))
 
 ## v0.3.1 (2023-12-06)
 ### 🐛 Bug Fixes
@@ -772,7 +785,7 @@ Seems to be cause issues in conda-forge feedstock, harmonica requires >= 1.0, ma
 * add optimization module ([`a398e12`](https://github.com/mdtanker/invert4geom/commit/a398e129a243014a0aa78ac92d7c8a9fdea24cbb))
 * add synthetic regional field function ([`aeb81b2`](https://github.com/mdtanker/invert4geom/commit/aeb81b2083d477a7bbd19b93dcad3c7006d91059))
 * add eq_sources_score function ([`6c132d8`](https://github.com/mdtanker/invert4geom/commit/6c132d8533fac4f30e4a537059ef2adca423283b))
-* add best_spline_cv function ([`3965dcb`](https://github.com/mdtanker/invert4geom/commit/3965dcbeb7ab333d8578b74cf3c686ad96908e86))
+* add optimal_spline_damping function ([`3965dcb`](https://github.com/mdtanker/invert4geom/commit/3965dcbeb7ab333d8578b74cf3c686ad96908e86))
 ### Other
 *  ([`99bcfac`](https://github.com/mdtanker/invert4geom/commit/99bcfac948ca9e5a169d46b1af4d8daf55b7193d))
 *  ([`daf3c9c`](https://github.com/mdtanker/invert4geom/commit/daf3c9ccb32c5dbee137d20b61e959247399b0dc))
