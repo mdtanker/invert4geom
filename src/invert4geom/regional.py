@@ -527,7 +527,7 @@ def regional_constraints(
     ###
     ###
     elif grid_method == "verde":
-        spline = utils.best_spline_cv(
+        spline = utils.optimal_spline_damping(
             coordinates=(
                 constraints_df.easting,
                 constraints_df.northing,
