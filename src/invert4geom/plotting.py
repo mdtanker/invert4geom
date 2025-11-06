@@ -868,12 +868,34 @@ def add_light(
 
 
 def show_prism_layers(
+    **kwargs: typing.Any,  # noqa: ARG001 # pylint: disable=unused-argument
+) -> None:
+    """
+    DEPRECATED: use `plot_prism_layers` instead
+    """
+    msg = "Function `show_prism_layers` deprecated, use `plot_prism_layers` instead"
+    raise DeprecationWarning(msg)
+
+
+def plot_prism_layers(
     prisms: list[xr.Dataset] | xr.Dataset,
     cmap: str = "viridis",
     color_by: str = "density",
     region: tuple[float, float, float, float] | None = None,
+    opacity: float = 1,
+    zscale: float = 75,
+    log_scale: bool = False,
     clip_box: bool = False,
-    **kwargs: typing.Any,
+    box_buffer: float = 5e3,
+    show_axes: bool = True,
+    camera_position: str = "xz",
+    elevation: float = 20,
+    azimuth: float = -25,
+    zoom: float = 1.2,
+    backend: str = "static",
+    cbar_args: dict[str, typing.Any] | None = None,
+    constant_colors: list[str] | None = None,
+    show_edges: bool = False,
 ) -> None:
     """
     show prism layers using PyVista
@@ -894,17 +916,50 @@ def show_prism_layers(
         clip a corner out of the model to help visualize, by default False
 
     """
+    pyvista.global_theme.allow_empty_mesh = True
 
-    # Plot with pyvista
     plotter = pyvista.Plotter(
         lighting="three_lights",
         notebook=True,
     )
 
-    opacity = kwargs.get("opacity")
-
     if isinstance(prisms, xr.Dataset):
         prisms = [prisms]
+
+    if constant_colors is None:
+        constant_colors = [
+            "goldenrod",
+            "saddlebrown",
+            "black",
+            "lavender",
+            "aqua",
+        ]
+
+    if cbar_args is None:
+        if color_by == "density":
+            title = "Density contrast (kg/m³)"
+        elif color_by == "thickness":
+            title = "Prism thickness (m)"
+        elif color_by == "mask":
+            title = "Model mask"
+        elif color_by == "topography":
+            title = "Topography (m)"
+        else:
+            title = ""
+        cbar_args = {
+            "title": title,
+            "title_font_size": 35,
+            "fmt": "%.0f",
+            "width": 0.6,
+            "position_x": 0.2,
+        }
+
+    # clip corner out of model to help visualize
+    if clip_box is True:
+        # extract region from first prism layer
+        reg = vd.get_region(
+            (prisms[0].easting.to_numpy(), prisms[0].northing.to_numpy())
+        )
 
     for i, j in enumerate(prisms):
         # if region is given, clip model
@@ -915,18 +970,10 @@ def show_prism_layers(
             )
 
         # turn prisms into pyvista object
-        if j.model_type == "prisms":
-            pv_grid = j.prism_layer.to_pyvista()
-        elif j.model_type == "tesseroids":
-            msg = "Cannot plot tesseroids with PyVista, only prisms"
-            raise NotImplementedError(msg)
+        pv_grid = j.prism_layer.to_pyvista(drop_null_prisms=False)
 
         # clip corner out of model to help visualize
         if clip_box is True:
-            # extract region from first prism layer
-            reg = vd.get_region((j.easting.to_numpy(), j.northing.to_numpy()))
-            # box_buffer used make box slightly bigger
-            box_buffer = kwargs.get("box_buffer", 5e3)
             # set 6 edges of cube to clip out
             bounds = [
                 reg[0] - box_buffer,
@@ -941,49 +988,44 @@ def show_prism_layers(
                 invert=True,
             )
 
-        trans = opacity[i] if opacity is not None else None
-
         if color_by == "constant":
-            colors = kwargs.get(
-                "colors", ["lavender", "aqua", "goldenrod", "saddlebrown", "black"]
-            )
             plotter.add_mesh(
                 pv_grid,
-                color=colors[i],
-                smooth_shading=kwargs.get("smooth_shading", False),
-                style=kwargs.get("style", "surface"),
-                show_edges=kwargs.get("show_edges", False),
-                opacity=trans,
-                scalar_bar_args=kwargs.get("scalar_bar_args"),
+                color=constant_colors[i],
+                # smooth_shading=kwargs.get("smooth_shading", False),
+                # style=kwargs.get("style", "surface"),
+                show_edges=show_edges,
+                log_scale=log_scale,
+                opacity=opacity,
+                scalar_bar_args=cbar_args,
             )
         else:
             plotter.add_mesh(
                 pv_grid,
                 scalars=color_by,
                 cmap=cmap,
-                flip_scalars=kwargs.get("flip_scalars", False),
-                smooth_shading=kwargs.get("smooth_shading", False),
-                style=kwargs.get("style", "surface"),
-                show_edges=kwargs.get("show_edges", False),
-                log_scale=kwargs.get("log_scale", True),
-                opacity=trans,
-                scalar_bar_args=kwargs.get("scalar_bar_args"),
+                # flip_scalars=kwargs.get("flip_scalars", False),
+                # smooth_shading=kwargs.get("smooth_shading", False),
+                # style=kwargs.get("style", "surface"),
+                show_edges=show_edges,
+                log_scale=log_scale,
+                opacity=opacity,
+                scalar_bar_args=cbar_args,
             )
-        plotter.set_scale(
-            zscale=kwargs.get("zscale", 75)
-        )  # exaggerate the vertical coordinate
-        plotter.camera_position = kwargs.get("camera_position", "xz")
-        plotter.camera.elevation = kwargs.get("elevation", 20)
-        plotter.camera.azimuth = kwargs.get("azimuth", -25)
-        plotter.camera.zoom(kwargs.get("zoom", 1.2))
+
+    plotter.set_scale(zscale=zscale)  # exaggerate the vertical coordinate
+    plotter.camera_position = camera_position
+    plotter.camera.elevation = elevation
+    plotter.camera.azimuth = azimuth
+    plotter.camera.zoom = zoom
 
     # Add a ceiling light
     add_light(plotter, prisms[i])  # pylint: disable=undefined-loop-variable
 
-    if kwargs.get("show_axes", True):
+    if show_axes:
         plotter.show_axes()
 
-    plotter.show(jupyter_backend=kwargs.get("backend", "client"))
+    plotter.show(jupyter_backend=backend)
 
 
 def combined_slice(
