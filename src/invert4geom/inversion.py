@@ -627,139 +627,460 @@ class Invert4GeomAccessor:
         ds = df.set_index(coord_names).to_xarray()
         self._ds[name] = ds[name]
 
-    def starting_gravity(
+    def regional_separation(self, method: str, **kwargs: typing.Any) -> None:
+        """
+        Calculate the gravity misfit as the difference between dataset variables
+        ``gravity_anomaly`` and ``forward_gravity``. Then separate the misfit into
+        regional and residual components where ``residual = misfit - regional``.
+        Choose 1 of 6 methods for estimating the regional field:
+        ``constant``, ``filter``, ``trend``, ``eq_sources``, ``constraints``,
+        ``constraints_cv``
+        The following new variables are added to the dataset:
+        ``misfit``, ``reg``, ``res``, ``starting_forward_gravity``,
+        ``starting_misfit``, ``starting_reg``, ``starting_res``
+
+        Parameters
+        ----------
+        method : str
+            choose method to apply; one of ``constant``, ``filter``, ``trend``,
+            ``eq_sources``, ``constraints`` or ``constraints_cv``
+        kwargs : typing.Any
+            Additional keyword arguments to pass to the various regional separation
+            methods:
+            :meth:`DatasetAccessorInvert4Geom.regional_constant`
+            :meth:`DatasetAccessorInvert4Geom.regional_filter`
+            :meth:`DatasetAccessorInvert4Geom.regional_trend`
+            :meth:`DatasetAccessorInvert4Geom.regional_eq_sources`
+            :meth:`DatasetAccessorInvert4Geom.regional_constraints`
+            :meth:`DatasetAccessorInvert4Geom.regional_constraints_cv`
+        """
+        self._check_correct_dataset_type("data")
+        self._check_grav_vars_for_regional()
+
+        if method == "constant":
+            self._ds.inv.regional_constant(**kwargs)
+        elif method == "filter":
+            self._ds.inv.regional_filter(**kwargs)
+        elif method == "trend":
+            self._ds.inv.regional_trend(**kwargs)
+        elif method == "eq_sources":
+            self._ds.inv.regional_eq_sources(**kwargs)
+        elif method == "constraints":
+            self._ds.inv.regional_constraints(**kwargs)
+        elif method == "constraints_cv":
+            self._ds.inv.regional_constraints_cv(**kwargs)
+        else:
+            msg = "invalid string for regional method"
+            raise ValueError(msg)
+
+    def regional_constant(
         self,
-        layer: xr.Dataset,
-        field: str = "g_z",
-        progressbar: bool = False,
+        constant: float | None = None,
+        constraints_df: pd.DataFrame | None = None,
+        regional_shift: float = 0,
+        mask_column: str | None = None,
+    ) -> None:
+        """
+        Calculate the gravity misfit as the difference between dataset variables
+        ``gravity_anomaly`` and ``forward_gravity``. Then separate the misfit into
+        regional and residual components where ``residual = misfit - regional``.
+
+        Approximate the regional field with a constant value supplied with
+        ``constant``. If ``constraints_df`` is supplied, the constant value will instead
+        be the median misfit value at the constraint points.
+
+        The resulting regional field can be shifted with ``regional_shift``, and the
+        calculated residual field can be multiplied by the values in ``mask_column``.
+
+        The following new variables are added to the dataset:
+            ``misfit``, ``reg``, ``res``, ``starting_forward_gravity``,
+            ``starting_misfit``, ``starting_reg``, ``starting_res``
+
+        Parameters
+        ----------
+        constant : float
+            value to use for the regional field.
+        constraints_df : pandas.DataFrame
+            a dataframe of constraint points with columns easting and northing.
+        regional_shift : float, optional
+            shift to add to the regional field, by default 0
+        mask_column : str | None, optional
+            Name of optional dataset variable with values to multiply the calculated
+            residual gravity field by, should have values of 1 or 0, by default None.
+
+        See also
+        --------
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`
+        """
+        self._check_correct_dataset_type("data")
+        self._check_grav_vars_for_regional()
+
+        regional.regional_constant(
+            grav_ds=self._ds,
+            constant=constant,
+            constraints_df=constraints_df,
+            regional_shift=regional_shift,
+            mask_column=mask_column,
+        )
+
+        self._save_starting_anomalies()
+
+    def regional_filter(
+        self,
+        filter_width: float,
+        regional_shift: float = 0,
+        mask_column: str | None = None,
+    ) -> None:
+        """
+        Calculate the gravity misfit as the difference between dataset variables
+        ``gravity_anomaly`` and ``forward_gravity``. Then separate the misfit into
+        regional and residual components where ``residual = misfit - regional``.
+
+        Approximate the regional field by filtering the gravity misfit with a low-pass
+        gaussian filter with a supplied filter width,
+        using :func:`harmonica.gaussian_lowpass`. The grid will automatically be
+        padded to reduce edge effects.
+
+        The resulting regional field can be shifted with ``regional_shift``, and the
+        calculated residual field can be multiplied by the values in ``mask_column``.
+
+        The following new variables are added to the dataset:
+            ``misfit``, ``reg``, ``res``, ``starting_forward_gravity``,
+            ``starting_misfit``, ``starting_reg``, ``starting_res``
+
+        Parameters
+        ----------
+        filter_width : float
+            width in meters to use for the low-pass filter
+        regional_shift : float, optional
+            shift to add to the regional field, by default 0
+        mask_column : str | None, optional
+            Name of optional dataset variable with values to multiply the calculated
+            residual gravity field by, should have values of 1 or 0, by default None.
+
+        See also
+        --------
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`
+        """
+        self._check_correct_dataset_type("data")
+        self._check_grav_vars_for_regional()
+
+        regional.regional_filter(
+            grav_ds=self._ds,
+            filter_width=filter_width,
+            regional_shift=regional_shift,
+            mask_column=mask_column,
+        )
+
+        self._save_starting_anomalies()
+
+    def regional_trend(
+        self,
+        trend: int,
+        regional_shift: float = 0,
+        mask_column: str | None = None,
+    ) -> None:
+        """
+        Calculate the gravity misfit as the difference between dataset variables
+        ``gravity_anomaly`` and ``forward_gravity``. Then separate the misfit into
+        regional and residual components where ``residual = misfit - regional``.
+
+        Approximate the regional field by fitting a polynomial trend to the gravity
+        misfit using :class:`verde.Trend`.
+
+        The resulting regional field can be shifted with ``regional_shift``, and the
+        calculated residual field can be multiplied by the values in ``mask_column``.
+
+        The following new variables are added to the dataset:
+            ``misfit``, ``reg``, ``res``, ``starting_forward_gravity``,
+            ``starting_misfit``, ``starting_reg``, ``starting_res``
+
+        Parameters
+        ----------
+        trend : int
+            order of the polynomial trend to fit to the data
+        regional_shift : float, optional
+            shift to add to the regional field, by default 0
+        mask_column : str | None, optional
+            Name of optional dataset variable with values to multiply the calculated
+            residual gravity field by, should have values of 1 or 0, by default None.
+
+        See also
+        --------
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`
+        """
+        self._check_correct_dataset_type("data")
+        self._check_grav_vars_for_regional()
+
+        regional.regional_trend(
+            grav_ds=self._ds,
+            trend=trend,
+            regional_shift=regional_shift,
+            mask_column=mask_column,
+        )
+
+        self._save_starting_anomalies()
+
+    def regional_eq_sources(
+        self,
+        depth: float | str = "default",
+        damping: float | None = None,
+        block_size: float | None = None,
+        grav_obs_height: float | None = None,
+        cv: bool = False,
+        weights_column: str | None = None,
+        cv_kwargs: dict[str, typing.Any] | None = None,
+        regional_shift: float = 0,
+        mask_column: str | None = None,
+    ) -> None:
+        """
+        Calculate the gravity misfit as the difference between dataset variables
+        ``gravity_anomaly`` and ``forward_gravity``. Then separate the misfit into
+        regional and residual components where ``residual = misfit - regional``.
+
+        Approximate the regional field by fitting deep equivalent sources to the the
+        gravity misfit, using :class:`harmonica.EquivalentSources`. During fitting of
+        the equivalent sources, the source depth can be chosen with ``depth``, the
+        results can be smoothed with ``damping``, the gravity points can block-reduced
+        with ``block_size``, and to simulate upward continuation, the gravity
+        observation height can be set with ``grav_obs_height``. Instead of specifying
+        the equivalent source parameters ``depth`` and ``damping``, optimal values can
+        be chosen through a cross-validated optimization routine by setting ``cv`` to
+        True, and providing ``cv_kwargs`` which is passed to the function
+        :func:`optimize_eq_source_params`.
+
+        The resulting regional field can be shifted with ``regional_shift``, and the
+        calculated residual field can be multiplied by the values in ``mask_column``.
+
+        The following new variables are added to the dataset:
+        ``misfit``, ``reg``, ``res``, ``starting_forward_gravity``,
+        ``starting_misfit``, ``starting_reg``, ``starting_res``
+
+        Parameters
+        ----------
+        depth : float
+            depth of each source relative to the data elevation
+        damping : float | None, optional
+            smoothness to impose on estimated coefficients, by default None
+        block_size : float | None, optional
+            block reduce the data to speed up, by default None
+        grav_obs_height: float, optional
+            Observation height to use predicting the eq sources, by default None and will
+            use the data height from grav_ds.
+        cv : bool, optional
+            use cross-validation to find the best equivalent source parameters, by default
+            False, provide dictionary ``cv_kwargs`` which is passed to
+            :func:`optimize_eq_source_params` and can contain:
+            ``n_trials``, ``damping_limits``, ``depth_limits``,
+            ``block_size_limits``, ``sampler``, ``plot``, ``progressbar``,
+            ``parallel``, ``dtype``, or ``delayed``.
+        weights_column: str | None, optional
+            column name for weighting values of each gravity point.
+        regional_shift : float, optional
+            shift to add to the regional field, by default 0
+        mask_column : str | None, optional
+            Name of optional dataset variable with values to multiply the calculated
+            residual gravity field by, should have values of 1 or 0, by default None.
+
+        See also
+        --------
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`
+        :func:`optimize_eq_source_params`
+        """
+        self._check_correct_dataset_type("data")
+        self._check_grav_vars_for_regional()
+
+        regional.regional_eq_sources(
+            grav_ds=self._ds,
+            depth=depth,
+            damping=damping,
+            block_size=block_size,
+            grav_obs_height=grav_obs_height,
+            cv=cv,
+            weights_column=weights_column,
+            cv_kwargs=cv_kwargs,
+            regional_shift=regional_shift,
+            mask_column=mask_column,
+        )
+
+        self._save_starting_anomalies()
+
+    def regional_constraints(
+        self,
+        constraints_df: pd.DataFrame,
+        grid_method: str = "eq_sources",
+        constraints_block_size: float | None = None,
+        constraints_weights_column: str | None = None,
+        tension_factor: float = 1,
+        spline_dampings: float | list[float] | None = None,
+        depth: float | str | None = None,
+        damping: float | None = None,
+        cv: bool = False,
+        block_size: float | None = None,
+        grav_obs_height: float | None = None,
+        cv_kwargs: dict[str, typing.Any] | None = None,
+        regional_shift: float = 0,
+        mask_column: str | None = None,
+    ) -> None:
+        """
+        Calculate the gravity misfit as the difference between dataset variables
+        ``gravity_anomaly`` and ``forward_gravity``. Then separate the misfit into
+        regional and residual components where ``residual = misfit - regional``.
+
+        Approximate the regional field by sampling the gravity misfit at constraint
+        points (points of known elevation of the layer of interest) and interpolating
+        those sampled ``values``. The interpolation can be accomplished with the
+        following methods:
+
+        Equivalent sources (grid_method="eq_sources")
+            - uses :class:`harmonica.EquivalentSources`
+            - ``depth`` and ``damping`` can be set, or optimal values found through a cross-validation procedure using :func:`optimize_eq_source_params`
+
+        Tensioned splines (grid_method="pygmt")
+            - uses :func:`pygmt.surface`
+            - amount of tension (0-1) can be set with ``tension_factor``
+
+        Bi-harmonic splines (grid_method="verde")
+            - uses :class:`verde.Spline`
+            - amount of damping can be set with ``spline_dampings``, or a list of damping values can be provided to find the optimal damping through cross-validation using :func:`optimal_spline_damping`
+
+        If there are many constraints, they can be block reduced with
+        ``constraints_block_size`` and optional ``constraints_weights_column`` can be
+        used to weight the constraints during block reduction.
+
+        The resulting regional field can be shifted with ``regional_shift``, and the
+        calculated residual field can be multiplied by the values in ``mask_column``.
+
+        The following new variables are added to the dataset:
+        ``misfit``, ``reg``, ``res``, ``starting_forward_gravity``,
+        ``starting_misfit``, ``starting_reg``, ``starting_res``
+
+        Parameters
+        ----------
+        constraints_df : pandas.DataFrame
+            dataframe of constraints with columns ``easting``, ``northing``, and
+            ``upward``.
+        grid_method : str, optional
+            method used to grid the sampled gravity data at the constraint points. Choose
+            between ``verde``, ``pygmt``, or ``eq_sources``, by default ``eq_sources``
+        constraints_block_size : float | None, optional
+            size of block used in a block-mean reduction of the constraints points, by
+            default None
+        constraints_weights_column : str | None, optional
+            column name for weighting values of each constraint point. Used if
+            ``constraint_block_size`` is not None or if ``grid_method`` is ``verde`` or
+            ``eq_sources``, by default None
+        tension_factor : float, optional
+            Tension factor used if ``grid_method`` is ``pygmt``, by default 1
+        spline_dampings : float | list[float] | None, optional
+            damping values used if ``grid_method`` is ``verde``, by default None
+        depth : float | str | None, optional
+            depth of each source relative to the data elevation, positive downwards in
+            meters, by default None
+        damping : float | None, optional
+            damping values used if ``grid_method`` is ``eq_sources``, by default None
+        cv : bool, optional
+            use cross-validation to find the best equivalent source parameters, by
+            default False, provide dictionary ``cv_kwargs`` which is passed to
+            ``optimization.optimize_eq_source_params`` and can contain:
+            ``n_trials``, ``damping_limits``, ``depth_limits``,
+            ``block_size_limits``, and ``progressbar``.
+        block_size : float | None, optional
+            block size used if ``grid_method`` is ``eq_sources``, by default None
+        grav_obs_height : float, optional
+            Observation height to use if ``grid_method`` is ``eq_sources``, by default None
+        cv_kwargs : dict[str, typing.Any] | None, optional
+            additional keyword arguments to be passed to
+            :func:`optimize_eq_source_params`, by default None. Can contain:
+            ``n_trials``, ``damping_limits``, ``depth_limits``,
+            ``block_size_limits``, ``sampler``, ``plot``, ``progressbar``,
+            ``parallel``, ``fname``, ``dtype``, or ``delayed``.
+        regional_shift : float, optional
+            shift to add to the regional field, by default 0
+        mask_column : str | None, optional
+            Name of optional dataset variable with values to multiply the calculated
+            residual gravity field by, should have values of 1 or 0, by default None.
+
+        See also
+        --------
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`
+        """
+        self._check_correct_dataset_type("data")
+        self._check_grav_vars_for_regional()
+
+        regional.regional_constraints(
+            grav_ds=self._ds,
+            constraints_df=constraints_df,
+            grid_method=grid_method,
+            constraints_block_size=constraints_block_size,
+            constraints_weights_column=constraints_weights_column,
+            tension_factor=tension_factor,
+            spline_dampings=spline_dampings,
+            depth=depth,
+            damping=damping,
+            cv=cv,
+            block_size=block_size,
+            grav_obs_height=grav_obs_height,
+            cv_kwargs=cv_kwargs,
+            regional_shift=regional_shift,
+            mask_column=mask_column,
+        )
+
+        self._save_starting_anomalies()
+
+    def regional_constraints_cv(
+        self,
+        constraints_df: pd.DataFrame,
+        split_kwargs: dict[str, typing.Any] | None = None,
+        regional_shift: float = 0,
+        mask_column: str | None = None,
         **kwargs: typing.Any,
     ) -> None:
-        """calculate the forward gravity of the starting prism model"""
-        if self._ds.dataset_type == "model":
-            msg = (
-                "The `starting_gravity` method is only available for the data dataset. "
-            )
-            raise ValueError(msg)
-        df = self.df
+        """
+        This is a convenience function to wrap
+        :func:`optimize_regional_constraint_point_minimization`. It takes a
+        full constraints dataframe and dictionary ``split_kwargs``, to split the
+        constraints into testing and training sets (with K-folds), uses these folds in
+        a K-Folds hyperparameter optimization to find the set of parameter values
+        (tension factor, spline damping, or equivalent source depth and damping) which
+        estimates the best regional field. It then uses the optimal parameter values and
+        all of the constraint points to re-calculate the best regional field. All kwargs
+        are passed to the function
+        :func:`optimize_regional_constraint_point_minimization`.
 
-        if layer.model_type == "prisms":
-            df["starting_gravity"] = layer.prism_layer.gravity(
-                coordinates=(df.easting, df.northing, df.upward),
-                field=field,
-                progressbar=progressbar,
-                **kwargs,
-            )
-        elif layer.model_type == "tesseroids":
-            df["starting_gravity"] = layer.tesseroid_layer.gravity(
-                coordinates=(df.easting, df.northing, df.upward),
-                field=field,
-                progressbar=progressbar,
-                **kwargs,
-            )
-        else:
-            msg = "layer must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
-            raise ValueError(msg)
+        Parameters
+        ----------
+        constraints_df : pandas.DataFrame
+            dataframe of constraints with columns ``easting``, ``northing``, and
+            ``upward``.
+        split_kwargs : dict[str, typing.Any] | None, optional
+            kwargs to be passed to :func:`split_test_train`, by default None
+        regional_shift : float, optional
+            shift to add to the regional field, by default 0
+        mask_column : str | None, optional
+            Name of optional dataset variable with values to multiply the calculated
+            residual gravity field by, should have values of 1 or 0, by default None.
+        **kwargs : typing.Any
+            kwargs to be passed to :func:`optimize_regional_constraint_point_minimization`
 
-        ds = df.set_index(["northing", "easting"]).to_xarray()
-        self._ds["starting_gravity"] = ds.starting_gravity
-        self._ds["forward_gravity"] = ds.starting_gravity
+        See also
+        --------
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`
+        :meth:`DatasetAccessorInvert4Geom.regional_constraints`
+        """
+        self._check_correct_dataset_type("data")
+        self._check_grav_vars_for_regional()
 
-    def regional_separation(self, **kwargs: typing.Any) -> xr.Dataset:
-        """perform a regional-residual separation"""
-        if self._ds.dataset_type == "model":
-            msg = "The `regional_separation` method is only available for the data dataset. "
-            raise ValueError(msg)
-
-        self.check_grav_vars_for_regional()
-
-        ds = regional.regional_separation(
+        regional.regional_constraints_cv(
             grav_ds=self._ds,
+            constraints_df=constraints_df,
+            split_kwargs=split_kwargs,
+            regional_shift=regional_shift,
+            mask_column=mask_column,
             **kwargs,
         )
 
-        # save columns to reset inversion later
-        ds["starting_forward_gravity"] = ds.forward_gravity.copy()
-        ds["starting_misfit"] = ds.misfit.copy()
-        ds["starting_reg"] = ds.reg.copy()
-        ds["starting_res"] = ds.res.copy()
-        ds.attrs.update(self._ds.attrs)
-        return ds
-
-    def check_grav_vars_for_regional(self) -> None:
-        """
-        ensure the gravity dataset has the required variables for performing regional
-        estimation.
-        """
-        if self._ds.dataset_type == "model":
-            msg = (
-                "The `check_grav_vars` method is only available for the data dataset. "
-            )
-            raise ValueError(msg)
-        variables = [
-            "easting",
-            "northing",
-            "upward",
-            "gravity_anomaly",
-            "forward_gravity",
-        ]
-        assert all(i in self._ds for i in variables), (
-            f"`gravity dataset` needs all the following variables: {variables}"
-        )
-
-    def check_grav_vars(self) -> None:
-        """
-        ensure the gravity dataset has the required variables for performing the
-        inversion.
-        """
-        if self._ds.dataset_type == "model":
-            msg = (
-                "The `check_grav_vars` method is only available for the data dataset. "
-            )
-            raise ValueError(msg)
-        variables = [
-            "easting",
-            "northing",
-            "upward",
-            "gravity_anomaly",
-            "forward_gravity",
-            "misfit",
-            "reg",
-            "res",
-        ]
-        assert all(i in self._ds for i in variables), (
-            f"`gravity dataset` needs all the following variables: {variables}"
-        )
-
-    def check_gravity_inside_topography_region(
-        self,
-        topography: xr.DataArray,
-    ) -> None:
-        """check that all gravity data is inside the region of the topography grid"""
-        if self._ds.dataset_type == "model":
-            msg = "The `check_gravity_inside_topography_region` method is only available for the data dataset. "
-            raise ValueError(msg)
-        topo_region = vd.get_region(
-            (topography.easting.to_numpy(), topography.northing.to_numpy())
-        )
-        df = self.df
-        inside = vd.inside((df.easting, df.northing), region=topo_region)
-        if not inside.all():
-            msg = (
-                "Some gravity data are outside the region of the topography grid. "
-                "This may result in unexpected behavior."
-            )
-            raise ValueError(msg)
-
-    def check_for_nans(self) -> None:
-        """
-        ensure there are no NaN values in the gravity residual.
-        """
-        if self._ds.dataset_type == "model":
-            msg = "The `check_for_nans` method is only available for the data dataset. "
-            raise ValueError(msg)
-        if self.df.res.isna().to_numpy().any():
-            msg = "gravity dataframe contains NaN values in the 'res' column"
-            raise ValueError(msg)
+        self._save_starting_anomalies()
 
     def plot_observed(self) -> None:
         """plot observed gravity"""

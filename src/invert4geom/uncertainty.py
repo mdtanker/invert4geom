@@ -34,7 +34,7 @@ try:
 except ImportError:
     UQpy = None
 
-from invert4geom import inversion, logger, plotting, regional, utils
+from invert4geom import inversion, logger, plotting, utils
 
 if typing.TYPE_CHECKING:
     from invert4geom.inversion import Inversion
@@ -629,9 +629,8 @@ def regional_misfit_uncertainty(
                 new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
-            grav_ds = regional.regional_separation(
+            grav_ds.inv.regional_separation(
                 constraints_df=constraints_df,
-                grav_ds=grav_ds,
                 **new_kwargs,
             )
 
