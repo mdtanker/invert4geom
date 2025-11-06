@@ -31,6 +31,9 @@ from invert4geom import (
     utils,
 )
 
+if typing.TYPE_CHECKING:
+    from invert4geom.inversion import Inversion
+
 warnings.simplefilter(
     "ignore",
     category=optuna.exceptions.ExperimentalWarning,
@@ -570,7 +573,7 @@ class OptimalInversionDamping:
 
     def __init__(
         self,
-        inversion_obj: inversion.Inversion,
+        inversion_obj: "Inversion",
         fname: str,
         damping_limits: tuple[float, float],
         rmse_as_median: bool = False,
@@ -658,7 +661,7 @@ class OptimalInversionZrefDensity:
 
     def __init__(
         self,
-        inversion_obj: inversion.Inversion,
+        inversion_obj: "Inversion",
         constraints_df: pd.DataFrame,
         fname: str,
         regional_grav_kwargs: dict[str, typing.Any],
@@ -1094,7 +1097,7 @@ def optimize_eq_source_params(
     fname: str | None = None,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, hm.EquivalentSources]:
+) -> tuple[optuna.study.Study, hm.EquivalentSources]:
     """
     Use Optuna to find the optimal parameters for fitting equivalent sources to gravity
     data. The 3 parameters are damping, depth, and block size. Any or all of these can
@@ -1828,7 +1831,7 @@ def optimize_regional_filter(
     parallel: bool = False,
     fname: str | None = None,
     seed: int = 0,
-) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal filter width for estimating the
     regional component of gravity misfit. For synthetic testing, if the true regional
@@ -2003,7 +2006,7 @@ def optimize_regional_trend(
     parallel: bool = False,
     fname: str | None = None,
     seed: int = 0,
-) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal trend order for estimating the
     regional component of gravity misfit. For synthetic testing, if the true regional
@@ -2183,7 +2186,7 @@ def optimize_regional_eq_sources(
     fname: str | None = None,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal equivalent source parameters for
     estimating the regional component of gravity misfit. For synthetic testing, if the
@@ -2396,7 +2399,7 @@ def optimize_regional_constraint_point_minimization(
     fname: str | None = None,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
+) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal hyperparameters for the Constraint
     Point Minimization technique for estimating the regional component of gravity
@@ -2719,7 +2722,7 @@ def optimal_buffer(
     plot: bool = True,
     seed: int = 0,
     **kwargs: typing.Any,
-) -> tuple[optuna.study, tuple[float, float, int, xr.Dataset]]:
+) -> tuple[optuna.study.Study, tuple[float, float, int, xr.Dataset]]:
     """
     Run an optimization to find best buffer zone width.
     """
