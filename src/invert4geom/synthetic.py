@@ -455,7 +455,7 @@ def load_bishop_model(
     return data
 
 
-def gaussian2d(
+def _gaussian2d(
     x: NDArray,
     y: NDArray,
     sigma_x: float,
@@ -555,7 +555,7 @@ def synthetic_topography_simple(
     # create topographic features
     # regional
     f1 = (
-        gaussian2d(
+        _gaussian2d(
             x,
             y,
             sigma_x=x_range * 1.6,
@@ -569,7 +569,7 @@ def synthetic_topography_simple(
     # high-frequency
     # circular
     f2 = (
-        gaussian2d(
+        _gaussian2d(
             x,
             y,
             sigma_x=x_range * 0.03,
@@ -580,7 +580,7 @@ def synthetic_topography_simple(
         * -100
     )
     f3 = (
-        gaussian2d(
+        _gaussian2d(
             x,
             y,
             sigma_x=x_range * 0.08,
@@ -593,7 +593,7 @@ def synthetic_topography_simple(
 
     # elongate
     f4 = (
-        gaussian2d(
+        _gaussian2d(
             x,
             y,
             sigma_x=x_range * 0.5,
@@ -605,7 +605,7 @@ def synthetic_topography_simple(
         * -300
     )
     f5 = (
-        gaussian2d(
+        _gaussian2d(
             x,
             y,
             sigma_x=x_range * 1.4,
@@ -705,7 +705,7 @@ def synthetic_topography_regional(
 
     # create topographic features
     feature1 = (
-        gaussian2d(
+        _gaussian2d(
             x,
             y,
             sigma_x=x_range * 2,
@@ -718,7 +718,7 @@ def synthetic_topography_regional(
         * scale
     ) - 3500
     feature2 = (
-        gaussian2d(
+        _gaussian2d(
             x,
             y,
             sigma_x=x_range * 3,
@@ -731,7 +731,7 @@ def synthetic_topography_regional(
         * scale
     )
     feature3 = (
-        gaussian2d(
+        _gaussian2d(
             x,
             y,
             sigma_x=x_range * 0.2,

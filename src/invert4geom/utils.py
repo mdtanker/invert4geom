@@ -31,7 +31,7 @@ def _log_level(level):  # type: ignore[no-untyped-def]
 
 
 @contextmanager
-def environ(**env):  # type: ignore[no-untyped-def] # pylint: disable=missing-function-docstring
+def _environ(**env):  # type: ignore[no-untyped-def] # pylint: disable=missing-function-docstring
     """temporarily set/reset an environment variable"""
     originals = {k: os.environ.get(k) for k in env}
     for k, val in env.items():
@@ -114,7 +114,7 @@ def rmse(data: NDArray, as_median: bool = False) -> float:
     return value
 
 
-def nearest_grid_fill(
+def _nearest_grid_fill(
     grid: xr.DataArray,
     method: str = "verde",
     crs: str | None = None,
@@ -242,7 +242,7 @@ def filter_grid(
 
     # if there are nan's, fill them with nearest neighbor
     if grid.isnull().any():  # noqa: PD003
-        filled = nearest_grid_fill(grid, method="verde")
+        filled = _nearest_grid_fill(grid, method="verde")
     else:
         filled = grid.copy()
 
