@@ -26,16 +26,14 @@ dependencies:
   # optimization
   - optuna>=4.0
   - pytorch
-  # - sel(unix): nomkl
   - joblib
   - psutil
   # visualization
   - pyvista
-  - trame
   - ipywidgets
-  - matplotlib
+  - matplotlib>=3.7.0
   - seaborn
-  - ipython
+  - ipython>=8.13.0
   - plotly
   # Optional dependencies
   ## uncert
@@ -46,6 +44,8 @@ dependencies:
   - pytest>=6
   - pytest-cov>=3
   - deepdiff
+  ## dev
+  - jupyterlab
   ## docs
   - sphinx>=7.0
   - myst-parser>=0.13
@@ -57,8 +57,6 @@ dependencies:
   - nbconvert
   - sphinxcontrib-bibtex
   - sphinx-design
-  ## dev
-  - jupyterlab
   # below packages need to be installed with pip
   # - pip
   # - pip:
