@@ -125,11 +125,11 @@ def regional_filter(
 
     # remove the mean from the data
     data_mean = grav_ds.misfit.mean()
-    grav_ds["misfit"] -= data_mean
+    misfit = grav_ds.misfit - data_mean
 
     # filter the gravity grid with the provided filter in meters
     regional_grid = utils.filter_grid(
-        grav_ds.misfit,
+        misfit,
         filter_width,
         filt_type="lowpass",
     )
