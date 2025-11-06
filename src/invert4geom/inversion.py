@@ -532,6 +532,7 @@ class DatasetAccessorInvert4Geom:
     @property
     def inner(self) -> xr.Dataset:
         """return only the inside region of the xarray dataset"""
+        self._check_dataset_initialized()
         return self._ds.sel(
             easting=slice(self._ds.inner_region[0], self._ds.inner_region[1]),
             northing=slice(self._ds.inner_region[2], self._ds.inner_region[3]),
@@ -540,25 +541,13 @@ class DatasetAccessorInvert4Geom:
     @property
     def masked_df(self) -> xr.Dataset:
         """update the dataframe from the masked xarray dataset"""
-        if self._ds.dataset_type == "data":
-            msg = (
-                "The `masked_df` property is only available for the model dataset. "
-                "Use the `inner_df` property to get the inner region of the data "
-                "dataset."
-            )
-            raise ValueError(msg)
+        self._check_correct_dataset_type("model")
         return self.masked.to_dataframe().reset_index()
 
     @property
     def masked(self) -> xr.Dataset:
         """return only the model elements with a mask value of 1"""
-        if self._ds.dataset_type == "data":
-            msg = (
-                "The `masked` property is only available for the model dataset. "
-                "Use the `inner_df` property to get the inner region of the data "
-                "dataset."
-            )
-            raise ValueError(msg)
+        self._check_correct_dataset_type("model")
         return self._ds.where(self._ds.mask == 1, drop=True)
 
     ###
@@ -596,10 +585,7 @@ class DatasetAccessorInvert4Geom:
             :meth:`harmonica.DatasetAccessorPrismLayer.gravity` or
             :meth:`harmonica.DatasetAccessorTesseroidLayer.gravity` depending on the model type.
         """
-
-        if self._ds.dataset_type == "model":
-            msg = "The `forward_gravity` method is only available for the data dataset."
-            raise ValueError(msg)
+        self._check_correct_dataset_type("data")
 
         df = self.df
 
@@ -1084,9 +1070,8 @@ class DatasetAccessorInvert4Geom:
 
     def plot_observed(self) -> None:
         """plot observed gravity"""
-        if self._ds.dataset_type == "model":
-            msg = "The `plot_observed` method is only available for the data dataset. "
-            raise ValueError(msg)
+        self._check_correct_dataset_type("data")
+
         fig = maps.plot_grd(
             self._ds.gravity_anomaly,
             title="Observed gravity",
@@ -1121,9 +1106,7 @@ class DatasetAccessorInvert4Geom:
 
     def plot_anomalies(self) -> None:
         """plot gravity anomalies"""
-        if self._ds.dataset_type == "model":
-            msg = "The `plot_anomalies` method is only available for the data dataset. "
-            raise ValueError(msg)
+        self._check_correct_dataset_type("data")
 
         ds = self.inner
 
@@ -1162,36 +1145,6 @@ class DatasetAccessorInvert4Geom:
         )
         fig.show()
 
-    def update_gravity_and_residual(
-        self,
-        model: xr.Dataset,
-    ) -> None:
-        """
-        calculate the forward gravity of the supplied prism layer, add the results to a
-        new dataframe column, and update the residual misfit. The supplied gravity
-        dataframe needs a 'reg' column, which describes the regional component and can
-        be 0.
-        """
-        if self._ds.dataset_type == "model":
-            msg = "The `update_gravity_and_residual` method is only available for the data dataset. "
-            raise ValueError(msg)
-
-        # update the forward gravity
-        self.forward_gravity(model)
-
-        # each iteration updates the topography of the layer to minimize the residual
-        # portion of the misfit. We then want to recalculate the forward gravity of the
-        # new layer, use the same original regional misfit, and re-calculate the
-        # residual.
-        # Gmisfit  = Gobs - Gforward
-        # Gres = Gmisfit - Greg
-        # Gres = Gobs - Gforward - Greg
-
-        # update the residual misfit with the new forward gravity and the same regional
-        self._ds["res"] = (
-            self._ds.gravity_anomaly - self._ds.forward_gravity - self._ds.reg
-        )
-
     ###
     ###
     # Methods for the prism model dataset
@@ -1203,9 +1156,8 @@ class DatasetAccessorInvert4Geom:
         update the model dataset with the surface corrections. Ensure
         that the updated surface doesn't intersect the optional confining surfaces.
         """
-        if self._ds.dataset_type == "data":
-            msg = "The `add_topography_correction` method is only available for the model dataset. "
-            raise ValueError(msg)
+        self._check_correct_dataset_type("model")
+
         # get dataframe of prism layer
         df = self.masked_df
 
@@ -1287,11 +1239,7 @@ class DatasetAccessorInvert4Geom:
         apply the corrections grid and update the model tops, bottoms, topo, and
         densities.
         """
-        if self._ds.dataset_type == "data":
-            msg = (
-                "The `update_model_ds` method is only available for the model dataset. "
-            )
-            raise ValueError(msg)
+        self._check_correct_dataset_type("model")
 
         ds = self._ds
         # apply correction to topo
@@ -1328,6 +1276,129 @@ class DatasetAccessorInvert4Geom:
             raise NotImplementedError(msg)
 
         plotting.plot_prism_layers(self._ds, **kwargs)
+
+    ###
+    ###
+    # Private methods
+    ###
+    ###
+    def _save_starting_anomalies(self) -> None:
+        """
+        save starting anomalies to be able to reset inversion later
+        """
+        self._ds["starting_forward_gravity"] = self._ds.forward_gravity.copy()
+        self._ds["starting_misfit"] = self._ds.misfit.copy()
+        self._ds["starting_reg"] = self._ds.reg.copy()
+        self._ds["starting_res"] = self._ds.res.copy()
+        # self._ds.attrs.update(ds.attrs)
+
+    def _check_dataset_initialized(self) -> None:
+        assert hasattr(self._ds, "dataset_type"), (
+            "dataset must be passed through `create_data` or `create_model` function."
+        )
+
+    def _check_correct_dataset_type(self, dataset_type: str) -> None:
+        self._check_dataset_initialized()
+        if self._ds.dataset_type != dataset_type:
+            msg = f"Method is only available for the {dataset_type} dataset."
+            raise ValueError(msg)
+
+    def _check_grav_vars_for_regional(self) -> None:
+        """
+        ensure the gravity dataset has the required variables for performing regional
+        estimation.
+        """
+        self._check_correct_dataset_type("data")
+
+        variables = [
+            "easting",
+            "northing",
+            "upward",
+            "gravity_anomaly",
+            "forward_gravity",
+        ]
+        assert all(i in self._ds for i in variables), (
+            f"`gravity dataset` needs all the following variables: {variables}"
+        )
+
+    def _check_grav_vars(self) -> None:
+        """
+        ensure the gravity dataset has the required variables for performing the
+        inversion.
+        """
+        self._check_correct_dataset_type("data")
+
+        variables = [
+            "easting",
+            "northing",
+            "upward",
+            "gravity_anomaly",
+            "forward_gravity",
+            "misfit",
+            "reg",
+            "res",
+        ]
+        assert all(i in self._ds for i in variables), (
+            f"`gravity dataset` needs all the following variables: {variables}"
+        )
+
+    def _check_gravity_inside_topography_region(
+        self,
+        topography: xr.DataArray,
+    ) -> None:
+        """check that all gravity data is inside the region of the topography grid"""
+        self._check_correct_dataset_type("data")
+
+        topo_region = vd.get_region(
+            (topography.easting.to_numpy(), topography.northing.to_numpy())
+        )
+        df = self.df
+        inside = vd.inside((df.easting, df.northing), region=topo_region)
+        if not inside.all():
+            msg = (
+                "Some gravity data are outside the region of the topography grid. "
+                "This may result in unexpected behavior."
+            )
+            raise ValueError(msg)
+
+    def _check_for_nans(self) -> None:
+        """
+        ensure there are no NaN values in the gravity residual.
+        """
+        self._check_correct_dataset_type("data")
+
+        if self.df.res.isna().to_numpy().any():
+            msg = "gravity dataframe contains NaN values in the 'res' column"
+            raise ValueError(msg)
+
+    def _update_gravity_and_residual(
+        self,
+        model: xr.Dataset,
+    ) -> None:
+        """
+        calculate the forward gravity of the supplied prism layer, add the results to a
+        new dataframe column, and update the residual misfit. The supplied gravity
+        dataframe needs a 'reg' column, which describes the regional component and can
+        be 0.
+        """
+        self._check_correct_dataset_type("data")
+
+        # update the forward gravity
+        self.forward_gravity(model)
+
+        # each iteration updates the topography of the layer to minimize the residual
+        # portion of the misfit. We then want to recalculate the forward gravity of the
+        # new layer, use the same original regional misfit, and re-calculate the
+        # residual.
+        # Gmisfit  = Gobs - Gforward
+        # Gres = Gmisfit - Greg
+        # Gres = Gobs - Gforward - Greg
+
+        # update the residual misfit with the new forward gravity and the same regional
+        self._ds["res"] = (
+            self._ds.gravity_anomaly - self._ds.forward_gravity - self._ds.reg
+        )
+
 
 def create_data(
     gravity: xr.Dataset,
@@ -3688,26 +3759,26 @@ def run_inversion_workflow(
 
     # starting gravity of prism model
     if calculate_starting_gravity is False:
-        if "starting_gravity" not in grav_ds:
+        if "forward_gravity" not in grav_ds:
             msg = (
-                "'starting_gravity' must be a variable of `grav_ds` if "
+                "'forward_gravity' must be a variable of `grav_ds` if "
                 "calculate_starting_gravity is False"
             )
             raise ValueError(msg)
-        logger.debug("not calculating starting gravity because it is provided")
+        logger.debug("not calculating starting forward gravity because it is provided")
     elif calculate_starting_gravity is True:
-        if "starting_gravity" in grav_ds:
+        if "forward_gravity" in grav_ds:
             msg = (
-                "'starting_gravity' already a variable of `grav_ds`, but is being "
+                "'forward_gravity' already a variable of `grav_ds`, but is being "
                 "overwritten since calculate_starting_gravity is True"
             )
             logger.warning(msg)
-        logger.debug("calculating starting gravity")
+        logger.debug("calculating starting forward gravity")
         grav_ds.inv.forward_gravity(
             model,
             progressbar=False,
         )
-        logger.debug("starting gravity calculated")
+        logger.debug("starting forward gravity calculated")
 
     # Regional Component of Misfit
     if calculate_regional_misfit is False:
