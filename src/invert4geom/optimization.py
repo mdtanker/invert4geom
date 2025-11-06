@@ -1962,7 +1962,7 @@ def optimize_regional_filter(
         try:
             if study._is_multi_objective() is False:  # pylint: disable=protected-access
                 if optimize_on_true_regional_misfit is True:
-                    plotting.combined_slice(
+                    plotting.plot_optimization_combined_slice(
                         study,
                         attribute_names=[
                             "residual constraint score",
@@ -2138,7 +2138,7 @@ def optimize_regional_trend(
         try:
             if study._is_multi_objective() is False:  # pylint: disable=protected-access
                 if optimize_on_true_regional_misfit is True:
-                    plotting.combined_slice(
+                    plotting.plot_optimization_combined_slice(
                         study,
                         attribute_names=[
                             "residual constraint score",
@@ -2346,7 +2346,7 @@ def optimize_regional_eq_sources(
             if study._is_multi_objective() is False:  # pylint: disable=protected-access
                 if optimize_on_true_regional_misfit is True:
                     for p in best_trial.params:
-                        plotting.combined_slice(
+                        plotting.plot_optimization_combined_slice(
                             study,
                             attribute_names=[
                                 "residual constraint score",
@@ -2681,7 +2681,7 @@ def optimize_regional_constraint_point_minimization(
             if study._is_multi_objective() is False:  # pylint: disable=protected-access
                 if optimize_on_true_regional_misfit is True:
                     for p in best_trial.params:
-                        plotting.combined_slice(
+                        plotting.plot_optimization_combined_slice(
                             study,
                             attribute_names=[
                                 "residual constraint score",
