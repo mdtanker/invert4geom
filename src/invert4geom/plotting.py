@@ -1029,6 +1029,22 @@ def plot_prism_layers(
 
 
 def combined_slice(
+    study: optuna.study.Study,  # noqa: ARG001 # pylint: disable=unused-argument
+    attribute_names: list[str],  # noqa: ARG001 # pylint: disable=unused-argument
+    parameter_name: str | None = None,  # noqa: ARG001 # pylint: disable=unused-argument
+) -> plotly.graph_objects.Figure:
+    """
+    DEPRECATED: use :func:`plot_optimization_combined_slice` instead
+    """
+
+    msg = (
+        "Function `combined_slice` deprecated, use the `plot_optimization_combined_slice` function "
+        "instead"
+    )
+    raise DeprecationWarning(msg)
+
+
+def plot_optimization_combined_slice(
     study: optuna.study.Study,
     attribute_names: list[str],
     parameter_name: str | None = None,
