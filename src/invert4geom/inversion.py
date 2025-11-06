@@ -1315,6 +1315,19 @@ class DatasetAccessorInvert4Geom:
         ds.attrs.update(self._ds.attrs)
         return ds
 
+    def plot_model(
+        self,
+        **kwargs: typing.Any,
+    ) -> None:
+        """
+        Use :mod:`pyvista` to plot the prism model. All ``kwargs`` are passed to
+        :func:`plotting.plot_prism_layers`.
+        """
+        if (hasattr(self._ds, "model_type")) and (self._ds.model_type != "prisms"):
+            msg = "Plotting tesseroid models with PyVista is not support yet"
+            raise NotImplementedError(msg)
+
+        plotting.plot_prism_layers(self._ds, **kwargs)
 
 def create_data(
     gravity: xr.Dataset,
