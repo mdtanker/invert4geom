@@ -1007,26 +1007,28 @@ def create_data(
 
     Parameters
     ----------
-    gravity : xr.Dataset
-        A dataset with coordinates "easting" and "northing" (if using prisms) or
-        "longitude" and "latitude" (if using tesseroids), as well and variables "upward"
-        defining the gravity observation height and "gravity_anomaly" with the observed
-        gravity values.
+    gravity : xarray.Dataset
+        A dataset with coordinates ``easting`` and ``northing`` (if using prisms) or
+        ``longitude`` and ``latitude`` (if using tesseroids), as well and variables
+        ``upward`` defining the gravity observation height in meters and
+        ``gravity_anomaly`` with the observed gravity values in mGals.
     buffer_width : float | None, optional
-        The width in meters of a buffer zone which will be used to zoom-in on the
-        provided data creating an inner region. This inner region will be used for
-        plotting and calculating statistics for processes such as cross validation, and
-        l2-norms, this avoids skewing plots and values by edge effects, by default will
-        use a width of the 10% of the shortest dimension length, to the nearest multiple
-        of grid spacing.
+        The width in meters of a buffer zone used to zoom-in on the provided data
+        creating an inner region. This inner region will be used for plotting and
+        calculating statistics for processes such as cross validation, and l2-norms,
+        this avoids skewing plots and values by edge effects, by default will use a
+        width of the 10% of the shortest dimension length, to the nearest multiple of
+        grid spacing.
     model_type : str, optional
-        Choose between "prisms" and "tesseroids", which affects whether geographic or
-        projected coordinates are expect, by default "prisms"
+        Choose between ``prisms`` and ``tesseroids``, which affects whether geographic
+        or projected coordinates are expect, by default ``prisms``
 
     Returns
     -------
-    xr.Dataset
-        A dataset with new attributes.
+    xarray.Dataset
+        A dataset with new attributes ``model_type``, ``dataset_type``, ``spacing``,
+        "buffer_width``, ``spacing``, ``region``, and ``inner_region``.
+
     """
     gravity = gravity.copy()
 

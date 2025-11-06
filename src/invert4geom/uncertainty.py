@@ -36,6 +36,9 @@ except ImportError:
 
 from invert4geom import inversion, logger, plotting, regional, utils
 
+if typing.TYPE_CHECKING:
+    from invert4geom.inversion import Inversion
+
 
 def create_lhc(
     n_samples: int,
@@ -725,7 +728,7 @@ def regional_misfit_uncertainty(
 
 
 def full_workflow_uncertainty_loop(
-    inversion_object: inversion.Inversion,
+    inversion_object: "Inversion",
     runs: int,
     fname: str | None = None,
     sample_gravity: bool = False,
