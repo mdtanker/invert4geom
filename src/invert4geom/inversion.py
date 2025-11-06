@@ -1344,15 +1344,15 @@ class Inversion:
         self.zref_density_cv_results_fname = None
 
         # check that gravity dataset has necessary dimensions
-        self.data.inv.check_grav_vars()
+        self.data.inv._check_grav_vars()
 
         # check that gravity data is inside topography region
-        self.data.inv.check_gravity_inside_topography_region(
+        self.data.inv._check_gravity_inside_topography_region(
             self.model.starting_topography
         )
 
         # check that gravity dataset has no NaNs in residual column
-        self.data.inv.check_for_nans()
+        self.data.inv._check_for_nans()
 
         # if there is a confining surface (above or below), which the inverted layer
         # shouldn't intersect, then sample those layers into the df
@@ -1719,7 +1719,7 @@ class Inversion:
             self.data[f"iter_{self.iteration}_initial_residual"] = self.data.res
 
             # update the forward gravity, residual, and the l2 / delta l2 norms
-            self.data.inv.update_gravity_and_residual(self.model)
+            self.data.inv._update_gravity_and_residual(self.model)  # pylint: disable=protected-access
 
             # end iteration timer
             self.iter_time_end = time.perf_counter()  # type: ignore[assignment]

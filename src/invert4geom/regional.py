@@ -50,7 +50,7 @@ def regional_constant(
         raise DeprecationWarning(msg)
 
     logger.debug("starting regional_constant")
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
@@ -132,7 +132,7 @@ def regional_filter(
 
     logger.debug("starting regional_filter")
 
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
@@ -195,7 +195,7 @@ def regional_trend(
 
     logger.debug("starting regional_trend")
 
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
@@ -278,7 +278,7 @@ def regional_eq_sources(
 
     logger.debug("starting regional_eq_sources")
 
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
@@ -428,7 +428,7 @@ def regional_constraints(
         msg = "need to provide constraints_df"
         raise ValueError(msg)
 
-    grav_ds.inv.check_grav_vars_for_regional()
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     constraints_df = constraints_df.copy()
 
