@@ -204,7 +204,6 @@ def regional_eq_sources(
     depth: float | str = "default",
     damping: float | None = None,
     block_size: float | None = None,
-    points: list[NDArray] | None = None,
     grav_obs_height: float | None = None,
     regional_shift: float = 0,
     cv: bool = False,
@@ -226,8 +225,6 @@ def regional_eq_sources(
         smoothness to impose on estimated coefficients, by default None
     block_size : float | None, optional
         block reduce the data to speed up, by default None
-    points : list[numpy.ndarray] | None, optional
-        specify source locations for equivalent source fitting, by default None
     grav_obs_height: float, optional
         Observation height to use predicting the eq sources, by default None and will
         use the data height from grav_ds.
@@ -265,7 +262,6 @@ def regional_eq_sources(
         _, eqs = optimization.optimize_eq_source_params(
             coordinates=coords,
             data=grav_df.misfit,
-            points=points,
             weights=weights,
             depth=depth,
             damping=damping,
@@ -278,7 +274,6 @@ def regional_eq_sources(
             depth=depth,
             damping=damping,
             block_size=block_size,
-            points=points,
         )
 
         # fit the source coefficients to the data
@@ -319,7 +314,6 @@ def regional_constraints(
     damping: float | None = None,
     cv: bool = False,
     block_size: float | None = None,
-    points: list[NDArray] | None = None,
     grav_obs_height: float | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
     regional_shift: float = 0,
@@ -368,8 +362,6 @@ def regional_constraints(
         "damping_limits", "depth_limits", "block_size_limits", and "progressbar".
     block_size : float | None, optional
         block size used if `grid_method` is "eq_sources", by default None
-    points : list[numpy.ndarray] | None, optional
-        specify source locations for equivalent source fitting, by default None
     grav_obs_height : float, optional
         Observation height to use if `grid_method` is "eq_sources", by default None
     cv_kwargs : dict[str, typing.Any] | None, optional
@@ -473,7 +465,7 @@ def regional_constraints(
         constraints_df = constraints_df.dropna(how="any")
     ###
     ###
-    # Tensioned minimum curvature with PyGMT
+    # Tensioned splines with PyGMT
     ###
     ###
     # grid the entire regional gravity based just on the values at the constraints
@@ -550,7 +542,6 @@ def regional_constraints(
                     depth="default",
                     damping=None,
                     block_size=block_size,
-                    points=points,
                 )
                 eqs.fit(
                     coords,
@@ -564,7 +555,6 @@ def regional_constraints(
                 depth=depth,
                 damping=damping,
                 block_size=block_size,
-                points=points,
             )
 
             # fit the source coefficients to the data
