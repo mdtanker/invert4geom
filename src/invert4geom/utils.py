@@ -821,7 +821,7 @@ def create_topography(
                 weights = df_to_interpolate[weights_col]
 
             # run CV for fitting a spline to the data
-            spline = best_spline_cv(
+            spline = optimal_spline_damping(
                 coordinates=coords,
                 data=df_to_interpolate.upward,
                 weights=weights,
@@ -861,7 +861,7 @@ def create_topography(
                 weights = df[weights_col]
 
             # run CV for fitting a spline to the data
-            spline = best_spline_cv(
+            spline = optimal_spline_damping(
                 coordinates=coords,
                 data=df.upward,
                 weights=weights,
@@ -979,6 +979,19 @@ def grids_to_prisms(
 
 
 def best_spline_cv(
+    coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray],  # noqa: ARG001 # pylint: disable=unused-argument
+    data: pd.Series | NDArray,  # noqa: ARG001 # pylint: disable=unused-argument
+    weights: pd.Series | NDArray | None = None,  # noqa: ARG001 # pylint: disable=unused-argument
+    **kwargs: typing.Any,  # noqa: ARG001 # pylint: disable=unused-argument
+) -> None:
+    """
+    DEPRECATED: use the function `optimal_spline_damping` instead
+    """
+    msg = "Function `best_spline_cv` deprecated, use `optimal_spline_damping` instead"
+    raise DeprecationWarning(msg)
+
+
+def optimal_spline_damping(
     coordinates: tuple[pd.Series | NDArray, pd.Series | NDArray],
     data: pd.Series | NDArray,
     weights: pd.Series | NDArray | None = None,
