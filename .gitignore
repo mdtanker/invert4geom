@@ -170,3 +170,5 @@ Thumbs.db
 # tmp data folders
 docs/tmp/*
 !docs/tmp/.gitkeep
+
+docs/api/generated/
