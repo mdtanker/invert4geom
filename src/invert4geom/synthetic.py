@@ -801,7 +801,7 @@ def contaminate(
     Notes
     -----
     This function was adapted from the Fatiando-Legacy function
-    gaussian2d: https://legacy.fatiando.org/api/utils.html?highlight=gaussian#fatiando.utils.contaminate
+    contaminate: https://legacy.fatiando.org/api/utils.html?highlight=gaussian#fatiando.utils.contaminate
     """
 
     if isinstance(data, xr.DataArray) is False:

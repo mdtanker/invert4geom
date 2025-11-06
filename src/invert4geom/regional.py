@@ -364,7 +364,7 @@ def regional_constraints(
 
     Parameters
     ----------
-    grav_ds : xr.Dataset
+    grav_ds : xarray.Dataset
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "forward_gravity".
     constraints_df : pandas.DataFrame
@@ -404,7 +404,7 @@ def regional_constraints(
     cv_kwargs : dict[str, typing.Any] | None, optional
         additional keyword arguments for the cross-validation optimization of
         equivalent source parameters, by default None. Can contain: "n_trials",
-        "damping_limits", "depth_limits", "block_size_limits", "points", "sampler",
+        "damping_limits", "depth_limits", "block_size_limits", "sampler",
         "plot", "progressbar", "parallel", "fname", "dtype", or "delayed".
     regional_shift : float, optional
         shift to add to the regional field, by default 0
@@ -647,7 +647,7 @@ def regional_constraints_cv(
     hyperparameter optimization to find the set of parameter values which estimates the
     best regional field. It then uses the optimal parameter values and all of the
     constraint points to re-calculate the best regional field. All kwargs are passed to
-    the function :func:`.optimize_regional_constraint_point_minimization`
+    the function :func:`optimize_regional_constraint_point_minimization`
 
     Parameters
     ----------
