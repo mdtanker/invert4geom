@@ -1,4 +1,3 @@
-import copy
 import typing
 
 import harmonica as hm
@@ -7,7 +6,7 @@ import pandas as pd
 import pygmt
 import verde as vd
 import xarray as xr
-from numpy.typing import NDArray
+from polartoolkit import utils as polar_utils
 
 from invert4geom import cross_validation, logger, optimization, utils
 
@@ -308,7 +307,6 @@ def regional_constraints(
     constraints_block_size: float | None = None,
     constraints_weights_column: str | None = None,
     tension_factor: float = 1,
-    registration: str = "g",
     spline_dampings: float | list[float] | None = None,
     depth: float | str | None = None,
     damping: float | None = None,
@@ -346,8 +344,6 @@ def regional_constraints(
        "eq_sources", by default None
     tension_factor : float, optional
         Tension factor used if `grid_method` is "pygmt", by default 1
-    registration : str, optional
-       grid registration used if `grid_method` is "pygmt",, by default "g"
     spline_dampings : float | list[float] | None, optional
         damping values used if `grid_method` is "verde", by default None
     depth : float | str | None, optional
@@ -470,6 +466,7 @@ def regional_constraints(
     ###
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
+        registration = polar_utils.get_grid_info(grav_ds.forward_gravity)[-1]
         da = pygmt.surface(
             data=constraints_df[["easting", "northing", "sampled_grav"]],
             region=grav_ds.region,
