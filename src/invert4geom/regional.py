@@ -589,10 +589,11 @@ def regional_constraints(
 
 
 def regional_constraints_cv(
+    grav_ds: xr.Dataset,
     constraints_df: pd.DataFrame,
     split_kwargs: dict[str, typing.Any] | None = None,
     **kwargs: typing.Any,
-) -> xr.Dataset:
+) -> None:
     """
     This is a convenience function to wrap
     `optimization.optimize_regional_constraint_point_minimization`. It takes a full
@@ -605,23 +606,21 @@ def regional_constraints_cv(
 
     Parameters
     ----------
+    grav_ds : xr.Dataset
+        gravity data with columns "easting", "northing", "gravity_anomaly", and
+        "forward_gravity".
     constraints_df : pandas.DataFrame
         dataframe of un-separated constraints
     split_kwargs : dict[str, typing.Any] | None, optional
         kwargs to be passed to `split_test_train`, by default None
     **kwargs : typing.Any
         kwargs to be passed to `optimize_regional_constraint_point_minimization`
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
     logger.debug("starting regional_constraints_cv")
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df,
-        kwargs.get("grav_ds").inv.df,  # type: ignore[union-attr]
+        grav_ds.inv.df,
     )
 
     df = constraints_df.copy()
@@ -637,11 +636,10 @@ def regional_constraints_cv(
     )
 
     _, grav_ds, _ = optimization.optimize_regional_constraint_point_minimization(
+        grav_ds=grav_ds,
         testing_training_df=testing_training_df,
         **kwargs,
     )
-
-    return grav_ds
 
 
 def regional_separation(
