@@ -1494,7 +1494,7 @@ def gravity_decay_buffer(
 
     if plot:
         try:
-            plotting.edge_effects(
+            plotting.plot_edge_effects(
                 grav_ds=grav_ds,
                 layer=model,
                 inner_region=inner_region,
