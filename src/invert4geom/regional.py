@@ -18,7 +18,7 @@ def regional_constant(
     constraints_df: pd.DataFrame | None = None,
     regional_shift: float = 0,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     approximate the regional field with a constant value. If constraint points of the
     layer of interested are supplied, the constant value will be the median misfit value
@@ -38,11 +38,6 @@ def regional_constant(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
 
     if isinstance(grav_ds, xr.Dataset) is False:
@@ -95,16 +90,13 @@ def regional_constant(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    # return the new dataset
-    return grav_ds
-
 
 def regional_filter(
     grav_ds: xr.Dataset,
     filter_width: float,
     regional_shift: float = 0,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     separate the regional field with a low-pass filter
 
@@ -120,11 +112,6 @@ def regional_filter(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_filter` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -159,15 +146,13 @@ def regional_filter(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    return grav_ds
-
 
 def regional_trend(
     grav_ds: xr.Dataset,
     trend: int,
     regional_shift: float = 0,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     separate the regional field with a trend
 
@@ -183,11 +168,6 @@ def regional_trend(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_trend` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -218,8 +198,6 @@ def regional_trend(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    return grav_ds
-
 
 def regional_eq_sources(
     grav_ds: xr.Dataset,
@@ -233,7 +211,7 @@ def regional_eq_sources(
     weights_column: str | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     separate the regional field by estimating deep equivalent sources
 
@@ -266,11 +244,6 @@ def regional_eq_sources(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_eq_sources` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -332,8 +305,6 @@ def regional_eq_sources(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    return grav_ds
-
 
 def regional_constraints(
     grav_ds: xr.Dataset,
@@ -353,7 +324,7 @@ def regional_constraints(
     cv_kwargs: dict[str, typing.Any] | None = None,
     regional_shift: float = 0,
     mask_column: str | None = None,
-) -> xr.Dataset:
+) -> None:
     """
     Separate the regional field by sampling and re-gridding the gravity misfit at
     points of known topography (constraint points). The re-gridding can be done with:
@@ -411,11 +382,6 @@ def regional_constraints(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated residual field by,
         should have values of 1 or 0, by default None.
-
-    Returns
-    -------
-    xarray.Dataset
-        a gravity dataset with new variables 'misfit', 'reg', and 'res'.
     """
 
     if isinstance(grav_ds, xr.Dataset) is False:
@@ -631,7 +597,6 @@ def regional_constraints(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    return grav_ds
 
 
 def regional_constraints_cv(

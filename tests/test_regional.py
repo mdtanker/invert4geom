@@ -46,7 +46,7 @@ def test_regional_constant_constraints():
         }
     )
 
-    ds = invert4geom.regional.regional_constant(
+    invert4geom.regional.regional_constant(
         grav_ds=grav_data,
         constraints_df=constraints,
     )
@@ -59,7 +59,7 @@ def test_regional_constant_constraints():
     misfit_at_constraints = [x - 100 for x in gravity_anomaly_at_constraints]
     expected_regional_value = np.mean(misfit_at_constraints)
 
-    assert np.mean(ds.reg) == expected_regional_value
+    assert np.mean(grav_data.reg) == expected_regional_value
 
 
 def test_regional_constant():
@@ -68,12 +68,12 @@ def test_regional_constant():
     """
     grav_data = observed_gravity()
 
-    ds = invert4geom.regional.regional_constant(
+    invert4geom.regional.regional_constant(
         grav_ds=grav_data,
         constant=-200,
     )
 
-    assert ds.reg.mean() == -200
+    assert grav_data.reg.mean() == -200
 
 
 @pytest.mark.filterwarnings("ignore:dropping variables using `drop` is deprecated")
@@ -84,22 +84,22 @@ def test_regional_filter():
     """
     grav_data = observed_gravity()
 
-    ds = invert4geom.regional.regional_filter(
+    invert4geom.regional.regional_filter(
         filter_width=300e3,
         grav_ds=grav_data,
     )
 
-    assert len(ds.misfit) == len(ds.reg)
+    assert len(grav_data.misfit) == len(grav_data.reg)
 
-    reg_range = np.max(ds.reg) - np.min(ds.reg)
-    misfit_range = np.max(ds.misfit) - np.min(ds.misfit)
+    reg_range = np.max(grav_data.reg) - np.min(grav_data.reg)
+    misfit_range = np.max(grav_data.misfit) - np.min(grav_data.misfit)
 
     # test  whether regional field has been remove correctly
     # by whether the limits of the regional are smaller than the limits of the gravity
     assert reg_range < misfit_range
     # test that the mean regional value is in the range of the misfit values
-    assert np.mean(ds.reg) < np.max(ds.misfit)
-    assert np.mean(ds.reg) > np.min(ds.misfit)
+    assert np.mean(grav_data.reg) < np.max(grav_data.misfit)
+    assert np.mean(grav_data.reg) > np.min(grav_data.misfit)
 
 
 @pytest.mark.parametrize("trend", [0, 2])
@@ -109,12 +109,12 @@ def test_regional_trend(trend):
     """
     grav_data = observed_gravity()
 
-    ds = invert4geom.regional.regional_trend(
+    invert4geom.regional.regional_trend(
         trend=trend,
         grav_ds=grav_data,
     )
 
-    df = ds.inv.df
+    df = grav_data.inv.df
 
     assert len(df.misfit) == len(df.reg)
 
@@ -155,14 +155,14 @@ def test_regional_eq_sources():
         seed=0,
     )
 
-    ds = invert4geom.regional.regional_eq_sources(
+    invert4geom.regional.regional_eq_sources(
         depth=100e3,
         damping=1,
         grav_ds=grav_data,
     )
 
-    reg_range = np.max(ds.reg) - np.min(ds.reg)
-    misfit_range = np.max(ds.misfit) - np.min(ds.misfit)
+    reg_range = np.max(grav_data.reg) - np.min(grav_data.reg)
+    misfit_range = np.max(grav_data.misfit) - np.min(grav_data.misfit)
 
     # test whether regional field has been remove correctly
     # by whether the range of regional values are lower than the range of misfit values
@@ -200,7 +200,7 @@ def test_regional_constraints(test_input):
         }
     )
 
-    ds = invert4geom.regional.regional_constraints(
+    invert4geom.regional.regional_constraints(
         constraints_df=constraints,
         grav_ds=grav_data,
         grid_method=test_input,
@@ -240,7 +240,7 @@ def test_regional_constraints(test_input):
             [-34.81156908, 3.67070039, 44.24627242, 83.68720067, 118.89101551],
         ]
 
-    assert not np.testing.assert_allclose(ds.reg.values, expected)
+    assert not np.testing.assert_allclose(grav_data.reg.values, expected)
 
     # delete the temp files created by optuna
     # pathlib.Path("tmp.log").unlink(missing_ok=True)
