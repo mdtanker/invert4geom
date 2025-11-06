@@ -1330,7 +1330,6 @@ def optimize_eq_source_params(
         damping=best_damping,
         depth=best_depth,
         block_size=best_block_size,
-        points=kwargs.pop("points", None),
         parallel=kwargs.pop("parallel", True),
         dtype=kwargs.pop("dtype", "float64"),
     )
