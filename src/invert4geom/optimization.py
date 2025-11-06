@@ -1817,7 +1817,6 @@ def optimize_regional_filter(
     grav_ds: xr.Dataset,
     filter_width_limits: tuple[float, float],
     score_as_median: bool = False,
-    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     n_trials: int = 100,
     sampler: optuna.samplers.BaseSampler | None = None,
@@ -1853,9 +1852,6 @@ def optimize_regional_filter(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
-    remove_starting_grav_mean : bool, optional
-        remove the mean of the starting gravity data before estimating the regional.
-        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xarray.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -1930,7 +1926,6 @@ def optimize_regional_filter(
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
             separate_metrics=separate_metrics,
-            remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=n_trials,
         progressbar=progressbar,
@@ -1955,8 +1950,6 @@ def optimize_regional_filter(
     grav_ds.inv.regional_separation(
         method="filter",
         filter_width=best_trial.params["filter_width"],
-        grav_ds=grav_ds,
-        remove_starting_grav_mean=remove_starting_grav_mean,
     )
 
     if plot is True:
@@ -1981,11 +1974,11 @@ def optimize_regional_filter(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_ds.reg.plot()
+                grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_ds, best_trial
+    return study, grav_ds, best_trial
 
 
 def optimize_regional_trend(
@@ -1993,7 +1986,6 @@ def optimize_regional_trend(
     grav_ds: xr.Dataset,
     trend_limits: tuple[int, int],
     score_as_median: bool = False,
-    remove_starting_grav_mean: bool = False,
     true_regional: xr.DataArray | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
     plot: bool = False,
@@ -2028,9 +2020,6 @@ def optimize_regional_trend(
     score_as_median : bool, optional
         use the root median square instead of the root mean square for the scoring
         metric, by default False
-    remove_starting_grav_mean : bool, optional
-        remove the mean of the starting gravity data before estimating the regional.
-        Useful to mitigate effects of poorly-chosen zref value. By default False
     true_regional : xarray.DataArray | None, optional
         if the true regional gravity is known (in synthetic models), supply this as a
         grid to include a user_attr of the RMSE between this and the estimated regional
@@ -2105,7 +2094,6 @@ def optimize_regional_trend(
             score_as_median=score_as_median,
             optimize_on_true_regional_misfit=optimize_on_true_regional_misfit,
             separate_metrics=separate_metrics,
-            remove_starting_grav_mean=remove_starting_grav_mean,
         ),
         n_trials=len(list(range(trend_limits[0], trend_limits[1] + 1))),
         maximize_cpus=True,
@@ -2131,8 +2119,6 @@ def optimize_regional_trend(
     grav_ds.inv.regional_separation(
         method="trend",
         trend=best_trial.params["trend"],
-        grav_ds=grav_ds,
-        remove_starting_grav_mean=remove_starting_grav_mean,
     )
 
     if plot is True:
@@ -2157,11 +2143,11 @@ def optimize_regional_trend(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_ds.reg.plot()
+                grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_ds, best_trial
+    return study, grav_ds, best_trial
 
 
 def optimize_regional_eq_sources(
@@ -2365,11 +2351,11 @@ def optimize_regional_eq_sources(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_ds.reg.plot()
+                grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_ds, best_trial
+    return study, grav_ds, best_trial
 
 
 def optimize_regional_constraint_point_minimization(
@@ -2699,11 +2685,11 @@ def optimize_regional_constraint_point_minimization(
                         target_name=j,
                     ).show()
             if plot_grid is True:
-                resulting_grav_ds.reg.plot()
+                grav_ds.reg.plot()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
 
-    return study, resulting_grav_ds, best_trial
+    return study, grav_ds, best_trial
 
 
 def optimal_buffer(
