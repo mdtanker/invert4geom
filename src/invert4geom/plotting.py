@@ -1417,6 +1417,22 @@ def projection_2d(
 
 
 def edge_effects(
+    grav_ds: xr.Dataset,  # noqa: ARG001 # pylint: disable=unused-argument
+    layer: xr.DataArray,  # noqa: ARG001 # pylint: disable=unused-argument
+    inner_region: tuple[float, float, float, float],  # noqa: ARG001 # pylint: disable=unused-argument
+    plot_profile: bool = True,  # noqa: ARG001 # pylint: disable=unused-argument
+) -> None:
+    """
+    DEPRECATED: use :func:`plot_edge_effects` instead
+    """
+    msg = (
+        "Function `edge_effects` deprecated, use the `plot_edge_effects` function "
+        "instead"
+    )
+    raise DeprecationWarning(msg)
+
+
+def plot_edge_effects(
     grav_ds: xr.Dataset,
     layer: xr.DataArray,
     inner_region: tuple[float, float, float, float],
