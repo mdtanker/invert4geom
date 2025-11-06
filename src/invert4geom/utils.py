@@ -14,6 +14,7 @@ import verde as vd
 import xarray as xr
 import xrft
 from numpy.typing import NDArray
+from polartoolkit import fetch
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 from invert4geom import logger, plotting
@@ -884,9 +885,21 @@ def create_topography(
 
     # ensure grid doesn't cross supplied confining layers
     if upper_confining_layer is not None:
-        grid = grid.where(grid <= upper_confining_layer, upper_confining_layer)
+        da = fetch.fetch.resample_grid(
+            upper_confining_layer,
+            spacing=spacing,
+            region=region,
+            registration=registration,
+        )
+        grid = grid.where(grid <= da, da)
     if lower_confining_layer is not None:
-        grid = grid.where(grid >= lower_confining_layer, lower_confining_layer)
+        da = fetch.fetch.resample_grid(
+            lower_confining_layer,
+            spacing=spacing,
+            region=region,
+            registration=registration,
+        )
+        grid = grid.where(grid >= da, da)
 
     return grid
 
