@@ -1345,11 +1345,11 @@ def projection_2d(
     var_names: list[str],
 ) -> None:
     """
-    Plots the sample projected on each 2D plane
+    Plots the samples projected on each 2D plane
 
     Parameters
     ----------
-    sample : NDArray
+    sample : np.ndarray
         The sampled values
     var_names : list[str]
         The names of the variables
@@ -1386,9 +1386,9 @@ def edge_effects(
 
     Parameters
     ----------
-    grav_ds : xr.Dataset
+    grav_ds : xarray.Dataset
         the gravity dataset
-    layer : xr.DataArray
+    layer : xarray.DataArray
         the prism/tesseroid layer
     inner_region : tuple[float, float, float, float]
         the inside region, where forward gravity is calculated

@@ -565,7 +565,7 @@ class OptimalInversionDamping:
     """
     Objective function to use in an Optuna optimization for finding the optimal damping
     regularization value for a gravity inversion. Used within function
-    `optimize_inversion_damping()`.
+    :func:`optimize_inversion_damping`.
     """
 
     def __init__(
@@ -1133,13 +1133,13 @@ def optimize_eq_source_params(
     kwargs : typing.Any
         additional keyword arguments to pass to `OptimalEqSourceParams`, which are
         passed to `eq_sources_score`. These can include parameters to pass to
-        `harmonica.EquivalentSources`; "damping", "points", "depth", "block_size",
+        `harmonica.EquivalentSources`; "damping", "depth", "block_size",
         "parallel", and "dtype", or parameters to pass to `vd.cross_val_score`;
         "delayed", or "weights".
 
     Returns
     -------
-    study : optuna.study
+    study : optuna.study.Study
         the completed optuna study
     eqs : harmonica.EquivalentSources
         the fitted equivalent sources model
@@ -1886,7 +1886,7 @@ def optimize_regional_filter(
 
     Returns
     -------
-    study : optuna.study,
+    study : optuna.study.Study,
         the completed Optuna study
     resulting_grav_ds : xarray.Dataset
         the resulting gravity dataset of the best trial
@@ -2059,7 +2059,7 @@ def optimize_regional_trend(
 
     Returns
     -------
-    study : optuna.study,
+    study : optuna.study.Study,
         the completed Optuna study
     resulting_grav_ds : xarray.Dataset
         the resulting gravity dataset of the best trial
@@ -2242,11 +2242,11 @@ def optimize_regional_eq_sources(
     seed : int, optional
         random seed for the samplers, by default 0
     kwargs : typing.Any
-        additional keyword arguments to pass to the regional.regional_separation
+        additional keyword arguments to pass to the :meth:`DatasetAccessorInvert4Geom.regional_separation`
 
     Returns
     -------
-    study : optuna.study,
+    study : optuna.study.Study
         the completed Optuna study
     resulting_grav_ds : xarray.Dataset
         the resulting gravity dataset of the best trial
@@ -2399,7 +2399,7 @@ def optimize_regional_constraint_point_minimization(
 ) -> tuple[optuna.study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
     Run an Optuna optimization to find the optimal hyperparameters for the Constraint
-    Point Minimization (CPM) technique for estimating the regional component of gravity
+    Point Minimization technique for estimating the regional component of gravity
     misfit. Since constraints are used both for determining the regional field, and for
     the scoring of the performance, we must split the constraints into testing and
     training sets. This function can perform both single and K-Folds cross validations,
@@ -2412,14 +2412,14 @@ def optimize_regional_constraint_point_minimization(
     By default this will perform a multi-objective optimization to
     find the best trade-off between the lowest RMSE of the residual misfit at the
     constraints and the highest RMS amplitude of the residual at all locations.
-    Choose which CPM gridding method with the `grid_method` parameter, and supplied the
-    associated method parameter limits via parameters <parameter>_limits. For grid
-    method "eq_sources" which has multiple parameters, if limits aren't provided for one
-    of the parameters, supply a constant value for the parameter in the keyword
-    arguments, which are past direction to `regional.regional_separation`.
-    For synthetic testing, if the true regional grid is provided, the optimization can
-    be set to optimize on the RMSE of the predicted and true regional gravity, by
-    setting `optimize_on_true_regional_misfit=True`.
+    Choose which Constraint Point Minimization gridding method with the `grid_method`
+    parameter, and supplied the associated method parameter limits via parameters
+    <parameter>_limits. For grid method "eq_sources" which has multiple parameters, if
+    limits aren't provided for one of the parameters, supply a constant value for the
+    parameter in the keyword arguments, which are past direction to
+    :meth:`DatasetAccessorInvert4Geom.regional_separation`. For synthetic testing, if the true regional grid is
+    provided, the optimization can be set to optimize on the RMSE of the predicted and
+    true regional gravity, by setting `optimize_on_true_regional_misfit=True`.
 
     Parameters
     ----------
@@ -2487,11 +2487,11 @@ def optimize_regional_constraint_point_minimization(
     seed : int, optional
         random seed for the samplers, by default 0
     kwargs : typing.Any
-        additional keyword arguments to pass to the regional.regional_separation
+        additional keyword arguments to pass to the :meth:`DatasetAccessorInvert4Geom.regional_separation`
 
     Returns
     -------
-    study : optuna.study,
+    study : optuna.study.Study,
         the completed Optuna study
     resulting_grav_ds : xarray.Dataset
         the resulting gravity dataset of the best trial

@@ -720,31 +720,32 @@ def create_topography(
     """
     Create a grid of topography data from either the interpolation of point data or
     creating a grid of constant value. Optionally, a subset of point data can be
-    interpolated and then merged with an existing grid. The this, constraints_df must
-    contain two additional columns of booleans, `inside` which is True for points inside
-    the region of interest, and False otherwise, and `buffer` which is True for points
-    within a buffer region around the region of interest, and False otherwise. Inside
-    and Buffer points are used to interpolated the data, and then the interpolated data
-    (without the buffer zone) is merged with the points outside the region of interest.
+    interpolated and then merged with an existing grid. To do this, ``constraints_df``
+    must contain two additional columns of booleans, ``inside`` which is True for points
+    inside the region of interest, and False otherwise, and ``buffer`` which is True for
+    points within a buffer region around the region of interest, and False otherwise.
+    Inside and Buffer points are used to interpolated the data, and then the
+    interpolated data (without the buffer zone) is merged with the points outside the
+    region of interest.
 
     Parameters
     ----------
     method : str
-        method to use, either 'flat' or 'splines'
+        method to use, either ``flat`` or ``splines``
     region : tuple[float, float, float, float]
         region of the grid
     spacing : float
         spacing of the grid
     dampings : list[float] | None, optional
-        damping values to use in spline cross validation for method "spline", by default
+        damping values to use in spline cross validation for method ``spline``, by default
         None
     registration : str, optional
-        choose between gridline "g" or pixel "p" registration, by default "g"
+        choose between gridline ``g`` or pixel ``p`` registration, by default ``g``
     upwards : float | None, optional
-        constant value to use for method "flat", by default None
+        constant value to use for method ``flat``, by default None
     constraints_df : pandas.DataFrame | None, optional
-        dataframe with column 'upwards' to use for method "splines", and optionally
-        columns 'inside' and 'buffer', by default None
+        dataframe with column 'upwards' to use for method ``splines``, and optionally
+        columns ``inside`` and ``buffer``, by default None
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None

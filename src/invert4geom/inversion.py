@@ -576,11 +576,12 @@ class Invert4GeomAccessor:
         **kwargs: typing.Any,
     ) -> None:
         """
-        calculate the forward gravity of a prism model
+        Calculate the forward gravity of the model at each point of the gravity grid.
+        Add the calculated gravity effect as a new dataset variable.
 
         Parameters
         ----------
-        layer : xr.Dataset
+        layer : xarray.Dataset
             a prism or tesseroid layer
         name : str, optional
             Name to assigned the variable for the calculated gravity, by default
@@ -590,6 +591,10 @@ class Invert4GeomAccessor:
             the downward acceleration.
         progressbar : bool, optional
             Display a progress bar of the calculation, by default False
+        kwargs : typing.Any
+            Additional keyword arguments to pass to
+            :meth:`harmonica.DatasetAccessorPrismLayer.gravity` or
+            :meth:`harmonica.DatasetAccessorTesseroidLayer.gravity` depending on the model type.
         """
 
         if self._ds.dataset_type == "model":
@@ -1091,35 +1096,39 @@ def create_model(
     an inversion. Choose between using prisms or tesseroids, and constraining the
     topography during the inversion with upper and lower confining layers.
 
-
     Parameters
     ----------
     zref : float
         The reference elevation (for prisms) or geocentric radius (for tesseroids)
         which separates positive from negative density values.
-    density_contrast : xr.DataArray | float
+    density_contrast : xarray.DataArray | float
         The density contrast to use for the prisms or tesseroids. This can be
         a constant value, or a DataArray with the same dimensions as the
-        `starting_topography` DataArray.
-    starting_topography : xr.Dataset
-        The starting topography dataset, which must contain an "upward" variable
-        defining the topography, and an optional "mask" variable. Mask values of 0 won't
-        be altered during the inversion, while mask values of 1 are free to change.
+        ``starting_topography`` DataArray.
+    starting_topography : xarray.Dataset
+        The starting topography dataset, which must contain an ``upward`` variable
+        defining the topography, and an optional ``mask`` variable. Mask values of 0
+        won't be altered during the inversion, while mask values of 1 are free to
+        change.
         If you don't have a starting topography grid, you can create a flat grid with
-        `verde.grid_coordinates` and `verde.make_xarray_grid`.
+        :func:`verde.grid_coordinates` and :func:`verde.make_xarray_grid`.
     model_type : str, optional
-        The type of model to create, either "prisms" or "tesseroids", by default "prisms"
-    upper_confining_layer : xr.DataArray | None, optional
+        The type of model to create, either ``prisms`` or ``tesseroids``, by default
+        ``prisms``
+    upper_confining_layer : xarray.DataArray | None, optional
         The upper confining layer for the model, by default None
-    lower_confining_layer : xr.DataArray | None, optional
+    lower_confining_layer : xarray.DataArray | None, optional
         The lower confining layer for the model, by default None
 
     Returns
     -------
     xarray.Dataset
-        A dataset containing the prism / tesseroids, variables for topography and
-        density, and various attributes.
-
+        A dataset containing the variables associated with the  prism / tesseroid layer
+        (``top``, ``bottom``, ``density``) as well as variables ``topography``,
+        ``starting_topography``, ``mask``, ``upper_confining_layer``,
+        ``lower_confining_layer`` , and attributes ``model_type``, ``dataset_type``,
+        ``zref``, ``density_contrast``, ``spacing``, ``region``, and
+        ``inner_region``.
     """
 
     starting_topography = starting_topography.copy()
@@ -1225,7 +1234,59 @@ def create_model(
 
 class Inversion:
     """
-    A class which holds the gravity inversion parameters and methods.
+    A class which holds the gravity dataset, the model dataset, inversion stopping
+    criteria, parameters which control the inversion, and methods used to run the
+    inversion and cross-validations.
+
+    Data and model are both deep copied, so changes to the original datasets will not be
+    reflected by the datasets assigned as attributes to this instance, and changes to
+    the data and model made during an inversion will not affect the original objects.
+
+    Parameters
+    ----------
+    data : xarray.Dataset
+        A dataset containing the gravity data, which has been initialized with
+        :func:`create_data`, contains variable ``forward_gravity`` calculated with
+        :meth:`DatasetAccessorInvert4Geom.forward_gravity`, and contains variables
+        ``misfit``, ``reg``, and ``res``, calculated with
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`.
+    model : xarray.Dataset
+        A dataset containing the prism or tesseroid layer, which has been initialized
+        with :func:`create_model`.
+    max_iterations : int, optional
+        Stop the inversion once this number of iterations is reached, by default 100
+    l2_norm_tolerance : float, optional
+        Stop the inversion once the L2-norm (square root of the RMS residual misfit) is
+        less than this L2 norm tolerance, by default 0.2 mGal
+    delta_l2_norm_tolerance : float, optional
+        Stop the inversion once the relative change in L2-norm is less than this
+        tolerance, by default 1.001, which means the L2 norm must decrease by at least
+        0.1% each iteration.
+    perc_increase_limit : float, optional
+        Stop the inversion if the L2-norm ever increases above the minimum L2-norm (of
+        an iteration) by this decimal percentage amount, by default 0.20, which means if
+        some iteration had an L2-norm of 1 mGal, if any subsequent iteration has an
+        L2-norm greater than 1.2 mGal the inversion will terminate.
+    deriv_type : str, optional
+        The method to use for calculated the derivative for the Jacobian matrix. Choose
+        between ``annulus``, for an annular approximation or ``finite_difference``,
+        for a finite difference approximation, by default ``annulus``
+    jacobian_finite_step_size : float, optional
+        thickness in meters of the small prism or tesseroid added to each existing prism
+        or tesseroid for the finite difference approximation, by default 1
+    model_properties_method : str, optional
+        method to use to extract prism properties while calculating the Jacobian. Choose
+        between ``itertools``, ``generator``, or ``forloops``, by default ``itertools``
+    solver_type : str, optional
+        method to use for solving Ax=b to find each iteration's topographic correction
+        grid, by default ``scipy least squares``
+    solver_damping : float | None, optional
+        Damping factor for the solver, typically between 0 and 1, by default None
+    apply_weighting_grid : bool, optional
+        Whether to apply a weighting grid to the inversion, by default False
+    weighting_grid : xarray.DataArray | None, optional
+        Weighting grid to apply to the inversion, created through
+        :func:`normalized_mindist`, by default None
     """
 
     def __init__(
@@ -1245,39 +1306,7 @@ class Inversion:
         weighting_grid: xr.DataArray | None = None,
     ) -> None:
         """
-        Initialize the inversion object, setting the stopping criteria, parameters
-        controlling the inversion, and add the data and model as attributes. Data and
-        model are both deep copied, so changes to the original datasets will not be
-        reflected by the datasets assigned as attributes to this instance.
-
-        Parameters
-        ----------
-        data : xr.Dataset
-            _description_
-        model : xr.Dataset
-            _description_
-        max_iterations : int, optional
-            _description_, by default 100
-        l2_norm_tolerance : float, optional
-            _description_, by default 0.2
-        delta_l2_norm_tolerance : float, optional
-            _description_, by default 1.001
-        perc_increase_limit : float, optional
-            _description_, by default 0.20
-        deriv_type : str, optional
-            _description_, by default "annulus"
-        jacobian_finite_step_size : float, optional
-            _description_, by default 1
-        model_properties_method : str, optional
-            _description_, by default "itertools"
-        solver_type : str, optional
-            _description_, by default "scipy least squares"
-        solver_damping : float | None, optional
-            _description_, by default None
-        apply_weighting_grid : bool, optional
-            _description_, by default False
-        weighting_grid : xr.DataArray | None, optional
-            _description_, by default None
+        Initialize the inversion object.
         """
         self.data = copy.deepcopy(data)
         self.model = copy.deepcopy(model)
@@ -1919,7 +1948,7 @@ class Inversion:
         Parameters
         ----------
 
-        constraints_df : pd.DataFrame
+        constraints_df : pandas.DataFrame
             a dataframe with columns "easting", "northing", and "upward" for
             coordinates and elevation of the constraint points.
         results_fname : str | None, optional
@@ -2260,7 +2289,7 @@ class Inversion:
         new set of zref and density values changes the starting model, for each set of
         parameters this function re-calculates the starting gravity, the gravity misfit
         and its regional and residual components. `regional_grav_kwargs` are passed to
-        `regional.regional_separation`. Once the optimal parameters are found, the regional
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`. Once the optimal parameters are found, the regional
         separation and inversion are performed again and saved to <fname>.pickle and
         the study is saved to <fname>_study.pickle.
         The constraint point minimization regional separation technique uses constraints
@@ -2298,7 +2327,7 @@ class Inversion:
             a flat starting topography at each zref value if starting_topography not
             provided, by default None
         regional_grav_kwargs : dict[str, typing.Any] | None, optional
-            dictionary with kwargs to supply to `regional.regional_separation()`, by default
+            dictionary with kwargs to supply to :meth:`DatasetAccessorInvert4Geom.regional_separation`, by default
             None
         score_as_median : bool, optional
             change scoring metric from root mean square to root median square, by default
@@ -3131,7 +3160,7 @@ def run_inversion_workflow(
 
     Parameters
     ----------
-    grav_ds : xr.Dataset
+    grav_ds : xarray.Dataset
         gravity data with variables 'upward' and 'gravity_anomaly'.
     create_starting_topography : bool, optional
         Choose whether to create starting topography model. If True, must provide
@@ -3139,7 +3168,7 @@ def run_inversion_workflow(
         default False
     calculate_starting_gravity : bool, optional
         Choose whether to calculate starting gravity from prisms model. If False, must
-        provide column "starting_gravity" in grav_df , by default False
+        provide column "forward_gravity" in grav_df , by default False
     calculate_regional_misfit : bool, optional
         Choose whether to calculate regional misfit. If False, must provide column "reg"
         in grav_df, if True, must provide`regional_grav_kwargs`, by default False
@@ -3164,7 +3193,7 @@ def run_inversion_workflow(
         <fname>_zref_density_cv.pickle. The final inversion result for all
         methods will be saved to <fname>.pickle, by default will be "tmp_<x>"
         where x is a random integer between 0 and 999.
-    starting_topography : xr.Dataset | None, optional
+    starting_topography : xarray.Dataset | None, optional
         a starting topography model with variable `upward`, by default None
     starting_topography_kwargs : dict[str, typing.Any] | None, optional
         kwargs needed for create a starting topography grid, passed to
@@ -3177,8 +3206,8 @@ def run_inversion_workflow(
         type of model to create, either "prisms" or "tesseroids", by default "prisms"
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
         kwargs needed for estimating regional gravity, passed to
-        `regional_separation()`, by default None
-    constraints_df : pd.DataFrame | None, optional
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`, by default None
+    constraints_df : pandas.DataFrame | None, optional
         Dataframe of constraint points, by default None
     inversion_kwargs : dict[str, typing.Any] | None, optional
         kwargs to be passed to `Inversion()`, by default None
