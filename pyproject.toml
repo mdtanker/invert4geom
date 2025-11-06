@@ -55,14 +55,12 @@ dependencies = [
 ###
   "optuna>=4.0", # need updated Journal Storage API
   "torch", # needed for GPSampler of Optuna, 'torch' is PyPI name for pytorch
-  "nomkl ;  platform_system != 'Windows'", # needed to install pytorch dependencies from openblas instead of mkl
   "joblib",
   "psutil",
 ###
 # visualization
 ###
   "pyvista",
-  "trame",
   "ipywidgets",
   "matplotlib>=3.7.0",
   "seaborn",
