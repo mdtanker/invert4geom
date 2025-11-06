@@ -508,7 +508,7 @@ def run_inversion(
 
 
 @xr.register_dataset_accessor("inv")
-class Invert4GeomAccessor:
+class DatasetAccessorInvert4Geom:
     """
     A class which allows adding properties and methods as xarray dataset accessors.
     """
