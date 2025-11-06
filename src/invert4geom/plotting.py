@@ -1395,10 +1395,24 @@ def plot_latin_hypercube(
         if len(df.columns) == 1:
             pass
         else:
-            projection_2d(sample, problem["names"])
+            plot_sampled_projection_2d(sample, problem["names"])
 
 
 def projection_2d(
+    sample: NDArray,  # noqa: ARG001 # pylint: disable=unused-argument
+    var_names: list[str],  # noqa: ARG001 # pylint: disable=unused-argument
+) -> None:
+    """
+    DEPRECATED: use :func:`plot_sampled_projection_2d` instead
+    """
+    msg = (
+        "Function `projection_2d` deprecated, use the `plot_sampled_projection_2d` function "
+        "instead"
+    )
+    raise DeprecationWarning(msg)
+
+
+def plot_sampled_projection_2d(
     sample: NDArray,
     var_names: list[str],
 ) -> None:
