@@ -6,7 +6,7 @@ author = "Matt Tankersley"
 version = release = importlib.metadata.version("invert4geom")
 extensions = [
     "myst_parser",
-    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
@@ -47,7 +47,7 @@ intersphinx_mapping = {
     "xrft": ("https://xrft.readthedocs.io/en/stable/", None),
     "harmonica": ("https://www.fatiando.org/harmonica/latest/", None),
     "polartoolkit": ("https://polartoolkit.readthedocs.io/en/latest/", None),
-    "numba": ("https://numba.readthedocs.io/en/stable/index.html", None),
+    "numba": ("https://numba.readthedocs.io/en/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     # numba_progress
     "sklearn": ("https://scikit-learn.org/stable/", None),

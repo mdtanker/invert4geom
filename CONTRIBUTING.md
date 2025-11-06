@@ -288,10 +288,6 @@ If your edits haven't changed any part of the core package, then there is no nee
 
 You can build the docs using:
 ```bash
-    nox -s build_api_docs
-```
-
-```bash
     nox -s docs
 ```
 
