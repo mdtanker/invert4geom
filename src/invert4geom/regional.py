@@ -643,91 +643,16 @@ def regional_constraints_cv(
 
 
 def regional_separation(
-    method: str,
-    grav_ds: xr.Dataset,
-    remove_starting_grav_mean: bool = False,
-    **kwargs: typing.Any,
+    method: str,  # noqa: ARG001 # pylint: disable=unused-argument
+    grav_ds: xr.Dataset,  # noqa: ARG001 # pylint: disable=unused-argument
+    remove_starting_grav_mean: bool = False,  # noqa: ARG001 # pylint: disable=unused-argument
+    **kwargs: typing.Any,  # noqa: ARG001 # pylint: disable=unused-argument
 ) -> xr.Dataset:
     """
-    Separate the regional field from the gravity data using the specified method
-    and return the dataset with a new variable for the regional field.
-
-    Parameters
-    ----------
-    method : str
-        choose method to apply; one of "constant", "filter", "trend",
-        "eq_sources", "constraints" or "constraints_cv".
-    grav_ds : xarray.Dataset
-        gravity data with coordinates "easting", "northing", and variables
-        "gravity_anomaly", and "forward_gravity".
-    remove_starting_grav_mean : bool, optional
-        add the mean of the starting gravity to the regional gravity field, by default
-        False.
-    **kwargs : typing.Any
-        additional keyword arguments for the specified method.
-
-    Returns
-    -------
-    xarray.Dataset
-        grav_ds with new variables 'misfit', 'reg', and 'res'.
+    DEPRECATED: use :meth:`DatasetAccessorInvert4Geom.regional_separation` instead.
     """
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_separation` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    grav_ds.inv.check_grav_vars_for_regional()
-
-    kwargs = copy.deepcopy(kwargs)
-
-    if remove_starting_grav_mean is True:
-        regional_shift = np.nanmean(grav_ds.inv.df.forward_gravity)
-        msg = f"adding {regional_shift} to the regional gravity data"
-        logger.info(msg)
-        if "regional_shift" in kwargs:
-            msg = (
-                "if remove_starting_grav_mean is True, do not provide"
-                "`regional_shift` in kwargs"
-            )
-            raise ValueError(msg)
-    else:
-        regional_shift = kwargs.pop("regional_shift", 0)
-
-    if method == "constant":
-        return regional_constant(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "filter":
-        return regional_filter(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "trend":
-        return regional_trend(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "eq_sources":
-        return regional_eq_sources(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "constraints":
-        return regional_constraints(
-            grav_ds=grav_ds,
-            regional_shift=regional_shift,
-            **kwargs,
-        )
-    if method == "constraints_cv":
-        return regional_constraints_cv(
-            grav_ds=grav_ds,
-            remove_starting_grav_mean=remove_starting_grav_mean,
-            **kwargs,
-        )
-
-    msg = "invalid string for regional method"
-    raise ValueError(msg)
+    msg = (
+        "Function `regional_separation` deprecated, use the `DatasetAccessorInvert4Geom.regional_separation` method"
+        "instead"
+    )
+    raise DeprecationWarning(msg)

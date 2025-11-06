@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from polartoolkit import maps
 from polartoolkit import utils as polar_utils
 
-from invert4geom import logger, regional, utils
+from invert4geom import logger, utils
 
 # pylint: enable=duplicate-code
 
@@ -592,6 +592,7 @@ def eq_sources_score(
 
 
 def regional_separation_score(
+    grav_ds: xr.Dataset,
     testing_df: pd.DataFrame,
     score_as_median: bool = False,
     **kwargs: typing.Any,
@@ -603,6 +604,8 @@ def regional_separation_score(
 
     Parameters
     ----------
+    grav_ds : xarray.Dataset
+        gravity dataset with variables "gravity_anomaly" and "forward_gravity".
     testing_df : pandas.DataFrame
         dataframe containing a priori measurements of the topography of interest with
         columns "upward", "easting", and "northing"
@@ -628,9 +631,7 @@ def regional_separation_score(
     # pull out kwargs
     kwargs = copy.deepcopy(kwargs)
     method = kwargs.pop("method")
-    grav_ds = kwargs.pop("grav_ds")
     true_regional = kwargs.pop("true_regional", None)
-    remove_starting_grav_mean = kwargs.pop("remove_starting_grav_mean", False)
 
     if method == "constraints_cv":
         msg = (
@@ -638,10 +639,10 @@ def regional_separation_score(
             "so it should not be used here."
         )
         raise ValueError(msg)
-    ds_anomalies = regional.regional_separation(
+
+    # estimate the regional field
+    grav_ds.inv.regional_separation(
         method=method,
-        grav_ds=grav_ds,
-        remove_starting_grav_mean=remove_starting_grav_mean,
         **kwargs,
     )
 
@@ -652,18 +653,19 @@ def regional_separation_score(
         sampled_name="res",
     )
 
+    # calculate scores
     residual_constraint_score = utils.rmse(df.res, as_median=score_as_median)
     if np.isnan(residual_constraint_score):
         msg = "residual_constraint_score is NaN"
         raise ValueError(msg)
-    residual_amplitude_score = utils.rmse(ds_anomalies.res, as_median=score_as_median)
+    residual_amplitude_score = utils.rmse(grav_ds.res, as_median=score_as_median)
     if np.isnan(residual_amplitude_score):
         msg = "residual_amplitude_score is NaN"
         raise ValueError(msg)
 
     if true_regional is not None:
         true_reg_score = utils.rmse(
-            np.abs(true_regional - ds_anomalies.reg), as_median=score_as_median
+            np.abs(true_regional - grav_ds.reg), as_median=score_as_median
         )
     else:
         true_reg_score = None
@@ -680,5 +682,5 @@ def regional_separation_score(
         residual_constraint_score,
         residual_amplitude_score,
         true_reg_score,
-        ds_anomalies,
+        grav_ds,
     )

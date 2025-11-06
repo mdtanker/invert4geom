@@ -27,7 +27,6 @@ from invert4geom import (
     inversion,
     logger,
     plotting,
-    regional,
     utils,
 )
 
@@ -1953,7 +1952,7 @@ def optimize_regional_filter(
     log_optuna_results(best_trial)
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_ds = regional.regional_separation(
+    grav_ds.inv.regional_separation(
         method="filter",
         filter_width=best_trial.params["filter_width"],
         grav_ds=grav_ds,
@@ -2129,7 +2128,7 @@ def optimize_regional_trend(
     log_optuna_results(best_trial)
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_ds = regional.regional_separation(
+    grav_ds.inv.regional_separation(
         method="trend",
         trend=best_trial.params["trend"],
         grav_ds=grav_ds,
@@ -2334,13 +2333,12 @@ def optimize_regional_eq_sources(
         kwargs.pop("grav_obs_height", None),
     )
     # redo the regional separation with best parameters
-    resulting_grav_ds = regional.regional_separation(
+    grav_ds.inv.regional_separation(
         method="eq_sources",
         depth=depth,
         damping=damping,
         block_size=block_size,
         grav_obs_height=grav_obs_height,
-        grav_ds=grav_ds,
         **kwargs,
     )
     if plot is True:
@@ -2595,7 +2593,7 @@ def optimize_regional_constraint_point_minimization(
         objective=OptimizeRegionalConstraintsPointMinimization(
             training_df=train_dfs,
             testing_df=test_dfs,
-            # kwargs for regional.regional_constraints:
+            # kwargs for regional_constraints:
             grav_ds=grav_ds,
             grid_method=grid_method,
             tension_factor_limits=tension_factor_limits,
@@ -2655,9 +2653,8 @@ def optimize_regional_constraint_point_minimization(
     )
 
     # redo the regional separation with ALL constraint points
-    resulting_grav_ds = regional.regional_separation(
+    grav_ds.inv.regional_separation(
         method="constraints",
-        grav_ds=grav_ds,
         constraints_df=constraints_df,
         grid_method=grid_method,
         tension_factor=tension_factor,
