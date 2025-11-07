@@ -215,7 +215,7 @@ def test_inv_accessor_masked_df():
         observed_gravity(), buffer_width=10000
     )
     with pytest.raises(
-        ValueError, match="property is only available for the model dataset."
+        ValueError, match="Method is only available for the model dataset"
     ):
         _ = grav_data.inv.masked_df
 
@@ -241,7 +241,7 @@ def test_inv_accessor_masked():
         observed_gravity(), buffer_width=10000
     )
     with pytest.raises(
-        ValueError, match="property is only available for the model dataset."
+        ValueError, match="Method is only available for the model dataset"
     ):
         _ = grav_data.inv.masked
 
@@ -290,7 +290,7 @@ def test_forward_gravity():
 
     # check error is raised if called for model object
     with pytest.raises(
-        ValueError, match="method is only available for the data dataset."
+        ValueError, match="Method is only available for the data dataset"
     ):
         model.inv.forward_gravity(model)
 
@@ -342,64 +342,6 @@ def test_forward_gravity_rename():
     )
 
 
-def test_starting_gravity():
-    """
-    test the starting gravity method
-    """
-    grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
-    )
-    model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
-    )
-
-    grav_data.inv.starting_gravity(model)
-
-    expected = np.array(
-        [
-            3.08686619,
-            3.15942294,
-            3.16671307,
-            3.15942294,
-            3.08686619,
-            3.15754725,
-            3.24517211,
-            3.25452486,
-            3.24517211,
-            3.15754725,
-            3.15754725,
-            3.24517211,
-            3.25452486,
-            3.24517211,
-            3.15754725,
-            3.08686619,
-            3.15942294,
-            3.16671307,
-            3.15942294,
-            3.08686619,
-        ]
-    )
-
-    npt.assert_allclose(
-        grav_data.inv.df.starting_gravity.to_numpy(), expected, rtol=1e-5
-    )
-    npt.assert_allclose(
-        grav_data.inv.df.starting_gravity.to_numpy(),
-        grav_data.inv.df.forward_gravity.to_numpy(),
-        rtol=1e-5,
-    )
-
-    # check error is raised if called for model object
-    with pytest.raises(
-        ValueError, match="method is only available for the data dataset."
-    ):
-        model.inv.starting_gravity(model)
-
-    model = model.assign_attrs(model_type="not_prism")
-    with pytest.raises(ValueError, match="layer must have attribute 'model_type'"):
-        grav_data.inv.starting_gravity(model)
-
-
 def test_regional_separation():
     """
     test the regional separation method
@@ -410,8 +352,8 @@ def test_regional_separation():
     model = invert4geom.inversion.create_model(
         starting_topography=flat_topography_500m(), zref=100, density_contrast=200
     )
-    grav_data.inv.starting_gravity(model)
-    grav_data = grav_data.inv.regional_separation(
+    grav_data.inv.forward_gravity(model)
+    grav_data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -423,7 +365,7 @@ def test_regional_separation():
 
     # check error is raised if called for model object
     with pytest.raises(
-        ValueError, match="method is only available for the data dataset."
+        ValueError, match="Method is only available for the data dataset"
     ):
         model.inv.regional_separation(
             method="constant",
@@ -440,18 +382,18 @@ def test_check_grav_vars_for_regional():
     )
 
     with pytest.raises(
-        AssertionError, match="`gravity dataset` needs all the following variables:"
+        AssertionError, match="`gravity dataset` needs all the following variables"
     ):
-        grav_data.inv.check_grav_vars_for_regional()
+        grav_data.inv._check_grav_vars_for_regional()
 
     # check error is raised if called for model object
     model = invert4geom.inversion.create_model(
         starting_topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     with pytest.raises(
-        ValueError, match="method is only available for the data dataset."
+        ValueError, match="Method is only available for the data dataset"
     ):
-        model.inv.check_grav_vars_for_regional()
+        model.inv._check_grav_vars_for_regional()
 
 
 def test_check_grav_vars():
@@ -463,18 +405,18 @@ def test_check_grav_vars():
     )
 
     with pytest.raises(
-        AssertionError, match="`gravity dataset` needs all the following variables:"
+        AssertionError, match="`gravity dataset` needs all the following variables"
     ):
-        grav_data.inv.check_grav_vars()
+        grav_data.inv._check_grav_vars()
 
     # check error is raised if called for model object
     model = invert4geom.inversion.create_model(
         starting_topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     with pytest.raises(
-        ValueError, match="method is only available for the data dataset."
+        ValueError, match="Method is only available for the data dataset"
     ):
-        model.inv.check_grav_vars()
+        model.inv._check_grav_vars()
 
 
 def test_check_gravity_inside_topography_region():
@@ -493,16 +435,16 @@ def test_check_gravity_inside_topography_region():
     with pytest.raises(
         ValueError, match="Some gravity data are outside the region of the topography"
     ):
-        grav_data.inv.check_gravity_inside_topography_region(topo)
+        grav_data.inv._check_gravity_inside_topography_region(topo)
 
     # check error is raised if called for model object
     model = invert4geom.inversion.create_model(
         starting_topography=topo, zref=100, density_contrast=200
     )
     with pytest.raises(
-        ValueError, match="method is only available for the data dataset."
+        ValueError, match="Method is only available for the data dataset"
     ):
-        model.inv.check_gravity_inside_topography_region(topo)
+        model.inv._check_gravity_inside_topography_region(topo)
 
 
 def test_check_for_nans():
@@ -515,8 +457,8 @@ def test_check_for_nans():
     model = invert4geom.inversion.create_model(
         starting_topography=flat_topography_500m(), zref=100, density_contrast=200
     )
-    grav_data.inv.starting_gravity(model)
-    grav_data = grav_data.inv.regional_separation(
+    grav_data.inv.forward_gravity(model)
+    grav_data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -527,13 +469,13 @@ def test_check_for_nans():
     with pytest.raises(
         ValueError, match="gravity dataframe contains NaN values in the 'res' column"
     ):
-        grav_data.inv.check_for_nans()
+        grav_data.inv._check_for_nans()
 
     # check error is raised if called for model object
     with pytest.raises(
-        ValueError, match="method is only available for the data dataset."
+        ValueError, match="Method is only available for the data dataset"
     ):
-        model.inv.check_for_nans()
+        model.inv._check_for_nans()
 
 
 def test_update_gravity_and_residual():
@@ -546,8 +488,8 @@ def test_update_gravity_and_residual():
     model = invert4geom.inversion.create_model(
         starting_topography=flat_topography_500m(), zref=100, density_contrast=200
     )
-    grav_data.inv.starting_gravity(model)
-    grav_data = grav_data.inv.regional_separation(
+    grav_data.inv.forward_gravity(model)
+    grav_data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -561,16 +503,16 @@ def test_update_gravity_and_residual():
     grav_data["forward_gravity"] = xr.full_like(grav_data.forward_gravity, 100)
 
     # update the dataset with the model
-    grav_data.inv.update_gravity_and_residual(model)
+    grav_data.inv._update_gravity_and_residual(model)
 
     npt.assert_equal(grav_data.inv.df.res.to_numpy(), res)
     npt.assert_equal(grav_data.inv.df.forward_gravity.to_numpy(), forward_gravity)
 
     # check error is raised if called for model object
     with pytest.raises(
-        ValueError, match="method is only available for the data dataset."
+        ValueError, match="Method is only available for the data dataset"
     ):
-        model.inv.update_gravity_and_residual(model)
+        model.inv._update_gravity_and_residual(model)
 
 
 def test_add_topography_correction():
@@ -596,7 +538,7 @@ def test_add_topography_correction():
         observed_gravity(), buffer_width=10000
     )
     with pytest.raises(
-        ValueError, match="method is only available for the model dataset."
+        ValueError, match="Method is only available for the model dataset"
     ):
         grav_data.inv.add_topography_correction(step)
 
@@ -681,7 +623,7 @@ def test_update_model_ds():
         observed_gravity(), buffer_width=10000
     )
     with pytest.raises(
-        ValueError, match="method is only available for the model dataset."
+        ValueError, match="Method is only available for the model dataset"
     ):
         grav_data.inv.update_model_ds()
 
@@ -805,7 +747,7 @@ def test_inversion_properties():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
 
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -839,7 +781,7 @@ def test_end_inversion_l2_norm_increasing():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
 
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -877,7 +819,7 @@ def test_end_inversion_delta_l2_norm_tolerance_both_below():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
 
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -912,7 +854,7 @@ def test_end_inversion_delta_l2_norm_tolerance_one_below():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
 
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -946,7 +888,7 @@ def test_end_inversion_l2_norm_tolerance():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
 
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -983,7 +925,7 @@ def test_end_inversion_max_iterations():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
 
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1021,7 +963,7 @@ def test_end_inversion_multiple_reasons():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
 
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1105,7 +1047,7 @@ def test_jacobian_error_raised():
     data = invert4geom.inversion.create_data(grav)
     model = invert4geom.inversion.create_model(-1e3, 10000, topo)
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=0,
     )
@@ -1166,7 +1108,7 @@ def test_jacobian_annulus():
     data = invert4geom.inversion.create_data(grav)
     model = invert4geom.inversion.create_model(-1e3, 10000, topo)
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=0,
     )
@@ -1229,7 +1171,7 @@ def test_jacobian_finite_difference():
     data = invert4geom.inversion.create_data(grav)
     model = invert4geom.inversion.create_model(-1e3, 10000, topo)
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=0,
     )
@@ -1292,7 +1234,7 @@ def test_solver():
     data = invert4geom.inversion.create_data(grav)
     model = invert4geom.inversion.create_model(0, 2670, topo)
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=0,
     )
@@ -1365,7 +1307,7 @@ def test_reinitialize_inversion():
     data = invert4geom.inversion.create_data(grav)
     model = invert4geom.inversion.create_model(0, 2670, topo)
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1455,7 +1397,7 @@ def test_invert_annulus():
     data = invert4geom.inversion.create_data(grav)
     model = invert4geom.inversion.create_model(0, 2670, topo)
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1535,7 +1477,7 @@ def test_invert_finite_difference():
     data = invert4geom.inversion.create_data(grav)
     model = invert4geom.inversion.create_model(0, 2670, topo)
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1614,7 +1556,7 @@ def test_invert_weighting():
     data = invert4geom.inversion.create_data(grav)
     model = invert4geom.inversion.create_model(0, 2670, topo)
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1692,7 +1634,7 @@ def test_invert_pickle(tmp_path):
         starting_topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1735,7 +1677,7 @@ def test_invert_with_confining_layers():
         lower_confining_layer=xr.full_like(flat_topography_500m().upward, 500),
     )
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=0,
     )
@@ -1766,7 +1708,7 @@ def test_grav_cv_score():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
     resampled = invert4geom.cross_validation.add_test_points(data)
     resampled.inv.forward_gravity(model)
-    resampled = resampled.inv.regional_separation(
+    resampled.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1794,7 +1736,7 @@ def test_optimize_inversion_damping():
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
     resampled = invert4geom.cross_validation.add_test_points(data)
     resampled.inv.forward_gravity(model)
-    resampled = resampled.inv.regional_separation(
+    resampled.inv.regional_separation(
         method="constant",
         constant=0,
     )
@@ -1863,7 +1805,7 @@ def test_constraints_cv_score():
         }
     )
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=10,
     )
@@ -1897,7 +1839,7 @@ def test_optimize_inversion_zref_density_contrast():
         }
     )
     data.inv.forward_gravity(model)
-    data = data.inv.regional_separation(
+    data.inv.regional_separation(
         method="constant",
         constant=0,
     )
