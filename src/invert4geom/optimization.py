@@ -605,7 +605,7 @@ class OptimalInversionDamping:
 
         trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
-        _new_inversion_obj = self.inversion_obj.grav_cv_score(
+        _new_inversion_obj = self.inversion_obj.gravity_score(
             rmse_as_median=self.rmse_as_median,
             plot=self.plot_grids,
             results_fname=trial.user_attrs.get("fname"),
@@ -829,7 +829,7 @@ class OptimalInversionZrefDensity:
             trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
             # run cross validation
-            constraints_cv_object = self.inversion_obj.constraints_cv_score(
+            constraints_optimization_object = self.inversion_obj.constraints_score(
                 results_fname=trial.user_attrs.get("fname"),
                 constraints_df=self.constraints_df,
             )
@@ -837,7 +837,7 @@ class OptimalInversionZrefDensity:
             logger.debug(
                 "Trial %s termination reason: %s",
                 trial.number,
-                constraints_cv_object.params.get("Termination reason"),  # type: ignore[attr-defined]
+                constraints_optimization_object.params.get("Termination reason"),  # type: ignore[attr-defined]
             )
 
         ###
@@ -948,7 +948,7 @@ class OptimalInversionZrefDensity:
                 trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
                 # run cross validation
-                constraints_cv_object = self.inversion_obj.constraints_cv_score(
+                constraints_optimization_object = self.inversion_obj.constraints_score(
                     constraints_df=testing_constraints[i],
                     results_fname=trial.user_attrs.get("fname"),
                 )
