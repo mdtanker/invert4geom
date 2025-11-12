@@ -1402,16 +1402,6 @@ class DatasetAccessorInvert4Geom:
             )
             raise ValueError(msg)
 
-    def _check_for_nans(self) -> None:
-        """
-        ensure there are no NaN values in the gravity residual.
-        """
-        self._check_correct_dataset_type("data")
-
-        if self.df.res.isna().to_numpy().any():
-            msg = "gravity dataframe contains NaN values in the 'res' column"
-            raise ValueError(msg)
-
     def _update_gravity_and_residual(
         self,
         model: xr.Dataset,
@@ -1798,9 +1788,6 @@ class Inversion:
         self.data.inv._check_gravity_inside_topography_region(
             self.model.starting_topography
         )
-
-        # check that gravity dataset has no NaNs in residual column
-        self.data.inv._check_for_nans()
 
         # if there is a confining surface (above or below), which the inverted layer
         # shouldn't intersect, then sample those layers into the df
