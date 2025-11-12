@@ -522,13 +522,46 @@ class DatasetAccessorInvert4Geom:
 
     @property
     def df(self) -> pd.DataFrame:
-        """return the dataframe representation of the xarray dataset"""
-        return self._ds.to_dataframe().reset_index()
+        """return the dataframe representation of the xarray dataset without nans"""
+        if self._ds.dataset_type == "data":
+            return (
+                self._ds.to_dataframe()
+                .reset_index()
+                .dropna(how="any", axis=0)
+                .reset_index(drop=True)
+            )
+        if self._ds.dataset_type == "model":
+            return (
+                self._ds.to_dataframe()
+                .reset_index()
+                .dropna(subset=["mask"], axis=0)
+                .reset_index(drop=True)
+            )
+        msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
+        raise ValueError(msg)
 
     @property
     def inner_df(self) -> pd.DataFrame:
-        """return the dataframe representation of the inner region of the xarray dataset"""
-        return self.inner.to_dataframe().reset_index()
+        """
+        return the dataframe representation of the inner region of the xarray dataset
+        without nans
+        """
+        if self._ds.dataset_type == "data":
+            return (
+                self.inner.to_dataframe()
+                .reset_index()
+                .dropna(how="any", axis=0)
+                .reset_index(drop=True)
+            )
+        if self._ds.dataset_type == "model":
+            return (
+                self.inner.to_dataframe()
+                .reset_index()
+                .dropna(subset=["mask"], axis=0)
+                .reset_index(drop=True)
+            )
+        msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
+        raise ValueError(msg)
 
     @property
     def inner(self) -> xr.Dataset:
@@ -541,9 +574,16 @@ class DatasetAccessorInvert4Geom:
 
     @property
     def masked_df(self) -> xr.Dataset:
-        """update the dataframe from the masked xarray dataset"""
+        """
+        return the dataframe representation of the masked xarray dataset without nans
+        """
         self._check_correct_dataset_type("model")
-        return self.masked.to_dataframe().reset_index()
+        return (
+            self.masked.to_dataframe()
+            .reset_index()
+            .dropna(subset=["mask"], axis=0)
+            .reset_index(drop=True)
+        )
 
     @property
     def masked(self) -> xr.Dataset:
