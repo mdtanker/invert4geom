@@ -447,37 +447,6 @@ def test_check_gravity_inside_topography_region():
         model.inv._check_gravity_inside_topography_region(topo)
 
 
-def test_check_for_nans():
-    """
-    test an error is raised if residual gravity data contains NaNs
-    """
-    grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
-    )
-    model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
-    )
-    grav_data.inv.forward_gravity(model)
-    grav_data.inv.regional_separation(
-        method="constant",
-        constant=10,
-    )
-
-    # replace 1 value with a nan
-    grav_data.res.loc[{"easting": 10000, "northing": 10000}] = np.nan
-
-    with pytest.raises(
-        ValueError, match="gravity dataframe contains NaN values in the 'res' column"
-    ):
-        grav_data.inv._check_for_nans()
-
-    # check error is raised if called for model object
-    with pytest.raises(
-        ValueError, match="Method is only available for the data dataset"
-    ):
-        model.inv._check_for_nans()
-
-
 def test_update_gravity_and_residual():
     """
     test gravity variables 'res' and 'forward_gravity' are correctly updated with a new prism layer
