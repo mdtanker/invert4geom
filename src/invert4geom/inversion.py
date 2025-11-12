@@ -1747,8 +1747,8 @@ class Inversion:
         self.study = None
         self.damping_cv_results_fname = None
         self.damping_cv_study_fname = None
-        self.zref_density_cv_study_fname = None
-        self.zref_density_cv_results_fname = None
+        self.zref_density_optimization_study_fname = None
+        self.zref_density_optimization_results_fname = None
 
         # check that gravity dataset has necessary dimensions
         self.data.inv._check_grav_vars()
@@ -2774,10 +2774,10 @@ class Inversion:
             by the square root of n_trials (for 2 parameter optimizations), by default False
         fname : str | None, optional
             file name to save both study and inversion results to as pickle files, by
-            default fname is `tmp_x_zref_density_cv` where x is a random integer between 0
-            and 999 and will save study to <fname>_study.pickle and the inversion
-            object to <fname>.pickle.
-        plot_cv : bool, optional
+            default fname is `tmp_x_zref_density_optimization` where x is a random
+            integer between 0 and 999 and will save study to <fname>_study.pickle and
+            the inversion object to <fname>.pickle.
+        plot_scores : bool, optional
             plot the cross-validation results, by default True
         logx : bool, optional
             use a log scale for the cross-validation plot x-axis, by default False
@@ -2813,7 +2813,9 @@ class Inversion:
 
         # set file name for saving results with random number between 0 and 999
         if fname is None:
-            inv_copy.results_fname = f"tmp_{random.randint(0, 999)}_zref_density_cv"  # type: ignore[assignment]
+            inv_copy.results_fname = (
+                f"tmp_{random.randint(0, 999)}_zref_density_optimization"  # type: ignore[assignment]
+            )
         else:
             inv_copy.results_fname = fname  # type: ignore[assignment]
 
@@ -3564,8 +3566,10 @@ def run_inversion_workflow(
     calculate_starting_gravity: bool = False,
     calculate_regional_misfit: bool = False,
     run_damping_cv: bool = False,
-    run_zref_or_density_cv: bool = False,
-    run_kfolds_zref_or_density_cv: bool = False,
+    run_zref_or_density_optimization: bool = False,
+    run_zref_or_density_cv: bool | None = None,
+    run_kfolds_zref_or_density_optimization: bool = False,
+    run_kfolds_zref_or_density_cv: bool | None = None,
     fname: str | None = None,
     starting_topography: xr.Dataset | None = None,
     starting_topography_kwargs: dict[str, typing.Any] | None = None,
@@ -3576,6 +3580,7 @@ def run_inversion_workflow(
     constraints_df: pd.DataFrame | None = None,
     inversion_kwargs: dict[str, typing.Any] | None = None,
     damping_cv_kwargs: dict[str, typing.Any] | None = None,
+    zref_density_optimization_kwargs: dict[str, typing.Any] | None = None,
     zref_density_cv_kwargs: dict[str, typing.Any] | None = None,
     progressbar: bool = True,
 ) -> "Inversion":
@@ -3609,22 +3614,23 @@ def run_inversion_workflow(
         Choose whether to run cross validation for damping, if True, must provide
         dictionary `damping_cv_kwargs` with parameters `n_trials` and `damping_limits`,
         by default False
-    run_zref_or_density_cv : bool, optional
+    run_zref_or_density_optimization : bool, optional
         Choose whether to run cross validation for zref or density, if True, must
-        provide dictionary `zref_density_cv_kwargs` with parameters `n_trials`, and
+        provide dictionary `zref_density_optimization_kwargs` with parameters `n_trials`, and
         either `zref_values` or `density_values`, by default False
-    run_kfolds_zref_or_density_cv : bool, optional
+    run_kfolds_zref_or_density_optimization : bool, optional
         Choose whether to run internal kfolds cross validation for zref or density, if
-        True, must provide `split_kwargs` as argument to `zref_density_cv_kwargs`, by
+        True, must provide `split_kwargs` as argument to `zref_density_optimization_kwargs`, by
         default False
     fname : str | None, optional
         filename and path to use for saving results. If running a damping
         CV, will save the study to <fname>_damping_cv_study.pickle and the tuple of the
         best inversion results to <fname>_damping_cv.pickle. If running a
-        density/zref CV, will save the study to <fname>_zref_density_cv_study.pickle and
-        the tuple of the best inversion results to
-        <fname>_zref_density_cv.pickle. The final inversion result for all
-        methods will be saved to <fname>.pickle, by default will be "tmp_<x>"
+        density/zref optimization, will save the study to
+        <fname>_zref_density_optimization_study.pickle and the tuple of the best
+        inversion results to <fname>_zref_density_optimization.pickle. The final
+        inversion result for all methods will be saved to <fname>.pickle, by default
+        will be "tmp_<x>"
         where x is a random integer between 0 and 999.
     starting_topography : xarray.Dataset | None, optional
         a starting topography model with variable `upward`, by default None
@@ -3646,7 +3652,7 @@ def run_inversion_workflow(
         kwargs to be passed to `Inversion()`, by default None
     damping_cv_kwargs : dict[str, typing.Any] | None, optional
         kwargs to be passed to `optimize_inversion_damping()`, by default None
-    zref_density_cv_kwargs : dict[str, typing.Any] | None, optional
+    zref_density_optimization_kwargs : dict[str, typing.Any] | None, optional
         kwargs to be passed to `optimize_inversion_zref_density_contrast()` or
         `optimize_inversion_zref_density_contrast_kfolds()`, by default None
     progressbar : bool, optional
@@ -3657,6 +3663,18 @@ def run_inversion_workflow(
     Inversion
         a inversion object with all results and optimal values as attributes.
     """
+
+    if run_zref_or_density_cv is not None:
+        msg = "`run_zref_or_density_cv` parameter has been renamed to `run_zref_or_density_optimization`"
+        raise DeprecationWarning(msg)
+
+    if run_kfolds_zref_or_density_cv is not None:
+        msg = "`run_kfolds_zref_or_density_cv` parameter has been renamed to `run_kfolds_zref_or_density_optimization`"
+        raise DeprecationWarning(msg)
+
+    if zref_density_cv_kwargs is not None:
+        msg = "`zref_density_cv_kwargs` parameter has been renamed to `zref_density_optimization_kwargs`"
+        raise DeprecationWarning(msg)
 
     if isinstance(grav_ds, pd.DataFrame):
         msg = "`run_inversion_workflow` function has been updated, gravity data must be provided to parameter `grav_ds` created through the `create_data` function"
@@ -3691,43 +3709,48 @@ def run_inversion_workflow(
     # check needed inputs are provided at the beginning
     ###
     ###
-    if (calculate_regional_misfit is True) or (run_zref_or_density_cv is True):  # noqa: SIM102
+    if (calculate_regional_misfit is True) or (  # noqa: SIM102
+        run_zref_or_density_optimization is True
+    ):
         if regional_grav_kwargs is None:
             msg = (
                 "regional_grav_kwargs must be provided if recalculating regional "
-                "gravity or performing zref or density CV"
+                "gravity or performing zref or density optimization"
             )
             raise ValueError(msg)
-    if run_kfolds_zref_or_density_cv is True and run_zref_or_density_cv is False:
-        msg = "run_zref_or_density_cv must be True if run_kfolds_zref_or_density_cv is True"
+    if (
+        run_kfolds_zref_or_density_optimization is True
+        and run_zref_or_density_optimization is False
+    ):
+        msg = "run_zref_or_density_optimization must be True if run_kfolds_zref_or_density_optimization is True"
         raise ValueError(msg)
-    if run_zref_or_density_cv is True:
+    if run_zref_or_density_optimization is True:
         if constraints_df is None:
-            msg = "must provide constraints_df if run_zref_or_density_cv is True"
+            msg = "must provide constraints_df if run_zref_or_density_optimization is True"
             raise ValueError(msg)
-        if zref_density_cv_kwargs is None:
-            msg = "must provide zref_density_cv_kwargs with parameters `n_trials`, and 1 or both of `zref_limits` and `density_contrast_limits` if run_zref_or_density_cv is True"
+        if zref_density_optimization_kwargs is None:
+            msg = "must provide zref_density_optimization_kwargs with parameters `n_trials`, and 1 or both of `zref_limits` and `density_contrast_limits` if run_zref_or_density_optimization is True"
             raise ValueError(msg)
-        if run_kfolds_zref_or_density_cv is True:
-            if zref_density_cv_kwargs.get("split_kwargs") is None:
+        if run_kfolds_zref_or_density_optimization is True:
+            if zref_density_optimization_kwargs.get("split_kwargs") is None:
                 msg = "split_kwargs must be provided if performing internal kfolds CV"
                 raise ValueError(msg)
         elif "constraints_df" in regional_grav_kwargs:  # type: ignore[operator]
             msg = (
-                "if performing density/zref CV, it's best to not use constraints "
+                "if performing density/zref optimization, it's best to not use constraints "
                 "in the regional separation"
             )
             logger.warning(msg)
-        if zref_density_cv_kwargs.get("density_contrast_limits") is None:
+        if zref_density_optimization_kwargs.get("density_contrast_limits") is None:
             assert density_contrast is not None
-        if zref_density_cv_kwargs.get("zref_limits") is None:
+        if zref_density_optimization_kwargs.get("zref_limits") is None:
             assert zref is not None
-        if (zref_density_cv_kwargs.get("density_contrast_limits") is None) & (
-            zref_density_cv_kwargs.get("zref_limits") is None
+        if (zref_density_optimization_kwargs.get("density_contrast_limits") is None) & (
+            zref_density_optimization_kwargs.get("zref_limits") is None
         ):
             msg = (
                 "must provide density_contrast_limits or zref_limits if run_zref_or_"
-                "density_cv is True"
+                "density_optimization is True"
             )
             raise ValueError(msg)
     if run_damping_cv is True:
@@ -3746,7 +3769,7 @@ def run_inversion_workflow(
 
     # Starting Topography
     if create_starting_topography is False:
-        if (starting_topography is None) & (run_zref_or_density_cv is False):
+        if (starting_topography is None) & (run_zref_or_density_optimization is False):
             msg = (
                 "starting_topography must be provided since create_starting_topography "
                 "is False."
@@ -3808,13 +3831,13 @@ def run_inversion_workflow(
 
     # Regional Component of Misfit
     if calculate_regional_misfit is False:
-        if ("misfit" not in grav_ds) & (run_zref_or_density_cv is False):
+        if ("misfit" not in grav_ds) & (run_zref_or_density_optimization is False):
             msg = (
                 "'misfit' must be a column of `grav_df` if calculate_regional_misfit is"
                 " False"
             )
             raise ValueError(msg)
-        if ("reg" not in grav_ds) & (run_zref_or_density_cv is False):
+        if ("reg" not in grav_ds) & (run_zref_or_density_optimization is False):
             msg = (
                 "'reg' must be a column of `grav_df` if calculate_regional_misfit is"
                 " False"
@@ -3847,7 +3870,7 @@ def run_inversion_workflow(
     ###
     ###
     # run only the inversion with specified damping, density, and zref values
-    if (run_damping_cv is False) & (run_zref_or_density_cv is False):
+    if (run_damping_cv is False) & (run_zref_or_density_optimization is False):
         logger.info("running individual inversion")
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             inv.invert(results_fname=fname, progressbar=progressbar)
@@ -3873,30 +3896,34 @@ def run_inversion_workflow(
 
     ###
     ###
-    # DENSITY / ZREF CV
+    # DENSITY / ZREF OPTIMIZATION
     ###
     ###
-    if run_zref_or_density_cv is True:
+    if run_zref_or_density_optimization is True:
         logger.info("running zref and/or density contrast cross validation")
         # drop the testing data
         inv.data = cross_validation.remove_test_points(inv.data)
 
         # if chosen, run an internal K-folds CV for regional separation within the
-        # density/Zref CV
-        if run_kfolds_zref_or_density_cv is True:
+        # density/Zref optimization
+        if run_kfolds_zref_or_density_optimization is True:
             logger.info("running internal K-folds CV for regional separation")
-            _zref_density_cv_obj = inv.optimize_inversion_zref_density_contrast_kfolds(  # type: ignore[arg-type]
-                fname=f"{fname}_zref_density_cv",
-                constraints_df=constraints_df,
-                fold_progressbar=True,
-                **zref_density_cv_kwargs,  # typing: ignore[arg-type]
+            _zref_density_optimization_obj = (
+                inv.optimize_inversion_zref_density_contrast_kfolds(  # type: ignore[arg-type]
+                    fname=f"{fname}_zref_density_optimization",
+                    constraints_df=constraints_df,
+                    fold_progressbar=True,
+                    **zref_density_optimization_kwargs,  # typing: ignore[arg-type]
+                )
             )
-        # run the normal non-kfolds CV
+        # run the normal non-kfolds optimization
         else:
-            _zref_density_cv_obj = inv.optimize_inversion_zref_density_contrast(
-                fname=f"{fname}_zref_density_cv",
-                constraints_df=constraints_df,
-                **zref_density_cv_kwargs,  # type: ignore[arg-type]
+            _zref_density_optimization_obj = (
+                inv.optimize_inversion_zref_density_contrast(
+                    fname=f"{fname}_zref_density_optimization",
+                    constraints_df=constraints_df,
+                    **zref_density_optimization_kwargs,  # type: ignore[arg-type]
+                )
             )
         logger.info(
             "zref and/or density contrast cross validation complete with density contrast %s kg/m3 and zref %s m",
@@ -3914,15 +3941,18 @@ def run_inversion_workflow(
     if run_damping_cv is True:
         assert inv.solver_damping == _damping_cv_obj.study.best_trial.params["damping"]  # type: ignore[attr-defined]
         assert inv.params["Solver damping"] == inv.solver_damping  # type: ignore[index]
-    if run_zref_or_density_cv is True:
+    if run_zref_or_density_optimization is True:
         assert (
             inv.model.density_contrast
-            == _zref_density_cv_obj.study.best_trial.params.get(  # type: ignore[attr-defined]
+            == _zref_density_optimization_obj.study.best_trial.params.get(  # type: ignore[attr-defined]
                 "density_contrast", density_contrast
             )
         )
-        assert inv.model.zref == _zref_density_cv_obj.study.best_trial.params.get(  # type: ignore[attr-defined]
-            "zref", zref
+        assert (
+            inv.model.zref
+            == _zref_density_optimization_obj.study.best_trial.params.get(  # type: ignore[attr-defined]
+                "zref", zref
+            )
         )
 
         used_zref = float(inv.params["Reference level"][:-2])  # type: ignore[index]

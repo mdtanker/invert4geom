@@ -1074,7 +1074,7 @@ def full_workflow_uncertainty_loop(
                 calculate_starting_gravity=calculate_starting_gravity,
                 calculate_regional_misfit=calculate_regional_misfit,  # pylint: disable=possibly-used-before-assignment
                 run_damping_cv=False,
-                run_zref_or_density_cv=False,
+                run_zref_or_density_optimization=False,
                 fname=f"{fname}_{i}",
                 starting_topography=inv.model.starting_topography.to_dataset(
                     name="upward"
