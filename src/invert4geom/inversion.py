@@ -587,9 +587,9 @@ class DatasetAccessorInvert4Geom:
 
     @property
     def masked(self) -> xr.Dataset:
-        """return only the model elements with a mask value of 1"""
+        """return only the model elements with a non-nan mask value"""
         self._check_correct_dataset_type("model")
-        return self._ds.where(self._ds.mask == 1, drop=True)
+        return self._ds.where(np.isfinite(self._ds.mask), drop=True)
 
     ###
     ###
@@ -1555,9 +1555,9 @@ def create_model(
         ``starting_topography`` DataArray.
     starting_topography : xarray.Dataset
         The starting topography dataset, which must contain an ``upward`` variable
-        defining the topography, and an optional ``mask`` variable. Mask values of 0
-        won't be altered during the inversion, while mask values of 1 are free to
-        change.
+        defining the topography, and an optional ``mask`` variable. Mask values of NaN
+        won't be altered during the inversion, while non-NaN (finite) mask values are
+        free to change.
         If you don't have a starting topography grid, you can create a flat grid with
         :func:`verde.grid_coordinates` and :func:`verde.make_xarray_grid`.
     model_type : str, optional
@@ -1663,7 +1663,7 @@ def create_model(
         )
 
     # use extent of un-masked cells to define a region to use for plotting
-    masked_extent = model.mask.where(model.mask == 1, drop=True)
+    masked_extent = model.mask.where(np.isfinite(model.mask), drop=True)
 
     # Append some attributes to the xr.Dataset
     attrs = {
