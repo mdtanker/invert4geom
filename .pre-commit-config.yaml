@@ -20,7 +20,7 @@ repos:
     rev: "v6.0.0"
     hooks:
       - id: check-added-large-files
-        exclude: ^(docs/examples/bishop_basement_model.ipynb|docs/tutorial/05_density_optimization.ipynb|docs/tutorial/06_reference_level_optimization.ipynb|docs/examples/uieda_et_al_2017_CRUST1.ipynb|docs/quickstart.ipynb|docs/tutorial/02_simple_inversion.ipynb|docs/tutorial/08_combining_it_all.ipynb|docs/tutorial/09_combining_it_all_alternative_CV_technique.ipynb|docs/tutorial/10_uncertainty_analysis.ipynb|docs/how_to/determining_buffer_width.ipynb)
+        exclude: ^(docs/examples/bishop_basement_model.ipynb|docs/tutorial/05_density_optimization.ipynb|docs/tutorial/06_reference_level_optimization.ipynb|docs/examples/uieda_et_al_2017_CRUST1.ipynb|docs/quickstart.ipynb|docs/tutorial/02_simple_inversion.ipynb|docs/tutorial/08_combining_it_all.ipynb|docs/tutorial/09_combining_it_all_alternative_CV_technique.ipynb|docs/tutorial/10_uncertainty_analysis.ipynb|docs/how_to/determining_buffer_width.ipynb|docs/how_to/adhering_to_point_measurements.ipynb|docs/how_to/constrain_the_inversion.ipynb)
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-symlinks
