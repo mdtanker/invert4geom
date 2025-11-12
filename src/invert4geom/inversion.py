@@ -1977,6 +1977,12 @@ class Inversion:
             msg = "invalid string for solver_type"
             raise ValueError(msg)
 
+        # log correction values
+        logger.info(
+            "Topography correction (before weighting) median: %s m, RMS:%s m",
+            round(np.nanmedian(step), 6),
+            round(utils.rmse(step), 6),
+        )
         self.step = step
 
     def reinitialize_inversion(self) -> None:
@@ -2094,13 +2100,6 @@ class Inversion:
 
             # calculate array of topographic correction for each prism
             self.solver()
-
-            # log correction values
-            logger.info(
-                "Topography correction (before weighting) median: %s m, RMS:%s m",
-                round(np.median(self.step), 6),
-                round(utils.rmse(self.step), 6),
-            )
 
             # add correction array to prism layer dataset, optionally enforcing
             # confining layers
