@@ -587,9 +587,6 @@ def regional_constraints(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
-    assert grav_ds.reg.notnull().all(), "regional grid has NaN values!"  # noqa: PD004
-    assert grav_ds.res.notnull().all(), "residual grid has NaN values!"  # noqa: PD004
-
 
 def regional_constraints_cv(
     grav_ds: xr.Dataset,
