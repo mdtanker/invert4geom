@@ -1983,6 +1983,9 @@ class Inversion:
             round(np.nanmedian(step), 6),
             round(utils.rmse(step), 6),
         )
+
+        assert ~np.isnan(step).any(), "step contains NaN values"
+
         self.step = step
 
     def reinitialize_inversion(self) -> None:
