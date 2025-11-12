@@ -1919,7 +1919,7 @@ class Inversion:
         # create empty jacobian to fill in
         # first discard prisms based on mask
         jac = np.empty(
-            (len(grav_easting), self.model.inv.masked.top.size),
+            (len(grav_easting), self.model.inv.masked_df.top.size),
             dtype=np.float64,
         )
         if self.deriv_type == "annulus":
