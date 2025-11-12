@@ -8,6 +8,15 @@ API Reference
 .. currentmodule:: invert4geom
 
 
+Inv Dataset Accessor
+--------------------
+:class:`xarray.Dataset` accessor for properties and methods for both gravity and model datasets.
+
+.. autosummary::
+    :toctree: generated/
+
+    DatasetAccessorInvert4Geom
+
 Model creation
 --------------
 Create a topography grid (or provide your own) and convert it into an initial prism or tesseroid model for the inversion.
@@ -178,9 +187,9 @@ Plot optimization and cross-validation results.
 .. autosummary::
     :toctree: generated/
 
-    plot_2_parameter_cv_scores
-    plot_2_parameter_cv_scores_uneven
-    plot_cv_scores
+    plot_2_parameter_scores
+    plot_2_parameter_scores_uneven
+    plot_scores
     plot_optimization_combined_slice
     plot_optuna_figures
 
