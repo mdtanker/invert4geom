@@ -3559,7 +3559,7 @@ class Inversion:
 
         if plot_topo_results is True:
             plotting.plot_inversion_topo_results(
-                self.model.inv.masked,
+                self.model,
                 constraints_df=constraints_df,
                 constraint_style=kwargs.get("constraint_style", "x.3c"),
                 fig_height=kwargs.get("fig_height", 12),
