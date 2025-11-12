@@ -94,7 +94,7 @@ def test_model_attributes():
     model = true_topography()
 
     # add mask to dataset
-    model["mask"] = xr.where(model.upward > 600, 1, 0)
+    model["mask"] = xr.where(model.upward > 600, 1, np.nan)
 
     model = invert4geom.inversion.create_model(
         starting_topography=model, zref=100, density_contrast=200
@@ -200,13 +200,13 @@ def test_inv_accessor_masked_df():
     """
     model = true_topography()
     # add mask to dataset
-    model["mask"] = xr.where(model.upward > 600, 1, 0)
+    model["mask"] = xr.where(model.upward > 600, 1, np.nan)
 
     model = invert4geom.inversion.create_model(
         starting_topography=model, zref=100, density_contrast=200
     )
 
-    topo = [637.0, np.nan, 646.0, np.nan, 718.0, 639.0]
+    topo = [637.0, 646.0, 718.0, 639.0]
 
     npt.assert_array_equal(topo, model.inv.masked_df.topography.to_numpy())
 
@@ -226,7 +226,7 @@ def test_inv_accessor_masked():
     """
     model = true_topography()
     # add mask to dataset
-    model["mask"] = xr.where(model.upward > 600, 1, 0)
+    model["mask"] = xr.where(model.upward > 600, 1, np.nan)
 
     model = invert4geom.inversion.create_model(
         starting_topography=model, zref=100, density_contrast=200
