@@ -1474,7 +1474,7 @@ def plot_sampled_projection_2d(
 
     Parameters
     ----------
-    sample : np.ndarray
+    sample : numpy.ndarray
         The sampled values
     var_names : list[str]
         The names of the variables
