@@ -1700,9 +1700,9 @@ def test_invert_with_confining_layers():
     assert np.max(inv.model.topography) <= 510
 
 
-def test_grav_cv_score():
+def test_gravity_score():
     """
-    test the grav_cv_score function
+    test the gravity_score function
     """
     data = invert4geom.inversion.create_data(observed_gravity())
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
@@ -1718,9 +1718,9 @@ def test_grav_cv_score():
         solver_damping=0.01,
         max_iterations=2,
     )
-    _ = inv.grav_cv_score()
+    _ = inv.gravity_score()
 
-    assert inv.gravity_cv_best_score == pytest.approx(32.04, 0.01)
+    assert inv.gravity_best_score == pytest.approx(32.04, 0.01)
 
     xr.testing.assert_equal(inv.model, model)
     xr.testing.assert_equal(inv.data, resampled)
@@ -1791,9 +1791,9 @@ def test_optimize_inversion_damping():
     pathlib.Path("test_damping2_study.pickle").unlink()
 
 
-def test_constraints_cv_score():
+def test_constraints_score():
     """
-    test the constraints_cv_score function
+    test the constraints_score function
     """
     data = invert4geom.inversion.create_data(observed_gravity())
     model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
@@ -1815,9 +1815,9 @@ def test_constraints_cv_score():
         solver_damping=0.01,
         max_iterations=2,
     )
-    _ = inv.constraints_cv_score(constraints_df)
+    _ = inv.constraints_score(constraints_df)
 
-    assert inv.constraints_cv_best_score == pytest.approx(102.84, 0.01)
+    assert inv.constraints_best_score == pytest.approx(102.84, 0.01)
 
     xr.testing.assert_equal(inv.model, model)
     xr.testing.assert_equal(inv.data, data)

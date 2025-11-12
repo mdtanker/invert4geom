@@ -164,12 +164,12 @@ def grav_cv_score(
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
     """
-    DEPRECATED: use the `Inversion` class method `grav_cv_score` instead
+    DEPRECATED: use the `Inversion` class method `gravity_score` instead
     """
     # pylint: disable=W0613
     msg = (
         "Function `grav_cv_score` deprecated, use the `Inversion` class method "
-        "`grav_cv_score` instead"
+        "`gravity_score` instead"
     )
     raise DeprecationWarning(msg)
 
@@ -181,12 +181,12 @@ def constraints_cv_score(
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
     """
-    DEPRECATED: use the `Inversion` class method `constraints_cv_score` instead
+    DEPRECATED: use the `Inversion` class method `constraints_score` instead
     """
     # pylint: disable=W0613
     msg = (
         "Function `constraints_cv_score` deprecated, use the `Inversion` class method "
-        "`constraints_cv_score` instead"
+        "`constraints_score` instead"
     )
     raise DeprecationWarning(msg)
 

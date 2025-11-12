@@ -87,15 +87,15 @@ Split data (gravity and constraints) into training and test sets.
     random_split_test_train
     kfold_df_to_lists
 
-Calculate cross-validation scores.
+Calculate optimization and cross-validation scores.
 
 .. autosummary::
     :toctree: generated/
 
     eq_sources_score
     regional_separation_score
-    Inversion.grav_cv_score
-    Inversion.constraints_cv_score
+    Inversion.gravity_score
+    Inversion.constraints_score
 
 
 Optimization

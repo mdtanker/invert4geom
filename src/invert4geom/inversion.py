@@ -2205,6 +2205,19 @@ class Inversion:
 
     def grav_cv_score(
         self,
+        results_fname: str | None = None,  # noqa: ARG002
+        rmse_as_median: bool = False,  # noqa: ARG002
+        plot: bool = False,  # noqa: ARG002
+    ) -> "Inversion":
+        """
+        DEPRECATED: use the `gravity_score` function instead
+        """
+        # pylint: disable=W0613
+        msg = "Function `grav_cv_score` renamed to  `gravity_score`"
+        raise DeprecationWarning(msg)
+
+    def gravity_score(
+        self,
         results_fname: str | None = None,
         rmse_as_median: bool = False,
         plot: bool = False,
@@ -2213,7 +2226,7 @@ class Inversion:
         Find the score, represented by the root mean (or median) squared error (RMSE),
         between the testing gravity data, and the predict gravity data after an
         inversion. Follows methods of :footcite:t:`uiedafast2017`. Used in
-        `optimization.optimize_inversion_damping()`.
+        :func:`optimize_inversion_damping`.
 
         Parameters
         ----------
@@ -2267,7 +2280,7 @@ class Inversion:
             -inv_copy.model.density_contrast,
         )
 
-        # create new layer or prisms / tesseriods
+        # create new layer or prisms / tesseroids
         layer = utils.grid_to_model(
             inv_copy.model.topography,
             reference=inv_copy.model.zref,
@@ -2342,6 +2355,19 @@ class Inversion:
 
     def constraints_cv_score(
         self,
+        constraints_df: pd.DataFrame,  # noqa: ARG002
+        results_fname: str | None = None,  # noqa: ARG002
+        rmse_as_median: bool = False,  # noqa: ARG002
+    ) -> "Inversion":
+        """
+        DEPRECATED: use the `constraints_score` function instead
+        """
+        # pylint: disable=W0613
+        msg = "Function `constraints_cv_score` renamed to  `constraints_score`"
+        raise DeprecationWarning(msg)
+
+    def constraints_score(
+        self,
         constraints_df: pd.DataFrame,
         results_fname: str | None = None,
         rmse_as_median: bool = False,
@@ -2350,7 +2376,7 @@ class Inversion:
         Find the score, represented by the root mean squared error (RMSE), between the
         constraint point elevation, and the inverted topography at the constraint points.
         Follows methods of :footcite:t:`uiedafast2017`. Used in
-        `optimization.optimize_inversion_zref_density_contrast()`.
+        :func:`optimize_inversion_zref_density_contrast`.
 
         Parameters
         ----------
