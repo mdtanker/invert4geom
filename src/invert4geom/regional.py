@@ -547,6 +547,9 @@ def regional_constraints(
                 )
 
         else:
+            if depth is None:
+                depth = "default"
+
             # create set of deep sources
             eqs = hm.EquivalentSources(
                 depth=depth,
