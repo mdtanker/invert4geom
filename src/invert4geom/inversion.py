@@ -1742,8 +1742,8 @@ class Inversion:
         self.termination_reason = None
         self.params = None
         self.results_fname = None
-        self.gravity_cv_best_score = None
-        self.constraints_cv_best_score = None
+        self.gravity_best_score = None
+        self.constraints_best_score = None
         self.best_trial = None
         self.study = None
         self.damping_cv_results_fname = None
@@ -2326,7 +2326,7 @@ class Inversion:
         observed = test.gravity_anomaly - test.reg
         predicted = test.test_point_grav
 
-        self.gravity_cv_best_score = utils.rmse(  # type: ignore[assignment]
+        self.gravity_best_score = utils.rmse(  # type: ignore[assignment]
             predicted - observed, as_median=rmse_as_median
         )
 
@@ -2343,7 +2343,7 @@ class Inversion:
                     grid2_name="Observed gravity",
                     plot_type="xarray",
                     robust=True,
-                    title=f"Score={self.gravity_cv_best_score}",
+                    title=f"Score={self.gravity_best_score}",
                     rmse_in_title=False,
                     hist=True,
                     inset=False,
@@ -2426,7 +2426,7 @@ class Inversion:
         # elevations
         dif = constraints_df.upward - constraints_df.inverted_topo
 
-        self.constraints_cv_best_score: float = utils.rmse(  # type: ignore[no-redef, assignment]
+        self.constraints_best_score: float = utils.rmse(  # type: ignore[no-redef, assignment]
             dif, as_median=rmse_as_median
         )
 

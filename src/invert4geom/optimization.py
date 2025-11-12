@@ -611,9 +611,7 @@ class OptimalInversionDamping:
             results_fname=trial.user_attrs.get("fname"),
         )
 
-        # trial.set_user_attr("results", new_inversion_obj.damping_cv_results)
-
-        return self.inversion_obj.gravity_cv_best_score  # type: ignore[return-value]
+        return self.inversion_obj.gravity_best_score  # type: ignore[return-value]
 
 
 def optimize_inversion_damping(
@@ -952,18 +950,18 @@ class OptimalInversionZrefDensity:
                     constraints_df=testing_constraints[i],
                     results_fname=trial.user_attrs.get("fname"),
                 )
-                scores.append(self.inversion_obj.constraints_cv_best_score)  # type: ignore[arg-type]
+                scores.append(self.inversion_obj.constraints_best_score)  # type: ignore[arg-type]
 
                 # log the termination reason
                 logger.debug(
                     "Trial %s termination reason: %s",
                     trial.number,
-                    constraints_cv_object.params.get("Termination reason"),  # type: ignore[attr-defined]
+                    constraints_optimization_object.params.get("Termination reason"),  # type: ignore[attr-defined]
                 )
             # get mean of scores of all folds
-            self.inversion_obj.constraints_cv_best_score = np.mean(scores)
+            self.inversion_obj.constraints_best_score = np.mean(scores)
 
-        return self.inversion_obj.constraints_cv_best_score  # type: ignore[return-value]
+        return self.inversion_obj.constraints_best_score  # type: ignore[return-value]
 
 
 def optimize_inversion_zref_density_contrast(
