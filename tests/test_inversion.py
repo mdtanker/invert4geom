@@ -760,7 +760,7 @@ def test_end_inversion_l2_norm_increasing():
         model=model,
         perc_increase_limit=0.1,  # 10%
     )
-    inv.iteration = 2
+    inv.iteration = 2  # type: ignore[assignment]
     stats_df = pd.DataFrame(
         data={
             "iteration": [0, 1, 2],
@@ -773,7 +773,7 @@ def test_end_inversion_l2_norm_increasing():
     inv.stats_df = stats_df
     inv.end_inversion()
     assert inv.end is True
-    assert inv.termination_reason == ["l2-norm increasing"]
+    assert inv.termination_reason == ["l2-norm increasing"]  # type: ignore[unreachable]
 
     inv.perc_increase_limit = 0.2
     inv.end_inversion()
@@ -798,7 +798,7 @@ def test_end_inversion_delta_l2_norm_tolerance_both_below():
         model=model,
         delta_l2_norm_tolerance=1.001,
     )
-    inv.iteration = 2
+    inv.iteration = 2  # type: ignore[assignment]
     stats_df = pd.DataFrame(
         data={
             "iteration": [0, 1, 2],
@@ -812,7 +812,7 @@ def test_end_inversion_delta_l2_norm_tolerance_both_below():
     inv.end_inversion()
 
     assert inv.end is True
-    assert inv.termination_reason == ["delta l2-norm tolerance"]
+    assert inv.termination_reason == ["delta l2-norm tolerance"]  # type: ignore[unreachable]
 
 
 def test_end_inversion_delta_l2_norm_tolerance_one_below():
@@ -833,7 +833,7 @@ def test_end_inversion_delta_l2_norm_tolerance_one_below():
         model=model,
         delta_l2_norm_tolerance=1.001,
     )
-    inv.iteration = 2
+    inv.iteration = 2  # type: ignore[assignment]
     stats_df = pd.DataFrame(
         data={
             "iteration": [0, 1, 2],
@@ -867,7 +867,7 @@ def test_end_inversion_l2_norm_tolerance():
         model=model,
         l2_norm_tolerance=1,
     )
-    inv.iteration = 2
+    inv.iteration = 2  # type: ignore[assignment]
     stats_df = pd.DataFrame(
         data={
             "iteration": [0, 1, 2],
@@ -879,7 +879,7 @@ def test_end_inversion_l2_norm_tolerance():
     inv.stats_df = stats_df
     inv.end_inversion()
     assert inv.end is True
-    assert inv.termination_reason == ["l2-norm tolerance"]
+    assert inv.termination_reason == ["l2-norm tolerance"]  # type: ignore[unreachable]
 
     inv.l2_norm_tolerance = 0.8
     inv.end_inversion()
@@ -904,7 +904,7 @@ def test_end_inversion_max_iterations():
         model=model,
         max_iterations=2,
     )
-    inv.iteration = 2
+    inv.iteration = 2  # type: ignore[assignment]
     stats_df = pd.DataFrame(
         data={
             "iteration": [0, 1, 2],
@@ -917,7 +917,7 @@ def test_end_inversion_max_iterations():
 
     inv.end_inversion()
     assert inv.end is True
-    assert inv.termination_reason == ["max iterations"]
+    assert inv.termination_reason == ["max iterations"]  # type: ignore[unreachable]
 
     inv.max_iterations = 3
     inv.end_inversion()
@@ -944,7 +944,7 @@ def test_end_inversion_multiple_reasons():
         l2_norm_tolerance=1,
         delta_l2_norm_tolerance=1.001,
     )
-    inv.iteration = 2
+    inv.iteration = 2  # type: ignore[assignment]
     stats_df = pd.DataFrame(
         data={
             "iteration": [0, 1, 2],
@@ -957,7 +957,7 @@ def test_end_inversion_multiple_reasons():
 
     inv.end_inversion()
     assert inv.end is True
-    assert inv.termination_reason == [
+    assert inv.termination_reason == [  # type: ignore[unreachable]
         "delta l2-norm tolerance",
         "l2-norm tolerance",
         "max iterations",
@@ -1097,13 +1097,13 @@ def test_jacobian_annulus():
     assert np.shape(inv.jac) == (4, 4)
 
     # pairs which are same distance apart should have same sensitivity
-    assert inv.jac[0, 0] == pytest.approx(inv.jac[3, 3])
-    assert inv.jac[0, 1] == pytest.approx(inv.jac[2, 0])
-    assert inv.jac[0, 1] == pytest.approx(inv.jac[3, 2])
-    assert inv.jac[0, 1] == pytest.approx(inv.jac[1, 3])
-    assert inv.jac[0, 2] == pytest.approx(inv.jac[2, 3])
-    assert inv.jac[1, 0] == pytest.approx(inv.jac[3, 1])
-    assert inv.jac[1, 2] == pytest.approx(inv.jac[2, 1])
+    assert inv.jac[0, 0] == pytest.approx(inv.jac[3, 3])  # type: ignore[index]
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[2, 0])  # type: ignore[index]
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[3, 2])  # type: ignore[index]
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[1, 3])  # type: ignore[index]
+    assert inv.jac[0, 2] == pytest.approx(inv.jac[2, 3])  # type: ignore[index]
+    assert inv.jac[1, 0] == pytest.approx(inv.jac[3, 1])  # type: ignore[index]
+    assert inv.jac[1, 2] == pytest.approx(inv.jac[2, 1])  # type: ignore[index]
 
     # highest sensitivity pair should be prism 2, grav 2
     assert np.argmax(inv.jac) == 10
@@ -1160,13 +1160,13 @@ def test_jacobian_finite_difference():
     assert np.shape(inv.jac) == (4, 4)
 
     # pairs which are same distance apart should have same sensitivity
-    assert inv.jac[0, 0] == pytest.approx(inv.jac[3, 3])
-    assert inv.jac[0, 1] == pytest.approx(inv.jac[2, 0])
-    assert inv.jac[0, 1] == pytest.approx(inv.jac[3, 2])
-    assert inv.jac[0, 1] == pytest.approx(inv.jac[1, 3])
-    assert inv.jac[0, 2] == pytest.approx(inv.jac[2, 3])
-    assert inv.jac[1, 0] == pytest.approx(inv.jac[3, 1])
-    assert inv.jac[1, 2] == pytest.approx(inv.jac[2, 1])
+    assert inv.jac[0, 0] == pytest.approx(inv.jac[3, 3])  # type: ignore[index]
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[2, 0])  # type: ignore[index]
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[3, 2])  # type: ignore[index]
+    assert inv.jac[0, 1] == pytest.approx(inv.jac[1, 3])  # type: ignore[index]
+    assert inv.jac[0, 2] == pytest.approx(inv.jac[2, 3])  # type: ignore[index]
+    assert inv.jac[1, 0] == pytest.approx(inv.jac[3, 1])  # type: ignore[index]
+    assert inv.jac[1, 2] == pytest.approx(inv.jac[2, 1])  # type: ignore[index]
 
     # highest sensitivity pair should be prism 2, grav 2
     assert np.argmax(inv.jac) == 10
@@ -1222,7 +1222,7 @@ def test_solver():
     assert np.shape(inv.step) == (4,)
 
     # check step sign matches sign of residual
-    assert np.sign(inv.step[0]) == np.sign(data.inv.df.res.to_numpy()[0])
+    assert np.sign(inv.step[0]) == np.sign(data.inv.df.res.to_numpy()[0])  # type: ignore[index]
 
     # check approx correct values
     # doesn't work cause of damping
