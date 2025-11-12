@@ -1891,7 +1891,7 @@ class Inversion:
 
         # create empty jacobian to fill in
         # first discard prisms based on mask
-        self.jac = np.empty(
+        jac = np.empty(
             (len(grav_easting), self.model.inv.masked.top.size),
             dtype=np.float64,
         )
@@ -1913,7 +1913,7 @@ class Inversion:
                 )
                 raise ValueError(msg)
 
-            self.jac = jacobian_annular(
+            jac = jacobian_annular(
                 grav_easting,
                 grav_northing,
                 grav_upward,
@@ -1922,7 +1922,7 @@ class Inversion:
                 model_element_top,
                 model_element_density,
                 self.model.spacing,
-                self.jac,
+                jac,
             )
 
         elif self.deriv_type == "finite_difference":
@@ -1934,22 +1934,22 @@ class Inversion:
             )
 
             if self.model.model_type == "prisms":
-                self.jac = jacobian_finite_difference_prisms(
+                jac = jacobian_finite_difference_prisms(
                     model_properties,
                     grav_easting,
                     grav_northing,
                     grav_upward,
                     self.jacobian_finite_step_size,
-                    self.jac,
+                    jac,
                 )
             elif self.model.model_type == "tesseroids":
-                self.jac = jacobian_finite_difference_tesseroids(
+                jac = jacobian_finite_difference_tesseroids(
                     model_properties,
                     grav_easting,
                     grav_northing,
                     grav_upward,
                     self.jacobian_finite_step_size,
-                    self.jac,
+                    jac,
                 )
 
         else:
@@ -1963,6 +1963,10 @@ class Inversion:
             round(np.nanmedian(jac), 10),
             round(utils.rmse(jac), 10),
         )
+        assert ~np.isnan(jac).any(), "Jacobian contains NaN values"
+
+        self.jac = jac
+
     def solver(self) -> None:
         """
         Calculate shift to add to prism's for each iteration of the inversion. Finds
