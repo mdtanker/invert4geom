@@ -1956,6 +1956,13 @@ class Inversion:
             msg = "invalid string for deriv_type"
             raise ValueError(msg)
 
+        # log Jacobian values
+        logger.info("Jacobian shape: %s", np.shape(jac))
+        logger.info(
+            "Jacobian median: %s m, RMS:%s m",
+            round(np.nanmedian(jac), 10),
+            round(utils.rmse(jac), 10),
+        )
     def solver(self) -> None:
         """
         Calculate shift to add to prism's for each iteration of the inversion. Finds
