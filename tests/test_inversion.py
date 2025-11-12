@@ -1693,8 +1693,8 @@ def test_invert_with_confining_layers():
 
     inv.invert(progressbar=False)
 
-    assert inv.params["Upper confining layer"] == "Enabled"
-    assert inv.params["Lower confining layer"] == "Enabled"
+    assert inv.params["Upper confining layer"] == "Enabled"  # type: ignore[index]
+    assert inv.params["Lower confining layer"] == "Enabled"  # type: ignore[index]
 
     assert np.min(inv.model.topography) >= 500
     assert np.max(inv.model.topography) <= 510
@@ -1746,17 +1746,17 @@ def test_optimize_inversion_damping():
         max_iterations=10,
     )
 
-    damping_cv_obj = inv.optimize_inversion_damping(
+    damping_opti_obj = inv.optimize_inversion_damping(
         damping_limits=(0.001, 10),
         n_trials=5,
         grid_search=False,
-        plot_cv=False,
+        plot_scores=False,
         progressbar=False,
         fname="test_damping",
     )
 
-    assert damping_cv_obj.best_trial.params["damping"] == inv.solver_damping
-    assert inv.solver_damping == inv.params["Solver damping"]
+    assert damping_opti_obj.best_trial.params["damping"] == inv.solver_damping  # type: ignore[attr-defined]
+    assert inv.solver_damping == inv.params["Solver damping"]  # type: ignore[index]
     assert inv.solver_damping == pytest.approx(0.25, rel=0.01)
 
     assert pathlib.Path("test_damping.pickle").exists()
@@ -1772,16 +1772,16 @@ def test_optimize_inversion_damping():
         max_iterations=10,
     )
 
-    damping_cv_obj = inv.optimize_inversion_damping(
+    damping_opti_obj = inv.optimize_inversion_damping(
         damping_limits=(0.001, 10),
         n_trials=5,
         grid_search=True,
-        plot_cv=False,
+        plot_scores=False,
         progressbar=False,
         fname="test_damping2",
     )
-    assert damping_cv_obj.best_trial.params["damping"] == inv.solver_damping
-    assert inv.solver_damping == inv.params["Solver damping"]
+    assert damping_opti_obj.best_trial.params["damping"] == inv.solver_damping  # type: ignore[attr-defined]
+    assert inv.solver_damping == inv.params["Solver damping"]  # type: ignore[index]
     assert inv.solver_damping == 0.1
     dampings = np.logspace(np.log10(0.001), np.log10(10), 5)
     assert inv.solver_damping in dampings
@@ -1849,13 +1849,13 @@ def test_optimize_inversion_zref_density_contrast():
         max_iterations=10,
     )
 
-    cv_obj = inv.optimize_inversion_zref_density_contrast(
+    opti_obj = inv.optimize_inversion_zref_density_contrast(
         zref_limits=(0, 2e3),
         density_contrast_limits=(1000, 3000),
         n_trials=5,
         constraints_df=constraints_df,
         grid_search=False,
-        plot_cv=False,
+        plot_scores=False,
         progressbar=False,
         regional_grav_kwargs={"method": "constant", "constant": 0},
         starting_topography_kwargs={
@@ -1866,12 +1866,12 @@ def test_optimize_inversion_zref_density_contrast():
         fname="test_zref_density_contrast",
     )
 
-    assert cv_obj.best_trial.params["zref"] == inv.model.zref
-    assert inv.model.zref == float(inv.params["Reference level"][:-2])
+    assert opti_obj.best_trial.params["zref"] == inv.model.zref  # type: ignore[attr-defined]
+    assert inv.model.zref == float(inv.params["Reference level"][:-2])  # type: ignore[index]
     assert inv.model.zref == pytest.approx(698.24, rel=0.01)
 
-    assert cv_obj.best_trial.params["density_contrast"] == inv.model.density_contrast
-    assert inv.model.density_contrast == float(inv.params["Density contrast(s)"][1:-7])
+    assert opti_obj.best_trial.params["density_contrast"] == inv.model.density_contrast  # type: ignore[attr-defined]
+    assert inv.model.density_contrast == float(inv.params["Density contrast(s)"][1:-7])  # type: ignore[index]
     assert inv.model.density_contrast == pytest.approx(1774, rel=0.01)
 
     assert pathlib.Path("test_zref_density_contrast.pickle").exists()

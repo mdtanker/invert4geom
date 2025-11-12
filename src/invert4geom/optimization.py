@@ -626,7 +626,7 @@ def optimize_inversion_damping(
     sampler: optuna.samplers.BaseSampler | None = None,  # noqa: ARG001
     grid_search: bool = False,  # noqa: ARG001
     fname: str | None = None,  # noqa: ARG001
-    plot_cv: bool = True,  # noqa: ARG001
+    plot_scores: bool = True,  # noqa: ARG001
     plot_grids: bool = False,  # noqa: ARG001
     logx: bool = True,  # noqa: ARG001
     logy: bool = True,  # noqa: ARG001
@@ -982,7 +982,7 @@ def optimize_inversion_zref_density_contrast(
     sampler: optuna.samplers.BaseSampler | None = None,  # noqa: ARG001
     grid_search: bool = False,  # noqa: ARG001
     fname: str | None = None,  # noqa: ARG001
-    plot_cv: bool = True,  # noqa: ARG001
+    plot_scores: bool = True,  # noqa: ARG001
     logx: bool = False,  # noqa: ARG001
     logy: bool = False,  # noqa: ARG001
     progressbar: bool = True,  # noqa: ARG001

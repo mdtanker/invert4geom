@@ -31,9 +31,8 @@ from .optimization import (  # noqa: E402
     optimize_regional_trend,
 )
 from .plotting import (  # noqa: E402
-    plot_2_parameter_cv_scores,
-    plot_2_parameter_cv_scores_uneven,
-    plot_cv_scores,
+    plot_2_parameter_scores,
+    plot_2_parameter_scores_uneven,
     plot_edge_effects,
     plot_inversion_grav_results,
     plot_inversion_iteration_results,
@@ -44,6 +43,7 @@ from .plotting import (  # noqa: E402
     plot_optuna_figures,
     plot_prism_layers,
     plot_sampled_projection_2d,
+    plot_scores,
     plot_stochastic_results,
 )
 from .synthetic import (  # noqa: E402
