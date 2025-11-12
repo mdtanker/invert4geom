@@ -27,6 +27,21 @@ pio.renderers.default = "plotly_mimetype+notebook"
 
 
 def plot_2_parameter_cv_scores(
+    scores: list[float],  # noqa: ARG001
+    parameter_pairs: list[tuple[float, float]],  # noqa: ARG001
+    param_names: tuple[str, str] = ("Hyperparameter 1", "Hyperparameter 2"),  # noqa: ARG001
+    figsize: tuple[float, float] = (5, 3.5),  # noqa: ARG001
+    cmap: str | None = None,  # noqa: ARG001
+) -> None:
+    """
+    DEPRECATED: use the `plot_2_parameter_scores` function instead
+    """
+    # pylint: disable=W0613
+    msg = "Function `plot_2_parameter_cv_scores` renamed to `plot_2_parameter_scores`"
+    raise DeprecationWarning(msg)
+
+
+def plot_2_parameter_scores(
     scores: list[float],
     parameter_pairs: list[tuple[float, float]],
     param_names: tuple[str, str] = ("Hyperparameter 1", "Hyperparameter 2"),
@@ -112,6 +127,25 @@ def plot_2_parameter_cv_scores(
 
 
 def plot_2_parameter_cv_scores_uneven(
+    study: optuna.study.Study,  # noqa: ARG001
+    param_names: tuple[str, str],  # noqa: ARG001
+    plot_param_names: tuple[str, str] = ("Hyperparameter 1", "Hyperparameter 2"),  # noqa: ARG001
+    figsize: tuple[float, float] = (5, 3.5),  # noqa: ARG001
+    cmap: str | None = None,  # noqa: ARG001
+    best: str = "min",  # noqa: ARG001
+    logx: bool = False,  # noqa: ARG001
+    logy: bool = False,  # noqa: ARG001
+    robust: bool = False,  # noqa: ARG001
+) -> None:
+    """
+    DEPRECATED: use the `plot_2_parameter_scores_uneven` function instead
+    """
+    # pylint: disable=W0613
+    msg = "Function `plot_2_parameter_cv_scores_uneven` renamed to `plot_2_parameter_scores_uneven`"
+    raise DeprecationWarning(msg)
+
+
+def plot_2_parameter_scores_uneven(
     study: optuna.study.Study,
     param_names: tuple[str, str],
     plot_param_names: tuple[str, str] = ("Hyperparameter 1", "Hyperparameter 2"),
@@ -182,7 +216,7 @@ def plot_2_parameter_cv_scores_uneven(
         )
     except ValueError as e:
         logger.error(
-            "Error interpolating value in plot_2_parameter_cv_scores_uneven: %s", e
+            "Error interpolating value in plot_2_parameter_scores_uneven: %s", e
         )
         return
     zi = interp(xi, yi)
@@ -245,6 +279,25 @@ def plot_2_parameter_cv_scores_uneven(
 
 
 def plot_cv_scores(
+    scores: list[float],  # noqa: ARG001
+    parameters: list[float],  # noqa: ARG001
+    logx: bool = False,  # noqa: ARG001
+    logy: bool = False,  # noqa: ARG001
+    param_name: str = "Hyperparameter",  # noqa: ARG001
+    figsize: tuple[float, float] = (5, 3.5),  # noqa: ARG001
+    plot_title: str | None = None,  # noqa: ARG001
+    fname: str | None = None,  # noqa: ARG001
+    best: str = "min",  # noqa: ARG001
+) -> typing.Any:
+    """
+    DEPRECATED: use the `plot_scores` function instead
+    """
+    # pylint: disable=W0613
+    msg = "Function `plot_cv_scores` renamed to `plot_scores`"
+    raise DeprecationWarning(msg)
+
+
+def plot_scores(
     scores: list[float],
     parameters: list[float],
     logx: bool = False,

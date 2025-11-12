@@ -7,6 +7,7 @@ import pickle
 import random
 import time
 import typing
+import warnings
 
 import harmonica as hm
 import matplotlib as mpl
@@ -2440,7 +2441,8 @@ class Inversion:
         sampler: optuna.samplers.BaseSampler | None = None,
         grid_search: bool = False,
         fname: str | None = None,
-        plot_cv: bool = True,
+        plot_scores: bool = True,
+        plot_cv: bool | None = None,
         plot_grids: bool = False,
         logx: bool = True,
         logy: bool = True,
@@ -2481,7 +2483,7 @@ class Inversion:
             default fname is `tmp_x_damping_cv` where x is a random integer between 0 and
             999 and will save study to <fname>_study.pickle and tuple of inversion results
             to <fname>.pickle.
-        plot_cv : bool, optional
+        plot_scores : bool, optional
             plot the cross-validation results, by default True
         plot_grids : bool, optional
             for each damping value, plot comparison of predicted and testing gravity data,
@@ -2503,6 +2505,10 @@ class Inversion:
             a copy of the Inversion object after running the inversion with the best
             damping value
         """
+        if plot_cv is not None:
+            msg = "`plot_cv` parameter renamed to `plot_scores`."
+            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            plot_scores = plot_cv
 
         # make copies of Inversion and underlying data and model dataset so as not
         # to alter the original
@@ -2673,9 +2679,9 @@ class Inversion:
         # update the inversion object with the best inversion results
         self.__dict__.update(inv_results.__dict__)
 
-        if plot_cv is True:
+        if plot_scores is True:
             try:
-                plotting.plot_cv_scores(
+                plotting.plot_scores(
                     study.trials_dataframe().value.to_numpy(),
                     study.trials_dataframe().params_damping.to_numpy(),
                     param_name="Damping",
@@ -2701,7 +2707,8 @@ class Inversion:
         sampler: optuna.samplers.BaseSampler | None = None,
         grid_search: bool = False,
         fname: str | None = None,
-        plot_cv: bool = True,
+        plot_scores: bool = True,
+        plot_cv: bool | None = None,
         logx: bool = False,
         logy: bool = False,
         progressbar: bool = True,
@@ -2799,6 +2806,10 @@ class Inversion:
             Inversion object with best inversion results and the optimally determined
             zref and or density contrast values as attributes of the `model` attribute.
         """
+        if plot_cv is not None:
+            msg = "`plot_cv` parameter renamed to `plot_scores`."
+            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            plot_scores = plot_cv
 
         # make copies of Inversion and underlying data and model dataset so as not
         # to alter the original
@@ -3142,18 +3153,22 @@ class Inversion:
                 missing_ok=True
             )
 
-        inv_copy.zref_density_cv_study_fname = f"{inv_copy.results_fname}_study.pickle"  # type: ignore[assignment]
-        inv_copy.zref_density_cv_results_fname = f"{inv_copy.results_fname}.pickle"  # type: ignore[assignment]
+        inv_copy.zref_density_optimization_study_fname = (
+            f"{inv_copy.results_fname}_study.pickle"  # type: ignore[assignment]
+        )
+        inv_copy.zref_density_optimization_results_fname = (
+            f"{inv_copy.results_fname}.pickle"  # type: ignore[assignment]
+        )
         inv_copy.study = study
         inv_copy.best_trial = study.best_trial
 
         # update the inversion object with the best inversion results
         self.__dict__.update(inv_copy.__dict__)
 
-        if plot_cv is True:
+        if plot_scores is True:
             try:
                 if zref_limits is None:
-                    plotting.plot_cv_scores(
+                    plotting.plot_scores(
                         study.trials_dataframe().value.to_numpy(),
                         study.trials_dataframe().params_density_contrast.to_numpy(),
                         param_name="Density contrast (kg/m$^3$)",
@@ -3162,7 +3177,7 @@ class Inversion:
                         logy=logy,
                     )
                 elif density_contrast_limits is None:
-                    plotting.plot_cv_scores(
+                    plotting.plot_scores(
                         study.trials_dataframe().value.to_numpy(),
                         study.trials_dataframe().params_zref.to_numpy(),
                         param_name="Reference level (m)",
@@ -3178,7 +3193,7 @@ class Inversion:
                             strict=False,
                         )
                     )
-                    plotting.plot_2_parameter_cv_scores(
+                    plotting.plot_2_parameter_scores(
                         study.trials_dataframe().value.to_numpy(),
                         parameter_pairs,
                         param_names=(
@@ -3187,7 +3202,7 @@ class Inversion:
                         ),
                     )
                 else:
-                    plotting.plot_2_parameter_cv_scores_uneven(
+                    plotting.plot_2_parameter_scores_uneven(
                         study,
                         param_names=(
                             "params_zref",
