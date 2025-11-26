@@ -1,9 +1,10 @@
 {
-  "title": "Inver4Geom: 3D geometric gravity inversions",
+  "title": "Invert4Geom: 3D geometric gravity inversions",
   "description": "<p><strong>Invert4Geom</strong> is a Python library for performing 3D geometric gravity inversions, where the aim is to recover the geometry of a density contrast.</p><p><strong>Documentation</strong>: <a href=\"https://invert4geom.readthedocs.io/\">https://invert4geom.readthedocs.io/</a></p><p><strong>Source code</strong>: <a href=\"https://github.com/mdtanker/invert4geom\">https://github.com/mdtanker/invert4geom</a></p>",
   "creators": [
     {
-      "name": "The Invert4Geom Community"
+      "name": "Invert4Geom Community",
+      "role": "Research group"
     },
     {
       "name": "Tankersley, Matt",
