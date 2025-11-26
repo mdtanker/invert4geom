@@ -138,6 +138,10 @@ def _nearest_grid_fill(
         filled grid
     """
 
+    # TODO: also check out rasterio fillnodata() https://rasterio.readthedocs.io/en/latest/api/rasterio.fill.html#rasterio.fill.fillnodata
+    # uses https://gdal.org/en/stable/api/gdal_alg.html#_CPPv414GDALFillNodata15GDALRasterBandH15GDALRasterBandHdiiPPc16GDALProgressFuncPv
+    # can fill with nearest neighbor or inverse distance weighting
+
     # get coordinate names
     original_dims = list(grid.sizes.keys())
 
