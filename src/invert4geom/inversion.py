@@ -1524,7 +1524,7 @@ def create_data(
 def create_model(
     zref: float,
     density_contrast: xr.DataArray | float,
-    starting_topography: xr.Dataset,
+    topography: xr.Dataset,
     model_type: str = "prisms",
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
@@ -1542,13 +1542,13 @@ def create_model(
     density_contrast : xarray.DataArray | float
         The density contrast to use for the prisms or tesseroids. This can be
         a constant value, or a DataArray with the same dimensions as the
-        ``starting_topography`` DataArray.
-    starting_topography : xarray.Dataset
-        The starting topography dataset, which must contain an ``upward`` variable
+        ``topography`` DataArray.
+    topography : xarray.Dataset
+        The topography dataset, which must contain an ``upward`` variable
         defining the topography, and an optional ``mask`` variable. Mask values of NaN
         won't be altered during the inversion, while non-NaN (finite) mask values are
         free to change.
-        If you don't have a starting topography grid, you can create a flat grid with
+        If you don't have a topography grid, you can create a flat grid with
         :func:`verde.grid_coordinates` and :func:`verde.make_xarray_grid`.
     model_type : str, optional
         The type of model to create, either ``prisms`` or ``tesseroids``, by default
@@ -1569,31 +1569,29 @@ def create_model(
         ``inner_region``.
     """
 
-    starting_topography = starting_topography.copy()
+    topography = topography.copy()
 
-    assert "upward" in starting_topography, (
-        "starting_topography Dataset must contain an 'upward' variable"
+    assert "upward" in topography, (
+        "topography Dataset must contain an 'upward' variable"
     )
     if model_type == "prisms":
         coord_names = ("easting", "northing")
     elif model_type == "tesseroids":
         coord_names = ("longitude", "latitude")
-        assert "geocentric_radius" in starting_topography, (
-            "for tesseroid models, starting_topography Dataset must contain a 'geocentric_radius' variable, which can be created using the Python package Boule."
+        assert "geocentric_radius" in topography, (
+            "for tesseroid models, topography Dataset must contain a 'geocentric_radius' variable, which can be created using the Python package Boule."
         )
-        starting_topography["geoidal_upward"] = starting_topography.upward
-        starting_topography["upward"] = (
-            starting_topography.geoidal_upward + starting_topography.geocentric_radius
-        )
+        topography["geoidal_upward"] = topography.upward
+        topography["upward"] = topography.geoidal_upward + topography.geocentric_radius
     else:
         msg = "model_type must be either 'prisms' or 'tesseroids'"
         raise ValueError(msg)
 
-    assert all(s in starting_topography.upward.dims for s in coord_names), (
+    assert all(s in topography.upward.dims for s in coord_names), (
         f"topography DataArray must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
     )
     # set region and spacing from provided grid
-    spacing, region = polar_utils.get_grid_info(starting_topography.upward)[0:2]
+    spacing, region = polar_utils.get_grid_info(topography.upward)[0:2]
 
     if isinstance(density_contrast, xr.DataArray):
         assert all(s in density_contrast.dims for s in coord_names), (
@@ -1606,32 +1604,30 @@ def create_model(
         raise ValueError(msg)
 
     if model_type == "tesseroids":
-        zref_used = starting_topography.geocentric_radius + zref
+        zref_used = topography.geocentric_radius + zref
     else:
         zref_used = zref
 
     # create grid of density values, positive above zref, negative below
     density_grid = xr.where(
-        starting_topography.upward >= zref_used,
+        topography.upward >= zref_used,
         density_contrast,
         -density_contrast,
     )
 
     # create prism layer from topography and density grid
     model = utils.grid_to_model(
-        starting_topography.upward,
+        topography.upward,
         reference=zref_used,
         density=density_grid,
         model_type=model_type,
     )
 
     # add starting topography and current topography to prism layer dataset
-    model["starting_topography"] = starting_topography.upward
-    model["topography"] = starting_topography.upward
+    model["starting_topography"] = topography.upward
+    model["topography"] = topography.upward
     model["mask"] = (
-        starting_topography.mask
-        if "mask" in starting_topography
-        else xr.ones_like(starting_topography.upward)
+        topography.mask if "mask" in topography else xr.ones_like(topography.upward)
     )
 
     # add optional confining layers as variables
@@ -2047,9 +2043,7 @@ class Inversion:
             zref=self.model.zref,
             density_contrast=self.model.density_contrast,
             model_type=self.model.model_type,
-            starting_topography=self.model.starting_topography.to_dataset(
-                name="upward"
-            ),
+            topography=self.model.starting_topography.to_dataset(name="upward"),
         )
         self.model = model
         # self.model = self.model.drop_vars(
@@ -3857,7 +3851,7 @@ def run_inversion_workflow(
         zref=zref,  # type: ignore[arg-type]
         density_contrast=density_contrast,
         model_type=model_type,
-        starting_topography=starting_topography,
+        topography=starting_topography,
     )
     logger.debug("starting prisms created")
 
