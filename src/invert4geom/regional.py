@@ -358,9 +358,15 @@ def regional_constraints(
         `optimization.optimize_eq_source_params` and can contain: "n_trials",
         "damping_limits", "depth_limits", "block_size_limits", and "progressbar".
     block_size : float | None, optional
-        block size used if `grid_method` is "eq_sources", by default None
+        block size for defining equivalent sources used if `grid_method` is
+        "eq_sources". This block reduction is done after the block reduction of the
+        constraint points set by `constraints_block_size`, by default None
     grav_obs_height : float, optional
-        Observation height to use if `grid_method` is "eq_sources", by default None
+        Observation height to use for predictions if `grid_method` is "eq_sources". Note
+        that this is separate from the observation height of the gravity data used in
+        the fitting of equivalent sources. Those heights are determined from the
+        observation heights in the gravity dataset.
+        by default None
     cv_kwargs : dict[str, typing.Any] | None, optional
         additional keyword arguments for the cross-validation optimization of
         equivalent source parameters, by default None. Can contain: "n_trials",
@@ -450,42 +456,44 @@ def regional_constraints(
 
     # get weighted mean gravity value of constraint points in each cell
     if constraints_block_size is not None:
-        if grid_method == "eq_sources":
-            msg = "blockmean reduction not supported for eq_sources grid method yet"
-            raise ValueError(msg)
-
         blockmean = vd.BlockMean(
             spacing=constraints_block_size,
             uncertainty=uncertainty,
         )
 
         data = constraints_df.sampled_grav
-        weight_values = weights
-
-        coordinates, data, weights = blockmean.filter(
-            coordinates=(
-                constraints_df["easting"],
-                constraints_df["northing"],
-            ),
-            data=data,
-            weights=weight_values,
+        coordinates = (
+            constraints_df.easting,
+            constraints_df.northing,
         )
+
+        if grid_method == "eq_sources":
+            height = constraints_df.sampled_grav_height
+            coordinates, (data, height), (weights, _height_weights) = blockmean.filter(
+                coordinates=coordinates,
+                data=(data, height),
+                weights=weights,
+            )
+        else:
+            coordinates, data, weights = blockmean.filter(
+                coordinates=coordinates,
+                data=data,
+                weights=weights,
+            )
 
         # add reduced coordinates to a dictionary
         coord_cols = dict(zip(["easting", "northing"], coordinates, strict=False))
 
         # add reduced data to a dictionary
-        if constraints_weights_column is None:
-            data_cols = {"sampled_grav": data}
-        else:
-            data_cols = {
-                "sampled_grav": data,
-                constraints_weights_column: weights,
-            }
+        data_cols = {"sampled_grav": data}
+
+        if constraints_weights_column is not None:
+            data_cols[constraints_weights_column] = weights
+        if grid_method == "eq_sources":
+            data_cols["sampled_grav_height"] = height
 
         # merge dicts and create dataframe
         constraints_df = pd.DataFrame(data=coord_cols | data_cols)
-
         constraints_df = constraints_df.dropna(how="any")
     ###
     ###
@@ -501,7 +509,7 @@ def regional_constraints(
             spacing=grav_ds.spacing,
             registration=registration,
             tension=tension_factor,
-            verbose="q",
+            verbose="quiet",
         ).rename({"x": "easting", "y": "northing"})
         grav_ds["reg"] = da
     ###
@@ -535,6 +543,7 @@ def regional_constraints(
             constraints_df.northing,
             constraints_df.sampled_grav_height,
         )
+        data = constraints_df.sampled_grav
         if depth is None:
             depth = "default"
         if depth == "default":
@@ -550,7 +559,7 @@ def regional_constraints(
             try:
                 _, eqs = optimization.optimize_eq_source_params(
                     coordinates=coords,
-                    data=constraints_df.sampled_grav,
+                    data=data,
                     # kwargs
                     weights=weights,
                     depth=depth,
@@ -572,7 +581,7 @@ def regional_constraints(
                 )
                 eqs.fit(
                     coords,
-                    constraints_df.sampled_grav,
+                    data,
                     weights=weights,
                 )
 
@@ -590,7 +599,7 @@ def regional_constraints(
             # fit the source coefficients to the data
             eqs.fit(
                 coords,
-                constraints_df.sampled_grav,
+                data,
                 weights=weights,
             )
         msg = "depth: %s, damping: %s"
