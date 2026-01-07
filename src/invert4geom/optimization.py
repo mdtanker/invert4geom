@@ -2623,13 +2623,6 @@ def optimize_regional_constraint_point_minimization(
     tension_factor = best_trial.params.get("tension_factor", 1)
     spline_dampings = best_trial.params.get("spline_dampings", None)
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
-    if depth == "default":
-        # calculate 4.5 times the mean distance between points
-        depth = 4.5 * np.mean(
-            vd.median_distance(
-                (constraints_df.easting, constraints_df.northing), k_nearest=1
-            )
-        )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
     block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))
     grav_obs_height = best_trial.params.get(
