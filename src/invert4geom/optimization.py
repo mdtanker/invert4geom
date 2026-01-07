@@ -812,7 +812,7 @@ class OptimalInversionZrefDensity:
                 zref=self.inversion_obj.model.zref,
                 density_contrast=self.inversion_obj.model.density_contrast,
                 model_type=self.inversion_obj.model.model_type,
-                starting_topography=starting_topo,
+                topography=starting_topo,
                 upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
                 lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
             )
@@ -928,7 +928,7 @@ class OptimalInversionZrefDensity:
                     zref=self.inversion_obj.model.zref,
                     density_contrast=self.inversion_obj.model.density_contrast,
                     model_type=self.inversion_obj.model.model_type,
-                    starting_topography=starting_topo,
+                    topography=starting_topo,
                     upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
                     lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
                 )
