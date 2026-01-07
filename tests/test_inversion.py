@@ -684,7 +684,7 @@ def test_create_model_variable_name_error_raised():
     """
     with pytest.raises(
         AssertionError,
-        match="starting_topography Dataset must contain an 'upward' variable",
+        match="topography Dataset must contain an 'upward' variable",
     ):
         invert4geom.inversion.create_model(
             0,
@@ -699,7 +699,7 @@ def test_create_model_coord_name_error_raised():
     """
     with pytest.raises(
         AssertionError,
-        match=r"topography DataArray must have dims \('easting', 'northing'\)",
+        match=r"topography Dataset must have dims \('easting', 'northing'\)",
     ):
         invert4geom.inversion.create_model(
             0,
