@@ -1145,7 +1145,11 @@ class DatasetAccessorInvert4Geom:
             fig.legend()
         fig.show()
 
-    def plot_anomalies(self) -> None:
+    def plot_anomalies(
+        self,
+        points: pd.DataFrame | None = None,
+        points_style: str | None = None,
+    ) -> None:
         """plot gravity anomalies"""
         self._check_correct_dataset_type("data")
 
@@ -1183,6 +1187,50 @@ class DatasetAccessorInvert4Geom:
             hemisphere="south",
             robust=True,
             hist=True,
+            points=points,
+            points_style=points_style,
+        )
+        fig.show()
+
+    def plot_regional_separation(
+        self,
+        points: pd.DataFrame | None = None,
+        points_style: str | None = None,
+    ) -> None:
+        """plot gravity misfit and estimate regional and residual components"""
+        self._check_correct_dataset_type("data")
+
+        ds = self.inner
+
+        grids = [
+            ds.misfit,
+            ds.reg,
+            ds.res,
+        ]
+        titles = [
+            "Misfit",
+            "Regional misfit",
+            "Residual misfit",
+        ]
+        cmaps = [
+            "balance+h0",
+            "balance+h0",
+            "balance+h0",
+        ]
+        fig = maps.subplots(
+            grids,
+            dims=(1, 3),
+            region=self._ds.inner_region,
+            fig_title="Gravity misfit grids",
+            titles=titles,
+            cbar_label="mGal",
+            cmaps=cmaps,
+            hemisphere="south",
+            robust=True,
+            absolute=True,
+            hist=True,
+            points=points,
+            points_style=points_style,
         )
         fig.show()
 
