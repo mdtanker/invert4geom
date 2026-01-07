@@ -2266,10 +2266,10 @@ class Inversion:
             "Solver type": self.solver_type,
             "Solver damping": self.solver_damping,
             "Upper confining layer": "Not enabled"
-            if self.model.upper_confining_layer is None
+            if np.isnan(self.model.upper_confining_layer.values).all()
             else "Enabled",
             "Lower confining layer": "Not enabled"
-            if self.model.lower_confining_layer is None
+            if np.isnan(self.model.lower_confining_layer.values).all()
             else "Enabled",
             "Regularization weighting grid": "Not enabled"
             if self.apply_weighting_grid is False

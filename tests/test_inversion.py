@@ -1669,6 +1669,40 @@ def test_invert_with_confining_layers():
     assert np.max(inv.model.topography) <= 510
 
 
+def test_invert_with_single_confining_layer():
+    """
+    test the inversion with a single confining layer
+    """
+    data = invert4geom.inversion.create_data(observed_gravity(), buffer_width=10000)
+    model = invert4geom.inversion.create_model(
+        topography=flat_topography_500m(),
+        zref=100,
+        density_contrast=200,
+        upper_confining_layer=xr.full_like(flat_topography_500m().upward, 510),
+    )
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=2,
+        solver_damping=0.01,
+        l2_norm_tolerance=0.12,
+        delta_l2_norm_tolerance=1.001,
+    )
+
+    inv.invert(progressbar=False)
+
+    assert inv.params["Upper confining layer"] == "Enabled"  # type: ignore[index]
+    assert inv.params["Lower confining layer"] == "Not enabled"  # type: ignore[index]
+
+    assert np.max(inv.model.topography) <= 510
+
+
 def test_gravity_score():
     """
     test the gravity_score function
