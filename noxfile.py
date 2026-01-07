@@ -21,7 +21,6 @@ def lint(session: nox.Session) -> None:
         "pre-commit",
         "run",
         "--all-files",
-        "--show-diff-on-failure",
         *session.posargs,
     )
 
