@@ -583,7 +583,7 @@ def eq_sources_score(
 
     if np.isnan(score):
         msg = (
-            "score is still NaN after reducing n_splits, makes sure you're supplying "
+            "score is still NaN after reducing n_splits, make sure you're supplying "
             "enough points for the equivalent sources"
         )
         raise ValueError(msg)
