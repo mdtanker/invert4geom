@@ -324,7 +324,7 @@ def starting_topography_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    grounding_line=False,
+                    coast=False,
                     cmap="thermal",
                     points=sampled_constraints.rename(
                         columns={"easting": "x", "northing": "y"}
@@ -343,7 +343,7 @@ def starting_topography_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    grounding_line=False,
+                    coast=False,
                     cmap="rain",
                     reverse_cpt=True,
                     points=sampled_constraints.rename(
@@ -510,7 +510,7 @@ def equivalent_sources_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    grounding_line=False,
+                    coast=False,
                     cmap="thermal",
                 )
                 if deterministic_error is not None:
@@ -526,7 +526,7 @@ def equivalent_sources_uncertainty(
                         inset=False,
                         verbose="q",
                         title="difference",
-                        grounding_line=False,
+                        coast=False,
                         cmap="thermal",
                     )
                 _ = polar_utils.grd_compare(
@@ -541,7 +541,7 @@ def equivalent_sources_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    grounding_line=False,
+                    coast=False,
                     cmap="viridis",
                 )
                 # pylint: enable=duplicate-code
@@ -693,7 +693,7 @@ def regional_misfit_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    grounding_line=False,
+                    coast=False,
                     cmap="thermal",
                     points=constraints_df.rename(
                         columns={"easting": "x", "northing": "y"}
@@ -712,7 +712,7 @@ def regional_misfit_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    grounding_line=False,
+                    coast=False,
                     cmap="viridis",
                     points=constraints_df.rename(
                         columns={"easting": "x", "northing": "y"}
