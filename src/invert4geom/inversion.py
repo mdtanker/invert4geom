@@ -3849,7 +3849,7 @@ def run_inversion_workflow(
             # create the starting topography
             starting_topography = utils.create_topography(
                 **starting_topography_kwargs,
-            ).to_dataset(name="upward")
+            )
         logger.debug("starting topo created")
 
     # starting prism model

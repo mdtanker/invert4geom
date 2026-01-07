@@ -721,7 +721,7 @@ def create_topography(
     weights_col: str | None = None,
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
-) -> xr.DataArray:
+) -> xr.Dataset:
     """
     Create a grid of topography data from either the interpolation of point data or
     creating a grid of constant value. Optionally, a subset of point data can be
@@ -764,7 +764,7 @@ def create_topography(
 
     Returns
     -------
-    xarray.DataArray
+    xarray.Dataset
         a topography grid
     """
     if method == "flat":
@@ -905,7 +905,7 @@ def create_topography(
         )
         grid = grid.where(grid >= da, da)
 
-    return grid
+    return grid.to_dataset(name="upward")
 
 
 def grid_to_model(
@@ -1382,7 +1382,7 @@ def gravity_decay_buffer(
             upwards=top,
             region=buffer_region,
             spacing=spacing,
-        )
+        ).upward
 
     # create prism layer
     if as_density_contrast:
