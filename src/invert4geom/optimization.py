@@ -1699,23 +1699,24 @@ class OptimizeRegionalConstraintsPointMinimization:
             raise ValueError(msg)
 
         if isinstance(self.training_df, pd.DataFrame):
-            if self.depth_limits is not None:
-                new_kwargs["depth"] = trial.suggest_float(
-                    "depth",
-                    self.depth_limits[0],
-                    self.depth_limits[1],
-                )
-            else:
-                eq_depth = self.kwargs.get("depth", "default")
-                if eq_depth == "default":
-                    # calculate 4.5 times the mean distance between points
-                    eq_depth = 4.5 * np.mean(
-                        vd.median_distance(
-                            (self.training_df.easting, self.training_df.northing),
-                            k_nearest=1,
-                        )
+            if self.grid_method == "eq_sources":
+                if self.depth_limits is not None:
+                    new_kwargs["depth"] = trial.suggest_float(
+                        "depth",
+                        self.depth_limits[0],
+                        self.depth_limits[1],
                     )
-                new_kwargs["depth"] = eq_depth
+                else:
+                    eq_depth = self.kwargs.get("depth", "default")
+                    if eq_depth == "default":
+                        # calculate 4.5 times the mean distance between points
+                        eq_depth = 4.5 * np.mean(
+                            vd.median_distance(
+                                (self.training_df.easting, self.training_df.northing),
+                                k_nearest=1,
+                            )
+                        )
+                    new_kwargs["depth"] = eq_depth
 
             with utils._log_level(logging.WARN):  # pylint: disable=protected-access
                 (
@@ -1752,26 +1753,27 @@ class OptimizeRegionalConstraintsPointMinimization:
                 # for each fold, run CV
                 results = []
                 for i, _ in enumerate(pbar):
-                    if self.depth_limits is not None:
-                        new_kwargs["depth"] = trial.suggest_float(
-                            "depth",
-                            self.depth_limits[0],
-                            self.depth_limits[1],
-                        )
-                    else:
-                        eq_depth = self.kwargs.get("depth", "default")
-                        if eq_depth == "default":
-                            # calculate 4.5 times the mean distance between points
-                            eq_depth = 4.5 * np.mean(
-                                vd.median_distance(
-                                    (
-                                        self.training_df[i].easting,
-                                        self.training_df[i].northing,
-                                    ),
-                                    k_nearest=1,
-                                )
+                    if self.grid_method == "eq_sources":
+                        if self.depth_limits is not None:
+                            new_kwargs["depth"] = trial.suggest_float(
+                                "depth",
+                                self.depth_limits[0],
+                                self.depth_limits[1],
                             )
-                        new_kwargs["depth"] = eq_depth
+                        else:
+                            eq_depth = self.kwargs.get("depth", "default")
+                            if eq_depth == "default":
+                                # calculate 4.5 times the mean distance between points
+                                eq_depth = 4.5 * np.mean(
+                                    vd.median_distance(
+                                        (
+                                            self.training_df[i].easting,
+                                            self.training_df[i].northing,
+                                        ),
+                                        k_nearest=1,
+                                    )
+                                )
+                            new_kwargs["depth"] = eq_depth
 
                     fold_results = cross_validation.regional_separation_score(
                         constraints_df=self.training_df[i],
