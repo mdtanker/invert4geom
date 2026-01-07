@@ -161,6 +161,7 @@ Plot gravity data.
 
     DatasetAccessorInvert4Geom.plot_observed
     DatasetAccessorInvert4Geom.plot_anomalies
+    DatasetAccessorInvert4Geom.plot_regional_separation
 
 Plot model.
 
