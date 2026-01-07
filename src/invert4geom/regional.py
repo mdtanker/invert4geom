@@ -386,6 +386,9 @@ def regional_constraints(
     if (grid_method != "pygmt") & (tension_factor != 1):
         msg = "`tension_factor` only used if `grid_method` is 'pygmt'"
         logger.warning(msg)
+    if (grid_method != "verde") & (spline_dampings is not None):
+        msg = "`spline_dampings` only used if `grid_method` is 'verde'"
+        logger.warning(msg)
     grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     constraints_df = constraints_df.copy()
