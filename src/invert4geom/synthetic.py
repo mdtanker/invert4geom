@@ -160,7 +160,7 @@ def load_synthetic_model(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    grounding_line=False,
+                    coast=False,
                     reverse_cpt=True,
                     cmap="rain",
                     points=constraint_points.rename(

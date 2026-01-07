@@ -548,7 +548,7 @@ def plot_inversion_topo_results(
         inset=False,
         verbose="q",
         title="difference",
-        grounding_line=False,
+        coast=False,
         reverse_cpt=True,
         cmap="rain",
         points=points,
