@@ -1636,7 +1636,7 @@ def create_model(
         raise ValueError(msg)
 
     assert all(s in topography.upward.dims for s in coord_names), (
-        f"topography DataArray must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
+        f"topography Dataset must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
     )
     # set region and spacing from provided grid
     spacing, region = polar_utils.get_grid_info(topography.upward)[0:2]
