@@ -97,7 +97,7 @@ def test_model_attributes():
     model["mask"] = xr.where(model.upward > 600, 1, np.nan)
 
     model = invert4geom.inversion.create_model(
-        starting_topography=model, zref=100, density_contrast=200
+        topography=model, zref=100, density_contrast=200
     )
 
     attrs = {
@@ -203,7 +203,7 @@ def test_inv_accessor_masked_df():
     model["mask"] = xr.where(model.upward > 600, 1, np.nan)
 
     model = invert4geom.inversion.create_model(
-        starting_topography=model, zref=100, density_contrast=200
+        topography=model, zref=100, density_contrast=200
     )
 
     topo = [637.0, 646.0, 718.0, 639.0]
@@ -229,7 +229,7 @@ def test_inv_accessor_masked():
     model["mask"] = xr.where(model.upward > 600, 1, np.nan)
 
     model = invert4geom.inversion.create_model(
-        starting_topography=model, zref=100, density_contrast=200
+        topography=model, zref=100, density_contrast=200
     )
 
     topo = [[637.0, np.nan], [646.0, np.nan], [718.0, 639.0]]
@@ -254,7 +254,7 @@ def test_forward_gravity():
         observed_gravity(), buffer_width=10000
     )
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m(), zref=100, density_contrast=200
     )
 
     grav_data.inv.forward_gravity(model, name="test_forward_gravity")
@@ -307,7 +307,7 @@ def test_forward_gravity_rename():
         observed_gravity(), buffer_width=10000
     )
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m(), zref=100, density_contrast=200
     )
 
     grav_data.inv.forward_gravity(model, name="gravity_anomaly")
@@ -350,7 +350,7 @@ def test_regional_separation():
         observed_gravity(), buffer_width=10000
     )
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     grav_data.inv.forward_gravity(model)
     grav_data.inv.regional_separation(
@@ -388,7 +388,7 @@ def test_check_grav_vars_for_regional():
 
     # check error is raised if called for model object
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     with pytest.raises(
         ValueError, match="Method is only available for the data dataset"
@@ -411,7 +411,7 @@ def test_check_grav_vars():
 
     # check error is raised if called for model object
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     with pytest.raises(
         ValueError, match="Method is only available for the data dataset"
@@ -439,7 +439,7 @@ def test_check_gravity_inside_topography_region():
 
     # check error is raised if called for model object
     model = invert4geom.inversion.create_model(
-        starting_topography=topo, zref=100, density_contrast=200
+        topography=topo, zref=100, density_contrast=200
     )
     with pytest.raises(
         ValueError, match="Method is only available for the data dataset"
@@ -455,7 +455,7 @@ def test_update_gravity_and_residual():
         observed_gravity(), buffer_width=10000
     )
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     grav_data.inv.forward_gravity(model)
     grav_data.inv.regional_separation(
@@ -489,7 +489,7 @@ def test_add_topography_correction():
     test the surface correction values are correctly added to the model dataset
     """
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(),
+        topography=flat_topography_500m(),
         zref=100,
         density_contrast=200,
     )
@@ -518,7 +518,7 @@ def test_add_topography_correction_negated_density():
     positive and negative densities
     """
     model = invert4geom.inversion.create_model(
-        starting_topography=true_topography(),
+        topography=true_topography(),
         zref=500,  # this is in middle of topography
         density_contrast=200,
     )
@@ -539,7 +539,7 @@ def test_add_topography_correction_confining_layers():
     """
     # make model confined below at 500 and above at 600 m
     model = invert4geom.inversion.create_model(
-        starting_topography=true_topography(),
+        topography=true_topography(),
         zref=500,
         density_contrast=200,
         upper_confining_layer=xr.full_like(flat_topography_500m().upward, 600),
@@ -568,7 +568,7 @@ def test_update_model_ds():
     test the model is update with the surface correction values
     """
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(),
+        topography=flat_topography_500m(),
         zref=100,
         density_contrast=200,
     )
@@ -653,7 +653,7 @@ def test_create_model():
         ValueError, match="model_type must be either 'prisms' or 'tesseroids'"
     ):
         invert4geom.inversion.create_model(
-            starting_topography=flat_topography_500m(),
+            topography=flat_topography_500m(),
             zref=100,
             density_contrast=200,
             model_type="not_prisms_or_tesseroids",
@@ -663,14 +663,14 @@ def test_create_model():
         ValueError, match=r"`density\_contrast` must be a float or xarray.DataArray"
     ):
         invert4geom.inversion.create_model(
-            starting_topography=flat_topography_500m(),
+            topography=flat_topography_500m(),
             zref=100,
             density_contrast=flat_topography_500m(),
         )
 
     with pytest.raises(AssertionError, match="density DataArray must have dims"):
         invert4geom.inversion.create_model(
-            starting_topography=flat_topography_500m(),
+            topography=flat_topography_500m(),
             zref=100,
             density_contrast=flat_topography_500m().upward.rename(
                 {"easting": "not_easting"}
@@ -969,7 +969,7 @@ def test_model_properties():
     test the _model_properties function
     """
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     itertools_result = invert4geom.inversion._model_properties(
         model, method="itertools"
@@ -1600,7 +1600,7 @@ def test_invert_pickle(tmp_path):
 
     data = invert4geom.inversion.create_data(observed_gravity(), buffer_width=10000)
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m(), zref=100, density_contrast=200
     )
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -1639,7 +1639,7 @@ def test_invert_with_confining_layers():
     """
     data = invert4geom.inversion.create_data(observed_gravity(), buffer_width=10000)
     model = invert4geom.inversion.create_model(
-        starting_topography=flat_topography_500m(),
+        topography=flat_topography_500m(),
         zref=100,
         density_contrast=200,
         upper_confining_layer=xr.full_like(flat_topography_500m().upward, 510),
