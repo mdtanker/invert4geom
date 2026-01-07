@@ -719,19 +719,23 @@ def create_topography(
     constraints_df: pd.DataFrame | None = None,
     weights: pd.Series | NDArray | None = None,
     weights_col: str | None = None,
+    block_size: float | None = None,
+    block_reduction: str = "median",
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
 ) -> xr.Dataset:
     """
-    Create a grid of topography data from either the interpolation of point data or
-    creating a grid of constant value. Optionally, a subset of point data can be
-    interpolated and then merged with an existing grid. To do this, ``constraints_df``
-    must contain two additional columns of booleans, ``inside`` which is True for points
-    inside the region of interest, and False otherwise, and ``buffer`` which is True for
-    points within a buffer region around the region of interest, and False otherwise.
-    Inside and Buffer points are used to interpolated the data, and then the
-    interpolated data (without the buffer zone) is merged with the points outside the
-    region of interest.
+    Create a grid of topography data from either the interpolation (with splines) of
+    point data or creating a grid of constant value. Optionally, a subset of point data
+    can be interpolated and then merged with an existing grid. To do this,
+    ``constraints_df`` must contain two additional columns of booleans, ``inside`` which
+    is True for points inside the region of interest, and False otherwise, and
+    ``buffer`` which is True for points within a buffer region around the region of
+    interest, and False otherwise. Inside and Buffer points are used to interpolated the
+    data, and then the interpolated data (without the buffer zone) is merged with the
+    points outside the region of interest. For interpolations, ``block_size`` can be
+    supplied to perform a block-median filtering of the points before fitting the
+    spline, reducing the computational cost.
 
     Parameters
     ----------
@@ -757,6 +761,13 @@ def create_topography(
     weights_col : str | None, optional
         instead of passing the weights, pass the name of the column containing the
         weights, by default None
+    block_size : float | None, optional
+        block size to use for block-reduction of constraint points before fitting
+        splines. If None, no block-reduction is applied, by default None
+    block_reduction: str, optional
+        type of block reduction to apply, if ``median``, weights will be ignored, of
+        ``mean``, and weights are provided, they will be used in the block reduction.
+        Defaults to ``median``.
     upper_confining_layer : xarray.DataArray | None, optional
         layer which the inverted topography should always be below, by default None
     lower_confining_layer : xarray.DataArray | None, optional
@@ -822,13 +833,39 @@ def create_topography(
             df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
 
             coords = (df_to_interpolate.easting, df_to_interpolate.northing)
+            data = df_to_interpolate.upward
             if weights_col is not None:
                 weights = df_to_interpolate[weights_col]
+
+            if block_size is not None:
+                if block_reduction == "mean":
+                    reduction = np.mean
+                elif block_reduction == "median":
+                    reduction = np.median
+                    if weights is not None:
+                        msg = "weights are ignored when block_reduction is 'median'"
+                        logger.warning(msg)
+                else:
+                    msg = "block_reduction must be 'mean' or 'median'"
+                    raise ValueError(msg)
+
+                reducer = vd.BlockReduce(
+                    reduction=reduction,
+                    spacing=block_size,
+                    region=region,
+                    center_coordinates=True,
+                )
+
+                coords, data = reducer.filter(
+                    coordinates=coords,
+                    data=data,
+                    weights=weights,
+                )
 
             # run CV for fitting a spline to the data
             spline = optimal_spline_damping(
                 coordinates=coords,
-                data=df_to_interpolate.upward,
+                data=data,
                 weights=weights,
                 dampings=dampings,
             )
@@ -862,13 +899,39 @@ def create_topography(
 
         else:
             coords = (df.easting, df.northing)
+            data = df.upward
             if weights_col is not None:
                 weights = df[weights_col]
+
+            if block_size is not None:
+                if block_reduction == "mean":
+                    reduction = np.mean
+                elif block_reduction == "median":
+                    reduction = np.median
+                    if weights is not None:
+                        msg = "weights are ignored when block_reduction is 'median'"
+                        logger.warning(msg)
+                else:
+                    msg = "block_reduction must be 'mean' or 'median'"
+                    raise ValueError(msg)
+
+                reducer = vd.BlockReduce(
+                    reduction=reduction,
+                    spacing=block_size,
+                    region=region,
+                    center_coordinates=True,
+                )
+
+                coords, data = reducer.filter(
+                    coordinates=coords,
+                    data=data,
+                    weights=weights,
+                )
 
             # run CV for fitting a spline to the data
             spline = optimal_spline_damping(
                 coordinates=coords,
-                data=df.upward,
+                data=data,
                 weights=weights,
                 dampings=dampings,
             )
