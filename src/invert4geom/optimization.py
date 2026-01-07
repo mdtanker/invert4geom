@@ -797,7 +797,7 @@ class OptimalInversionZrefDensity:
 
                 starting_topo = utils.create_topography(
                     **starting_topography_kwargs,
-                ).to_dataset(name="upward")
+                )
             else:
                 if starting_topography_kwargs is not None:
                     msg = (
@@ -919,7 +919,7 @@ class OptimalInversionZrefDensity:
                     with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
                         starting_topo = utils.create_topography(
                             **starting_topography_kwargs,
-                        ).to_dataset(name="upward")
+                        )
                 else:
                     starting_topo = self.starting_topography.copy()
 

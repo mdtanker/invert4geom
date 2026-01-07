@@ -268,7 +268,7 @@ def starting_topography_uncertainty(
             starting_topography = utils.create_topography(
                 constraints_df=sampled_constraints,
                 **new_kwargs,
-            )
+            ).upward
         topos.append(starting_topography)
 
         # sample the topography at the constraint points

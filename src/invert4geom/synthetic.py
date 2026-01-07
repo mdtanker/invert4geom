@@ -133,7 +133,7 @@ def load_synthetic_model(
                 spacing=spacing,
                 constraints_df=constraint_points,
                 dampings=np.logspace(-20, 0, 100),
-            )
+            ).upward
 
         # re-sample the starting topography at the constraint points to see how the
         # gridded did
