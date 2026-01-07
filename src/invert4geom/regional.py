@@ -348,7 +348,8 @@ def regional_constraints(
         damping values used if `grid_method` is "verde", by default None
     depth : float | str | None, optional
         depth of each source relative to the data elevation, positive downwards in
-        meters, by default None
+        meters, by default is 4.5 times the mean nearest-neighbor
+        distance
     damping : float | None, optional
         damping values used if `grid_method` is "eq_sources", by default None
     cv : bool, optional
@@ -514,6 +515,8 @@ def regional_constraints(
             constraints_df.northing,
             constraints_df.sampled_grav_height,
         )
+        if depth is None:
+            depth = "default"
         if depth == "default":
             depth = 4.5 * np.mean(
                 vd.median_distance(
