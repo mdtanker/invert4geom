@@ -390,6 +390,26 @@ def regional_constraints(
     if (grid_method != "verde") & (spline_dampings is not None):
         msg = "`spline_dampings` only used if `grid_method` is 'verde'"
         logger.warning(msg)
+    if grid_method != "eq_sources":
+        if depth is not None:
+            msg = "`depth` only used if `grid_method` is 'eq_sources'"
+            logger.warning(msg)
+        if damping is not None:
+            msg = "`damping` only used if `grid_method` is 'eq_sources'"
+            logger.warning(msg)
+        if cv is True:
+            msg = "`cv` only used if `grid_method` is 'eq_sources'"
+            logger.warning(msg)
+        if block_size is not None:
+            msg = "`block_size` only used if `grid_method` is 'eq_sources'"
+            logger.warning(msg)
+        if grav_obs_height is not None:
+            msg = "`grav_obs_height` only used if `grid_method` is 'eq_sources'"
+            logger.warning(msg)
+        if cv_kwargs is not None:
+            msg = "`cv_kwargs` only used if `grid_method` is 'eq_sources'"
+            logger.warning(msg)
+
     grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     constraints_df = constraints_df.copy()
