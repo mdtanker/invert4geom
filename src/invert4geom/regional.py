@@ -382,6 +382,10 @@ def regional_constraints(
         msg = "need to provide constraints_df"
         raise ValueError(msg)
 
+    # warn about unused args
+    if (grid_method != "pygmt") & (tension_factor != 1):
+        msg = "`tension_factor` only used if `grid_method` is 'pygmt'"
+        logger.warning(msg)
     grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
 
     constraints_df = constraints_df.copy()

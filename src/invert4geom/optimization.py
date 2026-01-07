@@ -2620,7 +2620,7 @@ def optimize_regional_constraint_point_minimization(
 
     # get optimal hyperparameter values
     # if not included in optimization, get from kwargs
-    tension_factor = best_trial.params.get("tension_factor", None)
+    tension_factor = best_trial.params.get("tension_factor", 1)
     spline_dampings = best_trial.params.get("spline_dampings", None)
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     if depth == "default":
