@@ -357,10 +357,12 @@ def filter_grid(
 def dist_nearest_points(
     targets: pd.DataFrame,
     data: pd.DataFrame | xr.DataArray | xr.Dataset,
-    coord_names: tuple[str, str] | None = None,
+    coord_names: tuple[str, str] | str | None = None,
 ) -> typing.Any:
     """
-    for all grid cells calculate to the distance to the nearest target.
+    for all points in `data` calculate to the distance to the nearest `target`. Can be
+    any dimension (1D, 2D, 3D, etc) as long as the length of the provided
+    `coord_names` matches the dimension of the data.
 
     Parameters
     ----------
@@ -368,8 +370,8 @@ def dist_nearest_points(
         contains the coordinates of the targets
     data : pandas.DataFrame | xarray.DataArray | xarray.Dataset
         the grid data, in either gridded or tabular form
-    coord_names : tuple[str, str] | None, optional
-        the names of the coordinates for both the targets and the data, by default None
+    coord_names : tuple[str, str] | str | None, optional
+        the names of the coordinate(s) for both the targets and the data, by default None
 
     Returns
     -------
@@ -381,29 +383,50 @@ def dist_nearest_points(
     if coord_names is None:
         coord_names = ("easting", "northing")
 
-    df_targets = targets[[coord_names[0], coord_names[1]]].copy()
+    if isinstance(coord_names, str):
+        coords = coord_names
+    else:
+        coords = list(coord_names)
 
-    df_data: pd.DataFrame | xr.DataArray | xr.Dataset
+    targets = targets[coords].to_numpy()
+
+    original_data = data.copy()
+
+    data: pd.DataFrame | xr.DataArray | xr.Dataset
     if isinstance(data, pd.DataFrame):
-        df_data = data[list(coord_names)].copy()
+        data_df = data.copy()
+        coords_df = data_df[coords].copy()
     elif isinstance(data, xr.DataArray):
         df_grid = vd.grid_to_table(data).dropna()
-        df_data = df_grid[[coord_names[0], coord_names[1]]].copy()  # pylint: disable=unsubscriptable-object
+        data_df = df_grid.copy()
+        coords_df = data_df[coords].copy()
     elif isinstance(data, xr.Dataset):
         try:
             df_grid = vd.grid_to_table(data[next(iter(data.variables))]).dropna()
-            # df_grid = vd.grid_to_table(data[list(data.variables)[0]]).dropna()
         except IndexError:
             df_grid = vd.grid_to_table(data).dropna()
-        df_data = df_grid[[coord_names[0], coord_names[1]]].copy()  # pylint: disable=unsubscriptable-object
+        data_df = df_grid.copy()
+        coords_df = data_df[coords].copy()
 
-    min_dist, _ = KDTree(df_targets.to_numpy()).query(df_data.to_numpy(), 1)
+    coords_np = coords_df.to_numpy()
 
-    df_data["min_dist"] = min_dist
+    if targets.ndim == 1:
+        targets = targets.reshape(-1, 1)
+    if coords_np.ndim == 1:
+        coords_np = coords_np.reshape(-1, 1)
 
-    if isinstance(data, pd.DataFrame):
-        return df_data
-    return df_data.set_index([coord_names[0], coord_names[1]][::-1]).to_xarray()
+    min_dist, _ = KDTree(targets).query(coords_np, k=1)
+
+    data_df["min_dist"] = min_dist
+
+    if isinstance(original_data, pd.DataFrame):
+        return data_df
+    if isinstance(original_data, xr.Dataset):
+        return data_df.set_index(coords[::-1]).to_xarray()
+    if isinstance(original_data, xr.DataArray):
+        return data_df.set_index(coords[::-1]).to_xarray().min_dist
+    msg = "data must be pandas.DataFrame, xarray.DataArray, or xarray.Dataset"
+    raise ValueError(msg)
 
 
 def normalize(
@@ -475,7 +498,7 @@ def normalize_xarray(
 
 def scale_normalized(
     sample: NDArray,
-    bounds: NDArray,
+    bounds: tuple[float, float],
 ) -> NDArray:
     """
     Rescales the sample space into the unit hypercube, bounds = [0,1]
@@ -484,7 +507,7 @@ def scale_normalized(
     ----------
     sample : NDArray
         sampled values
-    bounds : NDArray
+    bounds : tuple
         bounds of the sampling
 
     Returns
@@ -492,13 +515,11 @@ def scale_normalized(
     NDArray
         sampled values normalized from 0 to 1
     """
-
+    print(sample.shape)
     scaled_sample = np.zeros(sample.shape)
-
+    print(scaled_sample)
     for j in range(sample.shape[1]):
-        scaled_sample[:, j] = (sample[:, j] - bounds[j][0]) / (
-            bounds[j][1] - bounds[j][0]
-        )
+        scaled_sample[:, j] = (sample[:, j] - bounds[0]) / (bounds[1] - bounds[0])
 
     return scaled_sample
 
@@ -549,7 +570,7 @@ def normalized_mindist(
         targets=constraints_df,
         data=grid,
         coord_names=(str(original_dims[1]), str(original_dims[0])),
-    ).min_dist
+    )
 
     # set points < mindist to low
     if mindist is not None:
