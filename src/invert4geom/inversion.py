@@ -48,9 +48,13 @@ def grav_column_der(
     prism_density: NDArray,
 ) -> NDArray:
     """
-    Function to calculate the vertical derivate of the gravitational acceleration at
-    an observation point caused by a right, rectangular prism. Approximated with
-    Hammer's annulus approximation :footcite:p:`mccubbineairborne2016`.
+    Function to calculate the derivative of the vertical gravitational acceleration with
+    respect to height (thickness) of a right-rectangular prism at an  observation point.
+    The equation of the vertical gravitational acceleration of an annulus from
+    :footcite:p:`hammerterrain1939` is differentiated with respect to height to get the
+    derivative of vertical gravity with respect to height of an annulus, and then this
+    is multiplied by the ratio of the area of the prism to the area of the full annulus
+    from :footcite:p:`mccubbineairborne2016`to the approximation for a prism.
 
     Parameters
     ----------
@@ -67,40 +71,74 @@ def grav_column_der(
     Returns
     -------
     numpy.ndarray
-        array of vertical derivative of gravity at observation point for series of
-        prisms
+        array of derivative of vertical gravitational acceleration with respect to prism
+        height at observation point for series of prisms
 
     References
     ----------
     .. footbibliography::
     """
-
+    # distance from gravity observation to prism center in horizontal plane
     r = np.sqrt(
         np.square(grav_northing - prism_northing)
         + np.square(grav_easting - prism_easting)
     )
-    r1 = r - 0.5 * prism_spacing
-    r2 = r + 0.5 * prism_spacing
+
+    # get inner (r1) and outer (r2) radius of annulus
+
+    # McCubbine 2016 Thesis definitions
+    # this results in larger prisms, not sure why he chose this
+    # r1 = r - np.sqrt(np.square(prism_spacing)/2)
+    # r2 = r + np.sqrt(np.square(prism_spacing)/2)
+
+    # instead, we just add/subtract half the prism size to get r1 and r2
+    r1 = r - 0.5 * prism_spacing  # eq. 2.17 in McCubbine 2016 Thesis
+    r2 = r + 0.5 * prism_spacing  # eq. 2.18 in McCubbine 2016 Thesis
 
     # gravity observation point can't be within prism
-    # if it is, instead calculate gravity on prism edge
+    # if it is, shift gravity point to be on prism edge
     r1[r1 < 0] = 0
+
+    # shifting gravity point decreases prism size and thus gravity effect, so shift r2
+    # to maintain prism size
     r2[r2 < prism_spacing] = prism_spacing
 
-    f = np.square(prism_spacing) / (
-        np.pi * (np.square(r2) - np.square(r1))
-    )  # eq 2.19 in McCubbine 2016 Thesis
-    # 2*pi*G = 0.0000419
-    return (
-        0.0000419
-        * f
+    # ratio of area of prism to area of full annulus; eq 2.19 in McCubbine 2016 Thesis
+    f = np.square(prism_spacing) / (np.pi * (np.square(r2) - np.square(r1)))
+
+    # get height from prism top to gravity observation point
+    height = prism_top - grav_upward
+
+    # equation for the vertical  gravity effect of the full annulus
+    # from eq. 2.13 in McCubbine 2016 Thesis or eq. 2 in Hammer (1939)
+    # g_annulus = (
+    #     2 * np.pi * 6.6743e-11
+    #     * prism_density
+    #     * (
+    #         r2 - r1
+    #         + np.sqrt(r1**2 + (height**2))
+    #         - np.sqrt(r2**2 + (height**2))
+    #     )
+    # )
+
+    # take the derivative w.r.t height to get dg/dh of the full annulus
+    dg_dh_annulus = (
+        2
+        * np.pi
+        * 6.6743e-11
         * prism_density
-        * (prism_top - grav_upward)
+        * height
         * (
-            1 / np.sqrt(np.square(r2) + np.square(prism_top - grav_upward))
-            - 1 / np.sqrt(np.square(r1) + np.square(prism_top - grav_upward))
+            1 / np.sqrt(np.square(r2) + np.square(height))
+            - 1 / np.sqrt(np.square(r1) + np.square(height))
         )
     )
+
+    # convert from m/s^2 to mGal
+    dg_dh_annulus *= 1e5
+
+    # multiply by f to get approximate dg/dh of prism (sector of annulus)
+    return dg_dh_annulus * f
 
 
 @numba.njit(parallel=True)
@@ -313,15 +351,12 @@ def jacobian_finite_difference_prisms(
         returns a numpy.ndarray of shape (number of gravity points, number of prisms)
     """
 
-    # Add a small model element on top of existing model element with thickness equal
-    # to delta
+    # Add a small model element on top of existing model element with thickness of delta
     for i in numba.prange(len(model_properties)):  # pylint: disable=not-an-iterable
         element = model_properties[i]
         density = element[6]
         bottom = element[5]  # new prism bottom is top of old prism
         top = element[5] + delta  # new prism top is old prism top + delta
-        # bottom = element[4] - delta / 2 # new prism bottom is old prism bottom - delta/2
-        # top = element[4] + delta / 2 # new prism top is old prism bottom + delta/2
         delta_element = (element[0], element[1], element[2], element[3], bottom, top)
         jac[:, i] = (
             hm.prism_gravity(
@@ -1975,10 +2010,10 @@ class Inversion:
             if np.all((model_element_top - grav_upward.mean()) == 0):
                 msg = (
                     "All prism tops coincides exactly with the elevation of the gravity "
-                    "observation points, leading to issues with calculating the vertical "
-                    "derivative of gravity with the annulus technique. Either slightly "
-                    "change the prism tops or gravity elevations, or use the small-prisms "
-                    "vertical derivative technique."
+                    "observation points, leading to issues with calculating the derivative "
+                    "of gravity with respect to prism thickness using the annulus technique. "
+                    "Either slightly change the prism tops or gravity elevations, or use "
+                    "the small-prisms vertical derivative technique."
                 )
                 raise ValueError(msg)
 
