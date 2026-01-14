@@ -142,7 +142,7 @@ def grav_column_der(
 
 
 @numba.njit(parallel=True)
-def jacobian_annular(
+def jacobian_geometry_annular(
     grav_easting: NDArray,
     grav_northing: NDArray,
     grav_upward: NDArray,
@@ -311,13 +311,13 @@ def jacobian_prism(
     """
     # pylint: disable=W0613
     msg = (
-        "Function `jacobian_prism` deprecated, use the `jacobian_finite_difference_prisms` function "
+        "Function `jacobian_prism` deprecated, use the `jacobian_geometry_finite_difference_prisms` function "
         "instead"
     )
     raise DeprecationWarning(msg)
 
 
-def jacobian_finite_difference_prisms(
+def jacobian_density_finite_difference_prisms(
     model_properties: NDArray,
     grav_easting: NDArray,
     grav_northing: NDArray,
@@ -327,8 +327,8 @@ def jacobian_finite_difference_prisms(
 ) -> NDArray:
     """
     Function to calculate the Jacobian matrix where each entry is the derivative of
-    vertical gravity with respect to thickness of the prisms/tesseroids, calculated
-    using a numerical approximation with small prisms/tesseroids added on top of the
+    vertical gravity with respect to the density of the prisms, calculated
+    using a numerical approximation with changing the density of the prisms of the
     existing model.
 
     Takes arrays from `jacobian` and calculates the jacobian.
@@ -336,12 +336,12 @@ def jacobian_finite_difference_prisms(
     Parameters
     ----------
     model_properties : numpy.ndarray
-        array of prism/tesseroid properties of shape (number of prisms, 7) with the 7 entries for
+        array of prism properties of shape (number of prisms, 7) with the 7 entries for
         each prism being: west, east, south, north, bottom, top, density
     grav_easting, grav_northing,grav_upward : numpy.ndarray
         coordinates of gravity observation points.
     delta : float
-        thickness in meters of small prisms/tesseroids used to calculate vertical derivative
+        small change in density of the prisms used to calculate vertical derivative
     jac : numpy.ndarray
         empty jacobian matrix with a row per gravity observation and a column per prism
 
@@ -350,6 +350,139 @@ def jacobian_finite_difference_prisms(
     numpy.ndarray
         returns a numpy.ndarray of shape (number of gravity points, number of prisms)
     """
+    # Finite difference approx for a first order derivative is:
+    # f'(x) = (f(x+Δx) - f(x))/Δx
+    # where x is the density of the prism
+
+    # we can change the density of the original prism (p1) by Δx giving a new prism (p2)
+    # f'(x) = (f(p2) - f(p1))/Δx
+
+    # the gravity effect of p2 can be split into the effect of p1 and the effect of
+    # prism with a density of Δx (p_Δx):
+    # f(p2) = f(p1) + f(p_Δx)
+
+    # simplifying: f'(x) = f(p_Δx)/Δx
+    # where p_Δx is a prism the same dimensions as p1 but with a small density value Δx
+
+    for i in numba.prange(len(model_properties)):  # pylint: disable=not-an-iterable
+        element = model_properties[i]
+        jac[:, i] = (
+            hm.prism_gravity(
+                coordinates=(grav_easting, grav_northing, grav_upward),
+                prisms=element[0:6],  # prism boundaries
+                density=delta,  # new density is delta,
+                field="g_z",
+                parallel=True,
+            )
+            / delta
+        )
+    return jac
+
+
+def jacobian_density_finite_difference_tesseroids(
+    model_properties: NDArray,
+    grav_easting: NDArray,
+    grav_northing: NDArray,
+    grav_upward: NDArray,
+    delta: float,
+    jac: NDArray,
+) -> NDArray:
+    """
+    Function to calculate the Jacobian matrix where each entry is the derivative of
+    vertical gravity with respect to the density of the tesseroids, calculated
+    using a numerical approximation with changing the density of the tesseroids of the
+    existing model.
+
+    Takes arrays from `jacobian` and calculates the jacobian.
+
+    Parameters
+    ----------
+    model_properties : numpy.ndarray
+        array of tesseroids properties of shape (number of tesseroids, 7) with the 7 entries for
+        each tesseroid being: west, east, south, north, bottom, top, density
+    grav_easting, grav_northing,grav_upward : numpy.ndarray
+        coordinates of gravity observation points.
+    delta : float
+        small change in density of the tesseroids used to calculate vertical derivative
+    jac : numpy.ndarray
+        empty jacobian matrix with a row per gravity observation and a column per tesseroid
+
+    Returns
+    -------
+    numpy.ndarray
+        returns a numpy.ndarray of shape (number of gravity points, number of tesseroids)
+    """
+    # Finite difference approx for a first order derivative is:
+    # f'(x) = (f(x+Δx) - f(x))/Δx
+    # where x is the density of the tesseroids
+
+    # we can change the density of the original tesseroids (p1) by Δx giving a new tesseroid (p2)
+    # f'(x) = (f(p2) - f(p1))/Δx
+
+    # the gravity effect of p2 can be split into the effect of p1 and the effect of
+    # tesseroid with a density of Δx (p_Δx):
+    # f(p2) = f(p1) + f(p_Δx)
+
+    # simplifying: f'(x) = f(p_Δx)/Δx
+    # where p_Δx is a tesseroid the same dimensions as p1 but with a small density value Δx
+
+    for i in numba.prange(len(model_properties)):  # pylint: disable=not-an-iterable
+        element = model_properties[i]
+        jac[:, i] = (
+            hm.tesseroid_gravity(
+                coordinates=(grav_easting, grav_northing, grav_upward),
+                tesseroids=element[0:6],  # tesseroid boundaries
+                density=delta,  # new density is delta,
+                field="g_z",
+                parallel=True,
+            )
+            / delta
+        )
+    return jac
+
+
+def jacobian_geometry_finite_difference_prisms(
+    model_properties: NDArray,
+    grav_easting: NDArray,
+    grav_northing: NDArray,
+    grav_upward: NDArray,
+    delta: float,
+    jac: NDArray,
+) -> NDArray:
+    """
+    Function to calculate the Jacobian matrix where each entry is the derivative of
+    vertical gravity with respect to thickness of the prisms, calculated
+    using a numerical approximation with small prisms added on top of the
+    existing model.
+
+    Takes arrays from `jacobian` and calculates the jacobian.
+
+    Parameters
+    ----------
+    model_properties : numpy.ndarray
+        array of prism properties of shape (number of prisms, 7) with the 7 entries for
+        each prism being: west, east, south, north, bottom, top, density
+    grav_easting, grav_northing,grav_upward : numpy.ndarray
+        coordinates of gravity observation points.
+    delta : float
+        thickness in meters of small prisms used to calculate vertical derivative
+    jac : numpy.ndarray
+        empty jacobian matrix with a row per gravity observation and a column per prism
+
+    Returns
+    -------
+    numpy.ndarray
+        returns a numpy.ndarray of shape (number of gravity points, number of prisms)
+    """
+    # Finite difference approx for a first order derivative is:
+    # f'(x) = (f(x+Δx) - f(x))/Δx
+    # where x is the thickness of the prism
+
+    # we can change the thickness of the original prism (p1) by adding a small prism
+    # (p2) of thickness Δx on top.
+    # f'(x) = ((f(p1)+f(p2)) - f(p1))/Δx
+    # simplifying: f'(x) = f(p2)/Δx
+    # where p2 is the small prism of thickness Δx
 
     # Add a small model element on top of existing model element with thickness of delta
     for i in numba.prange(len(model_properties)):  # pylint: disable=not-an-iterable
@@ -358,6 +491,7 @@ def jacobian_finite_difference_prisms(
         bottom = element[5]  # new prism bottom is top of old prism
         top = element[5] + delta  # new prism top is old prism top + delta
         delta_element = (element[0], element[1], element[2], element[3], bottom, top)
+
         jac[:, i] = (
             hm.prism_gravity(
                 coordinates=(grav_easting, grav_northing, grav_upward),
@@ -372,7 +506,7 @@ def jacobian_finite_difference_prisms(
     return jac
 
 
-def jacobian_finite_difference_tesseroids(
+def jacobian_geometry_finite_difference_tesseroids(
     model_properties: NDArray,
     grav_easting: NDArray,
     grav_northing: NDArray,
@@ -382,8 +516,8 @@ def jacobian_finite_difference_tesseroids(
 ) -> NDArray:
     """
     Function to calculate the Jacobian matrix where each entry is the derivative of
-    vertical gravity with respect to thickness of the prisms/tesseroids, calculated
-    using a numerical approximation with small prisms/tesseroids added on top of the
+    vertical gravity with respect to thickness of the tesseroids, calculated
+    using a numerical approximation with small tesseroids added on top of the
     existing model.
 
     Takes arrays from `jacobian` and calculates the jacobian.
@@ -391,20 +525,30 @@ def jacobian_finite_difference_tesseroids(
     Parameters
     ----------
     model_properties : numpy.ndarray
-        array of prism/tesseroid properties of shape (number of prisms, 7) with the 7 entries for
-        each prism being: west, east, south, north, bottom, top, density
+        array of tesseroid properties of shape (number of tesseroids, 7) with the 7 entries for
+        each tesseroid being: west, east, south, north, bottom, top, density
     grav_easting, grav_northing,grav_upward : numpy.ndarray
         coordinates of gravity observation points.
     delta : float
-        thickness in meters of small prisms/tesseroids used to calculate vertical derivative
+        thickness in meters of small tesseroids used to calculate vertical derivative
     jac : numpy.ndarray
-        empty jacobian matrix with a row per gravity observation and a column per prism
+        empty jacobian matrix with a row per gravity observation and a column per
+        tesseroid
 
     Returns
     -------
     numpy.ndarray
-        returns a numpy.ndarray of shape (number of gravity points, number of prisms)
+        returns a numpy.ndarray of shape (number of gravity points, number of tesseroids)
     """
+    # Finite difference approx for a first order derivative is:
+    # f'(x) = (f(x+Δx) - f(x))/Δx
+    # where x is the thickness of the tesseroid
+
+    # we can change the thickness of the original tesseroid (t1) by adding a small
+    # tesseroid (t2) of thickness Δx on top.
+    # f'(x) = ((f(t1)+f(t2)) - f(t1))/Δx
+    # simplifying: f'(x) = f(t2)/Δx
+    # where t2 is the small tesseroid of thickness Δx
 
     # Add a small model element on top of existing model element with thickness equal
     # to delta
@@ -443,8 +587,8 @@ def jacobian(
     """
     # pylint: disable=W0613
     msg = (
-        "Function `jacobian` deprecated, use the `Inversion` class method `jacobian` "
-        "instead"
+        "Function `jacobian` deprecated, use the `Inversion` class method "
+        "`jacobian_geometry` instead"
     )
     raise DeprecationWarning(msg)
 
@@ -1271,9 +1415,41 @@ class DatasetAccessorInvert4Geom:
 
     ###
     ###
-    # Methods for the prism model dataset
+    # Methods for the model dataset
     ###
     ###
+
+    def add_density_correction(self, step: NDArray) -> xr.Dataset:
+        """
+        update the model dataset with the density corrections.
+        """
+        self._check_correct_dataset_type("model")
+
+        # get dataframe of model layer
+        df = self.masked_df
+
+        # add column of density correction values
+        df = pd.concat(
+            [
+                df.drop(columns=["density_correction"], errors="ignore"),
+                pd.DataFrame({"density_correction": step}),
+            ],
+            axis=1,
+        )
+
+        # df is only for masked prisms, so fill in 0 for unmasked model elements
+        df_full = self.df.drop(columns=["density_correction"], errors="ignore")
+        df_full = df_full.merge(
+            df[["northing", "easting", "density_correction"]],
+            how="left",
+            on=["northing", "easting"],
+        )
+        df_full["density_correction"] = df_full["density_correction"].fillna(0)
+
+        # add the correction values to the model layer dataset
+        ds = df_full.set_index(["northing", "easting"]).to_xarray()
+        ds.attrs.update(self._ds.attrs)
+        return ds
 
     def add_topography_correction(self, step: NDArray) -> xr.Dataset:
         """
@@ -1282,7 +1458,7 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
 
-        # get dataframe of prism layer
+        # get dataframe of model layer
         df = self.masked_df
 
         # add column of topography correction values
@@ -1344,7 +1520,7 @@ class DatasetAccessorInvert4Geom:
             )
             raise ValueError(msg)
 
-        # df is only for masked prisms, so fill in 0 for unmasked prisms
+        # df is only for masked model elements, so fill in 0 for unmasked model elements
         df_full = self.df.drop(columns=["topography_correction"], errors="ignore")
         df_full = df_full.merge(
             df[["northing", "easting", "topography_correction"]],
@@ -1353,36 +1529,58 @@ class DatasetAccessorInvert4Geom:
         )
         df_full["topography_correction"] = df_full["topography_correction"].fillna(0)
 
-        # add the correction values to the prism layer dataset
+        # add the correction values to the model layer dataset
         ds = df_full.set_index(["northing", "easting"]).to_xarray()
         ds.attrs.update(self._ds.attrs)
         return ds
 
-    def update_model_ds(self) -> xr.Dataset:
+    def update_model_ds(
+        self,
+        style: str,
+    ) -> xr.Dataset:
         """
-        apply the corrections grid and update the model tops, bottoms, topo, and
-        densities.
+        apply the corrections (density or topography) and update the model tops,
+        bottoms, topo, and densities.
+
+        Parameters
+        ----------
+        style : str
+            choose which correction to apply; either "density" or "geometry"
+
+        Returns
+        -------
+        xr.Dataset
+            updated model dataset
         """
         self._check_correct_dataset_type("model")
 
         ds = self._ds
-        # apply correction to topo
-        ds["topography"] = ds.topography + ds.topography_correction
 
-        # update the layer
-        if self._ds.model_type == "prisms":
-            ds.prism_layer.update_top_bottom(surface=ds.topography, reference=ds.zref)
-        elif self._ds.model_type == "tesseroids":
-            ds.tesseroid_layer.update_top_bottom(
-                surface=ds.topography, reference=ds.zref
+        # update the topography and model
+        if style == "geometry":
+            ds["topography"] = ds.topography + ds.topography_correction
+            if self._ds.model_type == "prisms":
+                ds.prism_layer.update_top_bottom(
+                    surface=ds.topography, reference=ds.zref
+                )
+            elif self._ds.model_type == "tesseroids":
+                ds.tesseroid_layer.update_top_bottom(
+                    surface=ds.topography, reference=ds.zref
+                )
+            # update the density variable
+            ds["density"] = xr.where(
+                ds.top > ds.zref,
+                ds.density_contrast,
+                -ds.density_contrast,
             )
+        elif style == "density":
+            ds["density"] = ds.density + ds.density_correction
+            # add new density_contrast variable
+            ds["density_contrast"] = ds.density.where(ds.top > ds.zref, -ds.density)
 
-        # update the density
-        ds["density"] = xr.where(
-            ds.top > ds.zref,
-            ds.density_contrast,
-            -ds.density_contrast,
-        )
+        else:
+            msg = "style must be either 'density' or 'geometry'"
+            raise ValueError(msg)
 
         ds.attrs.update(self._ds.attrs)
         return ds
@@ -1770,6 +1968,10 @@ class Inversion:
     model : xarray.Dataset
         A dataset containing the prism or tesseroid layer, which has been initialized
         with :func:`create_model`.
+    style : str, optional
+        style of inversion to run, 'geometry' for changing the topography of the
+        model, or 'density' for changing the density contrast of the model, by
+        default 'geometry'
     max_iterations : int, optional
         Stop the inversion once this number of iterations is reached, by default 100
     l2_norm_tolerance : float, optional
@@ -1789,7 +1991,8 @@ class Inversion:
         between ``annulus``, for an annular approximation or ``finite_difference``,
         for a finite difference approximation, by default ``annulus``
     jacobian_finite_step_size : float, optional
-        thickness in meters of the small prism or tesseroid added to each existing prism
+        small change in density or thickness of the prisms/tesseroids used to calculate
+        entries of the jacobian, by default 1
         or tesseroid for the finite difference approximation, by default 1
     model_properties_method : str, optional
         method to use to extract prism properties while calculating the Jacobian. Choose
@@ -1810,6 +2013,7 @@ class Inversion:
         self,
         data: xr.Dataset,
         model: xr.Dataset,
+        style: str = "geometry",
         max_iterations: int = 100,
         l2_norm_tolerance: float = 0.2,
         delta_l2_norm_tolerance: float = 1.001,
@@ -1827,6 +2031,7 @@ class Inversion:
         """
         self.data = copy.deepcopy(data)
         self.model = copy.deepcopy(model)
+        self.style = style
         self.max_iterations = max_iterations
         self.l2_norm_tolerance = l2_norm_tolerance
         self.delta_l2_norm_tolerance = delta_l2_norm_tolerance
@@ -1977,9 +2182,80 @@ class Inversion:
         self.end = end  # type: ignore[assignment]
         self.termination_reason = termination_reason  # type: ignore[assignment]
 
-    def jacobian(self) -> None:
+    def jacobian_density(self) -> None:
         """
-        dispatcher for creating the jacobian matrix with 2 method options
+        dispatcher for creating the jacobian matrix for a density inversion
+        """
+        if self.deriv_type != "finite_difference":
+            msg = "For density inversions, only 'finite_difference' deriv_type is supported"
+            raise ValueError(msg)
+
+        # convert gravity dataframe to numpy arrays
+        coordinates = self.data.inv.df.select_dtypes(include=["number"])
+        coordinates_array = coordinates.to_numpy()
+
+        # get various arrays based on gravity column names
+        grav_easting = coordinates_array[:, coordinates.columns.get_loc("easting")]
+        grav_northing = coordinates_array[:, coordinates.columns.get_loc("northing")]
+        grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
+
+        assert len(grav_easting) == len(grav_northing) == len(grav_upward)
+
+        # create empty jacobian to fill in
+        # first discard prisms based on mask
+        jac = np.empty(
+            (len(grav_easting), self.model.inv.masked_df.density.size),
+            dtype=np.float64,
+        )
+
+        # get prisms info in following format, 3 methods:
+        # ((west, east, south, north, bottom, top), density)
+        model_properties = _model_properties(
+            self.model.inv.masked,
+            method=self.model_properties_method,
+        )
+        if np.abs(model_properties[:, 4] - model_properties[:, 5]).max() == 0:
+            msg = (
+                "All model elements have zero thickness so we can't perform a density "
+                "inversion. Either include a starting model with non-zero thicknesses "
+                "or change inversion style to 'geometry'."
+            )
+            raise ValueError(msg)
+
+        if self.model.model_type == "prisms":
+            jac = jacobian_density_finite_difference_prisms(
+                model_properties,
+                grav_easting,
+                grav_northing,
+                grav_upward,
+                self.jacobian_finite_step_size,
+                jac,
+            )
+        elif self.model.model_type == "tesseroids":
+            jac = jacobian_density_finite_difference_tesseroids(
+                model_properties,
+                grav_easting,
+                grav_northing,
+                grav_upward,
+                self.jacobian_finite_step_size,
+                jac,
+            )
+
+        # log Jacobian values
+        logger.info("Jacobian shape: %s", np.shape(jac))
+        logger.info(
+            "Jacobian median: %s m, RMS:%s m",
+            round(np.nanmedian(jac), 10),
+            round(utils.rmse(jac), 10),
+        )
+        assert ~np.isnan(jac).any(), "Jacobian contains NaN values"
+
+        self.jac = jac
+
+    def jacobian_geometry(self) -> None:
+        """
+        dispatcher for creating the jacobian matrix for a geometry inversion with 2
+        method options
         """
 
         # convert gravity dataframe to numpy arrays
@@ -2017,7 +2293,7 @@ class Inversion:
                 )
                 raise ValueError(msg)
 
-            jac = jacobian_annular(
+            jac = jacobian_geometry_annular(
                 grav_easting,
                 grav_northing,
                 grav_upward,
@@ -2038,7 +2314,7 @@ class Inversion:
             )
 
             if self.model.model_type == "prisms":
-                jac = jacobian_finite_difference_prisms(
+                jac = jacobian_geometry_finite_difference_prisms(
                     model_properties,
                     grav_easting,
                     grav_northing,
@@ -2047,7 +2323,7 @@ class Inversion:
                     jac,
                 )
             elif self.model.model_type == "tesseroids":
-                jac = jacobian_finite_difference_tesseroids(
+                jac = jacobian_geometry_finite_difference_tesseroids(
                     model_properties,
                     grav_easting,
                     grav_northing,
@@ -2073,8 +2349,9 @@ class Inversion:
 
     def solver(self) -> None:
         """
-        Calculate shift to add to prism's for each iteration of the inversion. Finds
-        the least-squares solution to the Jacobian and the gravity residual
+        Calculate shift to add to prism top or density for each iteration of the
+        inversion. Finds the least-squares solution to the Jacobian and the gravity
+        residual.
         """
         if self.solver_type == "scipy least squares":
             # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lsqr.html
@@ -2094,12 +2371,12 @@ class Inversion:
 
         # log correction values
         logger.info(
-            "Topography correction (before weighting) median: %s m, RMS:%s m",
+            "Topography or density correction (before weighting) median: %s m, RMS:%s m",
             round(np.nanmedian(step), 6),
             round(utils.rmse(step), 6),
         )
 
-        assert ~np.isnan(step).any(), "step contains NaN values"
+        assert ~np.isnan(step).any(), "correction contains NaN values"
 
         self.step = step
 
@@ -2212,32 +2489,53 @@ class Inversion:
             self.iteration = iteration  # type: ignore[assignment]
 
             # calculate jacobian sensitivity matrix
-            self.jacobian()
+            if self.style == "geometry":
+                self.jacobian_geometry()
+            elif self.style == "density":
+                self.jacobian_density()
+            else:
+                msg = "invalid string for style, should be 'geometry' or 'density'"
+                raise ValueError(msg)
 
             # calculate array of topographic correction for each prism
             self.solver()
 
-            # add correction array to prism layer dataset, optionally enforcing
+            # add topography correction array to model dataset, optionally enforcing
             # confining layers
-            self.model = self.model.inv.add_topography_correction(self.step)
+            if self.style == "geometry":
+                self.model = self.model.inv.add_topography_correction(self.step)
+            # add density correction array to model dataset
+            elif self.style == "density":
+                self.model = self.model.inv.add_density_correction(self.step)
 
             # optionally apply weights to the topo correction grid
             if self.apply_weighting_grid is True:
-                self.model["topography_correction"] = (
-                    self.model.topography_correction * self.weighting_grid
-                )
+                if self.style == "geometry":
+                    self.model["topography_correction"] = (
+                        self.model.topography_correction * self.weighting_grid
+                    )
+                elif self.style == "density":
+                    self.model["density_correction"] = (
+                        self.model.density_correction * self.weighting_grid
+                    )
 
-            # add the corrections to the topo and update the prisms dataset
-            self.model = self.model.inv.update_model_ds()
+            # add the corrections and update the prisms dataset
+            self.model = self.model.inv.update_model_ds(style=self.style)
 
             # save results with iteration number
             self.model[f"iter_{self.iteration}_top"] = self.model.top
             self.model[f"iter_{self.iteration}_bottom"] = self.model.bottom
             self.model[f"iter_{self.iteration}_density"] = self.model.density
             self.model[f"iter_{self.iteration}_layer"] = self.model.topography
-            self.model[f"iter_{self.iteration}_correction"] = (
-                self.model.topography_correction
-            )
+            if self.style == "geometry":
+                self.model[f"iter_{self.iteration}_correction"] = (
+                    self.model.topography_correction
+                )
+            elif self.style == "density":
+                self.model[f"iter_{self.iteration}_correction"] = (
+                    self.model.density_correction
+                )
+
             # save current residual with iteration number
             self.data[f"iter_{self.iteration}_initial_residual"] = self.data.res
 
@@ -2283,7 +2581,10 @@ class Inversion:
 
         self.params = {  # type: ignore[assignment]
             # first column
-            "Density contrast(s)": f"{np.unique(np.abs(self.model.density_contrast))} kg/m3",
+            "Density contrast(s)": "Spatially variable"
+            if isinstance(self.model.density_contrast, xr.DataArray)
+            else f"{np.unique(np.abs(self.model.density_contrast))} kg/m3",
+            "Inversion style": self.style,
             "Reference level": f"{self.model.zref} m",
             "Max iterations": self.max_iterations,
             "L2 norm tolerance": f"{self.l2_norm_tolerance}",
@@ -3622,11 +3923,16 @@ class Inversion:
         misfits = [
             s for s in self.data.inv.df.columns.to_list() if "initial_residual" in s
         ]
-        topos = [
-            s
-            for s in self.model.inv.df.columns.to_list()
-            if "_layer" in s and "confining" not in s
-        ]
+        if self.style == "geometry":
+            topos = [
+                s
+                for s in self.model.inv.df.columns.to_list()
+                if "_layer" in s and "confining" not in s
+            ]
+        elif self.style == "density":
+            densities = [
+                s for s in self.model.inv.df.columns.to_list() if "_density" in s
+            ]
         corrections = [
             s for s in self.model.inv.df.columns.to_list() if "_correction" in s
         ]
@@ -3646,17 +3952,27 @@ class Inversion:
 
         # subset columns based on iterations to plot
         misfits = [misfits[i] for i in [x - 1 for x in iterations]]
-        topos = [topos[i] for i in [x - 1 for x in iterations]]
+        if self.style == "geometry":
+            topos = [topos[i] for i in [x - 1 for x in iterations]]
+        elif self.style == "density":
+            densities = [densities[i] for i in [x - 1 for x in iterations]]
         corrections = [corrections[i] for i in [x - 1 for x in iterations]]
 
         # grid all results
         ds = self.data.inv.inner
         misfit_grids = [ds[g] for g in misfits]
         ds = self.model.inv.inner
-        topo_grids = [ds[g] for g in topos]
+        if self.style == "geometry":
+            updated_grids = [ds[g] for g in topos]
+        elif self.style == "density":
+            updated_grids = [ds[g] for g in densities]
+        else:
+            msg = "invalid string for style, should be 'geometry' or 'density'"
+            raise ValueError(msg)
+
         correction_grids = [ds[g] for g in corrections]
 
-        grids = (misfit_grids, topo_grids, correction_grids)
+        grids = (misfit_grids, updated_grids, correction_grids)
 
         if plot_iter_results is True:
             plotting.plot_inversion_iteration_results(
@@ -3665,6 +3981,7 @@ class Inversion:
                 self.model.inv.masked_df,
                 self.params,  # type: ignore[arg-type]
                 iterations,
+                style=self.style,
                 topo_cmap_perc=kwargs.get("topo_cmap_perc", 1),
                 misfit_cmap_perc=kwargs.get("misfit_cmap_perc", 1),
                 corrections_cmap_perc=kwargs.get("corrections_cmap_perc", 1),
@@ -3672,7 +3989,7 @@ class Inversion:
                 constraint_size=kwargs.get("constraint_size", 1),
             )
 
-        if plot_topo_results is True:
+        if self.style == "geometry" and plot_topo_results is True:
             plotting.plot_inversion_topo_results(
                 self.model,
                 constraints_df=constraints_df,
