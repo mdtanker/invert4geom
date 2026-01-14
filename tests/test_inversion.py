@@ -484,6 +484,34 @@ def test_update_gravity_and_residual():
         model.inv._update_gravity_and_residual(model)
 
 
+def test_add_density_correction():
+    """
+    test the density correction values are correctly added to the model dataset
+    """
+    model = invert4geom.inversion.create_model(
+        topography=flat_topography_500m(),
+        zref=100,
+        density_contrast=200,
+    )
+    # set density correction to be 10
+    step = np.full_like(model.inv.df.topography.to_numpy(), 10)
+
+    # update the dataset with the density corrections
+    model = model.inv.add_density_correction(step)
+
+    assert "density_correction" in model.inv.df.columns
+    npt.assert_array_equal(model.inv.df.density_correction.to_numpy(), step)
+
+    # check error is raised if called for data object
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    with pytest.raises(
+        ValueError, match="Method is only available for the model dataset"
+    ):
+        grav_data.inv.add_density_correction(step)
+
+
 def test_add_topography_correction():
     """
     test the surface correction values are correctly added to the model dataset
@@ -510,6 +538,26 @@ def test_add_topography_correction():
         ValueError, match="Method is only available for the model dataset"
     ):
         grav_data.inv.add_topography_correction(step)
+
+
+def test_add_density_correction_negated_density():
+    """
+    test the density correction values are correctly added to the model dataset with
+    positive and negative densities
+    """
+    model = invert4geom.inversion.create_model(
+        topography=true_topography(),
+        zref=500,  # this is in middle of topography
+        density_contrast=200,
+    )
+    # set density correction to be 10
+    step = np.full_like(model.inv.df.topography.to_numpy(), 10)
+
+    # update the dataset with the density corrections
+    model = model.inv.add_density_correction(step)
+
+    assert "density_correction" in model.inv.df.columns
+    npt.assert_array_equal(np.abs(model.inv.df.density_correction.to_numpy()), step)
 
 
 def test_add_topography_correction_negated_density():
@@ -563,7 +611,7 @@ def test_add_topography_correction_confining_layers():
     npt.assert_array_equal(model.topography_correction.to_numpy(), true_step)
 
 
-def test_update_model_ds():
+def test_update_model_ds_geometry():
     """
     test the model is update with the surface correction values
     """
@@ -577,7 +625,7 @@ def test_update_model_ds():
 
     # update the dataset with the surface corrections and update the model
     model = model.inv.add_topography_correction(step)
-    model = model.inv.update_model_ds()
+    model = model.inv.update_model_ds(style="geometry")
 
     # test the topography is raised by 10m
     npt.assert_array_equal(
@@ -587,6 +635,11 @@ def test_update_model_ds():
     # test the top values are raised by 10m
     npt.assert_array_equal(model.top, flat_topography_500m().upward + 10)
 
+    with pytest.raises(
+        ValueError, match="style must be either 'density' or 'geometry'"
+    ):
+        model.inv.update_model_ds(style="not_density_or_geometry")
+
     # check error is raised if called for data object
     grav_data = invert4geom.inversion.create_data(
         observed_gravity(), buffer_width=10000
@@ -594,7 +647,39 @@ def test_update_model_ds():
     with pytest.raises(
         ValueError, match="Method is only available for the model dataset"
     ):
-        grav_data.inv.update_model_ds()
+        grav_data.inv.update_model_ds(style="geometry")
+
+
+def test_update_model_ds_density():
+    """
+    test the model is update with the density correction values
+    """
+    model = invert4geom.inversion.create_model(
+        topography=flat_topography_500m(),
+        zref=100,
+        density_contrast=200,
+    )
+    # set density correction to be 10
+    step = np.full_like(model.inv.df.topography.to_numpy(), 10)
+
+    # update the dataset with the density corrections and update the model
+    model = model.inv.add_density_correction(step)
+    model = model.inv.update_model_ds(style="density")
+
+    # test the density values are raised by 10
+    npt.assert_array_equal(model.density, 200 + 10)
+
+    # check a new variable 'density_contrast' is created
+    assert "density_contrast" in model.inv.df.columns
+
+    # check error is raised if called for data object
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity(), buffer_width=10000
+    )
+    with pytest.raises(
+        ValueError, match="Method is only available for the model dataset"
+    ):
+        grav_data.inv.update_model_ds(style="density")
 
 
 def test_create_data_variable_name_error_raised():
@@ -989,7 +1074,69 @@ def test_model_properties():
 
 
 @pytest.mark.use_numba
-def test_jacobian_error_raised():
+def test_jacobian_density_error_raised():
+    """
+    test the jacobian method raises the correct errors
+    """
+    # create 2x2 topography grid
+    easting = [0, 5]
+    northing = [0, 5]
+    surface = [
+        [100, 100],
+        [100, 100],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    # create 2x2 gravity dataset
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=([[10, 10], [10, 10]], [[100, 100], [100, 100]]),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(-1e3, 10000, topo)
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        style="density",
+        deriv_type="annulus",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="For density inversions, only 'finite_difference' deriv_type is supported",
+    ):
+        inv.jacobian_density()
+
+    topo = xr.full_like(topo.upward, 1e3).to_dataset(name="upward")
+    model = invert4geom.inversion.create_model(1e3, 100, topo)
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        style="density",
+        deriv_type="finite_difference",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="All model elements have zero thickness so we can't perform a density",
+    ):
+        inv.jacobian_density()
+
+
+@pytest.mark.use_numba
+def test_jacobian_geometry_error_raised():
     """
     test the jacobian method raises the correct errors
     """
@@ -1031,7 +1178,7 @@ def test_jacobian_error_raised():
         ValueError,
         match="All prism tops coincides exactly with the elevation of the gravity",
     ):
-        inv.jacobian()
+        inv.jacobian_geometry()
 
     topo = xr.full_like(topo.upward, 80).to_dataset(name="upward")
     model = invert4geom.inversion.create_model(-1e3, 10000, topo)
@@ -1042,11 +1189,11 @@ def test_jacobian_error_raised():
     )
 
     with pytest.raises(ValueError, match="invalid string for deriv_type"):
-        inv.jacobian()
+        inv.jacobian_geometry()
 
 
 @pytest.mark.use_numba
-def test_jacobian_annulus():
+def test_jacobian_geometry_annulus():
     """
     test the jacobian method works correctly
     """
@@ -1091,7 +1238,7 @@ def test_jacobian_annulus():
     # for each prism
     # so index (0,0) is the sensitivity of the first gravity point to the first prism
     # and index (3,3) is the sensitivity of the last gravity point to the last prism
-    inv.jacobian()
+    inv.jacobian_geometry()
 
     # check shape is correct
     assert np.shape(inv.jac) == (4, 4)
@@ -1113,7 +1260,7 @@ def test_jacobian_annulus():
 
 
 @pytest.mark.use_numba
-def test_jacobian_finite_difference():
+def test_jacobian_geometry_finite_difference():
     """
     test the jacobian method works correctly
     """
@@ -1154,7 +1301,7 @@ def test_jacobian_finite_difference():
     # for each prism
     # so index (0,0) is the sensitivity of the first gravity point to the first prism
     # and index (3,3) is the sensitivity of the last gravity point to the last prism
-    inv.jacobian()
+    inv.jacobian_geometry()
 
     # check shape is correct
     assert np.shape(inv.jac) == (4, 4)
@@ -1214,7 +1361,7 @@ def test_solver():
         solver_damping=0.01,
     )
 
-    inv.jacobian()
+    inv.jacobian_geometry()
 
     inv.solver()
 
