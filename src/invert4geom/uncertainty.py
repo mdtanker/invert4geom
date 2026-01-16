@@ -273,9 +273,10 @@ def starting_topography_uncertainty(
 
         # sample the topography at the constraint points
         sampled_constraints = utils.sample_grids(
-            sampled_constraints,
-            starting_topography,
-            "sampled",
+            df=sampled_constraints,
+            grid=starting_topography,
+            sampled_name="sampled",
+            coord_names=coord_names,
         )
         # get weights of rmse between constraints and results
         weight_vals.append(
