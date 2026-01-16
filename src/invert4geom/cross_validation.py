@@ -70,7 +70,7 @@ def add_test_points(
         msg = "gravity dataframe already contains a 'test' column, not resampling. If you'd like to remove the test points, use `remove_test_points()."
         raise ValueError(msg)
 
-    coord_names = list(ds.dims)
+    coord_names = ds.coord_names
 
     # create coords for full data at half spacing
     coords = vd.grid_coordinates(
@@ -84,7 +84,7 @@ def add_test_points(
         (coords[0], coords[1]),
         data=np.ones_like(coords[0]),
         data_names="tmp",
-        dims=coord_names,
+        dims=[coord_names[1], coord_names[0]],
     )
     # turn dataarray in dataframe
     full_df: pd.DataFrame = vd.grid_to_table(full_points).drop(columns="tmp")
@@ -100,8 +100,8 @@ def add_test_points(
     train_df["test"] = False
 
     # merge training and testing dfs
-    df = full_df.set_index(coord_names)
-    df.update(train_df.set_index(coord_names))
+    df = full_df.set_index([coord_names[1], coord_names[0]])
+    df.update(train_df.set_index([coord_names[1], coord_names[0]]))
     df2 = df.reset_index()
 
     df2["test"] = df2.test.astype(bool)
@@ -116,17 +116,19 @@ def add_test_points(
                 raise ValueError(msg)
             try:
                 df2[i] = utils.sample_grids(
-                    df2,
-                    ds[i],
-                    i,
+                    df=df2,
+                    grid=ds[i],
+                    sampled_name=i,
+                    coord_names=coord_names,
                 )[i].astype(ds[i].dtype)
             except pd.errors.IntCastingNaNError as e:
                 logger.error(e)
                 df2[i] = utils.sample_grids(
-                    df2,
-                    ds[i],
-                    i,
-                )[i]
+                    df=df2,
+                    grid=ds[i],
+                    sampled_name=i,
+                    coord_names=coord_names,
+                )[i].astype(ds[i].dtype)
 
     # retain original data types
     dtypes = {k: v for k, v in ds.inv.df.dtypes.items() if k in ds.inv.df}
@@ -134,7 +136,7 @@ def add_test_points(
 
     # test with this, using same input spacing as original
     # pd.testing.assert_frame_equal(df2, full_res_grav, check_like=True,)
-    ds_new = df2.set_index(coord_names).to_xarray()
+    ds_new = df2.set_index([coord_names[1], coord_names[0]]).to_xarray()
 
     # retain attributes
     ds_new.attrs.update(ds.attrs)  # pylint: disable=protected-access
@@ -651,6 +653,7 @@ def regional_separation_score(
         df=testing_df,
         grid=grav_ds.res,
         sampled_name="res",
+        coord_names=grav_ds.coord_names,
     )
 
     # calculate scores
