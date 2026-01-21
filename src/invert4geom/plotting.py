@@ -1442,25 +1442,12 @@ def plot_latin_hypercube(
 
         plt.show()
 
-    dim = np.shape(df)[1]
-
-    param_values = df.to_numpy()
-
-    problem = {
-        "num_vars": dim,
-        "names": [i.replace("_", " ") for i in df.columns],
-        "bounds": [[-1, 1]] * dim,
-    }
-
-    # Rescale to the unit hypercube for the analysis
-    sample = utils.scale_normalized(param_values, problem["bounds"])
-
     # 2D projection
     if plot_2d_projections:
         if len(df.columns) == 1:
             pass
         else:
-            plot_sampled_projection_2d(sample, problem["names"])
+            plot_sampled_projection_2d(df)
 
 
 def projection_2d(
@@ -1478,36 +1465,155 @@ def projection_2d(
 
 
 def plot_sampled_projection_2d(
-    sample: NDArray,
-    var_names: list[str],
+    sample: pd.DataFrame,
 ) -> None:
     """
     Plots the samples projected on each 2D plane
 
     Parameters
     ----------
-    sample : numpy.ndarray
+    sample : pd.DataFrame
         The sampled values
-    var_names : list[str]
-        The names of the variables
     """
-    dim = sample.shape[1]
+    df = sample.copy()
+    var_names = df.columns.tolist()
+    dim = len(var_names)
 
+    norm_var_names = [f"{c}_normalized" for c in var_names]
+
+    # Rescale to the unit hypercube for the analysis
+    for c in var_names:
+        df[f"{c}_normalized"] = utils.normalize(df[c].values, low=0, high=1)
+
+    fig, axs = plt.subplots(dim, dim, figsize=(6, 6))  # nrows, ncols
+
+    cmap = plt.cm.get_cmap("Greys")
+
+    vals_list = []
+    da_list = []
     for i in range(dim):
         for j in range(dim):
-            plt.subplot(dim, dim, i * dim + j + 1)
-            plt.scatter(
-                sample[:, j],
-                sample[:, i],
-                s=2,
-            )
-            if j == 0:
-                plt.ylabel(var_names[i], rotation=0, ha="right")
-            if i == dim - 1:
-                plt.xlabel(var_names[j], rotation=20, ha="right")
+            if i == j:
+                min_dist = None
+            else:
+                # create grid of parameter coordinates
+                (x, y) = vd.grid_coordinates(
+                    region=[
+                        df[norm_var_names[j]].min(),
+                        df[norm_var_names[j]].max(),
+                        df[norm_var_names[i]].min(),
+                        df[norm_var_names[i]].max(),
+                    ],
+                    shape=(100, 100),
+                    pixel_register=True,
+                )
 
-            plt.xticks([])
-            plt.yticks([])
+                # make dataarray of parameter space
+                grid = vd.make_xarray_grid(
+                    (x, y),
+                    np.ones_like(x),
+                    dims=(norm_var_names[i], norm_var_names[j]),
+                    data_names="data",
+                ).data
+
+                min_dist = utils.normalized_mindist(
+                    df[[norm_var_names[i], norm_var_names[j]]],
+                    grid=grid,
+                    # low=0,
+                    # high=1,
+                )
+                vals_list.append(min_dist.to_numpy().flatten())
+            da_list.append(min_dist)
+
+    vals = np.concatenate(vals_list)
+    # cpt_lims = (0, polar_utils.get_combined_min_max(vals)[1])
+    cpt_lims = (0, 0.5)
+    k = 0
+    for i in range(dim):
+        for j in range(dim):
+            if da_list[k] is not None:
+                im = da_list[k].plot(
+                    ax=axs[i, j],
+                    cmap=cmap,
+                    add_colorbar=False,
+                    vmin=cpt_lims[0],
+                    vmax=cpt_lims[1],
+                    add_labels=False,
+                )
+
+            axs[i, j].scatter(
+                df[norm_var_names[j]],
+                df[norm_var_names[i]],
+                s=2,
+                zorder=10,
+                clip_on=False,
+            )
+            axs[i, j].set_xlim(df[norm_var_names[j]].min(), df[norm_var_names[j]].max())
+            axs[i, j].set_ylim(df[norm_var_names[i]].min(), df[norm_var_names[i]].max())
+
+            if j == 0:
+                axs[i, j].set_ylabel(var_names[i], rotation=0, ha="right")
+            if i == dim - 1:
+                axs[i, j].set_xlabel(var_names[j], rotation=20, ha="right")
+
+            # axs[i, j].set_xticks([])
+            # axs[i, j].set_yticks([])
+
+            # set 3 ticks for each subplot
+            axs[i, j].xaxis.set_major_locator(plt.MaxNLocator(2))
+            axs[i, j].yaxis.set_major_locator(plt.MaxNLocator(2))
+
+            # add actual variable values as tick labels
+            x_ticks = axs[i, j].get_xticks()
+            y_ticks = axs[i, j].get_yticks()
+            x_tick_labels = []
+            y_tick_labels = []
+            for xt in x_ticks:
+                # rescale to actual variable values
+                val = (
+                    xt * (df[var_names[j]].max() - df[var_names[j]].min())
+                    + df[var_names[j]].min()
+                )
+                x_tick_labels.append(f"{val:.2f}")
+            for yt in y_ticks:
+                val = (
+                    yt * (df[var_names[i]].max() - df[var_names[i]].min())
+                    + df[var_names[i]].min()
+                )
+                y_tick_labels.append(f"{val:.2f}")
+            axs[i, j].set_xticklabels(x_tick_labels)
+            axs[i, j].set_yticklabels(y_tick_labels)
+
+            k += 1
+
+    # add colorbar of distances
+    x = list(np.arange(cpt_lims[0], cpt_lims[1], 0.1))
+    x = [round(i, 2) for i in x]
+    if round(cpt_lims[1], 2) not in x:
+        x.append(cpt_lims[1])
+    cbar_ax = fig.add_axes([0.2, -0.04, 0.6, 0.02])
+    fig.colorbar(
+        im,
+        cax=cbar_ax,
+        orientation="horizontal",
+        label="Normalized distance to nearest sample",
+        ticks=x,
+        format=mpl.ticker.FormatStrFormatter("%.2g"),  # "%.2f"),
+    )
+
+    # add histogram to colorbar
+    ll, bb, ww, hh = cbar_ax.get_position().bounds
+    hist_ax = fig.add_axes([ll, bb + hh, ww, 0.06])
+    _n, bins, patches = hist_ax.hist(vals, bins=100)
+    bin_centers = 0.5 * (bins[:-1] + bins[1:])
+    col = bin_centers - min(bin_centers)
+    col /= max(col)
+    for c, p in zip(col, patches, strict=False):
+        plt.setp(p, "facecolor", cmap(c))
+
+    hist_ax.set_xlim(cpt_lims[0], cpt_lims[1])
+    hist_ax.set_axis_off()
+
     plt.show()
 
 

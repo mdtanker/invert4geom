@@ -54,6 +54,7 @@ from .synthetic import (  # noqa: E402
     synthetic_topography_simple,
 )
 from .uncertainty import (  # noqa: E402
+    create_lhc,
     full_workflow_uncertainty_loop,
     merged_stats,
     randomly_sample_data,
@@ -61,7 +62,9 @@ from .uncertainty import (  # noqa: E402
 )
 from .utils import (  # noqa: E402
     create_topography,
+    dist_nearest_points,
     gravity_decay_buffer,
+    normalize_xarray,
     normalized_mindist,
     optimal_spline_damping,
     rmse,
