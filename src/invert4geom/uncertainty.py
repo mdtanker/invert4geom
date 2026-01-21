@@ -197,6 +197,7 @@ def starting_topography_uncertainty(
     plot: bool = True,
     plot_region: tuple[float, float, float, float] | None = None,
     true_topography: xr.DataArray | None = None,
+    coord_names: tuple[str, str] = ("easting", "northing"),
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
@@ -222,7 +223,9 @@ def starting_topography_uncertainty(
     true_topography : xarray.DataArray | None, optional
         if the true topography is known, will make a plot comparing the results, by
         default None
-
+    coord_names : tuple[str, str], optional
+        names of the coordinate columns in the constraints dataframe, by default
+        ("easting", "northing")
     Returns
     -------
     stats_ds: xarray.Dataset
@@ -273,9 +276,10 @@ def starting_topography_uncertainty(
 
         # sample the topography at the constraint points
         sampled_constraints = utils.sample_grids(
-            sampled_constraints,
-            starting_topography,
-            "sampled",
+            df=sampled_constraints,
+            grid=starting_topography,
+            sampled_name="sampled",
+            coord_names=coord_names,
         )
         # get weights of rmse between constraints and results
         weight_vals.append(
