@@ -60,7 +60,7 @@ def regional_constant(
             )
             raise ValueError(msg)
 
-        utils._check_constraints_inside_gravity_region(constraints_df, grav_ds.inv.df)  # pylint: disable=protected-access
+        utils._check_constraints_inside_gravity_region(constraints_df, grav_ds)  # pylint: disable=protected-access
 
         # get the gravity values at the constraint points
         constraints_df = constraints_df.copy()
@@ -70,6 +70,7 @@ def regional_constant(
             df=constraints_df,
             grid=grav_ds.misfit,
             sampled_name="sampled_grav",
+            coord_names=grav_ds.coord_names,
         )
 
         # use median of sampled value for DC shift
@@ -422,13 +423,16 @@ def regional_constraints(
 
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
+    coord_names = grav_ds.coord_names
+
     # sample gravity at constraint points
     constraints_df = utils.sample_grids(
         df=constraints_df,
         grid=grav_ds.misfit,
         sampled_name="sampled_grav",
+        coord_names=coord_names,
         no_skip=True,
-        verbose="q",
+        verbose="quiet",
     )
 
     # drop rows with NaN values
@@ -440,8 +444,9 @@ def regional_constraints(
             df=constraints_df,
             grid=grav_ds.upward,
             sampled_name="sampled_grav_height",
+            coord_names=coord_names,
             no_skip=True,
-            verbose="q",
+            verbose="quiet",
         )
         # drop rows with NaN values
         constraints_df = constraints_df[constraints_df.sampled_grav_height.notna()]
@@ -463,8 +468,8 @@ def regional_constraints(
 
         data = constraints_df.sampled_grav
         coordinates = (
-            constraints_df.easting,
-            constraints_df.northing,
+            constraints_df[coord_names[0]],
+            constraints_df[coord_names[1]],
         )
 
         if grid_method == "eq_sources":
@@ -482,7 +487,7 @@ def regional_constraints(
             )
 
         # add reduced coordinates to a dictionary
-        coord_cols = dict(zip(["easting", "northing"], coordinates, strict=False))
+        coord_cols = dict(zip(coord_names, coordinates, strict=False))
 
         # add reduced data to a dictionary
         data_cols = {"sampled_grav": data}
@@ -504,13 +509,13 @@ def regional_constraints(
     if grid_method == "pygmt":
         registration = polar_utils.get_grid_info(grav_ds.forward_gravity)[-1]
         da = pygmt.surface(
-            data=constraints_df[["easting", "northing", "sampled_grav"]],
+            data=constraints_df[[coord_names[0], coord_names[1], "sampled_grav"]],
             region=grav_ds.region,
             spacing=grav_ds.spacing,
             registration=registration,
             tension=tension_factor,
             verbose="quiet",
-        ).rename({"x": "easting", "y": "northing"})
+        ).rename({"x": coord_names[0], "y": coord_names[1]})
         grav_ds["reg"] = da
     ###
     ###
@@ -520,8 +525,8 @@ def regional_constraints(
     elif grid_method == "verde":
         spline = utils.optimal_spline_damping(
             coordinates=(
-                constraints_df.easting,
-                constraints_df.northing,
+                constraints_df[coord_names[0]],
+                constraints_df[coord_names[1]],
             ),
             data=constraints_df.sampled_grav,
             weights=weights,
@@ -529,7 +534,10 @@ def regional_constraints(
         )
         # predict fitted grid at gravity points
         grav_ds["reg"] = spline.grid(
-            coordinates=(grav_ds.easting.to_numpy(), grav_ds.northing.to_numpy()),
+            coordinates=(
+                grav_ds[coord_names[0]].to_numpy(),
+                grav_ds[coord_names[1]].to_numpy(),
+            ),
             data_names=["reg"],
         ).reg
     ###
@@ -539,8 +547,8 @@ def regional_constraints(
     ###
     elif grid_method == "eq_sources":
         coords = (
-            constraints_df.easting,
-            constraints_df.northing,
+            constraints_df[coord_names[0]],
+            constraints_df[coord_names[1]],
             constraints_df.sampled_grav_height,
         )
         data = constraints_df.sampled_grav
@@ -610,11 +618,11 @@ def regional_constraints(
         if grav_obs_height is None:
             grav_obs_height = df.upward
         else:
-            grav_obs_height = np.ones_like(df.easting.values) * grav_obs_height
-        coords = (df.easting, df.northing, grav_obs_height)
+            grav_obs_height = np.ones_like(df[coord_names[0]].values) * grav_obs_height
+        coords = (df[coord_names[0]], df[coord_names[1]], grav_obs_height)
 
         df["reg"] = eqs.predict(coords)
-        grav_ds["reg"] = df.set_index(["northing", "easting"]).to_xarray().reg
+        grav_ds["reg"] = df.set_index([coord_names[1], coord_names[0]]).to_xarray().reg
     else:
         msg = "invalid string for grid_method"
         raise ValueError(msg)
@@ -659,7 +667,7 @@ def regional_constraints_cv(
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df,
-        grav_ds.inv.df,
+        grav_ds,
     )
 
     df = constraints_df.copy()

@@ -771,7 +771,7 @@ class OptimalInversionZrefDensity:
                 if starting_topography_kwargs["method"] == "flat":
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
-                    starting_topography_kwargs["upwards"] = (
+                    starting_topography_kwargs["upward"] = (
                         self.inversion_obj.model.zref
                     )
 
@@ -789,11 +789,14 @@ class OptimalInversionZrefDensity:
                     )
                     raise ValueError(msg)
                 if starting_topography_kwargs["method"] == "flat":
-                    msg = "using zref to create a flat starting topography model"
-                    logger.info(msg)
-                    starting_topography_kwargs["upwards"] = (
-                        self.inversion_obj.model.zref
-                    )
+                    if starting_topography_kwargs.get("upward", None) is None:
+                        msg = "using zref to create a flat starting topography model"
+                        logger.info(msg)
+                        starting_topography_kwargs["upward"] = (
+                            self.inversion_obj.model.zref
+                        )
+                    else:
+                        starting_topography_kwargs["upward"] = starting_topography_kwargs.get("upward")
 
                 starting_topo = utils.create_topography(
                     **starting_topography_kwargs,
@@ -806,7 +809,7 @@ class OptimalInversionZrefDensity:
                     )
                     raise ValueError(msg)
                 starting_topo = self.starting_topography.copy()
-
+            print("starting topo:/n", starting_topo)
             # update model with new topography
             self.inversion_obj.model = inversion.create_model(
                 zref=self.inversion_obj.model.zref,
@@ -816,6 +819,7 @@ class OptimalInversionZrefDensity:
                 upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
                 lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
             )
+            print("model:/n", self.inversion_obj.model)
 
             # calculate forward gravity of starting prism layer
             self.inversion_obj.data.inv.forward_gravity(self.inversion_obj.model)
@@ -908,7 +912,7 @@ class OptimalInversionZrefDensity:
                     if starting_topography_kwargs["method"] == "flat":
                         msg = "using zref to create a flat starting topography model"
                         logger.info(msg)
-                        starting_topography_kwargs["upwards"] = (
+                        starting_topography_kwargs["upward"] = (
                             self.inversion_obj.model.zref
                         )
                     elif starting_topography_kwargs["method"] == "splines":

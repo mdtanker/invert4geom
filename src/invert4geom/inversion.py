@@ -234,13 +234,16 @@ def _model_properties(
     numpy.ndarray
         array of layer properties
     """
+    coord_names = layer.coord_names
 
     if method == "itertools":
         layer_properties = []
         for (
             y,
             x,
-        ) in itertools.product(range(layer.northing.size), range(layer.easting.size)):
+        ) in itertools.product(
+            range(layer[coord_names[1]].size), range(layer[coord_names[0]].size)
+        ):
             if layer.model_type == "prisms":
                 layer_properties.append(
                     [
@@ -258,8 +261,8 @@ def _model_properties(
         layer_properties = np.array(layer_properties)
     elif method == "forloops":
         layer_properties = []
-        for y in range(layer.northing.size):
-            for x in range(layer.easting.size):
+        for y in range(layer[coord_names[1]].size):
+            for x in range(layer[coord_names[0]].size):
                 if layer.model_type == "prisms":
                     layer_properties.append(
                         [
@@ -281,15 +284,15 @@ def _model_properties(
             layer_properties = [
                 list(layer.prism_layer.get_prism((y, x)))  # noqa: RUF005
                 + [layer.density.to_numpy()[y, x]]
-                for y in range(layer.northing.size)
-                for x in range(layer.easting.size)
+                for y in range(layer[coord_names[1]].size)
+                for x in range(layer[coord_names[0]].size)
             ]
         elif layer.model_type == "tesseroids":
             layer_properties = [
                 list(layer.tesseroid_layer.get_tesseroid((y, x)))  # noqa: RUF005
                 + [layer.density.to_numpy()[y, x]]
-                for y in range(layer.northing.size)
-                for x in range(layer.easting.size)
+                for y in range(layer[coord_names[1]].size)
+                for x in range(layer[coord_names[0]].size)
             ]
     else:
         msg = "method must be one of 'itertools', 'forloops', or 'generator'"
@@ -329,6 +332,7 @@ def jacobian_density_finite_difference_prisms(
     Function to calculate the Jacobian matrix where each entry is the derivative of
     vertical gravity with respect to the density of the prisms, calculated
     using a numerical approximation with changing the density of the prisms of the
+
     existing model.
 
     Takes arrays from `jacobian` and calculates the jacobian.
@@ -342,6 +346,7 @@ def jacobian_density_finite_difference_prisms(
         coordinates of gravity observation points.
     delta : float
         small change in density of the prisms used to calculate vertical derivative
+
     jac : numpy.ndarray
         empty jacobian matrix with a row per gravity observation and a column per prism
 
@@ -508,8 +513,8 @@ def jacobian_geometry_finite_difference_prisms(
 
 def jacobian_geometry_finite_difference_tesseroids(
     model_properties: NDArray,
-    grav_easting: NDArray,
-    grav_northing: NDArray,
+    grav_longitude: NDArray,
+    grav_latitude: NDArray,
     grav_upward: NDArray,
     delta: float,
     jac: NDArray,
@@ -517,6 +522,7 @@ def jacobian_geometry_finite_difference_tesseroids(
     """
     Function to calculate the Jacobian matrix where each entry is the derivative of
     vertical gravity with respect to thickness of the tesseroids, calculated
+
     using a numerical approximation with small tesseroids added on top of the
     existing model.
 
@@ -528,6 +534,7 @@ def jacobian_geometry_finite_difference_tesseroids(
         array of tesseroid properties of shape (number of tesseroids, 7) with the 7 entries for
         each tesseroid being: west, east, south, north, bottom, top, density
     grav_easting, grav_northing,grav_upward : numpy.ndarray
+    grav_longitude, grav_latitude, grav_upward : numpy.ndarray
         coordinates of gravity observation points.
     delta : float
         thickness in meters of small tesseroids used to calculate vertical derivative
@@ -561,7 +568,7 @@ def jacobian_geometry_finite_difference_tesseroids(
 
         jac[:, i] = (
             hm.tesseroid_gravity(
-                coordinates=(grav_easting, grav_northing, grav_upward),
+                coordinates=(grav_longitude, grav_latitude, grav_upward),
                 tesseroids=delta_element,
                 density=density,
                 field="g_z",
@@ -746,10 +753,18 @@ class DatasetAccessorInvert4Geom:
     def inner(self) -> xr.Dataset:
         """return only the inside region of the xarray dataset"""
         self._check_dataset_initialized()
-        return self._ds.sel(
-            easting=slice(self._ds.inner_region[0], self._ds.inner_region[1]),
-            northing=slice(self._ds.inner_region[2], self._ds.inner_region[3]),
-        )
+        if self._ds.model_type == "tesseroids":
+            return self._ds.sel(
+                longitude=slice(self._ds.inner_region[0], self._ds.inner_region[1]),
+                latitude=slice(self._ds.inner_region[2], self._ds.inner_region[3]),
+            )
+        if self._ds.model_type == "prisms":
+            return self._ds.sel(
+                easting=slice(self._ds.inner_region[0], self._ds.inner_region[1]),
+                northing=slice(self._ds.inner_region[2], self._ds.inner_region[3]),
+            )
+        msg = "dataset must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
+        raise ValueError(msg)
 
     @property
     def masked_df(self) -> xr.Dataset:
@@ -809,18 +824,18 @@ class DatasetAccessorInvert4Geom:
 
         df = self.df
 
+        coord_names = layer.coord_names
+
         if layer.model_type == "prisms":
-            coord_names = ["northing", "easting"]
             df[name] = layer.prism_layer.gravity(
-                coordinates=(df.easting, df.northing, df.upward),
+                coordinates=(df[coord_names[0]], df[coord_names[1]], df.upward),
                 field=field,
                 progressbar=progressbar,
                 **kwargs,
             )
         elif layer.model_type == "tesseroids":
-            coord_names = ["latitude", "longitude"]
             df[name] = layer.tesseroid_layer.gravity(
-                coordinates=(df.longitude, df.latitude, df.upward),
+                coordinates=(df[coord_names[0]], df[coord_names[1]], df.upward),
                 field=field,
                 progressbar=progressbar,
                 **kwargs,
@@ -830,7 +845,7 @@ class DatasetAccessorInvert4Geom:
             msg = "layer must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
             raise ValueError(msg)
 
-        ds = df.set_index(coord_names).to_xarray()
+        ds = df.set_index([coord_names[1], coord_names[0]]).to_xarray()
         self._ds[name] = ds[name]
 
     def regional_separation(self, method: str, **kwargs: typing.Any) -> None:
@@ -907,7 +922,8 @@ class DatasetAccessorInvert4Geom:
         constant : float
             value to use for the regional field.
         constraints_df : pandas.DataFrame
-            a dataframe of constraint points with columns easting and northing.
+            a dataframe of constraint points with columns ``easting`` and ``northing``
+            (or ``longitude`` and ``latitude``).
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
@@ -1164,8 +1180,8 @@ class DatasetAccessorInvert4Geom:
         Parameters
         ----------
         constraints_df : pandas.DataFrame
-            dataframe of constraints with columns ``easting``, ``northing``, and
-            ``upward``.
+            dataframe of constraints with columns ``easting``, ``northing`` (or
+            ``longitude``, ``latitude``), and ``upward``.
         grid_method : str, optional
             method used to grid the sampled gravity data at the constraint points. Choose
             between ``verde``, ``pygmt``, or ``eq_sources``, by default ``eq_sources``
@@ -1257,8 +1273,8 @@ class DatasetAccessorInvert4Geom:
         Parameters
         ----------
         constraints_df : pandas.DataFrame
-            dataframe of constraints with columns ``easting``, ``northing``, and
-            ``upward``.
+            dataframe of constraints with columns ``easting``, ``northing`` (or
+            ``longitude``, ``latitude``), and ``upward``.
         split_kwargs : dict[str, typing.Any] | None, optional
             kwargs to be passed to :func:`split_test_train`, by default None
         regional_shift : float, optional
@@ -1292,6 +1308,9 @@ class DatasetAccessorInvert4Geom:
         """plot observed gravity"""
         self._check_correct_dataset_type("data")
 
+        if self._ds.model_type == "tesseroids":
+            msg = "plotting not available for tesseroid datasets"
+            raise NotImplementedError(msg)
         fig = maps.plot_grd(
             self._ds.gravity_anomaly,
             title="Observed gravity",
@@ -1331,6 +1350,10 @@ class DatasetAccessorInvert4Geom:
     ) -> None:
         """plot gravity anomalies"""
         self._check_correct_dataset_type("data")
+
+        if self._ds.model_type == "tesseroids":
+            msg = "plotting not available for tesseroid datasets"
+            raise NotImplementedError(msg)
 
         ds = self.inner
 
@@ -1379,6 +1402,10 @@ class DatasetAccessorInvert4Geom:
         """plot gravity misfit and estimate regional and residual components"""
         self._check_correct_dataset_type("data")
 
+        if self._ds.model_type == "tesseroids":
+            msg = "plotting not available for tesseroid datasets"
+            raise NotImplementedError(msg)
+
         ds = self.inner
 
         grids = [
@@ -1425,6 +1452,8 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
 
+        coord_names = self._ds.coord_names
+
         # get dataframe of model layer
         df = self.masked_df
 
@@ -1440,14 +1469,14 @@ class DatasetAccessorInvert4Geom:
         # df is only for masked prisms, so fill in 0 for unmasked model elements
         df_full = self.df.drop(columns=["density_correction"], errors="ignore")
         df_full = df_full.merge(
-            df[["northing", "easting", "density_correction"]],
+            df[[coord_names[1], coord_names[0], "density_correction"]],
             how="left",
-            on=["northing", "easting"],
+            on=[coord_names[1], coord_names[0]],
         )
         df_full["density_correction"] = df_full["density_correction"].fillna(0)
 
         # add the correction values to the model layer dataset
-        ds = df_full.set_index(["northing", "easting"]).to_xarray()
+        ds = df_full.set_index([coord_names[1], coord_names[0]]).to_xarray()
         ds.attrs.update(self._ds.attrs)
         return ds
 
@@ -1522,15 +1551,18 @@ class DatasetAccessorInvert4Geom:
 
         # df is only for masked model elements, so fill in 0 for unmasked model elements
         df_full = self.df.drop(columns=["topography_correction"], errors="ignore")
+
+        coord_names = self._ds.coord_names
+
         df_full = df_full.merge(
-            df[["northing", "easting", "topography_correction"]],
+            df[[coord_names[1], coord_names[0], "topography_correction"]],
             how="left",
-            on=["northing", "easting"],
+            on=[coord_names[1], coord_names[0]],
         )
         df_full["topography_correction"] = df_full["topography_correction"].fillna(0)
 
         # add the correction values to the model layer dataset
-        ds = df_full.set_index(["northing", "easting"]).to_xarray()
+        ds = df_full.set_index([coord_names[1], coord_names[0]]).to_xarray()
         ds.attrs.update(self._ds.attrs)
         return ds
 
@@ -1560,16 +1592,16 @@ class DatasetAccessorInvert4Geom:
         if style == "geometry":
             ds["topography"] = ds.topography + ds.topography_correction
             if self._ds.model_type == "prisms":
-                ds.prism_layer.update_top_bottom(
-                    surface=ds.topography, reference=ds.zref
-                )
+                zref = ds.zref
+                ds.prism_layer.update_top_bottom(surface=ds.topography, reference=zref)
             elif self._ds.model_type == "tesseroids":
+                zref = ds.geocentric_radius + ds.zref
                 ds.tesseroid_layer.update_top_bottom(
-                    surface=ds.topography, reference=ds.zref
+                    surface=ds.topography, reference=zref
                 )
             # update the density variable
             ds["density"] = xr.where(
-                ds.top > ds.zref,
+                ds.top > zref,
                 ds.density_contrast,
                 -ds.density_contrast,
             )
@@ -1577,7 +1609,6 @@ class DatasetAccessorInvert4Geom:
             ds["density"] = ds.density + ds.density_correction
             # add new density_contrast variable
             ds["density_contrast"] = ds.density.where(ds.top > ds.zref, -ds.density)
-
         else:
             msg = "style must be either 'density' or 'geometry'"
             raise ValueError(msg)
@@ -1632,13 +1663,23 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("data")
 
-        variables = [
-            "easting",
-            "northing",
-            "upward",
-            "gravity_anomaly",
-            "forward_gravity",
-        ]
+        if self._ds.model_type == "tesseroids":
+            variables = [
+                "longitude",
+                "latitude",
+                "geocentric_radius",
+                "upward",
+                "gravity_anomaly",
+                "forward_gravity",
+            ]
+        else:
+            variables = [
+                "easting",
+                "northing",
+                "upward",
+                "gravity_anomaly",
+                "forward_gravity",
+            ]
         assert all(i in self._ds for i in variables), (
             f"`gravity dataset` needs all the following variables: {variables}"
         )
@@ -1650,16 +1691,29 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("data")
 
-        variables = [
-            "easting",
-            "northing",
-            "upward",
-            "gravity_anomaly",
-            "forward_gravity",
-            "misfit",
-            "reg",
-            "res",
-        ]
+        if self._ds.model_type == "tesseroids":
+            variables = [
+                "longitude",
+                "latitude",
+                "geocentric_radius",
+                "upward",
+                "gravity_anomaly",
+                "forward_gravity",
+                "misfit",
+                "reg",
+                "res",
+            ]
+        else:
+            variables = [
+                "easting",
+                "northing",
+                "upward",
+                "gravity_anomaly",
+                "forward_gravity",
+                "misfit",
+                "reg",
+                "res",
+            ]
         assert all(i in self._ds for i in variables), (
             f"`gravity dataset` needs all the following variables: {variables}"
         )
@@ -1671,11 +1725,17 @@ class DatasetAccessorInvert4Geom:
         """check that all gravity data is inside the region of the topography grid"""
         self._check_correct_dataset_type("data")
 
+        coord_names = self._ds.coord_names
+
         topo_region = vd.get_region(
-            (topography.easting.to_numpy(), topography.northing.to_numpy())
+            (
+                topography[coord_names[0]].to_numpy(),
+                topography[coord_names[1]].to_numpy(),
+            )
         )
         df = self.df
-        inside = vd.inside((df.easting, df.northing), region=topo_region)
+        inside = vd.inside((df[coord_names[0]], df[coord_names[1]]), region=topo_region)
+
         if not inside.all():
             msg = (
                 "Some gravity data are outside the region of the topography grid. "
@@ -1726,16 +1786,19 @@ def create_data(
     ----------
     gravity : xarray.Dataset
         A dataset with coordinates ``easting`` and ``northing`` (if using prisms) or
-        ``longitude`` and ``latitude`` (if using tesseroids), as well and variables
-        ``upward`` defining the gravity observation height in meters and
-        ``gravity_anomaly`` with the observed gravity values in mGals.
+        ``longitude`` and ``latitude`` (if using tesseroids), as well as variables
+        ``upward`` defining the gravity observation height (with same vertical
+        reference as the model, i.e. WGS84) in meters and ``gravity_anomaly`` with the
+        observed gravity values in mGals. If using tesseroids, the dataset must also
+        contain a variable ``geocentric_radius`` defining the geocentric radius at each
+        observation point in meters. This can be created using the Python package Boule.
     buffer_width : float | None, optional
-        The width in meters of a buffer zone used to zoom-in on the provided data
-        creating an inner region. This inner region will be used for plotting and
-        calculating statistics for processes such as cross validation, and l2-norms,
-        this avoids skewing plots and values by edge effects, by default will use a
-        width of the 10% of the shortest dimension length, to the nearest multiple of
-        grid spacing.
+        The width in meters or decimal degrees of a buffer zone used to zoom-in on the
+        provided data creating an inner region. This inner region will be used for
+        plotting and calculating statistics for processes such as cross validation, and
+        l2-norms, this avoids skewing plots and values by edge effects, by default will
+        use a width of the 10% of the shortest dimension length, to the nearest multiple
+        of grid spacing.
     model_type : str, optional
         Choose between ``prisms`` and ``tesseroids``, which affects whether geographic
         or projected coordinates are expect, by default ``prisms``
@@ -1749,23 +1812,23 @@ def create_data(
     """
     gravity = gravity.copy()
 
+    assert "upward" in gravity, "gravity dataset must contain an 'upward' variable"
+
     if model_type == "prisms":
         coord_names = ("easting", "northing")
-        keys = ["upward"]
     elif model_type == "tesseroids":
         coord_names = ("longitude", "latitude")
-        keys = ["upward", "geocentric_radius"]
-    assert all(s in gravity.dims for s in coord_names), (
+        assert "geocentric_radius" in gravity, (
+            "for tesseroid models, gravity dataset must contain a 'geocentric_radius' variable, which can be created using the Python package Boule."
+        )
+        gravity["upward"] = gravity.upward + gravity.geocentric_radius
+    else:
+        msg = "model_type must be either 'prisms' or 'tesseroids'"
+        raise AssertionError(msg)
+
+    assert all(s in gravity.upward.dims for s in coord_names), (
         f"gravity dataset must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
     )
-
-    assert all(i in list(gravity.keys()) for i in keys), (
-        f"gravity dataset needs variables {keys}."
-    )
-
-    if model_type == "tesseroids":
-        gravity["geoidal_upward"] = gravity.upward
-        gravity["upward"] = gravity.geoidal_upward + gravity.geocentric_radius
 
     # set region and spacing from provided grid
     spacing, region = polar_utils.get_grid_info(gravity.upward)[0:2]
@@ -1796,6 +1859,7 @@ def create_data(
         "inner_region": inner_region,
         "dataset_type": "data",
         "model_type": model_type,
+        "coord_names": coord_names,
     }
     gravity.attrs = attrs
 
@@ -1818,8 +1882,11 @@ def create_model(
     Parameters
     ----------
     zref : float
-        The reference elevation (for prisms) or geocentric radius (for tesseroids)
-        which separates positive from negative density values.
+        The reference elevation to build prisms or tesseroids around. Model elements
+        above this reference are assigned positive density contrasts while those below
+        are assigned negative density contrasts. This value should be relative to the
+        same reference frame as the ``upward`` variable in the ``topography`` Dataset
+        (e.g., WGS84 ellipsoidal height, mean sea level, etc).
     density_contrast : xarray.DataArray | float
         The density contrast to use for the prisms or tesseroids. This can be
         a constant value, or a DataArray with the same dimensions as the
@@ -1831,13 +1898,21 @@ def create_model(
         free to change.
         If you don't have a topography grid, you can create a flat grid with
         :func:`verde.grid_coordinates` and :func:`verde.make_xarray_grid`.
+        For tesseroid models, the Dataset must also contain a ``geocentric_radius``
+        variable, which can be created using the Python package Boule. The variable
+        ``upward`` is then assumed to be the ellipsoidal height,
+        and the geocentric height is calculated as ``upward + geocentric_radius``.
     model_type : str, optional
         The type of model to create, either ``prisms`` or ``tesseroids``, by default
-        ``prisms``
+        ``prisms``.
     upper_confining_layer : xarray.DataArray | None, optional
-        The upper confining layer for the model, by default None
+        The upper confining layer for the model, should be elevations relative to the
+        same reference frame as the ``upward`` variable in the ``topography`` Dataset,
+        by default None
     lower_confining_layer : xarray.DataArray | None, optional
-        The lower confining layer for the model, by default None
+        The lower confining layer for the model, should be elevations relative to the
+        same reference frame as the ``upward`` variable in the ``topography`` Dataset,
+        by default None
 
     Returns
     -------
@@ -1853,36 +1928,35 @@ def create_model(
     topography = topography.copy()
 
     assert "upward" in topography, (
-        "topography Dataset must contain an 'upward' variable"
+        "topography dataset must contain an 'upward' variable"
     )
     if model_type == "prisms":
         coord_names = ("easting", "northing")
     elif model_type == "tesseroids":
         coord_names = ("longitude", "latitude")
         assert "geocentric_radius" in topography, (
-            "for tesseroid models, topography Dataset must contain a 'geocentric_radius' variable, which can be created using the Python package Boule."
+            "for tesseroid models, topography dataset must contain a 'geocentric_radius' variable, which can be created using the Python package Boule."
         )
-        topography["geoidal_upward"] = topography.upward
-        topography["upward"] = topography.geoidal_upward + topography.geocentric_radius
+        topography["upward"] = topography.upward + topography.geocentric_radius
     else:
         msg = "model_type must be either 'prisms' or 'tesseroids'"
-        raise ValueError(msg)
+        raise AssertionError(msg)
 
     assert all(s in topography.upward.dims for s in coord_names), (
-        f"topography Dataset must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
+        f"topography dataset must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
     )
     # set region and spacing from provided grid
     spacing, region = polar_utils.get_grid_info(topography.upward)[0:2]
 
     if isinstance(density_contrast, xr.DataArray):
         assert all(s in density_contrast.dims for s in coord_names), (
-            f"density DataArray must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
+            f"`density_contrast` dataarray must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
         )
     elif isinstance(density_contrast, float | int):
         pass
     else:
         msg = "`density_contrast` must be a float or xarray.DataArray"
-        raise ValueError(msg)
+        raise AssertionError(msg)
 
     if model_type == "tesseroids":
         zref_used = topography.geocentric_radius + zref
@@ -1896,7 +1970,7 @@ def create_model(
         -density_contrast,
     )
 
-    # create prism layer from topography and density grid
+    # create prism / tesseroid layer from topography and density grid
     model = utils.grid_to_model(
         topography.upward,
         reference=zref_used,
@@ -1904,15 +1978,20 @@ def create_model(
         model_type=model_type,
     )
 
-    # add starting topography and current topography to prism layer dataset
+    # add starting topography and current topography to prism / tesseroid layer dataset
     model["starting_topography"] = topography.upward
     model["topography"] = topography.upward
     model["mask"] = (
         topography.mask if "mask" in topography else xr.ones_like(topography.upward)
     )
 
+    if model_type == "tesseroids":
+        model["geocentric_radius"] = topography.geocentric_radius
+
     # add optional confining layers as variables
     if upper_confining_layer is not None:
+        if model_type == "tesseroids":
+            upper_confining_layer += topography.geocentric_radius
         model["upper_confining_layer"] = upper_confining_layer
     else:
         model["upper_confining_layer"] = xr.full_like(
@@ -1921,6 +2000,8 @@ def create_model(
             dtype=np.double,
         )
     if lower_confining_layer is not None:
+        if model_type == "tesseroids":
+            lower_confining_layer += topography.geocentric_radius
         model["lower_confining_layer"] = lower_confining_layer
     else:
         model["lower_confining_layer"] = xr.full_like(
@@ -1941,6 +2022,7 @@ def create_model(
         "spacing": spacing,
         "dataset_type": "model",
         "model_type": model_type,
+        "coord_names": coord_names,
     }
     model.attrs = attrs
 
@@ -2065,15 +2147,17 @@ class Inversion:
         self.zref_density_optimization_study_fname = None
         self.zref_density_optimization_results_fname = None
 
+        # check invalid deriv type
+        valid_deriv_types = ["annulus", "finite_difference"]
+        if self.deriv_type not in valid_deriv_types:
+            msg = f"deriv_type must be one of {valid_deriv_types}"
+            raise ValueError(msg)
+
         # check that gravity dataset has necessary dimensions
         self.data.inv._check_grav_vars()
 
         # check that gravity data is inside topography region
         self.data.inv._check_gravity_inside_topography_region(self.model.topography)
-
-        # if there is a confining surface (above or below), which the inverted layer
-        # shouldn't intersect, then sample those layers into the df
-        # self.Model.inv.sample_bounding_surfaces()
 
     @property
     def already_inverted(self) -> bool:
@@ -2195,8 +2279,12 @@ class Inversion:
         coordinates_array = coordinates.to_numpy()
 
         # get various arrays based on gravity column names
-        grav_easting = coordinates_array[:, coordinates.columns.get_loc("easting")]
-        grav_northing = coordinates_array[:, coordinates.columns.get_loc("northing")]
+        grav_easting = coordinates_array[
+            :, coordinates.columns.get_loc(self.model.coord_names[0])
+        ]
+        grav_northing = coordinates_array[
+            :, coordinates.columns.get_loc(self.model.coord_names[1])
+        ]
         grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
 
         assert len(grav_easting) == len(grav_northing) == len(grav_upward)
@@ -2262,9 +2350,13 @@ class Inversion:
         coordinates = self.data.inv.df.select_dtypes(include=["number"])
         coordinates_array = coordinates.to_numpy()
 
+        coord_names = self.model.coord_names
+
         # get various arrays based on gravity column names
-        grav_easting = coordinates_array[:, coordinates.columns.get_loc("easting")]
-        grav_northing = coordinates_array[:, coordinates.columns.get_loc("northing")]
+        grav_easting = coordinates_array[:, coordinates.columns.get_loc(coord_names[0])]
+        grav_northing = coordinates_array[
+            :, coordinates.columns.get_loc(coord_names[1])
+        ]
         grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
 
         assert len(grav_easting) == len(grav_northing) == len(grav_upward)
@@ -2276,10 +2368,14 @@ class Inversion:
             dtype=np.float64,
         )
         if self.deriv_type == "annulus":
+            if self.model.model_type != "prisms":
+                msg = "Annulus technique is only available for prism models, use deriv_type='finite_difference' instead"
+                raise ValueError(msg)
+
             # convert dataframe to arrays
             df = self.model.inv.masked_df
-            model_element_easting = df.easting.to_numpy()
-            model_element_northing = df.northing.to_numpy()
+            model_element_easting = df[coord_names[0]].to_numpy()
+            model_element_northing = df[coord_names[1]].to_numpy()
             model_element_top = df.top.to_numpy()
             model_element_density = df.density.to_numpy()
 
@@ -2397,19 +2493,23 @@ class Inversion:
             errors="ignore",
         )
 
+        topography = self.model.starting_topography.to_dataset(name="upward")
+
+        if self.model.model_type == "tesseroids":
+            topography["geocentric_radius"] = self.model.geocentric_radius
+            topography["upward"] = (
+                topography.upward - topography.geocentric_radius
+            )
         model = create_model(
             zref=self.model.zref,
             density_contrast=self.model.density_contrast,
+            topography=topography,
             model_type=self.model.model_type,
-            topography=self.model.starting_topography.to_dataset(name="upward"),
+            upper_confining_layer=self.model.upper_confining_layer,
+            lower_confining_layer=self.model.lower_confining_layer,
         )
         self.model = model
-        # self.model = self.model.drop_vars(
-        #     ["topography_correction"]
-        #     + [v for v in list(self.model.keys()) if v.startswith("iter_")],
-        #     errors="ignore",
-        # )
-        # self.model["topography"] = self.model.starting_topography
+
 
     def invert(
         self,
@@ -2663,6 +2763,7 @@ class Inversion:
         ----------
         :footcite:t:`uiedafast2017`
         """
+        coord_names = self.model.coord_names
         # make copies of Inversion and underlying data and model so as not
         # to alter the original
         inv_copy = copy.deepcopy(self)
@@ -2671,11 +2772,10 @@ class Inversion:
         inv_copy.results_fname = results_fname  # type: ignore[assignment]
 
         test = df[df.test == True].copy()  # noqa: E712 # pylint: disable=singleton-comparison
-        # test = inv_copy.data.where(inv_copy.data.test == True).copy()
 
         # temporarily set the gravity dataframe to only the training data
         train = df[df.test == False].copy()  # noqa: E712 # pylint: disable=singleton-comparison
-        inv_copy.data = train.set_index(["northing", "easting"]).to_xarray()
+        inv_copy.data = train.set_index([coord_names[1], coord_names[0]]).to_xarray()
 
         # inv_copy.data = inv_copy.data.where(inv_copy.data.test == False).copy()
 
@@ -2691,16 +2791,24 @@ class Inversion:
                 plot_dynamic_convergence=False,
             )
 
+        if inv_copy.model.model_type == "tesseroids":
+            zref_used = inv_copy.model.geocentric_radius + inv_copy.model.zref
+        elif inv_copy.model.model_type == "prisms":
+            zref_used = inv_copy.model.zref
+        else:
+            msg = "model must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
+            raise ValueError(msg)
+
         density_grid = xr.where(
-            inv_copy.model.topography >= inv_copy.model.zref,
+            inv_copy.model.topography >= zref_used,
             inv_copy.model.density_contrast,
             -inv_copy.model.density_contrast,
         )
 
-        # create new layer or prisms / tesseroids
+        # create new layer of prisms / tesseroids
         layer = utils.grid_to_model(
             inv_copy.model.topography,
-            reference=inv_copy.model.zref,
+            reference=zref_used,
             density=density_grid,
             model_type=inv_copy.model.model_type,
         )
@@ -2709,8 +2817,8 @@ class Inversion:
         if layer.model_type == "prisms":
             test["test_point_grav"] = layer.prism_layer.gravity(
                 coordinates=(
-                    test.easting,
-                    test.northing,
+                    test[coord_names[0]],
+                    test[coord_names[1]],
                     test.upward,
                 ),
                 field="g_z",
@@ -2719,8 +2827,8 @@ class Inversion:
         elif layer.model_type == "tesseroids":
             test["test_point_grav"] = layer.tesseroid_layer.gravity(
                 coordinates=(
-                    test.easting,
-                    test.northing,
+                    test[coord_names[0]],
+                    test[coord_names[1]],
                     test.upward,
                 ),
                 field="g_z",
@@ -2735,7 +2843,7 @@ class Inversion:
         test = polar_utils.points_inside_region(
             test,
             self.data.inner_region,
-            names=("easting", "northing"),
+            names=(coord_names[0], coord_names[1]),
         )
 
         # compare forward of inverted layer with observed
@@ -2748,7 +2856,7 @@ class Inversion:
 
         if plot:
             try:
-                test_grid = test.set_index(["northing", "easting"]).to_xarray()
+                test_grid = test.set_index([coord_names[1], coord_names[0]]).to_xarray()
                 obs = test_grid.gravity_anomaly - test_grid.reg
                 pred = test_grid.test_point_grav.rename("")
 
@@ -2757,7 +2865,6 @@ class Inversion:
                     obs,
                     grid1_name="Predicted gravity",
                     grid2_name="Observed gravity",
-                    plot_type="xarray",
                     robust=True,
                     title=f"Score={self.gravity_best_score}",
                     rmse_in_title=False,
@@ -2797,7 +2904,6 @@ class Inversion:
 
         Parameters
         ----------
-
         constraints_df : pandas.DataFrame
             a dataframe with columns "easting", "northing", and "upward" for
             coordinates and elevation of the constraint points.
@@ -2831,11 +2937,14 @@ class Inversion:
                 plot_dynamic_convergence=False,
             )
 
+        coord_names = self.model.coord_names
+
         # sample the inverted topography at the constraint points
         constraints_df = utils.sample_grids(
-            constraints_df,
-            inv_copy.model.topography,
-            "inverted_topo",
+            df=constraints_df,
+            grid=inv_copy.model.topography,
+            sampled_name="inverted_topo",
+            coord_names=coord_names,
         )
 
         # calculate the difference between the inverted topography and the constraint
@@ -3231,10 +3340,21 @@ class Inversion:
         # to alter the original
         inv_copy = copy.deepcopy(self)
 
+        coord_names = inv_copy.model.coord_names
+
         if regional_grav_kwargs is not None:
             regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
         if starting_topography_kwargs is not None:
             starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+            starting_topography_kwargs["region"] = inv_copy.model.region
+            starting_topography_kwargs["spacing"] = inv_copy.model.spacing
+            try:  # noqa: SIM105
+                starting_topography_kwargs["dataarray_to_add"] = (
+                    inv_copy.model.geocentric_radius
+                )
+            except AttributeError:
+                pass
+            starting_topography_kwargs["coord_names"] = coord_names
 
         optuna.logging.set_verbosity(optuna.logging.WARN)
 
@@ -3478,13 +3598,13 @@ class Inversion:
         if isinstance(constraints_df, pd.DataFrame):
             constraints_df = (
                 pd.concat([constraints_df, reg_constraints])
-                .drop_duplicates(subset=["easting", "northing", "upward"])
+                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
                 .sort_index()
             )
         else:
             constraints_df = (
                 pd.concat(constraints_df + reg_constraints)
-                .drop_duplicates(subset=["easting", "northing", "upward"])
+                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
                 .sort_index()
             )
         # add to regional grav kwargs
@@ -3512,7 +3632,7 @@ class Inversion:
         )
 
         if starting_topography_kwargs is not None:
-            starting_topography_kwargs["upwards"] = inv_copy.model.zref
+            starting_topography_kwargs["upward"] = inv_copy.model.zref
 
         # run the inversion workflow with the new best parameters
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
@@ -3520,6 +3640,7 @@ class Inversion:
 
             inv_copy = run_inversion_workflow(
                 grav_ds=inv_copy.data,
+                model_type=inv_copy.model.model_type,
                 create_starting_topography=create_starting_topography,
                 starting_topography=starting_topography,
                 starting_topography_kwargs=starting_topography_kwargs,
