@@ -43,7 +43,7 @@ def remove_test_points(ds: xr.Dataset) -> xr.Dataset:
         ds_new.attrs.update(ds.attrs)  # pylint: disable=protected-access
 
         return ds_new
-    except AttributeError as e:
+    except AttributeError:
         msg = "gravity dataframe does not contain a 'test' column, cannot remove test points."
         warnings.warn(msg, stacklevel=2)
 

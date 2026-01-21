@@ -2497,9 +2497,7 @@ class Inversion:
 
         if self.model.model_type == "tesseroids":
             topography["geocentric_radius"] = self.model.geocentric_radius
-            topography["upward"] = (
-                topography.upward - topography.geocentric_radius
-            )
+            topography["upward"] = topography.upward - topography.geocentric_radius
         model = create_model(
             zref=self.model.zref,
             density_contrast=self.model.density_contrast,
@@ -2509,7 +2507,6 @@ class Inversion:
             lower_confining_layer=self.model.lower_confining_layer,
         )
         self.model = model
-
 
     def invert(
         self,
