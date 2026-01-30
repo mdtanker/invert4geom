@@ -19,7 +19,7 @@ dependencies:
   - deprecation
   - pykdtree
   - xrft
-  - polartoolkit
+  - polartoolkit>=1.4.0
   - numba
   - numba-progress
   - dask
