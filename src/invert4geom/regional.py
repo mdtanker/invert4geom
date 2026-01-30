@@ -130,7 +130,7 @@ def regional_filter(
     regional_grid = utils.filter_grid(
         misfit,
         filter_width,
-        filt_type="lowpass",
+        filter_type="lowpass",
     )
 
     # add the mean back to the data
