@@ -2123,8 +2123,10 @@ class Inversion:
         model = create_model(
             zref=self.model.zref,
             density_contrast=self.model.density_contrast,
-            model_type=self.model.model_type,
             topography=self.model.starting_topography.to_dataset(name="upward"),
+            model_type=self.model.model_type,
+            upper_confining_layer=self.model.upper_confining_layer,
+            lower_confining_layer=self.model.lower_confining_layer,
         )
         self.model = model
         # self.model = self.model.drop_vars(
@@ -3226,6 +3228,8 @@ class Inversion:
                 calculate_regional_misfit=True,
                 zref=inv_copy.model.zref,
                 density_contrast=inv_copy.model.density_contrast,
+                upper_confining_layer=inv_copy.model.upper_confining_layer,
+                lower_confining_layer=inv_copy.model.lower_confining_layer,
                 fname=inv_copy.results_fname,
                 inversion_kwargs={
                     "max_iterations": inv_copy.max_iterations,
@@ -3706,6 +3710,8 @@ def run_inversion_workflow(
     density_contrast: float | None = None,
     zref: float | None = None,
     model_type: str = "prisms",
+    upper_confining_layer: xr.Dataset | None = None,
+    lower_confining_layer: xr.Dataset | None = None,
     regional_grav_kwargs: dict[str, typing.Any] | None = None,
     constraints_df: pd.DataFrame | None = None,
     inversion_kwargs: dict[str, typing.Any] | None = None,
@@ -3773,6 +3779,10 @@ def run_inversion_workflow(
         reference depth for the starting prisms, by default None
     model_type : str, optional
         type of model to create, either "prisms" or "tesseroids", by default "prisms"
+    upper_confining_layer : xarray.Dataset | None, optional
+        an upper confining layer model with variable `upward`, by default None
+    lower_confining_layer : xarray.Dataset | None, optional
+        a lower confining layer model with variable `upward`, by default None
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
         kwargs needed for estimating regional gravity, passed to
         :meth:`DatasetAccessorInvert4Geom.regional_separation`, by default None
@@ -3931,8 +3941,10 @@ def run_inversion_workflow(
     model = create_model(
         zref=zref,  # type: ignore[arg-type]
         density_contrast=density_contrast,
-        model_type=model_type,
         topography=starting_topography,
+        model_type=model_type,
+        upper_confining_layer=upper_confining_layer,
+        lower_confining_layer=lower_confining_layer,
     )
     logger.debug("starting prisms created")
 

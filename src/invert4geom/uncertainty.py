@@ -1080,6 +1080,8 @@ def full_workflow_uncertainty_loop(
                     name="upward"
                 ),
                 starting_topography_kwargs=new_starting_topography_kwargs,
+                upper_confining_layer=inv.model.upper_confining_layer,
+                lower_confining_layer=inv.model.lower_confining_layer,
                 density_contrast=inv.model.density_contrast,
                 zref=inv.model.zref,
                 regional_grav_kwargs=new_regional_grav_kwargs,
