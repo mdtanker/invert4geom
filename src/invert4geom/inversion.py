@@ -1152,9 +1152,10 @@ class DatasetAccessorInvert4Geom:
             self._ds.gravity_anomaly,
             title="Observed gravity",
             cbar_label="mGal",
-            cmap="viridis",
             hemisphere="south",
+            cmap="balance+h0",
             robust=True,
+            absolute=True,
             hist=True,
             scalebar=True,
         )
@@ -1204,13 +1205,6 @@ class DatasetAccessorInvert4Geom:
             "Regional misfit",
             "Residual misfit",
         ]
-        cmaps = [
-            "viridis",
-            "viridis",
-            "balance+h0",
-            "balance+h0",
-            "balance+h0",
-        ]
         fig = maps.subplots(
             grids,
             dims=(1, 5),
@@ -1218,8 +1212,9 @@ class DatasetAccessorInvert4Geom:
             fig_title="Gravity anomalies",
             titles=titles,
             cbar_label="mGal",
-            cmaps=cmaps,
+            cmap="balance+h0",
             hemisphere="south",
+            absolute=True,
             robust=True,
             hist=True,
             points=points,
