@@ -805,7 +805,7 @@ def create_topography(
             dims=("northing", "easting"),
         ).upward
 
-    elif method == "splines":
+    elif method == "splines":  # pylint: disable=too-many-nested-blocks
         # get coordinates of the constraint points
         if constraints_df is None:
             msg = "constraints_df must be provided if method is `splines`"
@@ -904,29 +904,43 @@ def create_topography(
                 weights = df[weights_col]
 
             if block_size is not None:
-                if block_reduction == "mean":
-                    reduction = np.mean
-                elif block_reduction == "median":
-                    reduction = np.median
-                    if weights is not None:
-                        msg = "weights are ignored when block_reduction is 'median'"
-                        logger.warning(msg)
+                if block_reduction == "mean" and weights is not None:
+                    reducer = vd.BlockMean(
+                        spacing=block_size,
+                        region=region,
+                        center_coordinates=True,
+                    )
+
+                    coords, data, weights = reducer.filter(
+                        coordinates=coords,
+                        data=data,
+                        weights=weights,
+                    )
+
                 else:
-                    msg = "block_reduction must be 'mean' or 'median'"
-                    raise ValueError(msg)
+                    if block_reduction == "mean":
+                        reduction = np.mean
+                    elif block_reduction == "median":
+                        reduction = np.median
+                        if weights is not None:
+                            msg = "weights are ignored when block_reduction is 'median', to use weights, set block_reduction to 'mean'"
+                            logger.warning(msg)
+                    else:
+                        msg = "block_reduction must be 'mean' or 'median'"
+                        raise ValueError(msg)
 
-                reducer = vd.BlockReduce(
-                    reduction=reduction,
-                    spacing=block_size,
-                    region=region,
-                    center_coordinates=True,
-                )
+                    reducer = vd.BlockReduce(
+                        reduction=reduction,
+                        spacing=block_size,
+                        region=region,
+                        center_coordinates=True,
+                    )
 
-                coords, data = reducer.filter(
-                    coordinates=coords,
-                    data=data,
-                    weights=weights,
-                )
+                    coords, data = reducer.filter(
+                        coordinates=coords,
+                        data=data,
+                        weights=weights,
+                    )
 
             # run CV for fitting a spline to the data
             spline = optimal_spline_damping(
