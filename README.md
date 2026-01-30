@@ -11,9 +11,7 @@
 **Invert4geom** is a Python library for performing 3D geometric gravity inversions, where the aim is to recover the geometry of a density contrast.
 
 Typical use cases include modeling the topography of the Moho, the sediment-basement contact, or bathymetry.
-These density contrasts are represented by a layer of vertical right-rectangular prisms.
-Since we use vertical prisms, they don't take the curvature of the Earth into account.
-For large-scale applications, such as continental studies, it would be better to use tesseroids instead of prisms.
+These density contrasts are represented by a layer of either vertical right-rectangular prisms or tesseroids (spherical prisms).
 
 See the [overview](overview.md) for further description of this package and what it can be used for.
 
@@ -69,7 +67,7 @@ Please contact us on the [GitHub discussions page](https://github.com/mdtanker/i
 - invert **gravity** data to recover the topography of a density contrast
 - invert **gravity** data to recover the spatially-variable density of a layer of known geometry
 - use with **gridded** gravity data
-- discretization using _vertical right-rectangular prisms_
+- discretization using _vertical right-rectangular prisms_ or _tesseroids_
 - performing regional-residual separation
 - stochastic uncertainty analysis of inversion results
 - basic visualization tools
@@ -82,7 +80,6 @@ Please contact us on the [GitHub discussions page](https://github.com/mdtanker/i
 - a ready-to-use inversion with minimal user input
 - use with discrete (un-gridded) gravity data -> see [Harmonica](https://www.fatiando.org/harmonica/latest/index.html) for gridding your data
 - for processing gravity data -> see [Harmonica](https://www.fatiando.org/harmonica/latest/index.html) for gravity processing tools
-- for use with tesseroids, or non-regular grids (raise an issue request if you want this implemented!)
 - publication-quality visualization -> see [PyGMT](https://www.pygmt.org/dev/index.html) for plotting tools
 
 <!-- SPHINX-END-long-desc -->

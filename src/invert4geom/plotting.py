@@ -479,17 +479,19 @@ def grid_inversion_results(
     corrections_grids : list[xarray.DataArray]
         list of correction grids
     """
+    coord_names = prisms_ds.coord_names
+
     misfit_grids = []
     for m in misfits:
-        grid = grav_results.set_index(["northing", "easting"]).to_xarray()[m]
+        grid = grav_results.set_index([coord_names[1], coord_names[0]]).to_xarray()[m]
         misfit_grids.append(grid)
 
     topo_grids = []
     for t in topos:
         topo_grids.append(
             prisms_ds[t].sel(
-                easting=slice(region[0], region[1]),
-                northing=slice(region[2], region[3]),
+                longitude=slice(region[0], region[1]),
+                latitude=slice(region[2], region[3]),
             )
         )
 
@@ -497,8 +499,8 @@ def grid_inversion_results(
     for m in corrections:
         corrections_grids.append(
             prisms_ds[m].sel(
-                easting=slice(region[0], region[1]),
-                northing=slice(region[2], region[3]),
+                longitude=slice(region[0], region[1]),
+                latitude=slice(region[2], region[3]),
             )
         )
 
@@ -583,8 +585,15 @@ def plot_inversion_grav_results(
     constraint_style : str, optional
         pygmt style string for for constraint points, by default 'x.3c'
     """
+    if "easting" in grav_results.columns and "northing" in grav_results.columns:
+        coord_names = ["easting", "northing"]
+    elif "longitude" in grav_results.columns and "latitude" in grav_results.columns:
+        coord_names = ["longitude", "latitude"]
+    else:
+        msg = "gravity results dataframe must contain either 'easting' and 'northing' or 'longitude' and 'latitude' columns"
+        raise ValueError(msg)
 
-    grid = grav_results.set_index(["northing", "easting"]).to_xarray()
+    grid = grav_results.set_index([coord_names[1], coord_names[0]]).to_xarray()
 
     initial_residual = grid["iter_1_initial_residual"]
     final_residual = grid.res
