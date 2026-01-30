@@ -717,9 +717,10 @@ def plot_inversion_grav_results(
 def plot_inversion_iteration_results(
     grids: tuple[list[xr.DataArray], list[xr.DataArray], list[xr.DataArray]],
     grav_results: pd.DataFrame,
-    topo_results: pd.DataFrame,
+    updated_results: pd.DataFrame,
     parameters: dict[str, typing.Any],
     iterations: list[int],
+    style: str,
     topo_cmap_perc: float = 1,
     misfit_cmap_perc: float = 1,
     corrections_cmap_perc: float = 1,
@@ -737,12 +738,14 @@ def plot_inversion_iteration_results(
         lists of misfit, topography, and correction grids
     grav_results : pandas.DataFrame
         gravity dataframe resulting from the inversion
-    topo_results : pandas.DataFrame
-        topography dataframe resulting from the inversion
+    updated_results : pandas.DataFrame
+        updated topography or density values resulting from the inversion
     parameters : dict[str, typing.Any]
         inversion parameters resulting from the inversion
     iterations : list[int]
         list of all the iteration numbers which occurred in the inversion
+    style : str
+        inversion style, either 'geometry' or 'density'
     topo_cmap_perc : float, optional
         value to multiply the max and min colorscale values by, by default 1
     misfit_cmap_perc : float, optional
@@ -755,7 +758,7 @@ def plot_inversion_iteration_results(
         size for constraint points, by default 1
     """
 
-    misfit_grids, topo_grids, corrections_grids = grids
+    misfit_grids, updated_grids, corrections_grids = grids
 
     params = copy.deepcopy(parameters)
 
@@ -772,13 +775,13 @@ def plot_inversion_iteration_results(
 
     # set color limits for each column
     misfit_lims = []
-    topo_lims = []
+    updated_lims = []
     corrections_lims = []
 
     for g in misfit_grids:
         misfit_lims.append(polar_utils.get_min_max(g))
-    for g in topo_grids:
-        topo_lims.append(polar_utils.get_min_max(g))
+    for g in updated_grids:
+        updated_lims.append(polar_utils.get_min_max(g))
     for g in corrections_grids:
         corrections_lims.append(polar_utils.get_min_max(g))
 
@@ -786,8 +789,8 @@ def plot_inversion_iteration_results(
     misfit_max = max([i[1] for i in misfit_lims])  # pylint: disable=consider-using-generator
     misfit_lim = vd.maxabs(misfit_min, misfit_max) * misfit_cmap_perc
 
-    topo_min = min([i[0] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
-    topo_max = max([i[1] for i in topo_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
+    updated_min = min([i[0] for i in updated_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
+    updated_max = max([i[1] for i in updated_lims]) * topo_cmap_perc  # pylint: disable=consider-using-generator
 
     corrections_min = min([i[0] for i in corrections_lims])  # pylint: disable=consider-using-generator
     corrections_max = max([i[1] for i in corrections_lims])  # pylint: disable=consider-using-generator
@@ -816,9 +819,18 @@ def plot_inversion_iteration_results(
                 lims = (-misfit_lim, misfit_lim)
                 robust = True
                 norm = None
-            elif column == 1:  # topography grids
-                cmap = "gist_earth"
-                lims = (topo_min, topo_max)
+            elif column == 1:  # updated grids
+                if style == "density":
+                    if (updated_min < 0) & (updated_max > 0):
+                        cmap = "RdBu_r"
+                        maxabs = vd.maxabs(updated_min, updated_max)
+                        lims = (-maxabs, maxabs)
+                    else:
+                        cmap = "viridis"
+                        lims = (updated_min, updated_max)
+                elif style == "geometry":
+                    cmap = "gist_earth"
+                    lims = (updated_min, updated_max)
 
                 robust = True
                 norm = None
@@ -849,10 +861,10 @@ def plot_inversion_iteration_results(
                     grav_results[f"iter_{iterations[row]}_initial_residual"]
                 )
                 axes.set_title(f"initial residual RMSE = {round(rmse, 2)} mGal")
-            elif column == 1:  # topography grids
-                axes.set_title("updated topography")
+            elif column == 1:  # updated grids
+                axes.set_title(f"updated {style}")
             elif column == 2:  # correction grids
-                rmse = utils.rmse(topo_results[f"iter_{iterations[row]}_correction"])
+                rmse = utils.rmse(updated_results[f"iter_{iterations[row]}_correction"])
                 axes.set_title(f"iteration correction RMSE = {round(rmse, 2)} m")
 
             if (constraints_df is not None) & (column in (0, 1, 2)):  # misfit grids

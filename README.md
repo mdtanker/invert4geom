@@ -67,6 +67,7 @@ Please contact us on the [GitHub discussions page](https://github.com/mdtanker/i
 #### What _Invert4Geom_ is for:
 
 - invert **gravity** data to recover the topography of a density contrast
+- invert **gravity** data to recover the spatially-variable density of a layer of known geometry
 - use with **gridded** gravity data
 - discretization using _vertical right-rectangular prisms_
 - performing regional-residual separation
@@ -76,6 +77,7 @@ Please contact us on the [GitHub discussions page](https://github.com/mdtanker/i
 #### What _Invert4Geom_ is **NOT** for:
 
 - performing parameter-estimation inversions (i.e. recovering density values) -> see [SimPEG](https://simpeg.xyz/) or [pyGIMLi](https://www.pygimli.org/index.html)
+   - while we have a simple density inversion implementation this is just for a simple single-layer model and not a mesh.
 - a point-and-click GUI -> see [Geosoft/Seequent Oasis Montaj](https://www.seequent.com/products-solutions/geosoft-oasis-montaj/) or [MiraGeoscience VPmg](https://www.mirageoscience.com/mining-industry-software/geoscience-analyst-pro-geophysics/)
 - a ready-to-use inversion with minimal user input
 - use with discrete (un-gridded) gravity data -> see [Harmonica](https://www.fatiando.org/harmonica/latest/index.html) for gridding your data
