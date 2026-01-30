@@ -510,6 +510,8 @@ def plot_inversion_topo_results(
     constraints_df: pd.DataFrame | None = None,
     constraint_style: str = "x.3c",
     fig_height: float = 12,
+    epsg: str | None = None,
+    coast: bool | None = None,
 ) -> None:
     """
     plot the initial and final topography grids from the inversion and their difference
@@ -528,7 +530,35 @@ def plot_inversion_topo_results(
         pygmt style string for for constraint points, by default 'x.3c'
     fig_height : float, optional
         height of the figure, by default 12
+    epsg : str | None, optional
+        EPSG code of the data if wanting to plot coastlines, by default None
+    coast : bool | None, optional
+        add coastline to plots, by default None
     """
+    # if epsg provided, default to plotting coasts
+    if coast is None:
+        coast = bool(epsg is not None)
+
+    # require epsg if coastlines requested
+    if (coast is True) and (epsg is None):
+        msg = "Dataset must have 'epsg' attribute to plot coastlines."
+        raise ValueError(msg)
+
+    # determine hemisphere and coast version based on epsg
+    if epsg == "3031":
+        hemisphere = "south"
+    elif epsg == "3413":
+        hemisphere = "north"
+    else:
+        hemisphere = "south"
+
+    if coast is True:
+        if epsg in ["3031", "3413"]:  # noqa: SIM108 # pylint: disable=simplifiable-if-statement
+            plot_coast = True
+        else:
+            plot_coast = False
+    else:
+        plot_coast = False
 
     initial_topo = prisms_ds.starting_topography
 
@@ -548,12 +578,12 @@ def plot_inversion_topo_results(
         inset=False,
         verbose="q",
         title="difference",
-        coast=False,
         reverse_cpt=True,
         cmap="rain",
         points=points,
         points_style=constraint_style,
-        hemisphere="south",
+        coast=plot_coast,
+        hemisphere=hemisphere,
     )
     # pylint: enable=duplicate-code
 
@@ -564,6 +594,8 @@ def plot_inversion_grav_results(
     constraints_df: pd.DataFrame | None = None,
     fig_height: float = 12,
     constraint_style: str = "x.3c",
+    epsg: str | None = None,
+    coast: bool | None = None,
 ) -> None:
     """
     plot the initial and final misfit grids from the inversion and their difference
@@ -582,7 +614,35 @@ def plot_inversion_grav_results(
         height of the figure, by default 12
     constraint_style : str, optional
         pygmt style string for for constraint points, by default 'x.3c'
+    epsg : str | None, optional
+        EPSG code of the data if wanting to plot coastlines, by default None
+    coast : bool | None, optional
+        add coastline to plots, by default None
     """
+    # if epsg provided, default to plotting coasts
+    if coast is None:
+        coast = bool(epsg is not None)
+
+    # require epsg if coastlines requested
+    if (coast is True) and (epsg is None):
+        msg = "Dataset must have 'epsg' attribute to plot coastlines."
+        raise ValueError(msg)
+
+    # determine hemisphere and coast version based on epsg
+    if epsg == "3031":
+        hemisphere = "south"
+    elif epsg == "3413":
+        hemisphere = "north"
+    else:
+        hemisphere = "south"
+
+    if coast is True:
+        if epsg in ["3031", "3413"]:  # noqa: SIM108 # pylint: disable=simplifiable-if-statement
+            plot_coast = True
+        else:
+            plot_coast = False
+    else:
+        plot_coast = False
 
     grid = grav_results.set_index(["northing", "easting"]).to_xarray()
 
@@ -615,7 +675,8 @@ def plot_inversion_grav_results(
         title=f"Initial residual: RMSE:{round(initial_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
-        hemisphere="south",
+        coast=plot_coast,
+        hemisphere=hemisphere,
     )
     fig = maps.plot_grd(
         dif,
@@ -630,7 +691,8 @@ def plot_inversion_grav_results(
         title=f"difference: RMSE:{round(utils.rmse(dif), 2)} mGal",
         points=points,
         points_style=constraint_style,
-        hemisphere="south",
+        coast=plot_coast,
+        hemisphere=hemisphere,
     )
     fig = maps.plot_grd(
         final,
@@ -646,7 +708,8 @@ def plot_inversion_grav_results(
         title=f"Final residual: RMSE:{round(final_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
-        hemisphere="south",
+        coast=plot_coast,
+        hemisphere=hemisphere,
     )
     fig.show()
 
