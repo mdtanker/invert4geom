@@ -958,7 +958,7 @@ def create_topography(
             region=region,
             registration=registration,
         )
-        grid = grid.where(grid <= da, da)
+        grid = xr.where(grid > da, da, grid)
     if lower_confining_layer is not None:
         da = fetch.fetch.resample_grid(
             lower_confining_layer,
@@ -966,7 +966,7 @@ def create_topography(
             region=region,
             registration=registration,
         )
-        grid = grid.where(grid >= da, da)
+        grid = xr.where(grid < da, da, grid)
 
     return grid.to_dataset(name="upward")
 
