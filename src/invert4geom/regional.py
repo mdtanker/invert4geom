@@ -17,6 +17,7 @@ def regional_constant(
     constraints_df: pd.DataFrame | None = None,
     regional_shift: float = 0,
     mask_column: str | None = None,
+    reverse_regional_residual: bool = False,
 ) -> None:
     """
     approximate the regional field with a constant value. If constraint points of the
@@ -37,6 +38,9 @@ def regional_constant(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
+    reverse_regional_residual : bool, optional
+        if True, reverse the regional and residual fields after calculation, by default
+        False
     """
 
     if isinstance(grav_ds, xr.Dataset) is False:
@@ -89,6 +93,9 @@ def regional_constant(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
+    if reverse_regional_residual is True:
+        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+
 
 def regional_filter(
     grav_ds: xr.Dataset,
@@ -96,6 +103,7 @@ def regional_filter(
     filter_type: str = "lowpass",
     regional_shift: float = 0,
     mask_column: str | None = None,
+    reverse_regional_residual: bool = False,
 ) -> None:
     """
     separate the regional field with a filter
@@ -114,6 +122,9 @@ def regional_filter(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
+    reverse_regional_residual : bool, optional
+        if True, reverse the regional and residual fields after calculation, by default
+        False
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_filter` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -148,12 +159,16 @@ def regional_filter(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
+    if reverse_regional_residual is True:
+        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+
 
 def regional_trend(
     grav_ds: xr.Dataset,
     trend: int,
     regional_shift: float = 0,
     mask_column: str | None = None,
+    reverse_regional_residual: bool = False,
 ) -> None:
     """
     separate the regional field with a trend
@@ -170,6 +185,9 @@ def regional_trend(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
+    reverse_regional_residual : bool, optional
+        if True, reverse the regional and residual fields after calculation, by default
+        False
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_trend` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -200,6 +218,9 @@ def regional_trend(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
+    if reverse_regional_residual is True:
+        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+
 
 def regional_eq_sources(
     grav_ds: xr.Dataset,
@@ -212,6 +233,7 @@ def regional_eq_sources(
     weights_column: str | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
     mask_column: str | None = None,
+    reverse_regional_residual: bool = False,
 ) -> None:
     """
     separate the regional field by estimating deep equivalent sources
@@ -243,6 +265,9 @@ def regional_eq_sources(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated regional field by,
         should have values of 1 or 0, by default None.
+    reverse_regional_residual : bool, optional
+        if True, reverse the regional and residual fields after calculation, by default
+        False
     """
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_eq_sources` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
@@ -302,6 +327,9 @@ def regional_eq_sources(
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
+    if reverse_regional_residual is True:
+        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+
 
 def regional_constraints(
     grav_ds: xr.Dataset,
@@ -319,6 +347,7 @@ def regional_constraints(
     cv_kwargs: dict[str, typing.Any] | None = None,
     regional_shift: float = 0,
     mask_column: str | None = None,
+    reverse_regional_residual: bool = False,
 ) -> None:
     """
     Separate the regional field by sampling and re-gridding the gravity misfit at
@@ -380,6 +409,9 @@ def regional_constraints(
     mask_column : str | None, optional
         Name of optional column with values to multiply estimated residual field by,
         should have values of 1 or 0, by default None.
+    reverse_regional_residual : bool, optional
+        if True, reverse the regional and residual fields after calculation, by default
+        False
     """
 
     if isinstance(grav_ds, xr.Dataset) is False:
@@ -628,6 +660,9 @@ def regional_constraints(
     if mask_column is not None:
         grav_ds["res"] *= grav_ds[mask_column]
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
+
+    if reverse_regional_residual is True:
+        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
 
 
 def regional_constraints_cv(
