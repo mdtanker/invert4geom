@@ -61,6 +61,7 @@ from .uncertainty import (  # noqa: E402
 )
 from .utils import (  # noqa: E402
     create_topography,
+    filter_grid,
     gravity_decay_buffer,
     normalized_mindist,
     optimal_spline_damping,

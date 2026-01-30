@@ -900,6 +900,7 @@ class DatasetAccessorInvert4Geom:
         constraints_df: pd.DataFrame | None = None,
         regional_shift: float = 0,
         mask_column: str | None = None,
+        reverse_regional_residual: bool = False,
     ) -> None:
         """
         Calculate the gravity misfit as the difference between dataset variables
@@ -929,6 +930,9 @@ class DatasetAccessorInvert4Geom:
         mask_column : str | None, optional
             Name of optional dataset variable with values to multiply the calculated
             residual gravity field by, should have values of 1 or 0, by default None.
+        reverse_regional_residual : bool, optional
+            if True, reverse the regional and residual fields after calculation, by
+            default False
 
         See also
         --------
@@ -943,6 +947,7 @@ class DatasetAccessorInvert4Geom:
             constraints_df=constraints_df,
             regional_shift=regional_shift,
             mask_column=mask_column,
+            reverse_regional_residual=reverse_regional_residual,
         )
 
         self._save_starting_anomalies()
@@ -950,8 +955,10 @@ class DatasetAccessorInvert4Geom:
     def regional_filter(
         self,
         filter_width: float,
+        filter_type: str = "lowpass",
         regional_shift: float = 0,
         mask_column: str | None = None,
+        reverse_regional_residual: bool = False,
     ) -> None:
         """
         Calculate the gravity misfit as the difference between dataset variables
@@ -974,12 +981,16 @@ class DatasetAccessorInvert4Geom:
         ----------
         filter_width : float
             width in meters to use for the low-pass filter
+        filter_type : str, optional
+            type of filter to apply, by default "lowpass"
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
             Name of optional dataset variable with values to multiply the calculated
             residual gravity field by, should have values of 1 or 0, by default None.
-
+        reverse_regional_residual : bool, optional
+            if True, reverse the regional and residual fields after calculation, by
+            default False
         See also
         --------
         :meth:`DatasetAccessorInvert4Geom.regional_separation`
@@ -990,8 +1001,10 @@ class DatasetAccessorInvert4Geom:
         regional.regional_filter(
             grav_ds=self._ds,
             filter_width=filter_width,
+            filter_type=filter_type,
             regional_shift=regional_shift,
             mask_column=mask_column,
+            reverse_regional_residual=reverse_regional_residual,
         )
 
         self._save_starting_anomalies()
@@ -1001,6 +1014,7 @@ class DatasetAccessorInvert4Geom:
         trend: int,
         regional_shift: float = 0,
         mask_column: str | None = None,
+        reverse_regional_residual: bool = False,
     ) -> None:
         """
         Calculate the gravity misfit as the difference between dataset variables
@@ -1026,6 +1040,9 @@ class DatasetAccessorInvert4Geom:
         mask_column : str | None, optional
             Name of optional dataset variable with values to multiply the calculated
             residual gravity field by, should have values of 1 or 0, by default None.
+        reverse_regional_residual : bool, optional
+            if True, reverse the regional and residual fields after calculation, by
+            default False
 
         See also
         --------
@@ -1039,6 +1056,7 @@ class DatasetAccessorInvert4Geom:
             trend=trend,
             regional_shift=regional_shift,
             mask_column=mask_column,
+            reverse_regional_residual=reverse_regional_residual,
         )
 
         self._save_starting_anomalies()
@@ -1054,6 +1072,7 @@ class DatasetAccessorInvert4Geom:
         cv_kwargs: dict[str, typing.Any] | None = None,
         regional_shift: float = 0,
         mask_column: str | None = None,
+        reverse_regional_residual: bool = False,
     ) -> None:
         """
         Calculate the gravity misfit as the difference between dataset variables
@@ -1103,6 +1122,9 @@ class DatasetAccessorInvert4Geom:
         mask_column : str | None, optional
             Name of optional dataset variable with values to multiply the calculated
             residual gravity field by, should have values of 1 or 0, by default None.
+        reverse_regional_residual : bool, optional
+            if True, reverse the regional and residual fields after calculation, by
+            default False
 
         See also
         --------
@@ -1123,6 +1145,7 @@ class DatasetAccessorInvert4Geom:
             cv_kwargs=cv_kwargs,
             regional_shift=regional_shift,
             mask_column=mask_column,
+            reverse_regional_residual=reverse_regional_residual,
         )
 
         self._save_starting_anomalies()
@@ -1143,6 +1166,7 @@ class DatasetAccessorInvert4Geom:
         cv_kwargs: dict[str, typing.Any] | None = None,
         regional_shift: float = 0,
         mask_column: str | None = None,
+        reverse_regional_residual: bool = False,
     ) -> None:
         """
         Calculate the gravity misfit as the difference between dataset variables
@@ -1222,6 +1246,9 @@ class DatasetAccessorInvert4Geom:
         mask_column : str | None, optional
             Name of optional dataset variable with values to multiply the calculated
             residual gravity field by, should have values of 1 or 0, by default None.
+        reverse_regional_residual : bool, optional
+            if True, reverse the regional and residual fields after calculation, by
+            default False
 
         See also
         --------
@@ -1246,6 +1273,7 @@ class DatasetAccessorInvert4Geom:
             cv_kwargs=cv_kwargs,
             regional_shift=regional_shift,
             mask_column=mask_column,
+            reverse_regional_residual=reverse_regional_residual,
         )
 
         self._save_starting_anomalies()
@@ -1256,6 +1284,7 @@ class DatasetAccessorInvert4Geom:
         split_kwargs: dict[str, typing.Any] | None = None,
         regional_shift: float = 0,
         mask_column: str | None = None,
+        reverse_regional_residual: bool = False,
         **kwargs: typing.Any,
     ) -> None:
         """
@@ -1282,6 +1311,9 @@ class DatasetAccessorInvert4Geom:
         mask_column : str | None, optional
             Name of optional dataset variable with values to multiply the calculated
             residual gravity field by, should have values of 1 or 0, by default None.
+        reverse_regional_residual : bool, optional
+            if True, reverse the regional and residual fields after calculation, by
+            default False
         **kwargs : typing.Any
             kwargs to be passed to :func:`optimize_regional_constraint_point_minimization`
 
@@ -1299,6 +1331,7 @@ class DatasetAccessorInvert4Geom:
             split_kwargs=split_kwargs,
             regional_shift=regional_shift,
             mask_column=mask_column,
+            reverse_regional_residual=reverse_regional_residual,
             **kwargs,
         )
 

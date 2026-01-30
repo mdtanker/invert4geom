@@ -966,7 +966,7 @@ def full_workflow_uncertainty_loop(
                     .to_xarray()
                     .gravity_anomaly,
                     gravity_filter_width,
-                    filt_type="lowpass",
+                    filter_type="lowpass",
                     pad_mode="linear_ramp",
                 )
                 # df = inv.data.inv.df.copy()

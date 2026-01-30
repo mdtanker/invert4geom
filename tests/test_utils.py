@@ -163,7 +163,7 @@ def test_filter_grid(test_input):
     # create some dummy data
     grid = dummy_grid().scalars
     # filter the grid
-    filtered = utils.filter_grid(grid, 10000, filt_type=test_input)
+    filtered = utils.filter_grid(grid, 10000, filter_type=test_input)
     # check the filtered grid is not identical to the original grid
     with pytest.raises(AssertionError):
         xrt.assert_identical(grid, filtered)
@@ -174,15 +174,15 @@ def test_filter_grid(test_input):
     xrt.assert_identical(grid, filtered)
 
 
-def test_filter_grid_wrong_filt_type():
+def test_filter_grid_wrong_filter_type():
     """
-    ensure ValueError is raised with wrong filt_type
+    ensure ValueError is raised with wrong filter_type
     """
     # create some dummy data
     grid = dummy_grid().scalars
     # assert error is raised
-    with pytest.raises(ValueError, match="filt_type must"):
-        utils.filter_grid(grid, 10000, filt_type="wrong_filt_type")
+    with pytest.raises(ValueError, match="filter_type must"):
+        utils.filter_grid(grid, 10000, filter_type="wrong_filter_type")
 
 
 @pytest.mark.filterwarnings(
@@ -200,7 +200,7 @@ def test_filter_grid_nans():
     # check the grid has a hole
     assert grid.isnull().any()  # noqa: PD003
     # filter the grid
-    filtered = utils.filter_grid(grid, 10000, filt_type="lowpass")
+    filtered = utils.filter_grid(grid, 10000, filter_type="lowpass")
     # check that the grid has been low-pass filtered
     assert np.max(filtered) < np.mean(grid)
 

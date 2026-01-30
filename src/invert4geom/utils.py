@@ -209,7 +209,7 @@ def filter_grid(
     grid: xr.DataArray,
     filter_width: float | None = None,
     height_displacement: float | None = None,
-    filt_type: str = "lowpass",
+    filter_type: str = "lowpass",
     pad_width_factor: int = 3,
     pad_mode: str = "linear_ramp",
     pad_constant: float | None = None,
@@ -227,7 +227,7 @@ def filter_grid(
     height_displacement : float, optional
         height displacement for upward continuation, relative to observation height, by
         default None
-    filt_type : str, optional
+    filter_type : str, optional
         type of filter to use from 'lowpass', 'highpass' 'up_deriv', 'easting_deriv',
         'northing_deriv', 'up_continue', or 'total_gradient', by default "lowpass"
     pad_width_factor : int, optional
@@ -299,34 +299,34 @@ def filter_grid(
         **pad_kwargs,
     )
 
-    if filt_type == "lowpass":
+    if filter_type == "lowpass":
         if filter_width is None:
-            msg = "filter_width must be provided if filt_type is 'lowpass'"
+            msg = "filter_width must be provided if filter_type is 'lowpass'"
             raise ValueError(msg)
         filt = hm.gaussian_lowpass(padded, wavelength=filter_width).rename("filt")
-    elif filt_type == "highpass":
+    elif filter_type == "highpass":
         if filter_width is None:
-            msg = "filter_width must be provided if filt_type is 'highpass'"
+            msg = "filter_width must be provided if filter_type is 'highpass'"
             raise ValueError(msg)
         filt = hm.gaussian_highpass(padded, wavelength=filter_width).rename("filt")
-    elif filt_type == "up_deriv":
+    elif filter_type == "up_deriv":
         filt = hm.derivative_upward(padded).rename("filt")
-    elif filt_type == "easting_deriv":
+    elif filter_type == "easting_deriv":
         filt = hm.derivative_easting(padded).rename("filt")
-    elif filt_type == "northing_deriv":
+    elif filter_type == "northing_deriv":
         filt = hm.derivative_northing(padded).rename("filt")
-    elif filt_type == "up_continue":
+    elif filter_type == "up_continue":
         if height_displacement is None:
-            msg = "height_displacement must be provided if filt_type is 'up_continue'"
+            msg = "height_displacement must be provided if filter_type is 'up_continue'"
             raise ValueError(msg)
         filt = hm.upward_continuation(
             padded, height_displacement=height_displacement
         ).rename("filt")
-    elif filt_type == "total_gradient":
+    elif filter_type == "total_gradient":
         filt = hm.total_gradient_amplitude(padded).rename("filt")
     else:
         msg = (
-            "filt_type must be 'lowpass', 'highpass' 'up_deriv', 'easting_deriv', "
+            "filter_type must be 'lowpass', 'highpass' 'up_deriv', 'easting_deriv', "
             "'northing_deriv', 'up_continue', or 'total_gradient'"
         )
         raise ValueError(msg)
