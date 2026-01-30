@@ -934,6 +934,7 @@ class DatasetAccessorInvert4Geom:
     def regional_filter(
         self,
         filter_width: float,
+        filter_type: str = "lowpass",
         regional_shift: float = 0,
         mask_column: str | None = None,
     ) -> None:
@@ -958,6 +959,8 @@ class DatasetAccessorInvert4Geom:
         ----------
         filter_width : float
             width in meters to use for the low-pass filter
+        filter_type : str, optional
+            type of filter to apply, by default "lowpass"
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
@@ -974,6 +977,7 @@ class DatasetAccessorInvert4Geom:
         regional.regional_filter(
             grav_ds=self._ds,
             filter_width=filter_width,
+            filter_type=filter_type,
             regional_shift=regional_shift,
             mask_column=mask_column,
         )

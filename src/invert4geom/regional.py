@@ -93,11 +93,12 @@ def regional_constant(
 def regional_filter(
     grav_ds: xr.Dataset,
     filter_width: float,
+    filter_type: str = "lowpass",
     regional_shift: float = 0,
     mask_column: str | None = None,
 ) -> None:
     """
-    separate the regional field with a low-pass filter
+    separate the regional field with a filter
 
     Parameters
     ----------
@@ -106,6 +107,8 @@ def regional_filter(
         "forward_gravity".
     filter_width : float
         width in meters to use for the low-pass filter
+    filter_type : str, optional
+        type of filter to use, by default "lowpass"
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
@@ -130,7 +133,7 @@ def regional_filter(
     regional_grid = utils.filter_grid(
         misfit,
         filter_width,
-        filter_type="lowpass",
+        filter_type=filter_type,
     )
 
     # add the mean back to the data
