@@ -1397,6 +1397,8 @@ class DatasetAccessorInvert4Geom:
                 ],
                 pen="2p,black",
                 label="Inner region",
+                region=fig.reg,
+                projection=fig.proj,
             )
             fig.legend()
         fig.show()
