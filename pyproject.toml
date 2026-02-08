@@ -50,6 +50,7 @@ dependencies = [
   "numba",
   "numba_progress",
   "dask",
+  "scooby",
 ###
 # optimization
 ###

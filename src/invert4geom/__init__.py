@@ -1,10 +1,67 @@
 import logging
 
+import scooby
+
 from ._version import version as __version__
 
 __all__ = ["__version__"]
 
 logger = logging.getLogger(__name__)
+
+
+class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-class-docstring
+    def __init__(self, additional=None, ncol=3, text_width=80, sort=False):  # type: ignore[no-untyped-def]
+        """Initiate a scooby.Report instance."""
+
+        # Mandatory packages.
+        core = [
+            "invert4geom",
+            "numpy",
+            "pandas",
+            "xarray",
+            "scipy",
+            "scikit-learn",
+            "verde",
+            "pooch",
+            "rioxarray",
+            "tqdm",
+            "pygmt",
+            "harmonica",
+            "deprecation",
+            "pykdtree",
+            "xrft",
+            "polartoolkit",
+            "numba",
+            "numba-progress",
+            "dask",
+            "optuna",
+            "torch",
+            "joblib",
+            "psutil",
+            "pyvista",
+            "ipywidgets",
+            "matplotlib",
+            "seaborn",
+            "ipython",
+            "plotly",
+        ]
+
+        # Optional packages.
+        optional = [
+            "UQpy",
+            "xesmf",
+        ]
+
+        scooby.Report.__init__(
+            self,
+            additional=additional,
+            core=core,
+            optional=optional,
+            ncol=ncol,
+            text_width=text_width,
+            sort=sort,
+        )
+
 
 from .cross_validation import (  # noqa: E402
     add_test_points,

@@ -19,10 +19,11 @@ dependencies:
   - deprecation
   - pykdtree
   - xrft
-  - polartoolkit>=1.4.0
+  - polartoolkit>=1.5.0
   - numba
   - numba-progress
   - dask
+  - scooby
   # optimization
   - optuna>=4.0
   - pytorch
