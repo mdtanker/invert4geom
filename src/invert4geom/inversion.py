@@ -16,14 +16,13 @@ import numba
 import numpy as np
 import optuna
 import pandas as pd
+import polartoolkit as ptk
 import scipy as sp
 import seaborn as sns
 import verde as vd
 import xarray as xr
 from IPython.display import clear_output
 from numpy.typing import NDArray
-from polartoolkit import maps
-from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
 from invert4geom import (
@@ -1348,7 +1347,7 @@ class DatasetAccessorInvert4Geom:
             hemisphere = "south"
             scalebar = False
 
-        fig = maps.plot_grd(
+        fig = ptk.plot_grid(
             self._ds.gravity_anomaly,
             title="Observed gravity",
             cbar_label="mGal",
@@ -1453,7 +1452,7 @@ class DatasetAccessorInvert4Geom:
             "Regional misfit",
             "Residual misfit",
         ]
-        fig = maps.subplots(
+        fig = ptk.subplots(
             grids,
             dims=(1, 5),
             region=self._ds.inner_region,
@@ -1522,7 +1521,7 @@ class DatasetAccessorInvert4Geom:
             "balance+h0",
             "balance+h0",
         ]
-        fig = maps.subplots(
+        fig = ptk.subplots(
             grids,
             dims=(1, 3),
             region=self._ds.inner_region,
@@ -1899,7 +1898,7 @@ def create_data(
         gravity["upward"] = gravity.geoidal_upward + gravity.geocentric_radius
 
     # set region and spacing from provided grid
-    spacing, region = polar_utils.get_grid_info(gravity.upward)[0:2]
+    spacing, region = ptk.get_grid_info(gravity.upward)[0:2]
 
     # default buffer with is 10% of the shortest dimension of the region, rounded to
     # nearest multiple of spacing
@@ -2008,7 +2007,7 @@ def create_model(
         f"topography Dataset must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
     )
     # set region and spacing from provided grid
-    spacing, region = polar_utils.get_grid_info(topography.upward)[0:2]
+    spacing, region = ptk.get_grid_info(topography.upward)[0:2]
 
     if isinstance(density_contrast, xr.DataArray):
         assert all(s in density_contrast.dims for s in coord_names), (
@@ -2070,7 +2069,7 @@ def create_model(
 
     # Append some attributes to the xr.Dataset
     attrs = {
-        "inner_region": polar_utils.get_grid_info(masked_extent)[1],
+        "inner_region": ptk.get_grid_info(masked_extent)[1],
         "zref": zref,
         "density_contrast": density_contrast,
         "region": region,
@@ -2871,7 +2870,7 @@ class Inversion:
 
         # subset to only points inside the inner region so edge effects have less effect
         # on scores
-        test = polar_utils.points_inside_region(
+        test = ptk.points_inside_region(
             test,
             self.data.inner_region,
             names=("easting", "northing"),
@@ -2891,7 +2890,7 @@ class Inversion:
                 obs = test_grid.gravity_anomaly - test_grid.reg
                 pred = test_grid.test_point_grav.rename("")
 
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     pred,
                     obs,
                     grid1_name="Predicted gravity",

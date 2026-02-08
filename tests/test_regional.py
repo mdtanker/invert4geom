@@ -209,11 +209,10 @@ def test_regional_constraints(test_input):
         spline_dampings=1e-3,
     )
 
-    # polar_utils.grd_compare(
+    # ptk.grid_compare(
     #     ds.reg,
     #     ds.misfit,
     #     points=constraints,
-    #     hemisphere="south",
     #     grid1_name="reg",
     #     grid2_name="misfit",
     # )

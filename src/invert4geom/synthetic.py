@@ -4,13 +4,12 @@ import logging
 import harmonica as hm
 import numpy as np
 import pandas as pd
+import polartoolkit as ptk
 import pooch
 import verde as vd
 import xarray as xr
 import xrft
 from numpy.typing import NDArray
-from polartoolkit import fetch, maps
-from polartoolkit import utils as polar_utils
 
 from invert4geom import logger, utils
 
@@ -150,7 +149,7 @@ def load_synthetic_model(
 
         if plot_topography_diff is True:
             try:
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     true_topography,
                     starting_topography,
                     grid1_name="True topography",
@@ -179,7 +178,7 @@ def load_synthetic_model(
     if plot_topography is True:
         try:
             # plot the topography
-            fig = maps.plot_grd(
+            fig = ptk.plot_grid(
                 true_topography,
                 fig_height=10,
                 title="True topography",
@@ -258,7 +257,7 @@ def load_synthetic_model(
         if plot_gravity is True:
             try:
                 # plot the observed gravity
-                fig = maps.plot_grd(
+                fig = ptk.plot_grid(
                     grav_ds.gravity_anomaly,
                     fig_height=10,
                     title="Forward gravity of true topography",
@@ -326,7 +325,7 @@ def contaminate_with_long_wavelength_noise(
     original_name = grid.name
 
     # get original spacing and region
-    info = polar_utils.get_grid_info(grid)
+    info = ptk.get_grid_info(grid)
     original_spacing = info[0]
     original_region = info[1]
 
@@ -371,7 +370,7 @@ def contaminate_with_long_wavelength_noise(
     # new_grid = df.to_xarray().noise
 
     # resample back to original spacing
-    new_grid = fetch.resample_grid(
+    new_grid = ptk.resample_grid(
         low_res_grid.noise,
         spacing=original_spacing,
         region=original_region,
@@ -640,7 +639,7 @@ def synthetic_topography_simple(
         dims=("northing", "easting"),
     ).upward
     if plot is True:
-        fig = maps.plot_grd(
+        fig = ptk.plot_grid(
             grid,
             title=title,
             cmap="rain",

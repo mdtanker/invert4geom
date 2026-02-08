@@ -8,10 +8,10 @@ import typing
 import harmonica as hm
 import numpy as np
 import pandas as pd
+import polartoolkit as ptk
 import scipy as sp
 import xarray as xr
 from numpy.typing import NDArray
-from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
 try:
@@ -312,7 +312,7 @@ def starting_topography_uncertainty(
                     mean = stats_ds.z_mean
                     stdev = stats_ds.z_stdev
 
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     np.abs(true_topography - mean),
                     stdev,
                     fig_height=12,
@@ -331,7 +331,7 @@ def starting_topography_uncertainty(
                     ),
                     points_style="x.3c",
                 )
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     true_topography,
                     mean,
                     fig_height=12,
@@ -498,7 +498,7 @@ def equivalent_sources_uncertainty(
                     stdev = stats_ds.z_stdev
 
                 # pylint: disable=duplicate-code
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     np.abs(true_gravity - mean),
                     stdev,
                     fig_height=12,
@@ -514,7 +514,7 @@ def equivalent_sources_uncertainty(
                     cmap="thermal",
                 )
                 if deterministic_error is not None:
-                    _ = polar_utils.grd_compare(
+                    _ = ptk.grid_compare(
                         np.abs(deterministic_error),
                         stdev,
                         fig_height=12,
@@ -529,7 +529,7 @@ def equivalent_sources_uncertainty(
                         coast=False,
                         cmap="thermal",
                     )
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     true_gravity,
                     mean,
                     fig_height=12,
@@ -681,7 +681,7 @@ def regional_misfit_uncertainty(
                     mean = stats_ds.z_mean
                     stdev = stats_ds.z_stdev
                 # pylint: disable=duplicate-code
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     np.abs(true_regional - mean),
                     stdev,
                     fig_height=12,
@@ -700,7 +700,7 @@ def regional_misfit_uncertainty(
                     ),
                     points_style="x.3c",
                 )
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     true_regional,
                     mean,
                     fig_height=12,

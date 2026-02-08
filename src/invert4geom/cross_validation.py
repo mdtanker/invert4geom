@@ -5,12 +5,11 @@ import warnings
 import harmonica as hm
 import numpy as np
 import pandas as pd
+import polartoolkit as ptk
 import sklearn
 import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
-from polartoolkit import maps
-from polartoolkit import utils as polar_utils
 
 from invert4geom import logger, utils
 
@@ -256,7 +255,7 @@ def random_split_test_train(
             region = vd.get_region((random_split_df.easting, random_split_df.northing))
             plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
 
-            fig = maps.basemap(
+            fig = ptk.basemap(
                 region=plot_region,
                 title="Random split",
             )
@@ -274,7 +273,7 @@ def random_split_test_train(
                 fill="red",
                 label="Test",
             )
-            maps.add_box(fig, box=region)
+            fig.add_box(box=region)
             fig.legend()
             fig.show()
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -377,7 +376,7 @@ def split_test_train(
     if plot is True:
         try:
             folds = list(df.columns[df.columns.str.startswith("fold_")])
-            _, ncols = polar_utils.square_subplots(len(folds))
+            _, ncols = ptk.square_subplots(len(folds))
             df = df.copy()
             for i in range(len(folds)):
                 if i == 0:
@@ -398,7 +397,7 @@ def split_test_train(
                 df_train = df[df[f"fold_{i}"] == "train"]
                 region = vd.get_region((df.easting, df.northing))
                 plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
-                fig = maps.basemap(
+                fig = ptk.basemap(
                     region=plot_region,
                     title=f"Fold {i} ({len(df_test)} testing points)",
                     origin_shift=origin_shift,
@@ -406,7 +405,7 @@ def split_test_train(
                     yshift_amount=yshift_amount,
                     fig=fig,
                 )
-                maps.add_box(fig, box=region)
+                fig.add_box(box=region)
                 fig.plot(
                     x=df_train.easting,
                     y=df_train.northing,

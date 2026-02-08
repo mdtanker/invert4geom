@@ -8,13 +8,13 @@ import dask
 import harmonica as hm
 import numpy as np
 import pandas as pd
+import polartoolkit as ptk
 import pygmt
 import sklearn
 import verde as vd
 import xarray as xr
 import xrft
 from numpy.typing import NDArray
-from polartoolkit import fetch
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 from invert4geom import logger, plotting
@@ -966,7 +966,7 @@ def create_topography(
 
     # ensure grid doesn't cross supplied confining layers
     if upper_confining_layer is not None:
-        da = fetch.fetch.resample_grid(
+        da = ptk.resample_grid(
             upper_confining_layer,
             spacing=spacing,
             region=region,
@@ -974,7 +974,7 @@ def create_topography(
         )
         grid = xr.where(grid > da, da, grid)
     if lower_confining_layer is not None:
-        da = fetch.fetch.resample_grid(
+        da = ptk.resample_grid(
             lower_confining_layer,
             spacing=spacing,
             region=region,
