@@ -74,6 +74,31 @@ class DuplicateFilter:
         self.log.removeFilter(self)
 
 
+def get_epsg(coast: bool) -> tuple[str, bool]:
+    try:
+        epsg = ptk.default_epsg(None, None)
+    except KeyError:
+        if coast:
+            msg = (
+                "couldn't find environment variable 'POLARTOOLKIT_EPSG' with the EPSG "
+                "code needed for plotting elements with geographic coordinates, such as"
+                "coastlines. You can set the environment variable "
+                "temporarily with `import os; os.environ['POLARTOOLKIT_EPSG'] = '3031' "
+                "where 3031 is the EPSG projection of your region. For now defaulting to "
+                "EPSG of 3857 and skipping plotting coastlines."
+            )
+            warnings.warn(
+                msg,
+                UserWarning,
+                stacklevel=2,
+            )
+            logger.warning(msg)
+            epsg = "3857"
+            coast = False
+        epsg = "3857"
+    return epsg, coast
+
+
 def _check_constraints_inside_gravity_region(
     constraints_df: pd.DataFrame,
     grav_df: pd.DataFrame,
