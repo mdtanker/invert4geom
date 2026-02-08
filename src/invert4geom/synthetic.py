@@ -159,7 +159,6 @@ def load_synthetic_model(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    coast=False,
                     reverse_cpt=True,
                     cmap="rain",
                     points=constraint_points.rename(
@@ -167,7 +166,8 @@ def load_synthetic_model(
                     ),
                     points_style="x.3c",
                     region=region,
-                    hemisphere="south",
+                    epsg="3031",
+                    coast=False,
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("plotting failed with error: %s", e)
@@ -188,7 +188,8 @@ def load_synthetic_model(
                 hist=True,
                 frame=["nSWe", "xaf10000", "yaf10000"],
                 region=region,
-                hemisphere="south",
+                epsg="3031",
+                coast=False,
             )
             fig.show()
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -265,7 +266,8 @@ def load_synthetic_model(
                     cbar_label="mGal",
                     frame=["nSWe", "xaf10000", "yaf10000"],
                     hist=True,
-                    hemisphere="south",
+                    epsg="3031",
+                    coast=False,
                 )
                 fig.show()
             except Exception as e:  # pylint: disable=broad-exception-caught

@@ -81,7 +81,6 @@ def test_data_attributes():
         "inner_region": (10000.0, 30000.0, 10000.0, 20000.0),
         "dataset_type": "data",
         "model_type": "prisms",
-        "epsg": None,
     }
     assert grav_data.attrs == attrs
 
@@ -109,7 +108,6 @@ def test_model_attributes():
         "spacing": 10000.0,
         "dataset_type": "model",
         "model_type": "prisms",
-        "epsg": None,
     }
 
     assert model.attrs == attrs

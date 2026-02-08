@@ -509,8 +509,7 @@ def plot_inversion_topo_results(
     constraints_df: pd.DataFrame | None = None,
     constraint_style: str = "x.3c",
     fig_height: float = 12,
-    epsg: str | None = None,
-    coast: bool | None = None,
+    coast: bool = False,
 ) -> None:
     """
     plot the initial and final topography grids from the inversion and their difference
@@ -529,41 +528,17 @@ def plot_inversion_topo_results(
         pygmt style string for for constraint points, by default 'x.3c'
     fig_height : float, optional
         height of the figure, by default 12
-    epsg : str | None, optional
-        EPSG code of the data if wanting to plot coastlines, by default None
-    coast : bool | None, optional
-        add coastline to plots, by default None
+    coast : bool, optional
+        add coastline to plots, by default False
     """
-    # if epsg provided, default to plotting coasts
-    if coast is None:
-        coast = bool(epsg is not None)
-
-    # require epsg if coastlines requested
-    if (coast is True) and (epsg is None):
-        msg = "Dataset must have 'epsg' attribute to plot coastlines."
-        raise ValueError(msg)
-
-    # determine hemisphere and coast version based on epsg
-    if epsg == "3031":
-        hemisphere = "south"
-    elif epsg == "3413":
-        hemisphere = "north"
-    else:
-        hemisphere = "south"
-
-    if coast is True:
-        if epsg in ["3031", "3413"]:  # noqa: SIM108 # pylint: disable=simplifiable-if-statement
-            plot_coast = True
-        else:
-            plot_coast = False
-    else:
-        plot_coast = False
 
     initial_topo = prisms_ds.starting_topography
 
     final_topo = prisms_ds.topography
 
     points = constraints_df if constraints_df is not None else None
+
+    epsg, coast = utils.get_epsg(coast=coast)
 
     # pylint: disable=duplicate-code
     _ = ptk.grid_compare(
@@ -581,8 +556,8 @@ def plot_inversion_topo_results(
         cmap="rain",
         points=points,
         points_style=constraint_style,
-        coast=plot_coast,
-        hemisphere=hemisphere,
+        coast=coast,
+        epsg=epsg,
     )
     # pylint: enable=duplicate-code
 
@@ -594,7 +569,7 @@ def plot_inversion_grav_results(
     fig_height: float = 12,
     constraint_style: str = "x.3c",
     epsg: str | None = None,
-    coast: bool | None = None,
+    coast: bool = False,
 ) -> None:
     """
     plot the initial and final misfit grids from the inversion and their difference
@@ -615,33 +590,11 @@ def plot_inversion_grav_results(
         pygmt style string for for constraint points, by default 'x.3c'
     epsg : str | None, optional
         EPSG code of the data if wanting to plot coastlines, by default None
-    coast : bool | None, optional
-        add coastline to plots, by default None
+    coast : bool, optional
+        add coastline to plots, by default False
     """
-    # if epsg provided, default to plotting coasts
-    if coast is None:
-        coast = bool(epsg is not None)
 
-    # require epsg if coastlines requested
-    if (coast is True) and (epsg is None):
-        msg = "Dataset must have 'epsg' attribute to plot coastlines."
-        raise ValueError(msg)
-
-    # determine hemisphere and coast version based on epsg
-    if epsg == "3031":
-        hemisphere = "south"
-    elif epsg == "3413":
-        hemisphere = "north"
-    else:
-        hemisphere = "south"
-
-    if coast is True:
-        if epsg in ["3031", "3413"]:  # noqa: SIM108 # pylint: disable=simplifiable-if-statement
-            plot_coast = True
-        else:
-            plot_coast = False
-    else:
-        plot_coast = False
+    epsg, coast = utils.get_epsg(coast=coast)
 
     grid = grav_results.set_index(["northing", "easting"]).to_xarray()
 
@@ -657,6 +610,8 @@ def plot_inversion_grav_results(
         initial_residual,
         final_residual,
         plot=False,
+        epsg=epsg,
+        coast=coast,
     )
     robust = True
     diff_maxabs = vd.maxabs(ptk.get_min_max(dif, robust=robust))
@@ -675,8 +630,8 @@ def plot_inversion_grav_results(
         title=f"Initial residual: RMSE:{round(initial_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
-        coast=plot_coast,
-        hemisphere=hemisphere,
+        coast=coast,
+        epsg=epsg,
     )
     fig = ptk.plot_grid(
         dif,
@@ -691,8 +646,8 @@ def plot_inversion_grav_results(
         title=f"difference: RMSE:{round(utils.rmse(dif), 2)} mGal",
         points=points,
         points_style=constraint_style,
-        coast=plot_coast,
-        hemisphere=hemisphere,
+        coast=coast,
+        epsg=epsg,
     )
     fig = ptk.plot_grid(
         final,
@@ -708,8 +663,8 @@ def plot_inversion_grav_results(
         title=f"Final residual: RMSE:{round(final_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
-        coast=plot_coast,
-        hemisphere=hemisphere,
+        coast=coast,
+        epsg=epsg,
     )
     fig.show()
 
@@ -1317,6 +1272,7 @@ def plot_stochastic_results(
     stats_ds: xr.Dataset,
     points: pd.DataFrame | None = None,
     region: tuple[float, float, float, float] | None = None,
+    coast: bool = False,
     **kwargs: typing.Any,
 ) -> None:
     """
@@ -1330,6 +1286,10 @@ def plot_stochastic_results(
         `uncertainty.model_ensemble_stats`.
     points : pandas.DataFrame | None, optional
         dataframe with points to plot, by default None
+    region : tuple[float, float, float, float] | None, optional
+        region to plot in format (xmin, xmax, ymin, ymax), by default None
+    coast : bool, optional
+        add coastline to plots, by default False
 
     Keyword Arguments
     -----------------
@@ -1353,6 +1313,8 @@ def plot_stochastic_results(
     points_label = kwargs.get("points_label")
     fig_height = kwargs.get("fig_height", 12)
 
+    epsg, coast = utils.get_epsg(coast=coast)
+
     try:
         stdev = stats_ds.weighted_stdev
         weighted = "weighted"
@@ -1374,6 +1336,8 @@ def plot_stochastic_results(
         hist=True,
         cbar_label=f"{label}: {weighted} standard deviation, {unit}",
         title="Ensemble uncertainty",
+        epsg=epsg,
+        coast=coast,
     )
     if points is not None:
         fig.plot(
@@ -1408,6 +1372,8 @@ def plot_stochastic_results(
         title="Ensemble mean",
         fig=fig,
         origin_shift="x",
+        epsg=epsg,
+        coast=coast,
     )
     if points is not None:
         fig.plot(
@@ -1595,6 +1561,7 @@ def plot_edge_effects(
     layer: xr.DataArray,
     inner_region: tuple[float, float, float, float],
     plot_profile: bool = True,
+    coast: bool = False,
 ) -> None:
     """
     Show the gravity edge effects and the percentage decay within the inner region and
@@ -1610,8 +1577,12 @@ def plot_edge_effects(
         the inside region, where forward gravity is calculated
     plot_profile : bool, optional
         plot a profile across the region, by default True
+    coast : bool, optional
+        add coastline to plots, by default False
     """
-    # plot profiles
+
+    epsg, coast = utils.get_epsg(coast=coast)
+
     if plot_profile:
         data_dict = ptk.make_data_dict(
             ["calculated forward gravity", "true gravity (without edge effects)"],
@@ -1635,7 +1606,7 @@ def plot_edge_effects(
             fig_width=10,
             fig_height=8,
             data_height=6,
-            hemisphere="south",
+            epsg=epsg,
         )
         fig.show()
 
@@ -1662,7 +1633,8 @@ def plot_edge_effects(
         cbar_label="mGal",
         scalebar=False,
         hist=True,
-        hemisphere="south",
+        epsg=epsg,
+        coast=coast,
     )
 
     fig = ptk.plot_grid(
@@ -1675,7 +1647,8 @@ def plot_edge_effects(
         cbar_label="Percentage decay",
         scalebar=False,
         hist=True,
-        hemisphere="south",
+        epsg=epsg,
+        coast=coast,
     )
 
     fig.grdcontour(grid=percent_decay)

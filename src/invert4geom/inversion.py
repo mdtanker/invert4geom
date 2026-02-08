@@ -1322,30 +1322,12 @@ class DatasetAccessorInvert4Geom:
 
     def plot_observed(
         self,
-        coast: bool | None = None,
+        coast: bool = False,
     ) -> None:
         """plot observed gravity"""
         self._check_correct_dataset_type("data")
 
-        # if epsg provided, default to plotting coasts
-        if coast is None:
-            coast = bool(self._ds.epsg is not None)
-
-        # require epsg if coastlines requested
-        if (coast is True) and (self._ds.epsg is None):
-            msg = "Dataset must have 'epsg' attribute to plot coastlines."
-            raise ValueError(msg)
-
-        # determine hemisphere and coast version based on epsg
-        if self._ds.epsg == "3031":
-            hemisphere = "south"
-            scalebar = True
-        elif self._ds.epsg == "3413":
-            hemisphere = "north"
-            scalebar = True
-        else:
-            hemisphere = "south"
-            scalebar = False
+        epsg, coast = utils.get_epsg(coast=coast)
 
         fig = ptk.plot_grid(
             self._ds.gravity_anomaly,
@@ -1355,29 +1337,9 @@ class DatasetAccessorInvert4Geom:
             robust=True,
             absolute=True,
             hist=True,
-            scalebar=scalebar,
-            coast=False,
-            hemisphere=hemisphere,
+            coast=coast,
+            epsg=epsg,
         )
-        if coast:
-            if self._ds.epsg in ["3031", "3413"]:
-                fig.add_coast()
-            else:
-                proj_latlon = f"{self._ds.epsg}/{fig.proj[1:]}"
-                reg_latlon = polar_utils.reproject(
-                    polar_utils.region_to_df(fig.reg).drop(index=[1, 2]),
-                    self._ds.epsg,
-                    "epsg:4326",
-                    reg=True,
-                )
-                reg_ll_bbox = polar_utils.region_to_bounding_box(reg_latlon)
-                reg_ll_bbox = polar_utils.gmt_str_to_list(reg_ll_bbox) + "+r"
-
-                fig.coast(
-                    region=reg_ll_bbox,
-                    projection=proj_latlon,
-                    shorelines="1/0.6p,black",
-                )
         if self._ds.buffer_width is not None:
             fig.plot(
                 x=[
@@ -1406,35 +1368,12 @@ class DatasetAccessorInvert4Geom:
         self,
         points: pd.DataFrame | None = None,
         points_style: str | None = None,
-        coast: bool | None = None,
+        coast: bool = False,
     ) -> None:
         """plot gravity anomalies"""
         self._check_correct_dataset_type("data")
 
-        # if epsg provided, default to plotting coasts
-        if coast is None:
-            coast = bool(self._ds.epsg is not None)
-
-        # require epsg if coastlines requested
-        if (coast is True) and (self._ds.epsg is None):
-            msg = "Dataset must have 'epsg' attribute to plot coastlines."
-            raise ValueError(msg)
-
-        # determine hemisphere and coast version based on epsg
-        if self._ds.epsg == "3031":
-            hemisphere = "south"
-        elif self._ds.epsg == "3413":
-            hemisphere = "north"
-        else:
-            hemisphere = "south"
-
-        if coast is True:
-            if self._ds.epsg in ["3031", "3413"]:  # noqa: SIM108 # pylint: disable=simplifiable-if-statement
-                plot_coast = True
-            else:
-                plot_coast = False
-        else:
-            plot_coast = False
+        epsg, coast = utils.get_epsg(coast=coast)
 
         ds = self.inner
 
@@ -1465,8 +1404,8 @@ class DatasetAccessorInvert4Geom:
             hist=True,
             points=points,
             points_style=points_style,
-            coast=plot_coast,
-            hemisphere=hemisphere,
+            coast=coast,
+            epsg=epsg,
         )
         fig.show()
 
@@ -1474,35 +1413,12 @@ class DatasetAccessorInvert4Geom:
         self,
         points: pd.DataFrame | None = None,
         points_style: str | None = None,
-        coast: bool | None = None,
+        coast: bool = False,
     ) -> None:
         """plot gravity misfit and estimate regional and residual components"""
         self._check_correct_dataset_type("data")
 
-        # if epsg provided, default to plotting coasts
-        if coast is None:
-            coast = bool(self._ds.epsg is not None)
-
-        # require epsg if coastlines requested
-        if (coast is True) and (self._ds.epsg is None):
-            msg = "Dataset must have 'epsg' attribute to plot coastlines."
-            raise ValueError(msg)
-
-        # determine hemisphere and coast version based on epsg
-        if self._ds.epsg == "3031":
-            hemisphere = "south"
-        elif self._ds.epsg == "3413":
-            hemisphere = "north"
-        else:
-            hemisphere = "south"
-
-        if coast is True:
-            if self._ds.epsg in ["3031", "3413"]:  # noqa: SIM108 # pylint: disable=simplifiable-if-statement
-                plot_coast = True
-            else:
-                plot_coast = False
-        else:
-            plot_coast = False
+        epsg, coast = utils.get_epsg(coast=coast)
 
         ds = self.inner
 
@@ -1534,8 +1450,8 @@ class DatasetAccessorInvert4Geom:
             hist=True,
             points=points,
             points_style=points_style,
-            coast=plot_coast,
-            hemisphere=hemisphere,
+            coast=coast,
+            epsg=epsg,
         )
         fig.show()
 
@@ -1842,7 +1758,6 @@ def create_data(
     gravity: xr.Dataset,
     buffer_width: float | None = None,
     model_type: str = "prisms",
-    epsg: str | None = None,
 ) -> xr.Dataset:
     """
     Convert a dataset of gravity data into the format needed for the inversion. This
@@ -1866,9 +1781,6 @@ def create_data(
     model_type : str, optional
         Choose between ``prisms`` and ``tesseroids``, which affects whether geographic
         or projected coordinates are expect, by default ``prisms``
-    epsg : str | None, optional
-        The EPSG code of the projected coordinate system of the gravity data. Only
-        needed if you want to add coastlines to the plotting functions.
 
     Returns
     -------
@@ -1926,7 +1838,6 @@ def create_data(
         "inner_region": inner_region,
         "dataset_type": "data",
         "model_type": model_type,
-        "epsg": epsg,
     }
     gravity.attrs = attrs
 
@@ -1940,7 +1851,6 @@ def create_model(
     model_type: str = "prisms",
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
-    epsg: str | None = None,
 ) -> xr.Dataset:
     """
     Convert a topography grid into a model, which can be used as the starting model for
@@ -1970,9 +1880,6 @@ def create_model(
         The upper confining layer for the model, by default None
     lower_confining_layer : xarray.DataArray | None, optional
         The lower confining layer for the model, by default None
-    epsg : str | None, optional
-        The EPSG code of the projected coordinate system of the topography data. Only
-        needed if you want to add coastlines to the plotting functions.
 
     Returns
     -------
@@ -2076,7 +1983,6 @@ def create_model(
         "spacing": spacing,
         "dataset_type": "model",
         "model_type": model_type,
-        "epsg": epsg,
     }
     model.attrs = attrs
 
@@ -2890,6 +2796,8 @@ class Inversion:
                 obs = test_grid.gravity_anomaly - test_grid.reg
                 pred = test_grid.test_point_grav.rename("")
 
+                epsg, coast = utils.get_epsg(coast=False)
+
                 _ = ptk.grid_compare(
                     pred,
                     obs,
@@ -2901,7 +2809,8 @@ class Inversion:
                     rmse_in_title=False,
                     hist=True,
                     inset=False,
-                    hemisphere="south",
+                    coast=coast,
+                    epsg=epsg,
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("plotting failed with error: %s", e)
@@ -4041,7 +3950,7 @@ class Inversion:
         plot_topo_results: bool = True,
         plot_grav_results: bool = True,
         constraints_df: pd.DataFrame | None = None,
-        coast: bool | None = None,
+        coast: bool = False,
         **kwargs: typing.Any,
     ) -> None:
         """
@@ -4059,8 +3968,8 @@ class Inversion:
             plot the gravity results, by default True
         constraints_df : pandas.DataFrame, optional
             constraint points to include in the plots
-        coast : bool | None, optional
-            whether to plot coastlines, by default None
+        coast : bool, optional
+            whether to plot coastlines, by default False
         """
         # get lists of columns to grid
         misfits = [
@@ -4138,7 +4047,6 @@ class Inversion:
                 constraints_df=constraints_df,
                 constraint_style=kwargs.get("constraint_style", "x.3c"),
                 fig_height=kwargs.get("fig_height", 12),
-                epsg=self.model.epsg,
                 coast=coast,
             )
 
@@ -4149,7 +4057,6 @@ class Inversion:
                 constraints_df=constraints_df,
                 fig_height=kwargs.get("fig_height", 12),
                 constraint_style=kwargs.get("constraint_style", "x.3c"),
-                epsg=self.data.epsg,
                 coast=coast,
             )
 
