@@ -3973,7 +3973,9 @@ class Inversion:
         """
         # get lists of columns to grid
         misfits = [
-            s for s in self.data.inv.df.columns.to_list() if "initial_residual" in s
+            s
+            for s in self.data.inv.inner_df.columns.to_list()
+            if "initial_residual" in s
         ]
         if self.style == "geometry":
             topos = [
