@@ -1945,6 +1945,11 @@ def create_model(
 
     # add optional confining layers as variables
     if upper_confining_layer is not None:
+        # check dataarray has same coord names
+        if sorted(upper_confining_layer.dims) != sorted(["easting", "northing"]):
+            msg = "upper_confining_layer must have coordinate names 'easting' and 'northing', use `.rename({'old_name':'new_name'})` to rename your coordinates"
+            raise ValueError(msg)
+
         model["upper_confining_layer"] = upper_confining_layer
     else:
         model["upper_confining_layer"] = xr.full_like(
@@ -1953,6 +1958,10 @@ def create_model(
             dtype=np.double,
         )
     if lower_confining_layer is not None:
+        # check dataarray has same coord names
+        if sorted(lower_confining_layer.dims) != sorted(["easting", "northing"]):
+            msg = "lower_confining_layer must have coordinate names 'easting' and 'northing', use `.rename({'old_name':'new_name'})` to rename your coordinates"
+            raise ValueError(msg)
         model["lower_confining_layer"] = lower_confining_layer
     else:
         model["lower_confining_layer"] = xr.full_like(
