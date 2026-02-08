@@ -2970,7 +2970,7 @@ class Inversion:
         """
         if plot_cv is not None:
             msg = "`plot_cv` parameter renamed to `plot_scores`."
-            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            warnings.warn(msg, UserWarning, stacklevel=2)
             plot_scores = plot_cv
 
         # make copies of Inversion and underlying data and model dataset so as not
@@ -3271,7 +3271,7 @@ class Inversion:
         """
         if plot_cv is not None:
             msg = "`plot_cv` parameter renamed to `plot_scores`."
-            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            warnings.warn(msg, UserWarning, stacklevel=2)
             plot_scores = plot_cv
 
         # make copies of Inversion and underlying data and model dataset so as not
