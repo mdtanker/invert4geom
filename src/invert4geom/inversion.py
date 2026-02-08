@@ -709,12 +709,7 @@ class DatasetAccessorInvert4Geom:
                 .reset_index(drop=True)
             )
         if self._ds.dataset_type == "model":
-            return (
-                self._ds.to_dataframe()
-                .reset_index()
-                .dropna(subset=["mask"], axis=0)
-                .reset_index(drop=True)
-            )
+            return self._ds.to_dataframe().reset_index()
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
         raise ValueError(msg)
 
@@ -732,12 +727,7 @@ class DatasetAccessorInvert4Geom:
                 .reset_index(drop=True)
             )
         if self._ds.dataset_type == "model":
-            return (
-                self.inner.to_dataframe()
-                .reset_index()
-                .dropna(subset=["mask"], axis=0)
-                .reset_index(drop=True)
-            )
+            return self.inner.to_dataframe().reset_index()
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
         raise ValueError(msg)
 
@@ -1467,7 +1457,7 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
 
-        # get dataframe of model layer
+        # get dataframe of model layer (optionally masked)
         df = self.masked_df
 
         # add column of density correction values
@@ -1500,7 +1490,7 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
 
-        # get dataframe of model layer
+        # get dataframe of model layer (optionally masked)
         df = self.masked_df
 
         # add column of topography correction values
@@ -2253,7 +2243,7 @@ class Inversion:
         # get prisms info in following format, 3 methods:
         # ((west, east, south, north, bottom, top), density)
         model_properties = _model_properties(
-            self.model.inv.masked,
+            self.model.inv.masked,  # only use non-masked prisms
             method=self.model_properties_method,
         )
         if np.abs(model_properties[:, 4] - model_properties[:, 5]).max() == 0:
@@ -2319,7 +2309,7 @@ class Inversion:
         )
         if self.deriv_type == "annulus":
             # convert dataframe to arrays
-            df = self.model.inv.masked_df
+            df = self.model.inv.masked_df  # only use non-masked prisms
             model_element_easting = df.easting.to_numpy()
             model_element_northing = df.northing.to_numpy()
             model_element_top = df.top.to_numpy()
@@ -2351,7 +2341,7 @@ class Inversion:
             # get prisms info in following format, 3 methods:
             # ((west, east, south, north, bottom, top), density)
             model_properties = _model_properties(
-                self.model.inv.masked,
+                self.model.inv.masked,  # only use non-masked prisms
                 method=self.model_properties_method,
             )
 
@@ -2532,7 +2522,8 @@ class Inversion:
             self.iter_time_start = time.perf_counter()  # type: ignore[assignment]
             self.iteration = iteration  # type: ignore[assignment]
 
-            # calculate jacobian sensitivity matrix
+            # calculate jacobian sensitivity matrix of non-nan gravity points and
+            # non-masked model elements
             if self.style == "geometry":
                 self.jacobian_geometry()
             elif self.style == "density":
