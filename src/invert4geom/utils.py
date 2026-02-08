@@ -75,6 +75,22 @@ class DuplicateFilter:
 
 
 def get_epsg(coast: bool) -> tuple[str, bool]:
+    """
+    Get the EPSG code for plotting coastlines. If the environment variable
+    'POLARTOOLKIT_EPSG' is not set, default to EPSG of 3857 and skip plotting
+    coastlines.
+
+    Parameters
+    ----------
+    coast : bool
+        whether to plot coastlines, if True, will attempt to get EPSG code for plotting
+        coastlines, if False, will skip plotting coastlines and return EPSG of 3857
+
+    Returns
+    -------
+    tuple[str, bool]
+        epsg code and whether to plot coastlines
+    """
     try:
         epsg = ptk.default_epsg(None, None)
     except KeyError:
