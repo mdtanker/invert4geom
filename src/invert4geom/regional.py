@@ -3,10 +3,10 @@ import typing
 import harmonica as hm
 import numpy as np
 import pandas as pd
+import polartoolkit as ptk
 import pygmt
 import verde as vd
 import xarray as xr
-from polartoolkit import utils as polar_utils
 
 from invert4geom import cross_validation, logger, optimization, utils
 
@@ -537,7 +537,7 @@ def regional_constraints(
     ###
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
-        registration = polar_utils.get_grid_info(grav_ds.forward_gravity)[-1]
+        registration = ptk.get_grid_info(grav_ds.forward_gravity)[-1]
         da = pygmt.surface(
             data=constraints_df[["easting", "northing", "sampled_grav"]],
             region=grav_ds.region,

@@ -29,3 +29,11 @@ PASTE YOUR CODE HERE
 PASTE ERROR MESSAGE HERE
 ```
 <!-- blacken-docs:on -->
+
+**Info on your environment**
+
+<!-- blacken-docs:off -->
+```
+Paste the output of `invert4geom.Report()` HERE
+```
+<!-- blacken-docs:on -->

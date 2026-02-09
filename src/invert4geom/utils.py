@@ -8,13 +8,13 @@ import dask
 import harmonica as hm
 import numpy as np
 import pandas as pd
+import polartoolkit as ptk
 import pygmt
 import sklearn
 import verde as vd
 import xarray as xr
 import xrft
 from numpy.typing import NDArray
-from polartoolkit import fetch
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
 
 from invert4geom import logger, plotting
@@ -72,6 +72,47 @@ class DuplicateFilter:
 
     def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
         self.log.removeFilter(self)
+
+
+def get_epsg(coast: bool) -> tuple[str, bool]:
+    """
+    Get the EPSG code for plotting coastlines. If the environment variable
+    'POLARTOOLKIT_EPSG' is not set, default to EPSG of 3857 and skip plotting
+    coastlines.
+
+    Parameters
+    ----------
+    coast : bool
+        whether to plot coastlines, if True, will attempt to get EPSG code for plotting
+        coastlines, if False, will skip plotting coastlines and return EPSG of 3857
+
+    Returns
+    -------
+    tuple[str, bool]
+        epsg code and whether to plot coastlines
+    """
+    try:
+        epsg = ptk.default_epsg(None, None)
+    except KeyError:
+        if coast:
+            msg = (
+                "couldn't find environment variable 'POLARTOOLKIT_EPSG' with the EPSG "
+                "code needed for plotting elements with geographic coordinates, such as"
+                "coastlines. You can set the environment variable "
+                "temporarily with `import os; os.environ['POLARTOOLKIT_EPSG'] = '3031' "
+                "where 3031 is the EPSG projection of your region. For now defaulting to "
+                "EPSG of 3857 and skipping plotting coastlines."
+            )
+            warnings.warn(
+                msg,
+                UserWarning,
+                stacklevel=2,
+            )
+            logger.warning(msg)
+            epsg = "3857"
+            coast = False
+        epsg = "3857"
+    return epsg, coast
 
 
 def _check_constraints_inside_gravity_region(
@@ -805,7 +846,7 @@ def create_topography(
             dims=("northing", "easting"),
         ).upward
 
-    elif method == "splines":
+    elif method == "splines":  # pylint: disable=too-many-nested-blocks
         # get coordinates of the constraint points
         if constraints_df is None:
             msg = "constraints_df must be provided if method is `splines`"
@@ -904,29 +945,43 @@ def create_topography(
                 weights = df[weights_col]
 
             if block_size is not None:
-                if block_reduction == "mean":
-                    reduction = np.mean
-                elif block_reduction == "median":
-                    reduction = np.median
-                    if weights is not None:
-                        msg = "weights are ignored when block_reduction is 'median'"
-                        logger.warning(msg)
+                if block_reduction == "mean" and weights is not None:
+                    reducer = vd.BlockMean(
+                        spacing=block_size,
+                        region=region,
+                        center_coordinates=True,
+                    )
+
+                    coords, data, weights = reducer.filter(
+                        coordinates=coords,
+                        data=data,
+                        weights=weights,
+                    )
+
                 else:
-                    msg = "block_reduction must be 'mean' or 'median'"
-                    raise ValueError(msg)
+                    if block_reduction == "mean":
+                        reduction = np.mean
+                    elif block_reduction == "median":
+                        reduction = np.median
+                        if weights is not None:
+                            msg = "weights are ignored when block_reduction is 'median', to use weights, set block_reduction to 'mean'"
+                            logger.warning(msg)
+                    else:
+                        msg = "block_reduction must be 'mean' or 'median'"
+                        raise ValueError(msg)
 
-                reducer = vd.BlockReduce(
-                    reduction=reduction,
-                    spacing=block_size,
-                    region=region,
-                    center_coordinates=True,
-                )
+                    reducer = vd.BlockReduce(
+                        reduction=reduction,
+                        spacing=block_size,
+                        region=region,
+                        center_coordinates=True,
+                    )
 
-                coords, data = reducer.filter(
-                    coordinates=coords,
-                    data=data,
-                    weights=weights,
-                )
+                    coords, data = reducer.filter(
+                        coordinates=coords,
+                        data=data,
+                        weights=weights,
+                    )
 
             # run CV for fitting a spline to the data
             spline = optimal_spline_damping(
@@ -952,21 +1007,21 @@ def create_topography(
 
     # ensure grid doesn't cross supplied confining layers
     if upper_confining_layer is not None:
-        da = fetch.fetch.resample_grid(
+        da = ptk.resample_grid(
             upper_confining_layer,
             spacing=spacing,
             region=region,
             registration=registration,
         )
-        grid = grid.where(grid <= da, da)
+        grid = xr.where(grid > da, da, grid)
     if lower_confining_layer is not None:
-        da = fetch.fetch.resample_grid(
+        da = ptk.resample_grid(
             lower_confining_layer,
             spacing=spacing,
             region=region,
             registration=registration,
         )
-        grid = grid.where(grid >= da, da)
+        grid = xr.where(grid < da, da, grid)
 
     return grid.to_dataset(name="upward")
 

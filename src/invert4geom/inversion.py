@@ -16,14 +16,13 @@ import numba
 import numpy as np
 import optuna
 import pandas as pd
+import polartoolkit as ptk
 import scipy as sp
 import seaborn as sns
 import verde as vd
 import xarray as xr
 from IPython.display import clear_output
 from numpy.typing import NDArray
-from polartoolkit import maps
-from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
 from invert4geom import (
@@ -710,12 +709,7 @@ class DatasetAccessorInvert4Geom:
                 .reset_index(drop=True)
             )
         if self._ds.dataset_type == "model":
-            return (
-                self._ds.to_dataframe()
-                .reset_index()
-                .dropna(subset=["mask"], axis=0)
-                .reset_index(drop=True)
-            )
+            return self._ds.to_dataframe().reset_index()
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
         raise ValueError(msg)
 
@@ -733,12 +727,7 @@ class DatasetAccessorInvert4Geom:
                 .reset_index(drop=True)
             )
         if self._ds.dataset_type == "model":
-            return (
-                self.inner.to_dataframe()
-                .reset_index()
-                .dropna(subset=["mask"], axis=0)
-                .reset_index(drop=True)
-            )
+            return self.inner.to_dataframe().reset_index()
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
         raise ValueError(msg)
 
@@ -1321,19 +1310,25 @@ class DatasetAccessorInvert4Geom:
 
         self._save_starting_anomalies()
 
-    def plot_observed(self) -> None:
+    def plot_observed(
+        self,
+        coast: bool = False,
+    ) -> None:
         """plot observed gravity"""
         self._check_correct_dataset_type("data")
 
-        fig = maps.plot_grd(
+        epsg, coast = utils.get_epsg(coast=coast)
+
+        fig = ptk.plot_grid(
             self._ds.gravity_anomaly,
             title="Observed gravity",
             cbar_label="mGal",
-            cmap="viridis",
-            hemisphere="south",
+            cmap="balance+h0",
             robust=True,
+            absolute=True,
             hist=True,
-            scalebar=True,
+            coast=coast,
+            epsg=epsg,
         )
         if self._ds.buffer_width is not None:
             fig.plot(
@@ -1353,6 +1348,8 @@ class DatasetAccessorInvert4Geom:
                 ],
                 pen="2p,black",
                 label="Inner region",
+                region=fig.reg,
+                projection=fig.proj,
             )
             fig.legend()
         fig.show()
@@ -1361,9 +1358,12 @@ class DatasetAccessorInvert4Geom:
         self,
         points: pd.DataFrame | None = None,
         points_style: str | None = None,
+        coast: bool = False,
     ) -> None:
         """plot gravity anomalies"""
         self._check_correct_dataset_type("data")
+
+        epsg, coast = utils.get_epsg(coast=coast)
 
         ds = self.inner
 
@@ -1381,26 +1381,21 @@ class DatasetAccessorInvert4Geom:
             "Regional misfit",
             "Residual misfit",
         ]
-        cmaps = [
-            "viridis",
-            "viridis",
-            "balance+h0",
-            "balance+h0",
-            "balance+h0",
-        ]
-        fig = maps.subplots(
+        fig = ptk.subplots(
             grids,
             dims=(1, 5),
             region=self._ds.inner_region,
             fig_title="Gravity anomalies",
             titles=titles,
             cbar_label="mGal",
-            cmaps=cmaps,
-            hemisphere="south",
+            cmap="balance+h0",
+            absolute=True,
             robust=True,
             hist=True,
             points=points,
             points_style=points_style,
+            coast=coast,
+            epsg=epsg,
         )
         fig.show()
 
@@ -1408,9 +1403,12 @@ class DatasetAccessorInvert4Geom:
         self,
         points: pd.DataFrame | None = None,
         points_style: str | None = None,
+        coast: bool = False,
     ) -> None:
         """plot gravity misfit and estimate regional and residual components"""
         self._check_correct_dataset_type("data")
+
+        epsg, coast = utils.get_epsg(coast=coast)
 
         ds = self.inner
 
@@ -1429,7 +1427,7 @@ class DatasetAccessorInvert4Geom:
             "balance+h0",
             "balance+h0",
         ]
-        fig = maps.subplots(
+        fig = ptk.subplots(
             grids,
             dims=(1, 3),
             region=self._ds.inner_region,
@@ -1437,12 +1435,13 @@ class DatasetAccessorInvert4Geom:
             titles=titles,
             cbar_label="mGal",
             cmaps=cmaps,
-            hemisphere="south",
             robust=True,
             absolute=True,
             hist=True,
             points=points,
             points_style=points_style,
+            coast=coast,
+            epsg=epsg,
         )
         fig.show()
 
@@ -1458,7 +1457,7 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
 
-        # get dataframe of model layer
+        # get dataframe of model layer (optionally masked)
         df = self.masked_df
 
         # add column of density correction values
@@ -1491,7 +1490,7 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
 
-        # get dataframe of model layer
+        # get dataframe of model layer (optionally masked)
         df = self.masked_df
 
         # add column of topography correction values
@@ -1801,7 +1800,7 @@ def create_data(
         gravity["upward"] = gravity.geoidal_upward + gravity.geocentric_radius
 
     # set region and spacing from provided grid
-    spacing, region = polar_utils.get_grid_info(gravity.upward)[0:2]
+    spacing, region = ptk.get_grid_info(gravity.upward)[0:2]
 
     # default buffer with is 10% of the shortest dimension of the region, rounded to
     # nearest multiple of spacing
@@ -1905,7 +1904,7 @@ def create_model(
         f"topography Dataset must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
     )
     # set region and spacing from provided grid
-    spacing, region = polar_utils.get_grid_info(topography.upward)[0:2]
+    spacing, region = ptk.get_grid_info(topography.upward)[0:2]
 
     if isinstance(density_contrast, xr.DataArray):
         assert all(s in density_contrast.dims for s in coord_names), (
@@ -1946,6 +1945,11 @@ def create_model(
 
     # add optional confining layers as variables
     if upper_confining_layer is not None:
+        # check dataarray has same coord names
+        if sorted(upper_confining_layer.dims) != sorted(["easting", "northing"]):
+            msg = "upper_confining_layer must have coordinate names 'easting' and 'northing', use `.rename({'old_name':'new_name'})` to rename your coordinates"
+            raise ValueError(msg)
+
         model["upper_confining_layer"] = upper_confining_layer
     else:
         model["upper_confining_layer"] = xr.full_like(
@@ -1954,6 +1958,10 @@ def create_model(
             dtype=np.double,
         )
     if lower_confining_layer is not None:
+        # check dataarray has same coord names
+        if sorted(lower_confining_layer.dims) != sorted(["easting", "northing"]):
+            msg = "lower_confining_layer must have coordinate names 'easting' and 'northing', use `.rename({'old_name':'new_name'})` to rename your coordinates"
+            raise ValueError(msg)
         model["lower_confining_layer"] = lower_confining_layer
     else:
         model["lower_confining_layer"] = xr.full_like(
@@ -1967,7 +1975,7 @@ def create_model(
 
     # Append some attributes to the xr.Dataset
     attrs = {
-        "inner_region": polar_utils.get_grid_info(masked_extent)[1],
+        "inner_region": ptk.get_grid_info(masked_extent)[1],
         "zref": zref,
         "density_contrast": density_contrast,
         "region": region,
@@ -2244,7 +2252,7 @@ class Inversion:
         # get prisms info in following format, 3 methods:
         # ((west, east, south, north, bottom, top), density)
         model_properties = _model_properties(
-            self.model.inv.masked,
+            self.model.inv.masked,  # only use non-masked prisms
             method=self.model_properties_method,
         )
         if np.abs(model_properties[:, 4] - model_properties[:, 5]).max() == 0:
@@ -2310,7 +2318,7 @@ class Inversion:
         )
         if self.deriv_type == "annulus":
             # convert dataframe to arrays
-            df = self.model.inv.masked_df
+            df = self.model.inv.masked_df  # only use non-masked prisms
             model_element_easting = df.easting.to_numpy()
             model_element_northing = df.northing.to_numpy()
             model_element_top = df.top.to_numpy()
@@ -2342,7 +2350,7 @@ class Inversion:
             # get prisms info in following format, 3 methods:
             # ((west, east, south, north, bottom, top), density)
             model_properties = _model_properties(
-                self.model.inv.masked,
+                self.model.inv.masked,  # only use non-masked prisms
                 method=self.model_properties_method,
             )
 
@@ -2433,8 +2441,10 @@ class Inversion:
         model = create_model(
             zref=self.model.zref,
             density_contrast=self.model.density_contrast,
-            model_type=self.model.model_type,
             topography=self.model.starting_topography.to_dataset(name="upward"),
+            model_type=self.model.model_type,
+            upper_confining_layer=self.model.upper_confining_layer,
+            lower_confining_layer=self.model.lower_confining_layer,
         )
         self.model = model
         # self.model = self.model.drop_vars(
@@ -2521,7 +2531,8 @@ class Inversion:
             self.iter_time_start = time.perf_counter()  # type: ignore[assignment]
             self.iteration = iteration  # type: ignore[assignment]
 
-            # calculate jacobian sensitivity matrix
+            # calculate jacobian sensitivity matrix of non-nan gravity points and
+            # non-masked model elements
             if self.style == "geometry":
                 self.jacobian_geometry()
             elif self.style == "density":
@@ -2765,7 +2776,7 @@ class Inversion:
 
         # subset to only points inside the inner region so edge effects have less effect
         # on scores
-        test = polar_utils.points_inside_region(
+        test = ptk.points_inside_region(
             test,
             self.data.inner_region,
             names=("easting", "northing"),
@@ -2785,7 +2796,9 @@ class Inversion:
                 obs = test_grid.gravity_anomaly - test_grid.reg
                 pred = test_grid.test_point_grav.rename("")
 
-                _ = polar_utils.grd_compare(
+                epsg, coast = utils.get_epsg(coast=False)
+
+                _ = ptk.grid_compare(
                     pred,
                     obs,
                     grid1_name="Predicted gravity",
@@ -2796,7 +2809,8 @@ class Inversion:
                     rmse_in_title=False,
                     hist=True,
                     inset=False,
-                    hemisphere="south",
+                    coast=coast,
+                    epsg=epsg,
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("plotting failed with error: %s", e)
@@ -2956,7 +2970,7 @@ class Inversion:
         """
         if plot_cv is not None:
             msg = "`plot_cv` parameter renamed to `plot_scores`."
-            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            warnings.warn(msg, UserWarning, stacklevel=2)
             plot_scores = plot_cv
 
         # make copies of Inversion and underlying data and model dataset so as not
@@ -3257,7 +3271,7 @@ class Inversion:
         """
         if plot_cv is not None:
             msg = "`plot_cv` parameter renamed to `plot_scores`."
-            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            warnings.warn(msg, UserWarning, stacklevel=2)
             plot_scores = plot_cv
 
         # make copies of Inversion and underlying data and model dataset so as not
@@ -3560,6 +3574,8 @@ class Inversion:
                 calculate_regional_misfit=True,
                 zref=inv_copy.model.zref,
                 density_contrast=inv_copy.model.density_contrast,
+                upper_confining_layer=inv_copy.model.upper_confining_layer,
+                lower_confining_layer=inv_copy.model.lower_confining_layer,
                 fname=inv_copy.results_fname,
                 inversion_kwargs={
                     "max_iterations": inv_copy.max_iterations,
@@ -3934,6 +3950,7 @@ class Inversion:
         plot_topo_results: bool = True,
         plot_grav_results: bool = True,
         constraints_df: pd.DataFrame | None = None,
+        coast: bool = False,
         **kwargs: typing.Any,
     ) -> None:
         """
@@ -3951,10 +3968,14 @@ class Inversion:
             plot the gravity results, by default True
         constraints_df : pandas.DataFrame, optional
             constraint points to include in the plots
+        coast : bool, optional
+            whether to plot coastlines, by default False
         """
         # get lists of columns to grid
         misfits = [
-            s for s in self.data.inv.df.columns.to_list() if "initial_residual" in s
+            s
+            for s in self.data.inv.inner_df.columns.to_list()
+            if "initial_residual" in s
         ]
         if self.style == "geometry":
             topos = [
@@ -4028,6 +4049,7 @@ class Inversion:
                 constraints_df=constraints_df,
                 constraint_style=kwargs.get("constraint_style", "x.3c"),
                 fig_height=kwargs.get("fig_height", 12),
+                coast=coast,
             )
 
         if plot_grav_results is True:
@@ -4037,6 +4059,7 @@ class Inversion:
                 constraints_df=constraints_df,
                 fig_height=kwargs.get("fig_height", 12),
                 constraint_style=kwargs.get("constraint_style", "x.3c"),
+                coast=coast,
             )
 
 
@@ -4056,6 +4079,8 @@ def run_inversion_workflow(
     density_contrast: float | None = None,
     zref: float | None = None,
     model_type: str = "prisms",
+    upper_confining_layer: xr.Dataset | None = None,
+    lower_confining_layer: xr.Dataset | None = None,
     regional_grav_kwargs: dict[str, typing.Any] | None = None,
     constraints_df: pd.DataFrame | None = None,
     inversion_kwargs: dict[str, typing.Any] | None = None,
@@ -4123,6 +4148,10 @@ def run_inversion_workflow(
         reference depth for the starting prisms, by default None
     model_type : str, optional
         type of model to create, either "prisms" or "tesseroids", by default "prisms"
+    upper_confining_layer : xarray.Dataset | None, optional
+        an upper confining layer model with variable `upward`, by default None
+    lower_confining_layer : xarray.Dataset | None, optional
+        a lower confining layer model with variable `upward`, by default None
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
         kwargs needed for estimating regional gravity, passed to
         :meth:`DatasetAccessorInvert4Geom.regional_separation`, by default None
@@ -4281,8 +4310,10 @@ def run_inversion_workflow(
     model = create_model(
         zref=zref,  # type: ignore[arg-type]
         density_contrast=density_contrast,
-        model_type=model_type,
         topography=starting_topography,
+        model_type=model_type,
+        upper_confining_layer=upper_confining_layer,
+        lower_confining_layer=lower_confining_layer,
     )
     logger.debug("starting prisms created")
 

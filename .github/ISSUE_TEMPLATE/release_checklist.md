@@ -12,7 +12,8 @@ assignees: ''
 
 ## Update dependencies
 
-- [ ] Check all the dependency changes since the last release are  reflected in `environment.yml`
+- [ ] Check all the dependency changes since the last release are  reflected in `environment.yml`, `pyproject.toml`, and the Scooby list in `__init__.py`
+- [ ] Check any new function are added to `__init__.py` and `docs/api/polartoolkit.rst`
 - [ ] update Invert4Geom version in `binder/environment.yml`
 
 ## Update the changelog

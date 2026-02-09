@@ -8,14 +8,13 @@ import optuna
 import pandas as pd
 import plotly
 import plotly.io as pio
+import polartoolkit as ptk
 import pyvista
 import scipy as sp
 import seaborn as sns
 import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
-from polartoolkit import maps, profiles
-from polartoolkit import utils as polar_utils
 
 from invert4geom import logger, utils
 
@@ -221,7 +220,7 @@ def plot_2_parameter_scores_uneven(
         return
     zi = interp(xi, yi)
 
-    vmin, vmax = polar_utils.get_min_max(
+    vmin, vmax = ptk.get_min_max(
         df.value,
         robust=robust,
         # robust_percentiles=(.89,.9)
@@ -510,6 +509,7 @@ def plot_inversion_topo_results(
     constraints_df: pd.DataFrame | None = None,
     constraint_style: str = "x.3c",
     fig_height: float = 12,
+    coast: bool = False,
 ) -> None:
     """
     plot the initial and final topography grids from the inversion and their difference
@@ -528,6 +528,8 @@ def plot_inversion_topo_results(
         pygmt style string for for constraint points, by default 'x.3c'
     fig_height : float, optional
         height of the figure, by default 12
+    coast : bool, optional
+        add coastline to plots, by default False
     """
 
     initial_topo = prisms_ds.starting_topography
@@ -536,8 +538,10 @@ def plot_inversion_topo_results(
 
     points = constraints_df if constraints_df is not None else None
 
+    epsg, coast = utils.get_epsg(coast=coast)
+
     # pylint: disable=duplicate-code
-    _ = polar_utils.grd_compare(
+    _ = ptk.grid_compare(
         initial_topo,
         final_topo,
         fig_height=fig_height,
@@ -548,12 +552,12 @@ def plot_inversion_topo_results(
         inset=False,
         verbose="q",
         title="difference",
-        coast=False,
         reverse_cpt=True,
         cmap="rain",
         points=points,
         points_style=constraint_style,
-        hemisphere="south",
+        coast=coast,
+        epsg=epsg,
     )
     # pylint: enable=duplicate-code
 
@@ -564,6 +568,8 @@ def plot_inversion_grav_results(
     constraints_df: pd.DataFrame | None = None,
     fig_height: float = 12,
     constraint_style: str = "x.3c",
+    epsg: str | None = None,
+    coast: bool = False,
 ) -> None:
     """
     plot the initial and final misfit grids from the inversion and their difference
@@ -582,7 +588,13 @@ def plot_inversion_grav_results(
         height of the figure, by default 12
     constraint_style : str, optional
         pygmt style string for for constraint points, by default 'x.3c'
+    epsg : str | None, optional
+        EPSG code of the data if wanting to plot coastlines, by default None
+    coast : bool, optional
+        add coastline to plots, by default False
     """
+
+    epsg, coast = utils.get_epsg(coast=coast)
 
     grid = grav_results.set_index(["northing", "easting"]).to_xarray()
 
@@ -594,16 +606,19 @@ def plot_inversion_grav_results(
 
     points = constraints_df if constraints_df is not None else None
 
-    dif, initial, final = polar_utils.grd_compare(
+    dif, initial, final = ptk.grid_compare(
         initial_residual,
         final_residual,
         plot=False,
+        epsg=epsg,
+        coast=coast,
     )
     robust = True
-    diff_maxabs = vd.maxabs(polar_utils.get_min_max(dif, robust=robust))
-    initial_maxabs = vd.maxabs(polar_utils.get_min_max(initial, robust=robust))
-    final_maxabs = vd.maxabs(polar_utils.get_min_max(final, robust=robust))
-    fig = maps.plot_grd(
+    diff_maxabs = vd.maxabs(ptk.get_min_max(dif, robust=robust))
+    initial_maxabs = vd.maxabs(ptk.get_min_max(initial, robust=robust))
+    final_maxabs = vd.maxabs(ptk.get_min_max(final, robust=robust))
+
+    fig = ptk.plot_grid(
         initial,
         fig_height=fig_height,
         region=region,
@@ -615,9 +630,10 @@ def plot_inversion_grav_results(
         title=f"Initial residual: RMSE:{round(initial_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
-        hemisphere="south",
+        coast=coast,
+        epsg=epsg,
     )
-    fig = maps.plot_grd(
+    fig = ptk.plot_grid(
         dif,
         fig=fig,
         origin_shift="x",
@@ -630,9 +646,10 @@ def plot_inversion_grav_results(
         title=f"difference: RMSE:{round(utils.rmse(dif), 2)} mGal",
         points=points,
         points_style=constraint_style,
-        hemisphere="south",
+        coast=coast,
+        epsg=epsg,
     )
-    fig = maps.plot_grd(
+    fig = ptk.plot_grid(
         final,
         fig=fig,
         origin_shift="x",
@@ -646,7 +663,8 @@ def plot_inversion_grav_results(
         title=f"Final residual: RMSE:{round(final_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
-        hemisphere="south",
+        coast=coast,
+        epsg=epsg,
     )
     fig.show()
 
@@ -716,11 +734,11 @@ def plot_inversion_iteration_results(
     corrections_lims = []
 
     for g in misfit_grids:
-        misfit_lims.append(polar_utils.get_min_max(g))
+        misfit_lims.append(ptk.get_min_max(g))
     for g in updated_grids:
-        updated_lims.append(polar_utils.get_min_max(g))
+        updated_lims.append(ptk.get_min_max(g))
     for g in corrections_grids:
-        corrections_lims.append(polar_utils.get_min_max(g))
+        corrections_lims.append(ptk.get_min_max(g))
 
     misfit_min = min([i[0] for i in misfit_lims])  # pylint: disable=consider-using-generator
     misfit_max = max([i[1] for i in misfit_lims])  # pylint: disable=consider-using-generator
@@ -1254,6 +1272,7 @@ def plot_stochastic_results(
     stats_ds: xr.Dataset,
     points: pd.DataFrame | None = None,
     region: tuple[float, float, float, float] | None = None,
+    coast: bool = False,
     **kwargs: typing.Any,
 ) -> None:
     """
@@ -1267,6 +1286,10 @@ def plot_stochastic_results(
         `uncertainty.model_ensemble_stats`.
     points : pandas.DataFrame | None, optional
         dataframe with points to plot, by default None
+    region : tuple[float, float, float, float] | None, optional
+        region to plot in format (xmin, xmax, ymin, ymax), by default None
+    coast : bool, optional
+        add coastline to plots, by default False
 
     Keyword Arguments
     -----------------
@@ -1290,6 +1313,8 @@ def plot_stochastic_results(
     points_label = kwargs.get("points_label")
     fig_height = kwargs.get("fig_height", 12)
 
+    epsg, coast = utils.get_epsg(coast=coast)
+
     try:
         stdev = stats_ds.weighted_stdev
         weighted = "weighted"
@@ -1303,7 +1328,7 @@ def plot_stochastic_results(
             northing=slice(region[2], region[3]),
         )
 
-    fig = maps.plot_grd(
+    fig = ptk.plot_grid(
         stdev,
         fig_height=fig_height,
         cmap="thermal",
@@ -1311,6 +1336,8 @@ def plot_stochastic_results(
         hist=True,
         cbar_label=f"{label}: {weighted} standard deviation, {unit}",
         title="Ensemble uncertainty",
+        epsg=epsg,
+        coast=coast,
     )
     if points is not None:
         fig.plot(
@@ -1334,7 +1361,7 @@ def plot_stochastic_results(
             northing=slice(region[2], region[3]),
         )
 
-    fig = maps.plot_grd(
+    fig = ptk.plot_grid(
         mean,
         fig_height=fig_height,
         cmap=cmap,
@@ -1345,6 +1372,8 @@ def plot_stochastic_results(
         title="Ensemble mean",
         fig=fig,
         origin_shift="x",
+        epsg=epsg,
+        coast=coast,
     )
     if points is not None:
         fig.plot(
@@ -1532,6 +1561,7 @@ def plot_edge_effects(
     layer: xr.DataArray,
     inner_region: tuple[float, float, float, float],
     plot_profile: bool = True,
+    coast: bool = False,
 ) -> None:
     """
     Show the gravity edge effects and the percentage decay within the inner region and
@@ -1547,22 +1577,26 @@ def plot_edge_effects(
         the inside region, where forward gravity is calculated
     plot_profile : bool, optional
         plot a profile across the region, by default True
+    coast : bool, optional
+        add coastline to plots, by default False
     """
-    # plot profiles
+
+    epsg, coast = utils.get_epsg(coast=coast)
+
     if plot_profile:
-        data_dict = profiles.make_data_dict(
+        data_dict = ptk.make_data_dict(
             ["calculated forward gravity", "true gravity (without edge effects)"],
             [grav_ds.forward, grav_ds.forward_no_edge_effects],
             ["black", "red"],
         )
 
-        layers_dict = profiles.make_data_dict(
+        layers_dict = ptk.make_data_dict(
             ["surface", "reference"],
             [layer.top, layer.bottom],
             ["blue", "darkorange"],
         )
 
-        fig, _, _ = profiles.plot_profile(
+        fig, _, _ = ptk.plot_profile(
             "points",
             start=(inner_region[0], (inner_region[3] - inner_region[2]) / 2),
             stop=(inner_region[1], (inner_region[3] - inner_region[2]) / 2),
@@ -1572,7 +1606,7 @@ def plot_edge_effects(
             fig_width=10,
             fig_height=8,
             data_height=6,
-            hemisphere="south",
+            epsg=epsg,
         )
         fig.show()
 
@@ -1591,7 +1625,7 @@ def plot_edge_effects(
     plt.show()
 
     # plot gravity and percentage contours
-    fig = maps.plot_grd(
+    fig = ptk.plot_grid(
         grav_ds.forward,
         cmap="viridis",
         region=inner_region,
@@ -1599,10 +1633,11 @@ def plot_edge_effects(
         cbar_label="mGal",
         scalebar=False,
         hist=True,
-        hemisphere="south",
+        epsg=epsg,
+        coast=coast,
     )
 
-    fig = maps.plot_grd(
+    fig = ptk.plot_grid(
         percent_decay,
         fig=fig,
         origin_shift="x",
@@ -1612,7 +1647,8 @@ def plot_edge_effects(
         cbar_label="Percentage decay",
         scalebar=False,
         hist=True,
-        hemisphere="south",
+        epsg=epsg,
+        coast=coast,
     )
 
     fig.grdcontour(grid=percent_decay)

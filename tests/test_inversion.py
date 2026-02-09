@@ -77,7 +77,7 @@ def test_data_attributes():
     attrs = {
         "region": (0.0, 40000.0, 0.0, 30000.0),
         "spacing": 10000.0,
-        "buffer_width": 10000.0,
+        "buffer_width": 10000,
         "inner_region": (10000.0, 30000.0, 10000.0, 20000.0),
         "dataset_type": "data",
         "model_type": "prisms",

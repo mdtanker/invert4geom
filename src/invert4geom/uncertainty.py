@@ -8,10 +8,10 @@ import typing
 import harmonica as hm
 import numpy as np
 import pandas as pd
+import polartoolkit as ptk
 import scipy as sp
 import xarray as xr
 from numpy.typing import NDArray
-from polartoolkit import utils as polar_utils
 from tqdm.autonotebook import tqdm
 
 try:
@@ -197,6 +197,7 @@ def starting_topography_uncertainty(
     plot: bool = True,
     plot_region: tuple[float, float, float, float] | None = None,
     true_topography: xr.DataArray | None = None,
+    coast: bool = False,
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
@@ -222,6 +223,8 @@ def starting_topography_uncertainty(
     true_topography : xarray.DataArray | None, optional
         if the true topography is known, will make a plot comparing the results, by
         default None
+    coast : bool, optional
+        whether to plot coastlines, by default False
 
     Returns
     -------
@@ -294,6 +297,7 @@ def starting_topography_uncertainty(
         weights=weights,
     )
     if plot is True:
+        epsg, coast = utils.get_epsg(coast=coast)
         try:
             plotting.plot_stochastic_results(
                 stats_ds=stats_ds,
@@ -312,7 +316,7 @@ def starting_topography_uncertainty(
                     mean = stats_ds.z_mean
                     stdev = stats_ds.z_stdev
 
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     np.abs(true_topography - mean),
                     stdev,
                     fig_height=12,
@@ -324,14 +328,15 @@ def starting_topography_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    coast=False,
+                    coast=coast,
                     cmap="thermal",
                     points=sampled_constraints.rename(
                         columns={"easting": "x", "northing": "y"}
                     ),
                     points_style="x.3c",
+                    epsg=epsg,
                 )
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     true_topography,
                     mean,
                     fig_height=12,
@@ -343,13 +348,14 @@ def starting_topography_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    coast=False,
+                    coast=coast,
                     cmap="rain",
                     reverse_cpt=True,
                     points=sampled_constraints.rename(
                         columns={"easting": "x", "northing": "y"}
                     ),
                     points_style="x.3c",
+                    epsg=epsg,
                 )
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("plotting failed with error: %s", e)
@@ -370,6 +376,7 @@ def equivalent_sources_uncertainty(
     true_gravity: xr.DataArray | None = None,
     deterministic_error: xr.DataArray | None = None,
     weight_by: str | None = None,
+    coast: bool = False,
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
@@ -398,6 +405,8 @@ def equivalent_sources_uncertainty(
         default None
     weight_by : str | None, optional
         how to weight the models, by default None
+    coast : bool, optional
+        whether to plot coastlines, by default False
 
     Returns
     -------
@@ -480,6 +489,7 @@ def equivalent_sources_uncertainty(
     )
 
     if plot is True:
+        epsg, coast = utils.get_epsg(coast=coast)
         try:
             plotting.plot_stochastic_results(
                 stats_ds=stats_ds,
@@ -498,7 +508,7 @@ def equivalent_sources_uncertainty(
                     stdev = stats_ds.z_stdev
 
                 # pylint: disable=duplicate-code
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     np.abs(true_gravity - mean),
                     stdev,
                     fig_height=12,
@@ -510,11 +520,12 @@ def equivalent_sources_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    coast=False,
+                    coast=coast,
                     cmap="thermal",
+                    epsg=epsg,
                 )
                 if deterministic_error is not None:
-                    _ = polar_utils.grd_compare(
+                    _ = ptk.grid_compare(
                         np.abs(deterministic_error),
                         stdev,
                         fig_height=12,
@@ -526,10 +537,11 @@ def equivalent_sources_uncertainty(
                         inset=False,
                         verbose="q",
                         title="difference",
-                        coast=False,
+                        coast=coast,
                         cmap="thermal",
+                        epsg=epsg,
                     )
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     true_gravity,
                     mean,
                     fig_height=12,
@@ -541,8 +553,9 @@ def equivalent_sources_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    coast=False,
+                    coast=coast,
                     cmap="viridis",
+                    epsg=epsg,
                 )
                 # pylint: enable=duplicate-code
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -559,6 +572,7 @@ def regional_misfit_uncertainty(
     plot: bool = True,
     plot_region: tuple[float, float, float, float] | None = None,
     true_regional: xr.DataArray | None = None,
+    coast: bool = False,
     weight_by: str | None = None,
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
@@ -587,6 +601,10 @@ def regional_misfit_uncertainty(
     true_regional : xarray.DataArray | None, optional
         if the true regional misfit is known, will make a plot comparing the results, by
         default None
+    coast : bool, optional
+        whether to plot coastlines, by default False
+    weight_by : str | None, optional
+        how to weight the models, by default None
 
     Returns
     -------
@@ -662,6 +680,7 @@ def regional_misfit_uncertainty(
     )
 
     if plot is True:
+        epsg, coast = utils.get_epsg(coast=coast)
         try:
             plotting.plot_stochastic_results(
                 stats_ds=stats_ds,
@@ -681,7 +700,7 @@ def regional_misfit_uncertainty(
                     mean = stats_ds.z_mean
                     stdev = stats_ds.z_stdev
                 # pylint: disable=duplicate-code
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     np.abs(true_regional - mean),
                     stdev,
                     fig_height=12,
@@ -693,14 +712,15 @@ def regional_misfit_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    coast=False,
+                    coast=coast,
+                    epsg=epsg,
                     cmap="thermal",
                     points=constraints_df.rename(
                         columns={"easting": "x", "northing": "y"}
                     ),
                     points_style="x.3c",
                 )
-                _ = polar_utils.grd_compare(
+                _ = ptk.grid_compare(
                     true_regional,
                     mean,
                     fig_height=12,
@@ -712,7 +732,8 @@ def regional_misfit_uncertainty(
                     inset=False,
                     verbose="q",
                     title="difference",
-                    coast=False,
+                    coast=coast,
+                    epsg=epsg,
                     cmap="viridis",
                     points=constraints_df.rename(
                         columns={"easting": "x", "northing": "y"}
@@ -1080,6 +1101,8 @@ def full_workflow_uncertainty_loop(
                     name="upward"
                 ),
                 starting_topography_kwargs=new_starting_topography_kwargs,
+                upper_confining_layer=inv.model.upper_confining_layer,
+                lower_confining_layer=inv.model.lower_confining_layer,
                 density_contrast=inv.model.density_contrast,
                 zref=inv.model.zref,
                 regional_grav_kwargs=new_regional_grav_kwargs,
