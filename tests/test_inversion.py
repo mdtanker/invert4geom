@@ -204,6 +204,8 @@ def test_inv_accessor_inner():
     xr.testing.assert_equal(grav_data.inv.inner, true_ds)
 
 
+@pytest.mark.filterwarnings("ignore:grid zmax can't be extracted")
+@pytest.mark.filterwarnings("ignore:Grid may have irregular spacing in the 'northing'")
 def test_inv_accessor_masked_df():
     """
     test the inv accessor .masked property
@@ -230,6 +232,8 @@ def test_inv_accessor_masked_df():
         _ = grav_data.inv.masked_df
 
 
+@pytest.mark.filterwarnings("ignore:grid zmax can't be extracted")
+@pytest.mark.filterwarnings("ignore:Grid may have irregular spacing in the 'northing'")
 def test_inv_accessor_masked():
     """
     test the inv accessor .masked property
