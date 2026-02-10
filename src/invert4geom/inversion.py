@@ -1887,7 +1887,7 @@ def create_model(
         free to change.
         If you don't have a topography grid, you can create a flat grid with
         :func:`verde.grid_coordinates` and :func:`verde.make_xarray_grid`.
-    buffer_width : float | None, optional
+    buffer_width : float, optional
         The width in meters of a buffer zone used to zoom-in on the provided data
         creating an inner region. This inner region will be used for plotting and
         calculating statistics, this avoids skewing plots and values by edge effects,
