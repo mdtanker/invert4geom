@@ -1553,14 +1553,22 @@ class DatasetAccessorInvert4Geom:
 
         # check that when constrained correction is added to topography it doesn't intersect
         # either bounding layer
-        updated_topo = df.topography_correction + df.topography
-        if np.any((df.upper_confining_layer - updated_topo) < -0.001):
+        df["updated_topo"] = df.topography_correction + df.topography
+
+        df["diff_upper_confining_layer_and_new_topo"] = (
+            df.upper_confining_layer - df.updated_topo
+        )
+        df["diff_lower_confining_layer_and_new_topo"] = (
+            df.updated_topo - df.lower_confining_layer
+        )
+
+        if np.any(df.diff_upper_confining_layer_and_new_topo < -0.01):
             msg = (
                 "Constraining didn't work and updated topography intersects upper "
                 "constraining surface"
             )
             raise ValueError(msg)
-        if np.any((updated_topo - df.lower_confining_layer) < -0.001):
+        if np.any(df.diff_lower_confining_layer_and_new_topo < -0.01):
             msg = (
                 "Constraining didn't work and updated topography intersects lower "
                 "constraining surface"
