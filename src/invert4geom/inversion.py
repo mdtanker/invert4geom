@@ -1905,6 +1905,11 @@ def create_model(
 
     topography = topography.copy()
 
+    # warn if zref has too many decimals
+    # d = decimal.Decimal(str(zref))
+    # result = abs(d.as_tuple().exponent)
+    # assert result < 10, "to avoid issues with float point precision, please limit the precision of zref to have less than 10 decimal place (or just use an integer)"
+
     assert "upward" in topography, (
         "topography Dataset must contain an 'upward' variable"
     )
