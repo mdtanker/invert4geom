@@ -21,14 +21,14 @@ from invert4geom import logger, plotting
 
 
 @contextmanager
-def _log_level(level):  # type: ignore[no-untyped-def]
+def _log_level(level, log_instance=logger):  # type: ignore[no-untyped-def, has-type]
     "Run body with logger at a different level"
-    saved_logger_level = logger.level
-    logger.setLevel(level)
+    saved_logger_level = log_instance.level
+    log_instance.setLevel(level)
     try:
         yield saved_logger_level
     finally:
-        logger.setLevel(saved_logger_level)
+        log_instance.setLevel(saved_logger_level)
 
 
 @contextmanager

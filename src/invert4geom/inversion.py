@@ -1381,22 +1381,37 @@ class DatasetAccessorInvert4Geom:
             "Regional misfit",
             "Residual misfit",
         ]
-        fig = ptk.subplots(
-            grids,
-            dims=(1, 5),
-            region=self._ds.inner_region,
-            fig_title="Gravity anomalies",
-            titles=titles,
-            cbar_label="mGal",
-            cmap="balance+h0",
+        min_max = ptk.get_combined_min_max(
+            grids[0:2],
             absolute=True,
             robust=True,
-            hist=True,
-            points=points,
-            points_style=points_style,
-            coast=coast,
-            epsg=epsg,
         )
+        cpt_limits = [
+            min_max,
+            min_max,
+            None,
+            None,
+            None,
+        ]
+        with utils._log_level(logging.CRITICAL, logging.getLogger("polartoolkit")):  # pylint: disable=protected-access
+            fig = ptk.subplots(
+                grids,
+                dims=(1, 5),
+                region=self._ds.inner_region,
+                fig_title="Gravity anomalies",
+                titles=titles,
+                cbar_label="mGal",
+                cmap="balance+h0",
+                cpt_limits=cpt_limits,
+                absolute=True,
+                robust=True,
+                hist=True,
+                points=points,
+                points_style=points_style,
+                coast=coast,
+                epsg=epsg,
+            )
+
         fig.show()
 
     def plot_regional_separation(
