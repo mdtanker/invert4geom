@@ -1970,7 +1970,12 @@ def create_model(
         if sorted(upper_confining_layer.dims) != sorted(["easting", "northing"]):
             msg = "upper_confining_layer must have coordinate names 'easting' and 'northing', use `.rename({'old_name':'new_name'})` to rename your coordinates"
             raise ValueError(msg)
-
+        # check datarrays are aligned
+        try:
+            _ = xr.align(model.topography, upper_confining_layer, join="exact")
+        except xr.AlignmentError as err:
+            msg = "`upper_confining_layer` should be exactly aligned with the topography dataset"
+            raise xr.AlignmentError(msg) from err
         model["upper_confining_layer"] = upper_confining_layer
     else:
         model["upper_confining_layer"] = xr.full_like(
@@ -1984,6 +1989,12 @@ def create_model(
         if sorted(lower_confining_layer.dims) != sorted(["easting", "northing"]):
             msg = "lower_confining_layer must have coordinate names 'easting' and 'northing', use `.rename({'old_name':'new_name'})` to rename your coordinates"
             raise ValueError(msg)
+        # check datarrays are aligned
+        try:
+            _ = xr.align(model.topography, lower_confining_layer, join="exact")
+        except xr.AlignmentError as err:
+            msg = "`lower_confining_layer` should be exactly aligned with the topography dataset"
+            raise xr.AlignmentError(msg) from err
         model["lower_confining_layer"] = lower_confining_layer
     else:
         model["lower_confining_layer"] = xr.full_like(
