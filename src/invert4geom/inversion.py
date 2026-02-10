@@ -4026,15 +4026,15 @@ class Inversion:
         if self.style == "geometry":
             topos = [
                 s
-                for s in self.model.inv.df.columns.to_list()
+                for s in self.model.inv.inner_df.columns.to_list()
                 if "_layer" in s and "confining" not in s
             ]
         elif self.style == "density":
             densities = [
-                s for s in self.model.inv.df.columns.to_list() if "_density" in s
+                s for s in self.model.inv.inner_df.columns.to_list() if "_density" in s
             ]
         corrections = [
-            s for s in self.model.inv.df.columns.to_list() if "_correction" in s
+            s for s in self.model.inv.inner_df.columns.to_list() if "_correction" in s
         ]
         corrections = corrections[1:]
 
@@ -4091,7 +4091,7 @@ class Inversion:
 
         if self.style == "geometry" and plot_topo_results is True:
             plotting.plot_inversion_topo_results(
-                self.model,
+                self.model.inv.inner,
                 constraints_df=constraints_df,
                 constraint_style=kwargs.get("constraint_style", "x.3c"),
                 fig_height=kwargs.get("fig_height", 12),
