@@ -815,6 +815,7 @@ class OptimalInversionZrefDensity:
                 topography=starting_topo,
                 upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
                 lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
+                buffer_width=self.inversion_obj.model.buffer_width,
             )
 
             # calculate forward gravity of starting prism layer
@@ -931,6 +932,7 @@ class OptimalInversionZrefDensity:
                     topography=starting_topo,
                     upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
                     lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
+                    buffer_width=self.inversion_obj.model.buffer_width,
                 )
 
                 # calculate forward gravity of starting prism layer

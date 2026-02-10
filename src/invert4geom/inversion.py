@@ -1817,7 +1817,7 @@ def create_data(
     # set region and spacing from provided grid
     spacing, region = ptk.get_grid_info(gravity.upward)[0:2]
 
-    # default buffer with is 10% of the shortest dimension of the region, rounded to
+    # default buffer width is 10% of the shortest dimension of the region, rounded to
     # nearest multiple of spacing
     if buffer_width is None:
         # check that buffer width is a multiple of the grid spacing
@@ -1853,6 +1853,7 @@ def create_model(
     zref: float,
     density_contrast: xr.DataArray | float,
     topography: xr.Dataset,
+    buffer_width: float = 0,
     model_type: str = "prisms",
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
@@ -1878,6 +1879,11 @@ def create_model(
         free to change.
         If you don't have a topography grid, you can create a flat grid with
         :func:`verde.grid_coordinates` and :func:`verde.make_xarray_grid`.
+    buffer_width : float | None, optional
+        The width in meters of a buffer zone used to zoom-in on the provided data
+        creating an inner region. This inner region will be used for plotting and
+        calculating statistics, this avoids skewing plots and values by edge effects,
+        by default is None.
     model_type : str, optional
         The type of model to create, either ``prisms`` or ``tesseroids``, by default
         ``prisms``
@@ -1893,7 +1899,7 @@ def create_model(
         (``top``, ``bottom``, ``density``) as well as variables ``topography``,
         ``starting_topography``, ``mask``, ``upper_confining_layer``,
         ``lower_confining_layer`` , and attributes ``model_type``, ``dataset_type``,
-        ``zref``, ``density_contrast``, ``spacing``, ``region``, and
+        ``zref``, ``density_contrast``, ``spacing``, ``buffer_width``, ``region``, and
         ``inner_region``.
     """
 
@@ -1972,6 +1978,7 @@ def create_model(
             np.nan,
             dtype=np.double,
         )
+
     if lower_confining_layer is not None:
         # check dataarray has same coord names
         if sorted(lower_confining_layer.dims) != sorted(["easting", "northing"]):
@@ -1985,16 +1992,38 @@ def create_model(
             dtype=np.double,
         )
 
+    # default buffer width is 10% of the shortest dimension of the region, rounded to
+    # nearest multiple of spacing
+    if buffer_width == 0:
+        inner_region = region
+    elif buffer_width > 0:
+        assert buffer_width % spacing == 0, (
+            f"buffer_width ({buffer_width}) must be a multiple of the grid spacing ({spacing}) of the provided gravity dataframe"
+        )
+        min_region_width = min(region[1] - region[0], region[3] - region[2])
+        assert buffer_width * 2 < min_region_width, (
+            "buffer_width must be smaller than half the smallest dimension of the region"
+        )
+        inner_region = vd.pad_region(region, -buffer_width)
+    else:
+        msg = "buffer_width must be >= 0"
+        raise ValueError(msg)
+
     # use extent of un-masked cells to define a region to use for plotting
     masked_extent = model.mask.where(np.isfinite(model.mask), drop=True)
+    masked_region = ptk.get_grid_info(masked_extent)[1]
+
+    # get inner combinattion of masked_extent and inner_region
+    inner_region = ptk.regions_overlap(masked_region, inner_region)
 
     # Append some attributes to the xr.Dataset
     attrs = {
-        "inner_region": ptk.get_grid_info(masked_extent)[1],
         "zref": zref,
         "density_contrast": density_contrast,
         "region": region,
         "spacing": spacing,
+        "buffer_width": buffer_width,
+        "inner_region": inner_region,
         "dataset_type": "model",
         "model_type": model_type,
     }
@@ -2460,6 +2489,7 @@ class Inversion:
             model_type=self.model.model_type,
             upper_confining_layer=self.model.upper_confining_layer,
             lower_confining_layer=self.model.lower_confining_layer,
+            buffer_width=self.model.buffer_width,
         )
         self.model = model
         # self.model = self.model.drop_vars(
@@ -3591,6 +3621,7 @@ class Inversion:
                 density_contrast=inv_copy.model.density_contrast,
                 upper_confining_layer=inv_copy.model.upper_confining_layer,
                 lower_confining_layer=inv_copy.model.lower_confining_layer,
+                buffer_width=inv_copy.model.buffer_width,
                 fname=inv_copy.results_fname,
                 inversion_kwargs={
                     "max_iterations": inv_copy.max_iterations,
@@ -4096,6 +4127,7 @@ def run_inversion_workflow(
     model_type: str = "prisms",
     upper_confining_layer: xr.Dataset | None = None,
     lower_confining_layer: xr.Dataset | None = None,
+    buffer_width: float = 0,
     regional_grav_kwargs: dict[str, typing.Any] | None = None,
     constraints_df: pd.DataFrame | None = None,
     inversion_kwargs: dict[str, typing.Any] | None = None,
@@ -4167,6 +4199,11 @@ def run_inversion_workflow(
         an upper confining layer model with variable `upward`, by default None
     lower_confining_layer : xarray.Dataset | None, optional
         a lower confining layer model with variable `upward`, by default None
+    buffer_width : float, optional
+        The width in meters of a buffer zone used to zoom-in on the provided data
+        creating an inner region. This inner region will be used for plotting and
+        calculating statistics, this avoids skewing plots and values by edge effects,
+        by default is None.
     regional_grav_kwargs : dict[str, typing.Any] | None, optional
         kwargs needed for estimating regional gravity, passed to
         :meth:`DatasetAccessorInvert4Geom.regional_separation`, by default None
@@ -4329,6 +4366,7 @@ def run_inversion_workflow(
         model_type=model_type,
         upper_confining_layer=upper_confining_layer,
         lower_confining_layer=lower_confining_layer,
+        buffer_width=buffer_width,
     )
     logger.debug("starting prisms created")
 

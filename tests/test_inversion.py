@@ -94,18 +94,28 @@ def test_model_attributes():
     model = true_topography()
 
     # add mask to dataset
-    model["mask"] = xr.where(model.upward > 600, 1, np.nan)
+    # this has a region of (0, 30000, 0, 20000)
+    subset = model.upward.where(
+        (model.upward.easting < 35e3) & (model.upward.northing < 30e3),
+        np.nan,
+    )
+    model["mask"] = xr.where(subset.isnull(), np.nan, 1)  # noqa: PD003
 
+    # initialize
     model = invert4geom.inversion.create_model(
-        topography=model, zref=100, density_contrast=200
+        topography=model,
+        zref=100,
+        density_contrast=200,
+        buffer_width=10000,
     )
 
     attrs = {
-        "inner_region": (0.0, 10000.0, 0.0, 30000.0),
         "zref": 100,
         "density_contrast": 200,
         "region": (0.0, 40000.0, 0.0, 30000.0),
         "spacing": 10000.0,
+        "buffer_width": 10000.0,
+        "inner_region": (10000.0, 30000.0, 10000.0, 20000.0),
         "dataset_type": "model",
         "model_type": "prisms",
     }
