@@ -1399,7 +1399,6 @@ def gravity_decay_buffer(
     zref: float,
     obs_height: float,
     density: float,
-    model_type: str = "prisms",
     amplitude: float | None = None,
     wavelength: float | None = None,
     checkerboard: bool = False,
@@ -1418,19 +1417,17 @@ def gravity_decay_buffer(
     buffer_perc : float
         percentage of the widest dimension of inner_region to use as buffer zone
     spacing : float
-        spacing of the prism layer and gravity observation points
+        spacing of the prism layer and gravity observation points in meters
     inner_region : tuple[float, float, float, float]
-        region boundaries for the region of interest
+        region boundaries for the region of interest in meters
     top : float
-        height for the top of the prisms
+        height in meters for the top of the prisms
     zref : float
-        reference level for the prisms
+        reference level in meters for the prisms
     obs_height : float
-        gravity observation height
+        gravity observation height in meters
     density : float
-        density value for the prisms
-    model_type : str, optional
-        type of model to create, either 'prisms' or 'tesseroids', by default 'prisms'
+        density value for the prisms in kg/m^3
     amplitude : float | None, optional
         if using `checkerboard`, this is the amplitude of each undulation, by default
         None
@@ -1456,7 +1453,7 @@ def gravity_decay_buffer(
         the maximum percentage decay of the gravity anomaly within the region of
         interest
     buffer_width : float
-        width of the buffer zone
+        width of the buffer zone in meters
     buffer_cells : int
         number of cells in the buffer zone
     grav_ds : xarray.Dataset
@@ -1528,14 +1525,14 @@ def gravity_decay_buffer(
             surface,
             zref,
             density=dens,
-            model_type=model_type,
+            model_type="prisms",
         )
     else:
         model = grid_to_model(
             surface,
             zref,
             density=density,
-            model_type=model_type,
+            model_type="prisms",
         )
 
     # create prisms around mean value to compare to to calculate decay
@@ -1551,7 +1548,7 @@ def gravity_decay_buffer(
         surface,
         zref,
         density=dens,
-        model_type=model_type,
+        model_type="prisms",
     )
 
     # create set of observation points
@@ -1569,49 +1566,28 @@ def gravity_decay_buffer(
         }
     )
     # calculate forward gravity of layer
-    if model_type == "prisms":
-        forward_df["forward"] = model.prism_layer.gravity(
-            coordinates=(
-                forward_df.easting,
-                forward_df.northing,
-                forward_df.upward,
-            ),
-            field="g_z",
-            progressbar=progressbar,
-        )
-    elif model_type == "tesseroids":
-        forward_df["forward"] = model.tesseroid_layer.gravity(
-            coordinates=(
-                forward_df.easting,
-                forward_df.northing,
-                forward_df.upward,
-            ),
-            field="g_z",
-            progressbar=progressbar,
-        )
+    forward_df["forward"] = model.prism_layer.gravity(
+        coordinates=(
+            forward_df.easting,
+            forward_df.northing,
+            forward_df.upward,
+        ),
+        field="g_z",
+        progressbar=progressbar,
+    )
+
 
     # if checkerboard:
     # calculate forward gravity of layer
-    if model_type == "prisms":
-        forward_df["forward_no_edge_effects"] = model_mean_zref.prism_layer.gravity(
-            coordinates=(
-                forward_df.easting,
-                forward_df.northing,
-                forward_df.upward,
-            ),
-            field="g_z",
-            progressbar=progressbar,
-        )
-    elif model_type == "tesseroids":
-        forward_df["forward_no_edge_effects"] = model_mean_zref.tesseroid_layer.gravity(
-            coordinates=(
-                forward_df.easting,
-                forward_df.northing,
-                forward_df.upward,
-            ),
-            field="g_z",
-            progressbar=progressbar,
-        )
+    forward_df["forward_no_edge_effects"] = model_mean_zref.prism_layer.gravity(
+        coordinates=(
+            forward_df.easting,
+            forward_df.northing,
+            forward_df.upward,
+        ),
+        field="g_z",
+        progressbar=progressbar,
+    )
 
     grav_ds = forward_df.set_index(["northing", "easting"]).to_xarray()
 
