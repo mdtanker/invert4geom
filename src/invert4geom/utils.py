@@ -634,8 +634,8 @@ def sample_grids(
     Parameters
     ----------
     df : pandas.DataFrame
-        Dataframe containing columns 'x', 'y', or columns with names defined by kwarg
-        "coord_names".
+        Dataframe containing columns 'easting', 'northing', 'longitude', 'latitude' or
+        columns with names defined by kwarg "coord_names".
     grid : str or xarray.DataArray
         Grid to sample, either file name or xarray.DataArray
     sampled_name : str,
@@ -647,56 +647,12 @@ def sample_grids(
         Dataframe with new column (sampled_name) of sample values from (grid)
     """
 
-    # drop name column if it already exists
-    try:
-        df1 = df.drop(columns=sampled_name)
-    except KeyError:
-        df1 = df.copy()
-
-    if "index" in df1.columns:
-        msg = "index column must be removed or renamed before sampling"
-        raise ValueError(msg)
-
-    df2 = df1.copy()
-
-    # reset the index
-    df3 = df2.reset_index()
-
-    # get x and y column names
-    x, y = kwargs.get("coord_names", ("easting", "northing"))
-
-    # check column names exist, if not, use other common names
-    if (x in df3.columns) and (y in df3.columns):
-        pass
-    elif ("x" in df3.columns) and ("y" in df3.columns):
-        x, y = ("x", "y")
-
-    # get points to sample at
-    points = df3[[x, y]].copy()
-
-    # sample the grid at all x,y points
-    sampled = pygmt.grdtrack(
-        points=points,
+    return ptk.sample_grids(
+        df=df,
         grid=grid,
-        newcolname=sampled_name,
-        # radius=kwargs.get("radius", None),
-        no_skip=True,  # if false causes issues
-        verbose=kwargs.get("verbose", "w"),
-        interpolation=kwargs.get("interpolation", "c"),
+        sampled_name=sampled_name,
+        **kwargs,
     )
-
-    df3[sampled_name] = sampled[sampled_name]
-
-    # reset index to previous
-    df4 = df3.set_index("index")
-
-    # reset index name to be same as originals
-    df4.index.name = df1.index.name
-
-    # check that dataframe is identical to original except for new column
-    pd.testing.assert_frame_equal(df4.drop(columns=sampled_name), df1)
-
-    return df4
 
 
 def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
