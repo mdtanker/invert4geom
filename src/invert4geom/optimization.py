@@ -771,9 +771,7 @@ class OptimalInversionZrefDensity:
                 if starting_topography_kwargs["method"] == "flat":
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
-                    starting_topography_kwargs["upwards"] = (
-                        self.inversion_obj.model.zref
-                    )
+                    starting_topography_kwargs["upward"] = self.inversion_obj.model.zref
 
             # create starting topography model if not provided
             if self.starting_topography is None:

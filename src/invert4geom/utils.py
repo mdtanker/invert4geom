@@ -756,6 +756,7 @@ def create_topography(
     spacing: float,
     dampings: list[float] | None = None,
     registration: str = "g",
+    upward: float | None = None,
     upwards: float | None = None,
     constraints_df: pd.DataFrame | None = None,
     weights: pd.Series | NDArray | None = None,
@@ -791,10 +792,12 @@ def create_topography(
         None
     registration : str, optional
         choose between gridline ``g`` or pixel ``p`` registration, by default ``g``
+    upward : float | None, optional
+        constant elevation in meters to use for method ``flat``, by default None
     upwards : float | None, optional
-        constant value to use for method ``flat``, by default None
+        deprecated, use `upward` instead, by default None
     constraints_df : pandas.DataFrame | None, optional
-        dataframe with column 'upwards' to use for method ``splines``, and optionally
+        dataframe with column 'upward' to use for method ``splines``, and optionally
         columns ``inside`` and ``buffer``, by default None
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
@@ -819,6 +822,14 @@ def create_topography(
     xarray.Dataset
         a topography grid
     """
+    if upwards is not None:
+        warnings.warn(
+            "`upwards` is deprecated, please use `upward` instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        upward = upwards
+
     if method == "flat":
         if registration == "g":
             pixel_register = False
@@ -828,8 +839,8 @@ def create_topography(
             msg = "registration must be 'g' or 'p'"
             raise ValueError(msg)
 
-        if upwards is None:
-            msg = "upwards must be provided if method is `flat`"
+        if upward is None:
+            msg = "upward must be provided if method is `flat`"
             raise ValueError(msg)
 
         # create grid of coordinates
@@ -838,10 +849,10 @@ def create_topography(
             spacing=spacing,
             pixel_register=pixel_register,
         )
-        # make flat topography of value = upwards
+        # make flat topography of value = upward
         grid = vd.make_xarray_grid(
             (x, y),
-            np.ones_like(x) * upwards,
+            np.ones_like(x) * upward,
             data_names="upward",
             dims=("northing", "easting"),
         ).upward
@@ -861,7 +872,7 @@ def create_topography(
                 region=region,
                 spacing=spacing,
             )
-            # make flat topography of value = upwards
+            # make flat topography of value = upward
             grid = vd.make_xarray_grid(
                 (x, y),
                 np.ones_like(x) * df.upward.to_numpy(),
@@ -1497,7 +1508,7 @@ def gravity_decay_buffer(
     else:
         surface = create_topography(
             method="flat",
-            upwards=top,
+            upward=top,
             region=buffer_region,
             spacing=spacing,
         ).upward
