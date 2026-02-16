@@ -2501,6 +2501,12 @@ class Inversion:
         self.data["reg"] = self.data["starting_reg"]
         self.data["forward_gravity"] = self.data["starting_forward_gravity"]
 
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message="gravity dataframe does not contain a 'test' column"
+            )
+            self.data = cross_validation.remove_test_points(self.data)
+
         self.data = self.data.drop_vars(
             [v for v in list(self.data.keys()) if v.startswith("iter_")],
             errors="ignore",

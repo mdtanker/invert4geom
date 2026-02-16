@@ -32,15 +32,21 @@ def remove_test_points(ds: xr.Dataset) -> xr.Dataset:
     """
     df = ds.inv.df
 
-    df = df[df.test == False].copy()  # noqa: E712 # pylint: disable=singleton-comparison
-    df = df.drop(columns=["test"])
+    try:
+        df = df[df.test == False].copy()  # noqa: E712 # pylint: disable=singleton-comparison
+        df = df.drop(columns=["test"])
 
-    ds_new = df.set_index(list(ds.dims)).to_xarray()
+        ds_new = df.set_index(list(ds.dims)).to_xarray()
 
-    # retrain attributes
-    ds_new.attrs.update(ds.attrs)  # pylint: disable=protected-access
+        # retrain attributes
+        ds_new.attrs.update(ds.attrs)  # pylint: disable=protected-access
 
-    return ds_new
+        return ds_new
+    except AttributeError:
+        msg = "gravity dataframe does not contain a 'test' column, cannot remove test points."
+        warnings.warn(msg, stacklevel=2)
+
+        return ds
 
 
 def add_test_points(
