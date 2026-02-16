@@ -75,7 +75,7 @@ def add_test_points(
         msg = "gravity dataframe already contains a 'test' column, not resampling. If you'd like to remove the test points, use `remove_test_points()."
         raise ValueError(msg)
 
-    coord_names = list(ds.dims)
+    coord_names = ds.coord_names
 
     # create coords for full data at half spacing
     coords = vd.grid_coordinates(
@@ -89,7 +89,7 @@ def add_test_points(
         (coords[0], coords[1]),
         data=np.ones_like(coords[0]),
         data_names="tmp",
-        dims=coord_names,
+        dims=[coord_names[1], coord_names[0]],
     )
     # turn dataarray in dataframe
     full_df: pd.DataFrame = vd.grid_to_table(full_points).drop(columns="tmp")
@@ -105,8 +105,8 @@ def add_test_points(
     train_df["test"] = False
 
     # merge training and testing dfs
-    df = full_df.set_index(coord_names)
-    df.update(train_df.set_index(coord_names))
+    df = full_df.set_index([coord_names[1], coord_names[0]])
+    df.update(train_df.set_index([coord_names[1], coord_names[0]]))
     df2 = df.reset_index()
 
     df2["test"] = df2.test.astype(bool)
@@ -121,17 +121,19 @@ def add_test_points(
                 raise ValueError(msg)
             try:
                 df2[i] = utils.sample_grids(
-                    df2,
-                    ds[i],
-                    i,
+                    df=df2,
+                    grid=ds[i],
+                    sampled_name=i,
+                    coord_names=coord_names,
                 )[i].astype(ds[i].dtype)
             except pd.errors.IntCastingNaNError as e:
                 logger.error(e)
                 df2[i] = utils.sample_grids(
-                    df2,
-                    ds[i],
-                    i,
-                )[i]
+                    df=df2,
+                    grid=ds[i],
+                    sampled_name=i,
+                    coord_names=coord_names,
+                )[i].astype(ds[i].dtype)
 
     # retain original data types
     dtypes = {k: v for k, v in ds.inv.df.dtypes.items() if k in ds.inv.df}
@@ -139,7 +141,7 @@ def add_test_points(
 
     # test with this, using same input spacing as original
     # pd.testing.assert_frame_equal(df2, full_res_grav, check_like=True,)
-    ds_new = df2.set_index(coord_names).to_xarray()
+    ds_new = df2.set_index([coord_names[1], coord_names[0]]).to_xarray()
 
     # retain attributes
     ds_new.attrs.update(ds.attrs)  # pylint: disable=protected-access
@@ -200,6 +202,7 @@ def random_split_test_train(
     data_df: pd.DataFrame,
     test_size: float = 0.3,
     random_state: int = 10,
+    coord_names: tuple[str, str] = ("easting", "northing"),
     plot: bool = False,
 ) -> pd.DataFrame:
     """
@@ -209,11 +212,13 @@ def random_split_test_train(
     Parameters
     ----------
     data_df : pandas.DataFrame
-        data to be split, must have columns "easting" and "northing".
+        data to be split, must have columns set by parameter coord_names
     test_size : float, optional
         decimal percentage of points to put in the testing set, by default 0.3
     random_state : int, optional
         number to set th random splitting, by default 10
+    coord_names : tuple[str, str], optional
+        names of the coordinate columns in the dataframe, by default ("easting", "northing")
     plot : bool, optional
         choose to plot the results, by default False
 
@@ -226,30 +231,30 @@ def random_split_test_train(
     data_df = data_df.copy()
 
     train, test = vd.train_test_split(
-        coordinates=(data_df.easting, data_df.northing),
+        coordinates=(data_df[coord_names[0]], data_df[coord_names[1]]),
         data=data_df.index,
         test_size=test_size,
         random_state=random_state,
     )
     train_df = pd.DataFrame(
         data={
-            "easting": train[0][0],
-            "northing": train[0][1],
+            coord_names[0]: train[0][0],
+            coord_names[1]: train[0][1],
             "index": train[1][0],
             "test": False,
         }
     )
     test_df = pd.DataFrame(
         data={
-            "easting": test[0][0],
-            "northing": test[0][1],
+            coord_names[0]: test[0][0],
+            coord_names[1]: test[0][1],
             "index": test[1][0],
             "test": True,
         }
     )
     random_split_df = pd.concat([train_df, test_df])
 
-    random_split_df = pd.merge(data_df, random_split_df, on=["easting", "northing"])  # noqa: PD015
+    random_split_df = pd.merge(data_df, random_split_df, on=list(coord_names))  # noqa: PD015
 
     random_split_df = random_split_df.drop(columns=["index"])
 
@@ -258,7 +263,7 @@ def random_split_test_train(
             df_train = random_split_df[random_split_df.test == False]  # noqa: E712 # pylint: disable=singleton-comparison
             df_test = random_split_df[random_split_df.test == True]  # noqa: E712 # pylint: disable=singleton-comparison
 
-            region = vd.get_region((random_split_df.easting, random_split_df.northing))
+            region = vd.get_region((random_split_df[coord_names[0]], random_split_df[coord_names[1]]))
             plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
 
             fig = ptk.basemap(
@@ -266,15 +271,15 @@ def random_split_test_train(
                 title="Random split",
             )
             fig.plot(
-                x=df_train.easting,
-                y=df_train.northing,
+                x=df_train[coord_names[0]],
+                y=df_train[coord_names[1]],
                 style="c.3c",
                 fill="blue",
                 label="Train",
             )
             fig.plot(
-                x=df_test.easting,
-                y=df_test.northing,
+                x=df_test[coord_names[0]],
+                y=df_test[coord_names[1]],
                 style="t.5c",
                 fill="red",
                 label="Test",
@@ -295,6 +300,7 @@ def split_test_train(
     shape: tuple[float, float] | None = None,
     n_splits: int = 5,
     random_state: int = 10,
+    coord_names: tuple[str, str] = ("easting", "northing"),
     plot: bool = False,
 ) -> pd.DataFrame:
     """
@@ -304,7 +310,7 @@ def split_test_train(
     Parameters
     ----------
     data_df : pandas.DataFrame
-        dataframe with coordinate columns "easting" and "northing"
+        dataframe with coordinate columns set by coord_names
     method : str
         choose between "LeaveOneOut" or "KFold" methods.
     spacing : float | tuple[float, float] | None, optional
@@ -315,6 +321,8 @@ def split_test_train(
         number for folds to make for K-Folds method, by default 5
     random_state : int, optional
         random state used for both methods, by default 10
+    coord_names : tuple[str, str], optional
+        names of the coordinate columns in the dataframe, by default ("easting", "northing")
     plot : bool, optional
         plot the separated training and testing dataset, by default False
 
@@ -366,7 +374,7 @@ def split_test_train(
         msg = "invalid string for `method`"
         raise ValueError(msg)
 
-    coords = (df.easting, df.northing)
+    coords = (df[coord_names[0]], df[coord_names[1]])
     feature_matrix = np.transpose(coords)
     coord_shape = coords[0].shape
     mask = np.full(shape=coord_shape, fill_value="     ")
@@ -401,7 +409,7 @@ def split_test_train(
 
                 df_test = df[df[f"fold_{i}"] == "test"]
                 df_train = df[df[f"fold_{i}"] == "train"]
-                region = vd.get_region((df.easting, df.northing))
+                region = vd.get_region((df[coord_names[0]], df[coord_names[1]]))
                 plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
                 fig = ptk.basemap(
                     region=plot_region,
@@ -413,15 +421,15 @@ def split_test_train(
                 )
                 fig.add_box(box=region)
                 fig.plot(
-                    x=df_train.easting,
-                    y=df_train.northing,
+                    x=df_train[coord_names[0]],
+                    y=df_train[coord_names[1]],
                     style="c.4c",
                     fill="blue",
                     label="Train",
                 )
                 fig.plot(
-                    x=df_test.easting,
-                    y=df_test.northing,
+                    x=df_test[coord_names[0]],
+                    y=df_test[coord_names[1]],
                     style="t.7c",
                     fill="red",
                     label="Test",
@@ -656,6 +664,7 @@ def regional_separation_score(
         df=testing_df,
         grid=grav_ds.res,
         sampled_name="res",
+        coord_names=grav_ds.coord_names,
     )
 
     # calculate scores

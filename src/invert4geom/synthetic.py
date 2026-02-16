@@ -119,9 +119,10 @@ def load_synthetic_model(
 
         # sample simple topography at these points
         constraint_points = utils.sample_grids(
-            constraint_points,
-            true_topography,
-            "upward",
+            df=constraint_points,
+            grid=true_topography,
+            sampled_name="upward",
+            coord_names=("easting", "northing"),
         )
 
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
@@ -132,14 +133,16 @@ def load_synthetic_model(
                 spacing=spacing,
                 constraints_df=constraint_points,
                 dampings=np.logspace(-20, 0, 100),
+                coord_names=("easting", "northing"),
             ).upward
 
         # re-sample the starting topography at the constraint points to see how the
         # gridded did
         constraint_points = utils.sample_grids(
-            constraint_points,
-            starting_topography,
-            "starting_topography",
+            df=constraint_points,
+            grid=starting_topography,
+            sampled_name="starting_topography",
+            coord_names=("easting", "northing"),
         )
         rmse = utils.rmse(
             constraint_points.upward - constraint_points.starting_topography

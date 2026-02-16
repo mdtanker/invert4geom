@@ -233,13 +233,16 @@ def _model_properties(
     numpy.ndarray
         array of layer properties
     """
+    coord_names = layer.coord_names
 
     if method == "itertools":
         layer_properties = []
         for (
             y,
             x,
-        ) in itertools.product(range(layer.northing.size), range(layer.easting.size)):
+        ) in itertools.product(
+            range(layer[coord_names[1]].size), range(layer[coord_names[0]].size)
+        ):
             if layer.model_type == "prisms":
                 layer_properties.append(
                     [
@@ -257,8 +260,8 @@ def _model_properties(
         layer_properties = np.array(layer_properties)
     elif method == "forloops":
         layer_properties = []
-        for y in range(layer.northing.size):
-            for x in range(layer.easting.size):
+        for y in range(layer[coord_names[1]].size):
+            for x in range(layer[coord_names[0]].size):
                 if layer.model_type == "prisms":
                     layer_properties.append(
                         [
@@ -280,15 +283,15 @@ def _model_properties(
             layer_properties = [
                 list(layer.prism_layer.get_prism((y, x)))  # noqa: RUF005
                 + [layer.density.to_numpy()[y, x]]
-                for y in range(layer.northing.size)
-                for x in range(layer.easting.size)
+                for y in range(layer[coord_names[1]].size)
+                for x in range(layer[coord_names[0]].size)
             ]
         elif layer.model_type == "tesseroids":
             layer_properties = [
                 list(layer.tesseroid_layer.get_tesseroid((y, x)))  # noqa: RUF005
                 + [layer.density.to_numpy()[y, x]]
-                for y in range(layer.northing.size)
-                for x in range(layer.easting.size)
+                for y in range(layer[coord_names[1]].size)
+                for x in range(layer[coord_names[0]].size)
             ]
     else:
         msg = "method must be one of 'itertools', 'forloops', or 'generator'"
@@ -798,18 +801,18 @@ class DatasetAccessorInvert4Geom:
 
         df = self.df
 
+        coord_names = layer.coord_names
+
         if layer.model_type == "prisms":
-            coord_names = ["northing", "easting"]
             df[name] = layer.prism_layer.gravity(
-                coordinates=(df.easting, df.northing, df.upward),
+                coordinates=(df[coord_names[0]], df[coord_names[1]], df.upward),
                 field=field,
                 progressbar=progressbar,
                 **kwargs,
             )
         elif layer.model_type == "tesseroids":
-            coord_names = ["latitude", "longitude"]
             df[name] = layer.tesseroid_layer.gravity(
-                coordinates=(df.longitude, df.latitude, df.upward),
+                coordinates=(df[coord_names[0]], df[coord_names[1]], df.upward+df.geocentric_radius),
                 field=field,
                 progressbar=progressbar,
                 **kwargs,
@@ -819,7 +822,7 @@ class DatasetAccessorInvert4Geom:
             msg = "layer must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
             raise ValueError(msg)
 
-        ds = df.set_index(coord_names).to_xarray()
+        ds = df.set_index([coord_names[1], coord_names[0]]).to_xarray()
         self._ds[name] = ds[name]
 
     def regional_separation(self, method: str, **kwargs: typing.Any) -> None:
@@ -1472,6 +1475,8 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
 
+        coord_names = self._ds.coord_names
+
         # get dataframe of model layer (optionally masked)
         df = self.masked_df
 
@@ -1487,14 +1492,14 @@ class DatasetAccessorInvert4Geom:
         # df is only for masked prisms, so fill in 0 for unmasked model elements
         df_full = self.df.drop(columns=["density_correction"], errors="ignore")
         df_full = df_full.merge(
-            df[["northing", "easting", "density_correction"]],
+            df[[coord_names[1], coord_names[0], "density_correction"]],
             how="left",
-            on=["northing", "easting"],
+            on=[coord_names[1], coord_names[0]],
         )
         df_full["density_correction"] = df_full["density_correction"].fillna(0)
 
         # add the correction values to the model layer dataset
-        ds = df_full.set_index(["northing", "easting"]).to_xarray()
+        ds = df_full.set_index([coord_names[1], coord_names[0]]).to_xarray()
         ds.attrs.update(self._ds.attrs)
         return ds
 
@@ -1577,15 +1582,18 @@ class DatasetAccessorInvert4Geom:
 
         # df is only for masked model elements, so fill in 0 for unmasked model elements
         df_full = self.df.drop(columns=["topography_correction"], errors="ignore")
+
+        coord_names = self._ds.coord_names
+
         df_full = df_full.merge(
-            df[["northing", "easting", "topography_correction"]],
+            df[[coord_names[1], coord_names[0], "topography_correction"]],
             how="left",
-            on=["northing", "easting"],
+            on=[coord_names[1], coord_names[0]],
         )
         df_full["topography_correction"] = df_full["topography_correction"].fillna(0)
 
         # add the correction values to the model layer dataset
-        ds = df_full.set_index(["northing", "easting"]).to_xarray()
+        ds = df_full.set_index([coord_names[1], coord_names[0]]).to_xarray()
         ds.attrs.update(self._ds.attrs)
         return ds
 
@@ -1726,11 +1734,17 @@ class DatasetAccessorInvert4Geom:
         """check that all gravity data is inside the region of the topography grid"""
         self._check_correct_dataset_type("data")
 
+        coord_names = self._ds.coord_names
+
         topo_region = vd.get_region(
-            (topography.easting.to_numpy(), topography.northing.to_numpy())
+            (
+                topography[coord_names[0]].to_numpy(),
+                topography[coord_names[1]].to_numpy(),
+            )
         )
         df = self.df
-        inside = vd.inside((df.easting, df.northing), region=topo_region)
+        inside = vd.inside((df[coord_names[0]], df[coord_names[1]]), region=topo_region)
+
         if not inside.all():
             msg = (
                 "Some gravity data are outside the region of the topography grid. "
@@ -1851,6 +1865,7 @@ def create_data(
         "inner_region": inner_region,
         "dataset_type": "data",
         "model_type": model_type,
+        "coord_names": coord_names,
     }
     gravity.attrs = attrs
 
@@ -1980,8 +1995,8 @@ def create_model(
     # add optional confining layers as variables
     if upper_confining_layer is not None:
         # check dataarray has same coord names
-        if sorted(upper_confining_layer.dims) != sorted(["easting", "northing"]):
-            msg = "upper_confining_layer must have coordinate names 'easting' and 'northing', use `.rename({'old_name':'new_name'})` to rename your coordinates"
+        if sorted(upper_confining_layer.dims) != sorted(coord_names):
+            msg = f"upper_confining_layer must have coordinate names {coord_names}, use `.rename({{'old_name':'new_name'}})` to rename your coordinates"
             raise ValueError(msg)
         # check datarrays are aligned
         try:
@@ -1999,8 +2014,8 @@ def create_model(
 
     if lower_confining_layer is not None:
         # check dataarray has same coord names
-        if sorted(lower_confining_layer.dims) != sorted(["easting", "northing"]):
-            msg = "lower_confining_layer must have coordinate names 'easting' and 'northing', use `.rename({'old_name':'new_name'})` to rename your coordinates"
+        if sorted(lower_confining_layer.dims) != sorted(coord_names):
+            msg = f"lower_confining_layer must have coordinate names {coord_names}, use `.rename({{'old_name':'new_name'}})` to rename your coordinates"
             raise ValueError(msg)
         # check datarrays are aligned
         try:
@@ -2050,6 +2065,7 @@ def create_model(
         "inner_region": inner_region,
         "dataset_type": "model",
         "model_type": model_type,
+        "coord_names": coord_names,
     }
     model.attrs = attrs
 
@@ -2304,8 +2320,12 @@ class Inversion:
         coordinates_array = coordinates.to_numpy()
 
         # get various arrays based on gravity column names
-        grav_easting = coordinates_array[:, coordinates.columns.get_loc("easting")]
-        grav_northing = coordinates_array[:, coordinates.columns.get_loc("northing")]
+        grav_easting = coordinates_array[
+            :, coordinates.columns.get_loc(self.model.coord_names[0])
+        ]
+        grav_northing = coordinates_array[
+            :, coordinates.columns.get_loc(self.model.coord_names[1])
+        ]
         grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
 
         assert len(grav_easting) == len(grav_northing) == len(grav_upward)
@@ -2371,9 +2391,13 @@ class Inversion:
         coordinates = self.data.inv.df.select_dtypes(include=["number"])
         coordinates_array = coordinates.to_numpy()
 
+        coord_names = self.model.coord_names
+
         # get various arrays based on gravity column names
-        grav_easting = coordinates_array[:, coordinates.columns.get_loc("easting")]
-        grav_northing = coordinates_array[:, coordinates.columns.get_loc("northing")]
+        grav_easting = coordinates_array[:, coordinates.columns.get_loc(coord_names[0])]
+        grav_northing = coordinates_array[
+            :, coordinates.columns.get_loc(coord_names[1])
+        ]
         grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
 
         assert len(grav_easting) == len(grav_northing) == len(grav_upward)
@@ -2387,8 +2411,8 @@ class Inversion:
         if self.deriv_type == "annulus":
             # convert dataframe to arrays
             df = self.model.inv.masked_df  # only use non-masked prisms
-            model_element_easting = df.easting.to_numpy()
-            model_element_northing = df.northing.to_numpy()
+            model_element_easting = df[coord_names[0]].to_numpy()
+            model_element_northing = df[coord_names[1]].to_numpy()
             model_element_top = df.top.to_numpy()
             model_element_density = df.density.to_numpy()
 
@@ -2522,12 +2546,6 @@ class Inversion:
             buffer_width=self.model.buffer_width,
         )
         self.model = model
-        # self.model = self.model.drop_vars(
-        #     ["topography_correction"]
-        #     + [v for v in list(self.model.keys()) if v.startswith("iter_")],
-        #     errors="ignore",
-        # )
-        # self.model["topography"] = self.model.starting_topography
 
     def invert(
         self,
@@ -2782,6 +2800,7 @@ class Inversion:
         ----------
         :footcite:t:`uiedafast2017`
         """
+        coord_names = self.model.coord_names
         # make copies of Inversion and underlying data and model so as not
         # to alter the original
         inv_copy = copy.deepcopy(self)
@@ -2790,11 +2809,10 @@ class Inversion:
         inv_copy.results_fname = results_fname  # type: ignore[assignment]
 
         test = df[df.test == True].copy()  # noqa: E712 # pylint: disable=singleton-comparison
-        # test = inv_copy.data.where(inv_copy.data.test == True).copy()
 
         # temporarily set the gravity dataframe to only the training data
         train = df[df.test == False].copy()  # noqa: E712 # pylint: disable=singleton-comparison
-        inv_copy.data = train.set_index(["northing", "easting"]).to_xarray()
+        inv_copy.data = train.set_index([coord_names[1], coord_names[0]]).to_xarray()
 
         # inv_copy.data = inv_copy.data.where(inv_copy.data.test == False).copy()
 
@@ -2828,8 +2846,8 @@ class Inversion:
         if layer.model_type == "prisms":
             test["test_point_grav"] = layer.prism_layer.gravity(
                 coordinates=(
-                    test.easting,
-                    test.northing,
+                    test[coord_names[0]],
+                    test[coord_names[1]],
                     test.upward,
                 ),
                 field="g_z",
@@ -2838,8 +2856,8 @@ class Inversion:
         elif layer.model_type == "tesseroids":
             test["test_point_grav"] = layer.tesseroid_layer.gravity(
                 coordinates=(
-                    test.easting,
-                    test.northing,
+                    test[coord_names[0]],
+                    test[coord_names[1]],
                     test.upward,
                 ),
                 field="g_z",
@@ -2854,7 +2872,7 @@ class Inversion:
         test = ptk.points_inside_region(
             test,
             self.data.inner_region,
-            names=("easting", "northing"),
+            names=(coord_names[0], coord_names[1]),
         )
 
         # compare forward of inverted layer with observed
@@ -2867,7 +2885,7 @@ class Inversion:
 
         if plot:
             try:
-                test_grid = test.set_index(["northing", "easting"]).to_xarray()
+                test_grid = test.set_index([coord_names[1], coord_names[0]]).to_xarray()
                 obs = test_grid.gravity_anomaly - test_grid.reg
                 pred = test_grid.test_point_grav.rename("")
 
@@ -2878,7 +2896,6 @@ class Inversion:
                     obs,
                     grid1_name="Predicted gravity",
                     grid2_name="Observed gravity",
-                    plot_type="xarray",
                     robust=True,
                     title=f"Score={self.gravity_best_score}",
                     rmse_in_title=False,
@@ -2919,7 +2936,6 @@ class Inversion:
 
         Parameters
         ----------
-
         constraints_df : pandas.DataFrame
             a dataframe with columns "easting", "northing", and "upward" for
             coordinates and elevation of the constraint points.
@@ -2953,11 +2969,14 @@ class Inversion:
                 plot_dynamic_convergence=False,
             )
 
+        coord_names = self.model.coord_names
+
         # sample the inverted topography at the constraint points
         constraints_df = utils.sample_grids(
-            constraints_df,
-            inv_copy.model.topography,
-            "inverted_topo",
+            df=constraints_df,
+            grid=inv_copy.model.topography,
+            sampled_name="inverted_topo",
+            coord_names=coord_names,
         )
 
         # calculate the difference between the inverted topography and the constraint
@@ -3353,6 +3372,8 @@ class Inversion:
         # to alter the original
         inv_copy = copy.deepcopy(self)
 
+        coord_names = inv_copy.model.coord_names
+
         if regional_grav_kwargs is not None:
             regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
         if starting_topography_kwargs is not None:
@@ -3600,13 +3621,13 @@ class Inversion:
         if isinstance(constraints_df, pd.DataFrame):
             constraints_df = (
                 pd.concat([constraints_df, reg_constraints])
-                .drop_duplicates(subset=["easting", "northing", "upward"])
+                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
                 .sort_index()
             )
         else:
             constraints_df = (
                 pd.concat(constraints_df + reg_constraints)
-                .drop_duplicates(subset=["easting", "northing", "upward"])
+                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
                 .sort_index()
             )
         # add to regional grav kwargs
@@ -3820,6 +3841,7 @@ class Inversion:
         # split into test and training sets
         testing_training_df = cross_validation.split_test_train(
             df,
+            coord_names=inv_copy.data.coord_names,
             **split_kwargs,  # type: ignore[arg-type]
         )
 

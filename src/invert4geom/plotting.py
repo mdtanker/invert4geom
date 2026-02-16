@@ -478,28 +478,52 @@ def grid_inversion_results(
     corrections_grids : list[xarray.DataArray]
         list of correction grids
     """
+    coord_names = prisms_ds.coord_names
+
     misfit_grids = []
     for m in misfits:
-        grid = grav_results.set_index(["northing", "easting"]).to_xarray()[m]
+        grid = grav_results.set_index([coord_names[1], coord_names[0]]).to_xarray()[m]
         misfit_grids.append(grid)
 
     topo_grids = []
     for t in topos:
-        topo_grids.append(
-            prisms_ds[t].sel(
-                easting=slice(region[0], region[1]),
-                northing=slice(region[2], region[3]),
+        if coord_names == ["easting", "northing"]:
+            topo_grids.append(
+                prisms_ds[t].sel(
+                    easting=slice(region[0], region[1]),
+                    northing=slice(region[2], region[3]),
+                )
             )
-        )
+        elif coord_names == ["longitude", "latitude"]:
+            topo_grids.append(
+                prisms_ds[t].sel(
+                    longitude=slice(region[0], region[1]),
+                    latitude=slice(region[2], region[3]),
+                )
+            )
+        else:
+            msg = "prism dataset must have either 'easting' and 'northing' or 'longitude' and 'latitude' as coordinate names"
+            raise ValueError(msg)
 
     corrections_grids = []
     for m in corrections:
-        corrections_grids.append(
-            prisms_ds[m].sel(
-                easting=slice(region[0], region[1]),
-                northing=slice(region[2], region[3]),
+        if coord_names == ["easting", "northing"]:
+            corrections_grids.append(
+                prisms_ds[m].sel(
+                    easting=slice(region[0], region[1]),
+                    northing=slice(region[2], region[3]),
+                )
             )
-        )
+        elif coord_names == ["longitude", "latitude"]:
+            corrections_grids.append(
+                prisms_ds[m].sel(
+                    longitude=slice(region[0], region[1]),
+                    latitude=slice(region[2], region[3]),
+                )
+            )
+        else:
+            msg = "prism dataset must have either 'easting' and 'northing' or 'longitude' and 'latitude' as coordinate names"
+            raise ValueError(msg)
 
     return (misfit_grids, topo_grids, corrections_grids)
 
@@ -593,10 +617,17 @@ def plot_inversion_grav_results(
     coast : bool, optional
         add coastline to plots, by default False
     """
+    if "easting" in grav_results.columns and "northing" in grav_results.columns:
+        coord_names = ["easting", "northing"]
+    elif "longitude" in grav_results.columns and "latitude" in grav_results.columns:
+        coord_names = ["longitude", "latitude"]
+    else:
+        msg = "gravity results dataframe must contain either 'easting' and 'northing' or 'longitude' and 'latitude' columns"
+        raise ValueError(msg)
 
     epsg, coast = utils.get_epsg(coast=coast)
 
-    grid = grav_results.set_index(["northing", "easting"]).to_xarray()
+    grid = grav_results.set_index([coord_names[1], coord_names[0]]).to_xarray()
 
     initial_residual = grid["iter_1_initial_residual"]
     final_residual = grid.res
@@ -715,6 +746,9 @@ def plot_inversion_iteration_results(
 
     misfit_grids, updated_grids, corrections_grids = grids
 
+    # get coordinate names
+    coord_names = list(misfit_grids[0].sizes.keys())
+
     params = copy.deepcopy(parameters)
 
     # set figure parameters
@@ -824,8 +858,8 @@ def plot_inversion_iteration_results(
 
             if (constraints_df is not None) & (column in (0, 1, 2)):  # misfit grids
                 axes.plot(
-                    constraints_df.easting,  # type: ignore[union-attr]
-                    constraints_df.northing,  # type: ignore[union-attr]
+                    constraints_df[coord_names[1]],  # type: ignore[union-attr]
+                    constraints_df[coord_names[0]],  # type: ignore[union-attr]
                     "k.",
                     markersize=constraint_size,
                     markeredgewidth=1,
@@ -1282,7 +1316,7 @@ def plot_stochastic_results(
     Parameters
     ----------
     stats_ds : xarray.Dataset
-        dataset with the merged inversion results, generate from function
+        dataset with the merged inversion results, generated from function
         `uncertainty.model_ensemble_stats`.
     points : pandas.DataFrame | None, optional
         dataframe with points to plot, by default None

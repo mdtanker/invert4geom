@@ -120,9 +120,11 @@ def _check_constraints_inside_gravity_region(
     grav_df: pd.DataFrame,
 ) -> None:
     """check that all constraints are inside the region of the gravity data"""
-    grav_region = vd.get_region((grav_df.easting, grav_df.northing))
+    coord_names = grav_ds.coord_names
+    grav_region = vd.get_region((grav_df[coord_names[0]], grav_df[coord_names[1]]))
     inside = vd.inside(
-        (constraints_df.easting, constraints_df.northing), region=grav_region
+        (constraints_df[coord_names[0]], constraints_df[coord_names[1]]),
+        region=grav_region,
     )
     if not inside.all():
         msg = (
@@ -205,9 +207,12 @@ def _nearest_grid_fill(
         filled = (
             vd.KNeighbors()
             .fit(coords, df_dropped[grid.name])
-            .grid(region=region, shape=grid.shape, data_names=original_name)[
-                original_name
-            ]
+            .grid(
+                region=region,
+                shape=grid.shape,
+                data_names=original_name,
+                dims=(original_dims[1], original_dims[0]),
+            )[original_name]
         )
     # elif method == "pygmt":
     #     filled = pygmt.grdfill(grid, mode="n", verbose="q").rename(original_name)
@@ -234,8 +239,15 @@ def region_mask(
     Make a mask with values of 1 inside a region and 0 outside the region.
     """
 
-    mask_easting = (grid.easting >= region[0]) & (grid.easting <= region[1])
-    mask_northing = (grid.northing >= region[2]) & (grid.northing <= region[3])
+    # get coordinate names
+    coord_names = list(grid.sizes.keys())
+
+    mask_easting = (grid[coord_names[0]] >= region[0]) & (
+        grid[coord_names[0]] <= region[1]
+    )
+    mask_northing = (grid[coord_names[1]] >= region[2]) & (
+        grid[coord_names[1]] <= region[3]
+    )
 
     return xr.where(mask_easting & mask_northing, 1, 0)
 
@@ -672,6 +684,7 @@ def create_topography(
     registration: str = "g",
     upward: float | None = None,
     upwards: float | None = None,
+    coord_names: tuple[str, str] = ("easting", "northing"),
     constraints_df: pd.DataFrame | None = None,
     weights: pd.Series | NDArray | None = None,
     weights_col: str | None = None,
@@ -710,6 +723,9 @@ def create_topography(
         constant elevation in meters to use for method ``flat``, by default None
     upwards : float | None, optional
         deprecated, use `upward` instead, by default None
+    coord_names : tuple[str, str], optional
+        names to use for coordinates, should be either (easting, northing) or
+        (longitude, latitude), by default (easting, northing)
     constraints_df : pandas.DataFrame | None, optional
         dataframe with column 'upward' to use for method ``splines``, and optionally
         columns ``inside`` and ``buffer``, by default None
@@ -768,7 +784,7 @@ def create_topography(
             (x, y),
             np.ones_like(x) * upward,
             data_names="upward",
-            dims=("northing", "easting"),
+            dims=(coord_names[1], coord_names[0]),
         ).upward
 
     elif method == "splines":  # pylint: disable=too-many-nested-blocks
@@ -791,17 +807,17 @@ def create_topography(
                 (x, y),
                 np.ones_like(x) * df.upward.to_numpy(),
                 data_names="upward",
-                dims=("northing", "easting"),
+                dims=(coord_names[1], coord_names[0]),
             ).upward
 
         if pd.Series(["inside", "buffer"]).isin(df.columns).all():
             df_to_interpolate = df[df.inside | df.buffer]
             df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
 
-            coords = (df_to_interpolate.easting, df_to_interpolate.northing)
-            data = df_to_interpolate.upward
-            if weights_col is not None:
-                weights = df_to_interpolate[weights_col]
+                coords = (
+                    df_to_interpolate[coord_names[0]],
+                    df_to_interpolate[coord_names[1]],
+                )
 
             if block_size is not None:
                 if block_reduction == "mean":
