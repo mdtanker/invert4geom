@@ -708,48 +708,6 @@ def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
     raise DeprecationWarning(msg)
 
 
-def sample_bounding_surfaces(
-    prisms_df: pd.DataFrame,
-    upper_confining_layer: xr.DataArray | None = None,
-    lower_confining_layer: xr.DataArray | None = None,
-) -> pd.DataFrame:
-    """
-    sample upper and/or lower confining layers into prisms dataframe
-
-    Parameters
-    ----------
-    prisms_df : pandas.DataFrame
-        dataframe of prism properties
-    upper_confining_layer : xarray.DataArray | None, optional
-        layer which the inverted topography should always be below, by default None
-    lower_confining_layer : xarray.DataArray | None, optional
-        layer which the inverted topography should always be above, by default None
-
-    Returns
-    -------
-    pandas.DataFrame
-        a dataframe with added columns 'upper_bounds' and 'lower_bounds', which are the
-        sampled values of the supplied confining grids.
-    """
-    df = prisms_df.copy()
-
-    if upper_confining_layer is not None:
-        df = sample_grids(
-            df=df,
-            grid=upper_confining_layer,
-            sampled_name="upper_bounds",
-        )
-        assert len(df.upper_bounds) != 0
-    if lower_confining_layer is not None:
-        df = sample_grids(
-            df=df,
-            grid=lower_confining_layer,
-            sampled_name="lower_bounds",
-        )
-        assert len(df.lower_bounds) != 0
-    return df
-
-
 def create_topography(
     method: str,
     region: tuple[float, float, float, float],
