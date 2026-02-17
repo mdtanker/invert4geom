@@ -7,6 +7,7 @@ import polartoolkit as ptk
 import pygmt
 import verde as vd
 import xarray as xr
+import warnings 
 
 from invert4geom import cross_validation, logger, optimization, utils
 
@@ -277,6 +278,10 @@ def regional_eq_sources(
         msg = "Function `regional_eq_sources` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
         raise DeprecationWarning(msg)
 
+    if grav_ds.model_type == "tesseroids":
+        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
+        raise NotImplementedError(msg)
+
     coord_names = ("easting", "northing")
 
     logger.debug("starting regional_eq_sources")
@@ -427,6 +432,10 @@ def regional_constraints(
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `regional_constraints` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
         raise DeprecationWarning(msg)
+
+    if grav_ds.model_type == "tesseroids":
+        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
+        raise NotImplementedError(msg)
 
     logger.debug("starting regional_constraints")
 
@@ -719,6 +728,10 @@ def regional_constraints_cv(
         kwargs to be passed to `optimize_regional_constraint_point_minimization`
     """
     logger.debug("starting regional_constraints_cv")
+
+    if grav_ds.model_type == "tesseroids":
+        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
+        raise NotImplementedError(msg)
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df,
