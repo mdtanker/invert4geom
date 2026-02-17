@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v2.0.0
+## v2.0.1
 Released on 2026-02-17
 Contributors:
 - Matt Tankersley
@@ -41,6 +41,10 @@ This release is a major refactor of code with the goal of simplifying the user e
 
 ### 🐛 Fixed
 - fix some issues with ReadTheDocs
+
+## v2.0.0
+Yanked from PyPI and never added to conda-forge due to error in dependency version for polartoolkit.
+
 
 <!--
 Below is an example for a release
