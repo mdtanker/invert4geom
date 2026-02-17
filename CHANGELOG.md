@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v2.0.1
+## v2.0.2
 Released on 2026-02-17
 Contributors:
 - Matt Tankersley
@@ -24,6 +24,7 @@ This release is a major refactor of code with the goal of simplifying the user e
 - build the API docs with autodoc instead of autoapi
 - updated the Uieda et al. 2017 CRUST1.0 example to use tesseroids instead of prisms
 - changed `filt_type` to `filter_type`
+- removed support fr Python 3.11
 
 ### 🚀 Added
 - gravity data now includes an inner domain, which is created by zooming in on the data extent by a default of 10% of domain width. This inner-region of the gravity data is used for plotting and calculating statistics, such as L2-norms, and cross validation score, since edge effects can skew these values when a buffer is not included.
@@ -41,6 +42,9 @@ This release is a major refactor of code with the goal of simplifying the user e
 
 ### 🐛 Fixed
 - fix some issues with ReadTheDocs
+
+## v2.0.1
+Yanked from PyPI and conda-forge due to issue with conda-forge building versions supporting Python 3.11.
 
 ## v2.0.0
 Yanked from PyPI and never added to conda-forge due to error in dependency version for polartoolkit.
