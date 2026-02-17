@@ -1034,20 +1034,37 @@ def create_topography(
         raise ValueError(msg)
 
     # ensure grid doesn't cross supplied confining layers
-    if upper_confining_layer is not None:
+    if upper_confining_layer is None:
+        pass
+    elif np.all(upper_confining_layer.isnull()):  # noqa: PD003
+        pass
+    else:
         da = ptk.resample_grid(
             upper_confining_layer,
             spacing=spacing,
             region=region,
             registration=registration,
         )
+        original_dims = list(da.sizes.keys())
+        da = da.rename(
+            {original_dims[1]: coord_names[0], original_dims[0]: coord_names[1]}
+        )
         grid = xr.where(grid > da, da, grid)
-    if lower_confining_layer is not None:
+        
+    if lower_confining_layer is None:
+        pass
+    elif np.all(lower_confining_layer.isnull()):  # noqa: PD003
+        pass
+    else:
         da = ptk.resample_grid(
             lower_confining_layer,
             spacing=spacing,
             region=region,
             registration=registration,
+        )
+        original_dims = list(da.sizes.keys())
+        da = da.rename(
+            {original_dims[1]: coord_names[0], original_dims[0]: coord_names[1]}
         )
         grid = xr.where(grid < da, da, grid)
 
