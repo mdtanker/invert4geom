@@ -1708,13 +1708,23 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("data")
 
-        variables = [
-            "easting",
-            "northing",
-            "upward",
-            "gravity_anomaly",
-            "forward_gravity",
-        ]
+        if self._ds.model_type == "tesseroids":
+            variables = [
+                "longitude",
+                "latitude",
+                "geocentric_radius",
+                "upward",
+                "gravity_anomaly",
+                "forward_gravity",
+            ]
+        else:
+            variables = [
+                "easting",
+                "northing",
+                "upward",
+                "gravity_anomaly",
+                "forward_gravity",
+            ]
         assert all(i in self._ds for i in variables), (
             f"`gravity dataset` needs all the following variables: {variables}"
         )
@@ -1726,16 +1736,29 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("data")
 
-        variables = [
-            "easting",
-            "northing",
-            "upward",
-            "gravity_anomaly",
-            "forward_gravity",
-            "misfit",
-            "reg",
-            "res",
-        ]
+        if self._ds.model_type == "tesseroids":
+            variables = [
+                "longitude",
+                "latitude",
+                "geocentric_radius",
+                "upward",
+                "gravity_anomaly",
+                "forward_gravity",
+                "misfit",
+                "reg",
+                "res",
+            ]
+        else:
+            variables = [
+                "easting",
+                "northing",
+                "upward",
+                "gravity_anomaly",
+                "forward_gravity",
+                "misfit",
+                "reg",
+                "res",
+            ]
         assert all(i in self._ds for i in variables), (
             f"`gravity dataset` needs all the following variables: {variables}"
         )
