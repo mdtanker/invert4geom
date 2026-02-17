@@ -118,10 +118,13 @@ def get_epsg(coast: bool) -> tuple[str, bool]:
 
 def _check_constraints_inside_gravity_region(
     constraints_df: pd.DataFrame,
-    grav_df: pd.DataFrame,
+    grav_ds: xr.Dataset,
 ) -> None:
     """check that all constraints are inside the region of the gravity data"""
     coord_names = grav_ds.coord_names
+
+    grav_df = grav_ds.inv.df
+
     grav_region = vd.get_region((grav_df[coord_names[0]], grav_df[coord_names[1]]))
     inside = vd.inside(
         (constraints_df[coord_names[0]], constraints_df[coord_names[1]]),

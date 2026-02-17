@@ -64,7 +64,7 @@ def regional_constant(
             )
             raise ValueError(msg)
 
-        utils._check_constraints_inside_gravity_region(constraints_df, grav_ds.inv.df)  # pylint: disable=protected-access
+        utils._check_constraints_inside_gravity_region(constraints_df, grav_ds)  # pylint: disable=protected-access
 
         # get the gravity values at the constraint points
         constraints_df = constraints_df.copy()
@@ -722,7 +722,7 @@ def regional_constraints_cv(
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df,
-        grav_ds.inv.df,
+        grav_ds,
     )
 
     df = constraints_df.copy()
