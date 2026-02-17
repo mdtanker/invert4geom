@@ -1397,23 +1397,27 @@ class DatasetAccessorInvert4Geom:
             None,
         ]
         with utils._log_level(logging.CRITICAL, logging.getLogger("polartoolkit")):  # pylint: disable=protected-access
-            fig = ptk.subplots(
-                grids,
-                dims=(1, 5),
-                region=self._ds.inner_region,
-                fig_title="Gravity anomalies",
-                titles=titles,
-                cbar_label="mGal",
-                cmap="balance+h0",
-                cpt_limits=cpt_limits,
-                absolute=True,
-                robust=True,
-                hist=True,
-                points=points,
-                points_style=points_style,
-                coast=coast,
-                epsg=epsg,
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message="Since limits were passed to `cpt_lims`"
+                )
+                fig = ptk.subplots(
+                    grids,
+                    dims=(1, 5),
+                    region=self._ds.inner_region,
+                    fig_title="Gravity anomalies",
+                    titles=titles,
+                    cbar_label="mGal",
+                    cmap="balance+h0",
+                    cpt_limits=cpt_limits,
+                    absolute=True,
+                    robust=True,
+                    hist=True,
+                    points=points,
+                    points_style=points_style,
+                    coast=coast,
+                    epsg=epsg,
+                )
 
         fig.show()
 

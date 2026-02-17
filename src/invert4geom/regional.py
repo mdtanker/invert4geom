@@ -567,8 +567,22 @@ def regional_constraints(
     ###
     ###
     elif grid_method == "verde":
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message="The mindist parameter of verde.Spline"
+            )
+            warnings.filterwarnings(
+                "ignore", message="The default scoring will change"
+            )
+            spline = utils.optimal_spline_damping(
+                coordinates=(
                     constraints_df[coord_names[0]],
                     constraints_df[coord_names[1]],
+                ),
+                data=constraints_df.sampled_grav,
+                weights=weights,
+                dampings=spline_dampings,
+            )
         # predict fitted grid at gravity points
         grav_ds["reg"] = spline.grid(
             coordinates=(
