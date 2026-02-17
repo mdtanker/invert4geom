@@ -3323,9 +3323,10 @@ class Inversion:
         density_contrast_limits : tuple[float, float] | None, optional
             upper and lower limits for the density contrast, in kg/m^-3, by default None
         starting_topography_kwargs : dict[str, typing.Any] | None, optional
-            dictionary with key: value pairs of "region":tuple[float, float, float, float].
-            "spacing":float, and "dampings":float | list[float] | None, used to create
-            a flat starting topography at each zref value if starting_topography not
+            dictionary of kwargs to pass to function `create_topography` which must
+            include "method". kwargs "region", "spacing", "dataset_to_add",
+            "upper_confining_layer" and "lower_confining_layer" will automatically be
+            collected from the model object and passed to `create_topography`.
             provided, by default None
         regional_grav_kwargs : dict[str, typing.Any] | None, optional
             dictionary with kwargs to supply to :meth:`DatasetAccessorInvert4Geom.regional_separation`, by default
@@ -3382,7 +3383,13 @@ class Inversion:
             regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
         if starting_topography_kwargs is not None:
             starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
-
+            if inv_copy.model.model_type == "tesseroids":
+                    dataset_to_add = inv_copy.model[["mask", "geocentric_radius"]].drop_vars(
+                        ["top", "bottom"]
+                )
+            else:
+                dataset_to_add = inv_copy.model[["mask"]].drop_vars(["top", "bottom"])
+            starting_topography_kwargs["dataset_to_add"] = dataset_to_add
         optuna.logging.set_verbosity(optuna.logging.WARN)
 
         # set file name for saving results with random number between 0 and 999

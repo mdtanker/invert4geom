@@ -889,10 +889,17 @@ def full_workflow_uncertainty_loop(
         new_regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
     else:
         new_regional_grav_kwargs = None
+
     if starting_topography_kwargs is not None:
-        new_starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
-    else:
-        new_starting_topography_kwargs = None
+        starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+        if inv.model.model_type == "tesseroids":
+            dataset_to_add = inv.model[["mask", "geocentric_radius"]].drop_vars(
+                ["top", "bottom"]
+            )
+        else:
+            dataset_to_add = inv.model[["mask"]].drop_vars(["top", "bottom"])
+
+        starting_topography_kwargs["dataset_to_add"] = dataset_to_add
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -1016,10 +1023,10 @@ def full_workflow_uncertainty_loop(
                 data_col="upward",
                 uncert_col="uncert",
             )
-            if (new_starting_topography_kwargs is not None) and (
-                new_starting_topography_kwargs.get("constraints_df", None) is not None
+            if (starting_topography_kwargs is not None) and (
+                starting_topography_kwargs.get("constraints_df", None) is not None
             ):
-                new_starting_topography_kwargs["constraints_df"] = sampled_constraints
+                starting_topography_kwargs["constraints_df"] = sampled_constraints
             if (new_regional_grav_kwargs is not None) and (
                 new_regional_grav_kwargs.get("constraints_df", None) is not None
             ):
@@ -1056,7 +1063,7 @@ def full_workflow_uncertainty_loop(
                 calculate_starting_gravity = True
         if sampled_starting_topography_parameter_dict is not None:
             for k, v in sampled_starting_topography_parameter_dict.items():
-                new_starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
+                starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
         if sampled_regional_misfit_parameter_dict is not None:
             for k, v in sampled_regional_misfit_parameter_dict.items():
                 new_regional_grav_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
@@ -1105,7 +1112,7 @@ def full_workflow_uncertainty_loop(
                 starting_topography=inv.model.starting_topography.to_dataset(
                     name="upward"
                 ),
-                starting_topography_kwargs=new_starting_topography_kwargs,
+                starting_topography_kwargs=starting_topography_kwargs,
                 upper_confining_layer=inv.model.upper_confining_layer,
                 lower_confining_layer=inv.model.lower_confining_layer,
                 buffer_width=inv.model.buffer_width,

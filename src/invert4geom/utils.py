@@ -697,6 +697,7 @@ def create_topography(
     block_reduction: str = "median",
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
+    dataset_to_add: xr.Dataset | None = None,
 ) -> xr.Dataset:
     """
     Create a grid of topography data from either the interpolation (with splines) of
@@ -762,6 +763,9 @@ def create_topography(
         layer which the inverted topography should always be below, by default None
     lower_confining_layer : xarray.DataArray | None, optional
         layer which the inverted topography should always be above, by default None
+    dataset_to_add : xarray.Dataset | None, optional
+        additional variables to add to the topography dataset, such as variables `mask`
+        or `geocentric_radius`, by default None
 
     Returns
     -------
@@ -1047,7 +1051,18 @@ def create_topography(
         )
         grid = xr.where(grid < da, da, grid)
 
-    return grid.to_dataset(name="upward")
+    ds = grid.to_dataset(name="upward")
+
+    if dataset_to_add is not None:
+        # check datasets are aligned
+        try:
+            _ = xr.align(ds, dataset_to_add, join="exact")
+        except xr.AlignmentError as err:
+            msg = "`dataset_to_add` should be exactly aligned with the create topography dataset"
+            raise xr.AlignmentError(msg) from err
+        ds = ds.merge(dataset_to_add)
+
+    return ds
 
 
 def grid_to_model(
