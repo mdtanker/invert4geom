@@ -2203,6 +2203,12 @@ class Inversion:
         self.zref_density_optimization_study_fname = None
         self.zref_density_optimization_results_fname = None
 
+        # check invalid deriv type
+        valid_deriv_types = ["annulus", "finite_difference"]
+        if self.deriv_type not in valid_deriv_types:
+            msg = f"deriv_type must be one of {valid_deriv_types}"
+            raise ValueError(msg)
+
         # check that gravity dataset has necessary dimensions
         self.data.inv._check_grav_vars()
 
@@ -2422,6 +2428,10 @@ class Inversion:
             dtype=np.float64,
         )
         if self.deriv_type == "annulus":
+            if self.model.model_type != "prisms":
+                msg = "Annulus technique is only available for prism models, use deriv_type='finite_difference' instead"
+                raise ValueError(msg)
+
             # convert dataframe to arrays
             df = self.model.inv.masked_df  # only use non-masked prisms
             model_element_easting = df[coord_names[0]].to_numpy()
