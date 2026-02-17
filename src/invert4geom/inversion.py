@@ -3392,13 +3392,24 @@ class Inversion:
             regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
         if starting_topography_kwargs is not None:
             starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+
+            upper_confining_layer = inv_copy.model.upper_confining_layer
+            lower_confining_layer = inv_copy.model.lower_confining_layer
+
             if inv_copy.model.model_type == "tesseroids":
                     dataset_to_add = inv_copy.model[["mask", "geocentric_radius"]].drop_vars(
                         ["top", "bottom"]
                 )
             else:
                 dataset_to_add = inv_copy.model[["mask"]].drop_vars(["top", "bottom"])
+            
             starting_topography_kwargs["dataset_to_add"] = dataset_to_add
+            starting_topography_kwargs["upper_confining_layer"] = upper_confining_layer
+            starting_topography_kwargs["lower_confining_layer"] = lower_confining_layer
+            starting_topography_kwargs["region"] = inv_copy.model.region
+            starting_topography_kwargs["spacing"] = inv_copy.model.spacing
+            starting_topography_kwargs["coord_names"] = inv_copy.model.coord_names
+        
         optuna.logging.set_verbosity(optuna.logging.WARN)
 
         # set file name for saving results with random number between 0 and 999
