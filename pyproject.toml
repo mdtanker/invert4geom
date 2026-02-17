@@ -47,7 +47,7 @@ dependencies = [
   "deprecation",
   "pykdtree",
   "xrft",
-  "polartoolkit>=1.4.0",
+  "polartoolkit>=1.5.0",
   "numba",
   "numba_progress",
   "dask",

@@ -22,6 +22,7 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
             "scipy",
             "scikit-learn",
             "verde",
+            "boule",
             "pooch",
             "rioxarray",
             "tqdm",
