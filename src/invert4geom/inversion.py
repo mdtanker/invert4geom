@@ -900,7 +900,8 @@ class DatasetAccessorInvert4Geom:
         constant : float
             value to use for the regional field.
         constraints_df : pandas.DataFrame
-            a dataframe of constraint points with columns easting and northing.
+            a dataframe of constraint points with columns ``easting`` and ``northing``
+            (or ``longitude`` and ``latitude``).
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
@@ -1180,8 +1181,8 @@ class DatasetAccessorInvert4Geom:
         Parameters
         ----------
         constraints_df : pandas.DataFrame
-            dataframe of constraints with columns ``easting``, ``northing``, and
-            ``upward``.
+            dataframe of constraints with columns ``easting``, ``northing`` (or
+            ``longitude``, ``latitude``), and ``upward``.
         grid_method : str, optional
             method used to grid the sampled gravity data at the constraint points. Choose
             between ``verde``, ``pygmt``, or ``eq_sources``, by default ``eq_sources``
@@ -1278,8 +1279,8 @@ class DatasetAccessorInvert4Geom:
         Parameters
         ----------
         constraints_df : pandas.DataFrame
-            dataframe of constraints with columns ``easting``, ``northing``, and
-            ``upward``.
+            dataframe of constraints with columns ``easting``, ``northing`` (or
+            ``longitude``, ``latitude``), and ``upward``.
         split_kwargs : dict[str, typing.Any] | None, optional
             kwargs to be passed to :func:`split_test_train`, by default None
         regional_shift : float, optional

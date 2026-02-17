@@ -385,14 +385,19 @@ def equivalent_sources_uncertainty(
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
-    Create a stochastic ensemble of regional gravity anomalies by sampling the
-    constraints, gravity, or parameters within their respective distributions and
-    calculate the cell-wise (weighted) statistics of the ensemble.
+    Create a stochastic ensemble of interpolated gravity grids by sampling the gravity
+    data and/or the equivalent source interpolation parameters within their respective
+    distributions and calculate the cell-wise (weighted) statistics of the ensemble.
 
     Parameters
     ----------
     runs : int
         number of runs to perform
+    data : numpy.ndarray
+        The gravity data to fit the equivalent sources to.
+    coords: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]
+        The coordinates of the gravity data points in the order (easting, northing,
+        upward).
     parameter_dict : dict[str, typing.Any] | None, optional
         dictionary of parameters passes to `regional_separation` with the uncertainty
         distributions defined, by default None
@@ -402,8 +407,8 @@ def equivalent_sources_uncertainty(
         show the results, by default True
     plot_region : tuple[float, float, float, float] | None, optional
         clip the plot to a region, by default None
-    true_regional : xarray.DataArray | None, optional
-        if the true regional misfit is known, will make a plot comparing the results, by
+    true_gravity : xarray.DataArray | None, optional
+        if the true gravity is known, will make a plot comparing the results, by
         default None
     deterministic_error : xarray.DataArray | None, optional
         if the deterministic error is known, will make a plot comparing the results, by
