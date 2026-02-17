@@ -726,7 +726,6 @@ class OptimalInversionZrefDensity:
                     )
                 }
             )
-        starting_topography_kwargs = copy.deepcopy(self.starting_topography_kwargs)
 
         reg_kwargs = copy.deepcopy(self.regional_grav_kwargs)
 
@@ -762,16 +761,16 @@ class OptimalInversionZrefDensity:
                     "model with the supplied starting_topography_kwargs"
                 )
                 logger.info(msg)
-                if starting_topography_kwargs is None:
+                if self.starting_topography_kwargs is None:
                     msg = (
                         "must provide `starting_topography_kwargs` to be passed to the "
                         "function `utils.create_topography`."
                     )
                     raise ValueError(msg)
-                if starting_topography_kwargs["method"] == "flat":
+                if self.starting_topography_kwargs["method"] == "flat":
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
-                    starting_topography_kwargs["upwards"] = (
+                    self.starting_topography_kwargs["upward"] = (
                         self.inversion_obj.model.zref
                     )
 
@@ -782,24 +781,27 @@ class OptimalInversionZrefDensity:
                     "model with the supplied starting_topography_kwargs"
                 )
                 logger.info(msg)
-                if starting_topography_kwargs is None:
+                if self.starting_topography_kwargs is None:
                     msg = (
                         "must provide `starting_topography_kwargs` to be passed to the "
                         "function `utils.create_topography`."
                     )
                     raise ValueError(msg)
-                if starting_topography_kwargs["method"] == "flat":
+                if (
+                    self.starting_topography_kwargs["method"] == "flat"
+                    and self.starting_topography_kwargs.get("upward", None) is None
+                ):
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
-                    starting_topography_kwargs["upwards"] = (
+                    self.starting_topography_kwargs["upward"] = (
                         self.inversion_obj.model.zref
                     )
 
                 starting_topo = utils.create_topography(
-                    **starting_topography_kwargs,
+                    **self.starting_topography_kwargs,
                 )
             else:
-                if starting_topography_kwargs is not None:
+                if self.starting_topography_kwargs is not None:
                     msg = (
                         "starting_topography and starting_topography_kwargs provided, "
                         "please only provide one or the other."
@@ -811,11 +813,11 @@ class OptimalInversionZrefDensity:
             self.inversion_obj.model = inversion.create_model(
                 zref=self.inversion_obj.model.zref,
                 density_contrast=self.inversion_obj.model.density_contrast,
-                model_type=self.inversion_obj.model.model_type,
                 topography=starting_topo,
+                buffer_width=self.inversion_obj.model.buffer_width,
+                model_type=self.inversion_obj.model.model_type,
                 upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
                 lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
-                buffer_width=self.inversion_obj.model.buffer_width,
             )
 
             # calculate forward gravity of starting prism layer
@@ -849,14 +851,14 @@ class OptimalInversionZrefDensity:
 
             training_constraints = reg_kwargs.pop("constraints_df", None)
 
-            if starting_topography_kwargs is None:
+            if self.starting_topography_kwargs is None:
                 msg = (
                     "must provide `starting_topography_kwargs` to be passed to the "
                     "function `utils.create_topography`."
                 )
                 raise ValueError(msg)
 
-            starting_topography_kwargs.pop("constraints_df", None)
+            self.starting_topography_kwargs.pop("constraints_df", None)
 
             testing_constraints = self.constraints_df
 
@@ -906,20 +908,20 @@ class OptimalInversionZrefDensity:
                         "topography model with the supplied starting_topography_kwargs"
                     )
                     logger.info(msg)
-                    if starting_topography_kwargs["method"] == "flat":
+                    if self.starting_topography_kwargs["method"] == "flat":
                         msg = "using zref to create a flat starting topography model"
                         logger.info(msg)
-                        starting_topography_kwargs["upwards"] = (
+                        self.starting_topography_kwargs["upward"] = (
                             self.inversion_obj.model.zref
                         )
-                    elif starting_topography_kwargs["method"] == "splines":
-                        starting_topography_kwargs["constraints_df"] = (
+                    elif self.starting_topography_kwargs["method"] == "splines":
+                        self.starting_topography_kwargs["constraints_df"] = (
                             training_constraints[i]
                         )
 
                     with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
                         starting_topo = utils.create_topography(
-                            **starting_topography_kwargs,
+                            **self.starting_topography_kwargs,
                         )
                 else:
                     starting_topo = self.starting_topography.copy()
@@ -928,11 +930,11 @@ class OptimalInversionZrefDensity:
                 self.inversion_obj.model = inversion.create_model(
                     zref=self.inversion_obj.model.zref,
                     density_contrast=self.inversion_obj.model.density_contrast,
-                    model_type=self.inversion_obj.model.model_type,
                     topography=starting_topo,
+                    buffer_width=self.inversion_obj.model.buffer_width,
+                    model_type=self.inversion_obj.model.model_type,
                     upper_confining_layer=self.inversion_obj.model.upper_confining_layer,
                     lower_confining_layer=self.inversion_obj.model.lower_confining_layer,
-                    buffer_width=self.inversion_obj.model.buffer_width,
                 )
 
                 # calculate forward gravity of starting prism layer

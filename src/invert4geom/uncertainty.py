@@ -198,6 +198,7 @@ def starting_topography_uncertainty(
     plot_region: tuple[float, float, float, float] | None = None,
     true_topography: xr.DataArray | None = None,
     coast: bool = False,
+    coord_names: tuple[str, str] = ("easting", "northing"),
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
@@ -225,6 +226,9 @@ def starting_topography_uncertainty(
         default None
     coast : bool, optional
         whether to plot coastlines, by default False
+    coord_names : tuple[str, str], optional
+        names of the coordinate columns in the constraints dataframe, by default
+        ("easting", "northing")
 
     Returns
     -------
@@ -276,9 +280,10 @@ def starting_topography_uncertainty(
 
         # sample the topography at the constraint points
         sampled_constraints = utils.sample_grids(
-            sampled_constraints,
-            starting_topography,
-            "sampled",
+            df=sampled_constraints,
+            grid=starting_topography,
+            sampled_name="sampled",
+            coord_names=coord_names,
         )
         # get weights of rmse between constraints and results
         weight_vals.append(
@@ -380,14 +385,19 @@ def equivalent_sources_uncertainty(
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
-    Create a stochastic ensemble of regional gravity anomalies by sampling the
-    constraints, gravity, or parameters within their respective distributions and
-    calculate the cell-wise (weighted) statistics of the ensemble.
+    Create a stochastic ensemble of interpolated gravity grids by sampling the gravity
+    data and/or the equivalent source interpolation parameters within their respective
+    distributions and calculate the cell-wise (weighted) statistics of the ensemble.
 
     Parameters
     ----------
     runs : int
         number of runs to perform
+    data : numpy.ndarray
+        The gravity data to fit the equivalent sources to.
+    coords: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]
+        The coordinates of the gravity data points in the order (easting, northing,
+        upward).
     parameter_dict : dict[str, typing.Any] | None, optional
         dictionary of parameters passes to `regional_separation` with the uncertainty
         distributions defined, by default None
@@ -397,8 +407,8 @@ def equivalent_sources_uncertainty(
         show the results, by default True
     plot_region : tuple[float, float, float, float] | None, optional
         clip the plot to a region, by default None
-    true_regional : xarray.DataArray | None, optional
-        if the true regional misfit is known, will make a plot comparing the results, by
+    true_gravity : xarray.DataArray | None, optional
+        if the true gravity is known, will make a plot comparing the results, by
         default None
     deterministic_error : xarray.DataArray | None, optional
         if the deterministic error is known, will make a plot comparing the results, by
@@ -884,10 +894,28 @@ def full_workflow_uncertainty_loop(
         new_regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
     else:
         new_regional_grav_kwargs = None
+
     if starting_topography_kwargs is not None:
-        new_starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
-    else:
-        new_starting_topography_kwargs = None
+        starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+
+        upper_confining_layer = inv.model.upper_confining_layer
+        lower_confining_layer = inv.model.lower_confining_layer
+
+        # copy over kwargs from model instance
+        starting_topography_kwargs["region"] = inv.model.region
+        starting_topography_kwargs["spacing"] = inv.model.spacing
+        starting_topography_kwargs["coord_names"] = inv.model.coord_names
+
+        if inv.model.model_type == "tesseroids":
+            dataset_to_add = inv.model[["mask", "geocentric_radius"]].drop_vars(
+                ["top", "bottom"]
+            )
+        else:
+            dataset_to_add = inv.model[["mask"]].drop_vars(["top", "bottom"])
+
+        starting_topography_kwargs["dataset_to_add"] = dataset_to_add
+        starting_topography_kwargs["upper_confining_layer"] = upper_confining_layer
+        starting_topography_kwargs["lower_confining_layer"] = lower_confining_layer
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -1011,10 +1039,10 @@ def full_workflow_uncertainty_loop(
                 data_col="upward",
                 uncert_col="uncert",
             )
-            if (new_starting_topography_kwargs is not None) and (
-                new_starting_topography_kwargs.get("constraints_df", None) is not None
+            if (starting_topography_kwargs is not None) and (
+                starting_topography_kwargs.get("constraints_df", None) is not None
             ):
-                new_starting_topography_kwargs["constraints_df"] = sampled_constraints
+                starting_topography_kwargs["constraints_df"] = sampled_constraints
             if (new_regional_grav_kwargs is not None) and (
                 new_regional_grav_kwargs.get("constraints_df", None) is not None
             ):
@@ -1051,7 +1079,7 @@ def full_workflow_uncertainty_loop(
                 calculate_starting_gravity = True
         if sampled_starting_topography_parameter_dict is not None:
             for k, v in sampled_starting_topography_parameter_dict.items():
-                new_starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
+                starting_topography_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
         if sampled_regional_misfit_parameter_dict is not None:
             for k, v in sampled_regional_misfit_parameter_dict.items():
                 new_regional_grav_kwargs[k] = v["sampled_values"][i]  # type: ignore[index]
@@ -1100,7 +1128,7 @@ def full_workflow_uncertainty_loop(
                 starting_topography=inv.model.starting_topography.to_dataset(
                     name="upward"
                 ),
-                starting_topography_kwargs=new_starting_topography_kwargs,
+                starting_topography_kwargs=starting_topography_kwargs,
                 upper_confining_layer=inv.model.upper_confining_layer,
                 lower_confining_layer=inv.model.lower_confining_layer,
                 buffer_width=inv.model.buffer_width,

@@ -38,6 +38,7 @@ dependencies = [
   "scipy>=1.11.0",
   "scikit-learn>=1.3.0",
   "verde",
+  "boule",
   "pooch",
   "rioxarray",
   "tqdm",
@@ -72,6 +73,7 @@ dependencies = [
 [dependency-groups]
 uncert = [
   "UQpy >=4.1.7", # need fixed issue with scipy
+  "setuptools<82", # needed for it to include pkg_resources needed for uqpy
 ]
 synth = [
   "xesmf",

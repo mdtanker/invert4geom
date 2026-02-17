@@ -20,7 +20,7 @@ pd.set_option("display.max_columns", None)
 ################
 
 
-def true_topography() -> xr.Dataset:
+def true_topography_cartesian() -> xr.Dataset:
     easting = [0, 10000, 20000, 30000, 40000]
     northing = [0, 10000, 20000, 30000]
     surface = [
@@ -33,16 +33,41 @@ def true_topography() -> xr.Dataset:
         (easting, northing),
         data=surface,
         data_names="upward",
+        dims=("northing", "easting"),
     )
 
 
-def flat_topography_500m() -> xr.Dataset:
-    topo = true_topography()
+def true_topography_geographic() -> xr.Dataset:
+    longitude = [0, 1, 2, 3, 4]
+    latitude = [0, 1, 2, 3]
+    surface = [
+        [637, 545, 474, 434, 430],
+        [494, 522, 448, 407, 435],
+        [646, 302, 486, 483, 443],
+        [718, 639, 439, 545, 541],
+    ]
+    return vd.make_xarray_grid(
+        (longitude, latitude),
+        data=(surface, np.full_like(surface, 6371e3)),
+        data_names=("upward", "geocentric_radius"),
+        dims=("latitude", "longitude"),
+    )
+
+
+def flat_topography_500m_cartesian() -> xr.Dataset:
+    topo = true_topography_cartesian()
     topo["upward"] = xr.full_like(topo.upward, 500)
     return topo
 
 
-def observed_gravity() -> xr.Dataset:
+def flat_topography_500m_geographic() -> xr.Dataset:
+    topo = true_topography_geographic()
+    topo["upward"] = xr.full_like(topo.upward, 500)
+    topo["geocentric_radius"] = xr.full_like(topo.upward, 6371e3)
+    return topo
+
+
+def observed_gravity_prisms() -> xr.Dataset:
     easting = [0, 10000, 20000, 30000, 40000]
     northing = [0, 10000, 20000, 30000]
     grav = [
@@ -55,7 +80,26 @@ def observed_gravity() -> xr.Dataset:
     return vd.make_xarray_grid(
         (easting, northing),
         data=(grav, np.full_like(grav, 1000)),
+        dims=("northing", "easting"),
         data_names=("gravity_anomaly", "upward"),
+    )
+
+
+def observed_gravity_tesseroids() -> xr.Dataset:
+    longitude = [0, 1, 2, 3, 4]
+    latitude = [0, 1, 2, 3]
+    grav = [
+        [14.26481884, 4.71750172, -2.58265577, -6.88771746, -7.3176891],
+        [-0.22250109, 2.30457796, -5.20320139, -9.73491892, -7.06766808],
+        [15.05282739, -19.32882461, -2.17347104, -1.94021662, -6.00456422],
+        [22.84735344, 14.25307194, -6.03071986, 4.63738305, 4.47834945],
+    ]
+
+    return vd.make_xarray_grid(
+        (longitude, latitude),
+        data=(grav, np.full_like(grav, 1000), np.full_like(grav, 6371e3)),
+        dims=("latitude", "longitude"),
+        data_names=("gravity_anomaly", "upward", "geocentric_radius"),
     )
 
 
@@ -64,39 +108,150 @@ def observed_gravity() -> xr.Dataset:
 # TESTS
 ################
 ################
+data_attributes_test = [
+    (
+        {
+            "gravity": observed_gravity_prisms(),
+            "buffer_width": 10000,
+        },
+        {
+            "region": (0.0, 40000.0, 0.0, 30000.0),
+            "spacing": 10000.0,
+            "buffer_width": 10000.0,
+            "inner_region": (10000.0, 30000.0, 10000.0, 20000.0),
+            "dataset_type": "data",
+            "model_type": "prisms",
+            "coord_names": ("easting", "northing"),
+        },
+    ),
+    (
+        {
+            "gravity": observed_gravity_tesseroids(),
+            "buffer_width": 1,
+            "model_type": "tesseroids",
+        },
+        {
+            "region": (0, 4, 0, 3),
+            "spacing": 1,
+            "buffer_width": 1,
+            "inner_region": (1, 3, 1, 2),
+            "dataset_type": "data",
+            "model_type": "tesseroids",
+            "coord_names": ("longitude", "latitude"),
+        },
+    ),
+]
 
 
-def test_data_attributes():
+@pytest.mark.parametrize(("test_input", "expected"), data_attributes_test)
+def test_data_attributes(test_input, expected):
     """
     test the data attributes are properly set
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        **test_input,
     )
 
-    attrs = {
-        "region": (0.0, 40000.0, 0.0, 30000.0),
-        "spacing": 10000.0,
-        "buffer_width": 10000,
-        "inner_region": (10000.0, 30000.0, 10000.0, 20000.0),
-        "dataset_type": "data",
-        "model_type": "prisms",
-    }
-    assert grav_data.attrs == attrs
+    assert grav_data.attrs == expected
+
+
+data_errors_test = [
+    # test no upward variable
+    (
+        {"gravity": observed_gravity_prisms().rename({"upward": "not_upward"})},
+        ("gravity dataset must contain an 'upward' variable"),
+    ),
+    (
+        {
+            "gravity": observed_gravity_tesseroids().rename({"upward": "not_upward"}),
+            "model_type": "tesseroids",
+        },
+        ("gravity dataset must contain an 'upward' variable"),
+    ),
+    # test wrong model_type
+    (
+        {
+            "gravity": observed_gravity_prisms(),
+            "model_type": "not_prisms_or_tesseroids",
+        },
+        ("model_type must be either 'prisms' or 'tesseroids'"),
+    ),
+    # test wrong coordinate names
+    (
+        {"gravity": observed_gravity_prisms().rename({"easting": "not_easting"})},
+        ("gravity dataset must have dims"),
+    ),
+    (
+        {
+            "gravity": observed_gravity_tesseroids().rename({"longitude": "not_lon"}),
+            "model_type": "tesseroids",
+        },
+        ("gravity dataset must have dims"),
+    ),
+    # test no geocentric radius variable for tesseroids
+    (
+        {
+            "gravity": observed_gravity_tesseroids().drop_vars("geocentric_radius"),
+            "model_type": "tesseroids",
+        },
+        ("for tesseroid models, gravity dataset must contain a 'geocentric_radius'"),
+    ),
+    # test buffer not multiple of spacing
+    (
+        {
+            "gravity": observed_gravity_prisms(),
+            "buffer_width": 1111,
+        },
+        (r"buffer_width \(1111\) must be a multiple of the grid spacing"),
+    ),
+    (
+        {
+            "gravity": observed_gravity_tesseroids(),
+            "buffer_width": 0.8,
+            "model_type": "tesseroids",
+        },
+        (r"buffer_width \(0.8\) must be a multiple of the grid spacing"),
+    ),
+    # test buffer zone too big
+    (
+        {
+            "gravity": observed_gravity_prisms(),
+            "buffer_width": 1000e3,
+        },
+        ("buffer_width must be smaller than half the smallest dimension of the region"),
+    ),
+    (
+        {
+            "gravity": observed_gravity_tesseroids(),
+            "buffer_width": 10,
+            "model_type": "tesseroids",
+        },
+        ("buffer_width must be smaller than half the smallest dimension of the region"),
+    ),
+]
+
+
+@pytest.mark.parametrize(("test_input", "expected"), data_errors_test)
+def test_data_errors(test_input, expected):
+    """
+    test the correct errors are raised with create_data
+    """
+    with pytest.raises(AssertionError, match=expected):
+        _ = invert4geom.inversion.create_data(**test_input)
 
 
 @pytest.mark.filterwarnings("ignore:Grid may have irregular spacing in the")
 @pytest.mark.filterwarnings("ignore:grid zmax can't be extracted")
-def test_model_attributes():
+def test_model_attributes_prisms():
     """
     test the model attributes are properly set
     """
-    model = true_topography()
+    model = true_topography_cartesian()
 
     # add mask to dataset
-    # this has a region of (0, 30000, 0, 20000)
+    # this has a region of (0, 20000, 0, 20000)
     subset = model.upward.where(
-        (model.upward.easting < 35e3) & (model.upward.northing < 30e3),
+        (model.upward.easting < 25e3) & (model.upward.northing < 30e3),
         np.nan,
     )
     model["mask"] = xr.where(subset.isnull(), np.nan, 1)  # noqa: PD003
@@ -109,18 +264,149 @@ def test_model_attributes():
         buffer_width=10000,
     )
 
-    attrs = {
+    expected = {
         "zref": 100,
         "density_contrast": 200,
         "region": (0.0, 40000.0, 0.0, 30000.0),
         "spacing": 10000.0,
         "buffer_width": 10000.0,
-        "inner_region": (10000.0, 30000.0, 10000.0, 20000.0),
+        "inner_region": (10000.0, 20000.0, 10000.0, 20000.0),
         "dataset_type": "model",
         "model_type": "prisms",
+        "coord_names": ("easting", "northing"),
+    }
+    assert model.attrs == expected
+
+
+@pytest.mark.filterwarnings("ignore:Grid may have irregular spacing in the")
+@pytest.mark.filterwarnings("ignore:grid zmax can't be extracted")
+def test_model_attributes_tesseroids():
+    """
+    test the model attributes are properly set
+    """
+    model = true_topography_geographic()
+
+    # add mask to dataset
+    # this has a region of (0, 2, 0, 2)
+    subset = model.upward.where(
+        (model.upward.longitude < 2.5) & (model.upward.latitude < 3),
+        np.nan,
+    )
+    model["mask"] = xr.where(subset.isnull(), np.nan, 1)  # noqa: PD003
+
+    # initialize
+    model = invert4geom.inversion.create_model(
+        topography=model,
+        zref=100,
+        density_contrast=200,
+        buffer_width=1,
+        model_type="tesseroids",
+    )
+
+    expected = {
+        "zref": 100,
+        "density_contrast": 200,
+        "region": (0, 4, 0, 3),
+        "spacing": 1,
+        "buffer_width": 1,
+        "inner_region": (1, 2, 1, 2),
+        "dataset_type": "model",
+        "model_type": "tesseroids",
+        "coord_names": ("longitude", "latitude"),
     }
 
-    assert model.attrs == attrs
+    assert model.attrs == expected
+
+
+model_errors_test = [
+    # test no upward variable
+    (
+        {
+            "topography": true_topography_cartesian().rename({"upward": "not_upward"}),
+            "zref": 100,
+            "density_contrast": 200,
+        },
+        ("topography dataset must contain an 'upward' variable"),
+    ),
+    (
+        {
+            "topography": true_topography_geographic().rename({"upward": "not_upward"}),
+            "model_type": "tesseroids",
+            "zref": 100,
+            "density_contrast": 200,
+        },
+        ("topography dataset must contain an 'upward' variable"),
+    ),
+    # test wrong model_type
+    (
+        {
+            "topography": true_topography_cartesian(),
+            "model_type": "not_prisms_or_tesseroids",
+            "zref": 100,
+            "density_contrast": 200,
+        },
+        ("model_type must be either 'prisms' or 'tesseroids'"),
+    ),
+    # test wrong coordinate names
+    (
+        {
+            "topography": true_topography_cartesian().rename(
+                {"easting": "not_easting"}
+            ),
+            "zref": 100,
+            "density_contrast": 200,
+        },
+        ("topography dataset must have dims"),
+    ),
+    (
+        {
+            "topography": true_topography_geographic().rename({"longitude": "not_lon"}),
+            "model_type": "tesseroids",
+            "zref": 100,
+            "density_contrast": 200,
+        },
+        ("topography dataset must have dims"),
+    ),
+    # test no geocentric radius variable for tesseroids
+    (
+        {
+            "topography": true_topography_geographic().drop_vars("geocentric_radius"),
+            "model_type": "tesseroids",
+            "zref": 100,
+            "density_contrast": 200,
+        },
+        ("for tesseroid models, topography dataset must contain a 'geocentric_radius'"),
+    ),
+    # test density has wrong dimensions
+    (
+        {
+            "topography": true_topography_cartesian(),
+            "zref": 100,
+            "density_contrast": true_topography_cartesian().upward.rename(
+                {"easting": "not_easting"}
+            ),
+        },
+        (r"`density\_contrast` dataarray must have dims"),
+    ),
+    # test density is wrong type (dataset not dataarray)
+    (
+        {
+            "topography": true_topography_cartesian(),
+            "zref": 100,
+            "density_contrast": true_topography_cartesian(),
+        },
+        (r"`density\_contrast` must be a float or xarray.DataArray"),
+    ),
+]
+
+
+@pytest.mark.parametrize(("test_input", "expected"), model_errors_test)
+def test_model_errors(test_input, expected):
+    """
+    test the correct errors are raised with create_model
+    """
+    with pytest.raises(AssertionError, match=expected):
+        _ = invert4geom.inversion.create_model(**test_input)
 
 
 def test_inv_accessor_df():
@@ -153,7 +439,7 @@ def test_inv_accessor_df():
         data, columns=["northing", "easting", "gravity_anomaly", "upward"]
     )
 
-    grav_data = invert4geom.inversion.create_data(observed_gravity())
+    grav_data = invert4geom.inversion.create_data(observed_gravity_prisms())
 
     pd.testing.assert_frame_equal(grav_data.inv.df, df, check_dtype=False)
 
@@ -175,18 +461,46 @@ def test_inv_accessor_inner_df():
     )
 
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
 
     pd.testing.assert_frame_equal(grav_data.inv.inner_df, df, check_dtype=False)
 
 
-def test_inv_accessor_inner():
+def test_inv_accessor_inner_tesseroids():
     """
     test the inv accessor .inner property
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_tesseroids(),
+        buffer_width=1,
+        model_type="tesseroids",
+    )
+
+    longs = [1, 2, 3]
+    lats = [1, 2]
+    grav = [
+        [2.30457796, -5.20320139, -9.73491892],
+        [-19.32882461, -2.17347104, -1.94021662],
+    ]
+
+    true_ds = vd.make_xarray_grid(
+        (longs, lats),
+        data=(grav, np.full_like(grav, 1000), np.full_like(grav, 6371e3)),
+        data_names=("gravity_anomaly", "upward", "geocentric_radius"),
+        dims=("latitude", "longitude"),
+    )
+    xr.testing.assert_equal(grav_data.inv.inner, true_ds)
+
+
+def test_inv_accessor_inner_prisms():
+    """
+    test the inv accessor .inner property
+    """
+    grav_data = invert4geom.inversion.create_data(
+        observed_gravity_prisms(),
+        buffer_width=10000,
+        model_type="prisms",
     )
 
     easting = [10000, 20000, 30000]
@@ -210,7 +524,7 @@ def test_inv_accessor_masked_df():
     """
     test the inv accessor .masked property
     """
-    model = true_topography()
+    model = true_topography_cartesian()
     # add mask to dataset
     model["mask"] = xr.where(model.upward > 600, 1, np.nan)
 
@@ -224,7 +538,7 @@ def test_inv_accessor_masked_df():
 
     # check error is raised if called for data object
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     with pytest.raises(
         ValueError, match="Method is only available for the model dataset"
@@ -238,7 +552,7 @@ def test_inv_accessor_masked():
     """
     test the inv accessor .masked property
     """
-    model = true_topography()
+    model = true_topography_cartesian()
     # add mask to dataset
     model["mask"] = xr.where(model.upward > 600, 1, np.nan)
 
@@ -252,7 +566,7 @@ def test_inv_accessor_masked():
 
     # check error is raised if called for data object
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     with pytest.raises(
         ValueError, match="Method is only available for the model dataset"
@@ -265,10 +579,10 @@ def test_forward_gravity():
     test the forward gravity method
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m_cartesian(), zref=100, density_contrast=200
     )
 
     grav_data.inv.forward_gravity(model, name="test_forward_gravity")
@@ -318,10 +632,10 @@ def test_forward_gravity_rename():
     test the forward gravity method is able to update an existing column
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m_cartesian(), zref=100, density_contrast=200
     )
 
     grav_data.inv.forward_gravity(model, name="gravity_anomaly")
@@ -361,10 +675,10 @@ def test_regional_separation():
     test the regional separation method
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m_cartesian(), zref=100, density_contrast=200
     )
     grav_data.inv.forward_gravity(model)
     grav_data.inv.regional_separation(
@@ -392,7 +706,7 @@ def test_check_grav_vars_for_regional():
     test an error is raised if gravity dataset missing variables needed for regional
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
 
     with pytest.raises(
@@ -402,7 +716,7 @@ def test_check_grav_vars_for_regional():
 
     # check error is raised if called for model object
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m_cartesian(), zref=100, density_contrast=200
     )
     with pytest.raises(
         ValueError, match="Method is only available for the data dataset"
@@ -415,7 +729,7 @@ def test_check_grav_vars():
     test an error is raised if gravity dataset missing variables needed for inversion
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
 
     with pytest.raises(
@@ -425,7 +739,7 @@ def test_check_grav_vars():
 
     # check error is raised if called for model object
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m_cartesian(), zref=100, density_contrast=200
     )
     with pytest.raises(
         ValueError, match="Method is only available for the data dataset"
@@ -438,10 +752,10 @@ def test_check_gravity_inside_topography_region():
     test an error is raised if gravity is outside topography region method
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
 
-    topo = flat_topography_500m()
+    topo = flat_topography_500m_cartesian()
 
     # shift topo to east by 100km
     topo = topo.assign_coords(easting=topo.easting + 100000)
@@ -466,10 +780,10 @@ def test_update_gravity_and_residual():
     test gravity variables 'res' and 'forward_gravity' are correctly updated with a new prism layer
     """
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m_cartesian(), zref=100, density_contrast=200
     )
     grav_data.inv.forward_gravity(model)
     grav_data.inv.regional_separation(
@@ -503,7 +817,7 @@ def test_add_density_correction():
     test the density correction values are correctly added to the model dataset
     """
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(),
+        topography=flat_topography_500m_cartesian(),
         zref=100,
         density_contrast=200,
     )
@@ -518,7 +832,7 @@ def test_add_density_correction():
 
     # check error is raised if called for data object
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     with pytest.raises(
         ValueError, match="Method is only available for the model dataset"
@@ -531,7 +845,7 @@ def test_add_topography_correction():
     test the surface correction values are correctly added to the model dataset
     """
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(),
+        topography=flat_topography_500m_cartesian(),
         zref=100,
         density_contrast=200,
     )
@@ -546,7 +860,7 @@ def test_add_topography_correction():
 
     # check error is raised if called for data object
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     with pytest.raises(
         ValueError, match="Method is only available for the model dataset"
@@ -560,7 +874,7 @@ def test_add_density_correction_negated_density():
     positive and negative densities
     """
     model = invert4geom.inversion.create_model(
-        topography=true_topography(),
+        topography=true_topography_cartesian(),
         zref=500,  # this is in middle of topography
         density_contrast=200,
     )
@@ -580,7 +894,7 @@ def test_add_topography_correction_negated_density():
     positive and negative densities
     """
     model = invert4geom.inversion.create_model(
-        topography=true_topography(),
+        topography=true_topography_cartesian(),
         zref=500,  # this is in middle of topography
         density_contrast=200,
     )
@@ -601,11 +915,15 @@ def test_add_topography_correction_confining_layers():
     """
     # make model confined below at 500 and above at 600 m
     model = invert4geom.inversion.create_model(
-        topography=true_topography(),
+        topography=true_topography_cartesian(),
         zref=500,
         density_contrast=200,
-        upper_confining_layer=xr.full_like(flat_topography_500m().upward, 600),
-        lower_confining_layer=xr.full_like(flat_topography_500m().upward, 500),
+        upper_confining_layer=xr.full_like(
+            flat_topography_500m_cartesian().upward, 600
+        ),
+        lower_confining_layer=xr.full_like(
+            flat_topography_500m_cartesian().upward, 500
+        ),
     )
     # set surface correction to be 200 m, which would move the surface outside of both
     # confining layers
@@ -630,7 +948,7 @@ def test_update_model_ds_geometry():
     test the model is update with the surface correction values
     """
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(),
+        topography=flat_topography_500m_cartesian(),
         zref=100,
         density_contrast=200,
     )
@@ -643,11 +961,12 @@ def test_update_model_ds_geometry():
 
     # test the topography is raised by 10m
     npt.assert_array_equal(
-        model.topography.to_numpy(), (flat_topography_500m().upward + 10).to_numpy()
+        model.topography.to_numpy(),
+        (flat_topography_500m_cartesian().upward + 10).to_numpy(),
     )
 
     # test the top values are raised by 10m
-    npt.assert_array_equal(model.top, flat_topography_500m().upward + 10)
+    npt.assert_array_equal(model.top, flat_topography_500m_cartesian().upward + 10)
 
     with pytest.raises(
         ValueError, match="style must be either 'density' or 'geometry'"
@@ -656,7 +975,7 @@ def test_update_model_ds_geometry():
 
     # check error is raised if called for data object
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     with pytest.raises(
         ValueError, match="Method is only available for the model dataset"
@@ -669,7 +988,7 @@ def test_update_model_ds_density():
     test the model is update with the density correction values
     """
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(),
+        topography=flat_topography_500m_cartesian(),
         zref=100,
         density_contrast=200,
     )
@@ -688,93 +1007,12 @@ def test_update_model_ds_density():
 
     # check error is raised if called for data object
     grav_data = invert4geom.inversion.create_data(
-        observed_gravity(), buffer_width=10000
+        observed_gravity_prisms(), buffer_width=10000
     )
     with pytest.raises(
         ValueError, match="Method is only available for the model dataset"
     ):
         grav_data.inv.update_model_ds(style="density")
-
-
-def test_create_data_variable_name_error_raised():
-    """
-    test the create_data function correctly raises an error
-    """
-    with pytest.raises(AssertionError, match="gravity dataset needs variables"):
-        invert4geom.inversion.create_data(
-            observed_gravity().rename({"upward": "not_upward"}),
-        )
-
-
-def test_create_data_coord_name_error_raised():
-    """
-    test the create_data function with prisms correctly raises an error
-    """
-    with pytest.raises(AssertionError, match="gravity dataset must have dims"):
-        invert4geom.inversion.create_data(
-            observed_gravity().rename({"easting": "not_easting"}),
-        )
-
-
-def test_create_data_buffer_spacing_error():
-    """
-    test the create_data function raises an error with buffer zone not being a multiple of spacing
-    """
-    with pytest.raises(
-        AssertionError,
-        match=r"buffer_width \(1111\) must be a multiple of the grid spacing",
-    ):
-        invert4geom.inversion.create_data(
-            observed_gravity(),
-            buffer_width=1111,
-        )
-
-
-def test_create_data_large_buffer_error():
-    """
-    test the create_data function raises an error with buffer zone being too big
-    """
-    with pytest.raises(
-        AssertionError,
-        match="buffer_width must be smaller than half the smallest dimension of the region",
-    ):
-        invert4geom.inversion.create_data(
-            observed_gravity(),
-            buffer_width=1000e3,
-        )
-
-
-def test_create_model():
-    """
-    test the create_model function works correctly
-    """
-    with pytest.raises(
-        ValueError, match="model_type must be either 'prisms' or 'tesseroids'"
-    ):
-        invert4geom.inversion.create_model(
-            topography=flat_topography_500m(),
-            zref=100,
-            density_contrast=200,
-            model_type="not_prisms_or_tesseroids",
-        )
-
-    with pytest.raises(
-        ValueError, match=r"`density\_contrast` must be a float or xarray.DataArray"
-    ):
-        invert4geom.inversion.create_model(
-            topography=flat_topography_500m(),
-            zref=100,
-            density_contrast=flat_topography_500m(),
-        )
-
-    with pytest.raises(AssertionError, match="density DataArray must have dims"):
-        invert4geom.inversion.create_model(
-            topography=flat_topography_500m(),
-            zref=100,
-            density_contrast=flat_topography_500m().upward.rename(
-                {"easting": "not_easting"}
-            ),
-        )
 
 
 def test_create_model_variable_name_error_raised():
@@ -783,12 +1021,12 @@ def test_create_model_variable_name_error_raised():
     """
     with pytest.raises(
         AssertionError,
-        match="topography Dataset must contain an 'upward' variable",
+        match="topography dataset must contain an 'upward' variable",
     ):
         invert4geom.inversion.create_model(
             0,
             2700,
-            true_topography().rename({"upward": "not_upward"}),
+            true_topography_cartesian().rename({"upward": "not_upward"}),
         )
 
 
@@ -798,12 +1036,12 @@ def test_create_model_coord_name_error_raised():
     """
     with pytest.raises(
         AssertionError,
-        match=r"topography Dataset must have dims \('easting', 'northing'\)",
+        match=r"topography dataset must have dims \('easting', 'northing'\)",
     ):
         invert4geom.inversion.create_model(
             0,
             2700,
-            true_topography().rename({"easting": "not_easting"}),
+            true_topography_cartesian().rename({"easting": "not_easting"}),
         )
 
 
@@ -811,8 +1049,10 @@ def test_inversion_properties():
     """
     test the inversion properties work correctly
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
 
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -845,8 +1085,10 @@ def test_end_inversion_l2_norm_increasing():
     """
     test the end_inversion method works correctly
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
 
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -883,8 +1125,10 @@ def test_end_inversion_delta_l2_norm_tolerance_both_below():
     """
     test the end_inversion method works correctly
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
 
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -918,8 +1162,10 @@ def test_end_inversion_delta_l2_norm_tolerance_one_below():
     """
     test the end_inversion method works correctly
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
 
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -952,8 +1198,10 @@ def test_end_inversion_l2_norm_tolerance():
     """
     test the end_inversion method works correctly
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
 
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -989,8 +1237,10 @@ def test_end_inversion_max_iterations():
     """
     test the end_inversion method works correctly
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
 
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -1027,8 +1277,10 @@ def test_end_inversion_multiple_reasons():
     """
     test the end_inversion method works correctly
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
 
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -1068,7 +1320,7 @@ def test_model_properties():
     test the _model_properties function
     """
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m_cartesian(), zref=100, density_contrast=200
     )
     itertools_result = invert4geom.inversion._model_properties(
         model, method="itertools"
@@ -1196,14 +1448,13 @@ def test_jacobian_geometry_error_raised():
 
     topo = xr.full_like(topo.upward, 80).to_dataset(name="upward")
     model = invert4geom.inversion.create_model(-1e3, 10000, topo)
-    inv = invert4geom.inversion.Inversion(
-        data=data,
-        model=model,
-        deriv_type="not_annulus_or_finite_difference",
-    )
 
-    with pytest.raises(ValueError, match="invalid string for deriv_type"):
-        inv.jacobian_geometry()
+    with pytest.raises(ValueError, match="deriv_type must be one of"):
+        inv = invert4geom.inversion.Inversion(
+            data=data,
+            model=model,
+            deriv_type="not_annulus_or_finite_difference",
+        )
 
 
 @pytest.mark.use_numba
@@ -1759,9 +2010,11 @@ def test_invert_pickle(tmp_path):
     temp_file = temp_dir / "test_invert"
     # temp_file = "test_invert"
 
-    data = invert4geom.inversion.create_data(observed_gravity(), buffer_width=10000)
+    data = invert4geom.inversion.create_data(
+        observed_gravity_prisms(), buffer_width=10000
+    )
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(), zref=100, density_contrast=200
+        topography=flat_topography_500m_cartesian(), zref=100, density_contrast=200
     )
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -1798,13 +2051,19 @@ def test_invert_with_confining_layers():
     """
     test the inversion with confining layers
     """
-    data = invert4geom.inversion.create_data(observed_gravity(), buffer_width=10000)
+    data = invert4geom.inversion.create_data(
+        observed_gravity_prisms(), buffer_width=10000
+    )
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(),
+        topography=flat_topography_500m_cartesian(),
         zref=100,
         density_contrast=200,
-        upper_confining_layer=xr.full_like(flat_topography_500m().upward, 510),
-        lower_confining_layer=xr.full_like(flat_topography_500m().upward, 500),
+        upper_confining_layer=xr.full_like(
+            flat_topography_500m_cartesian().upward, 510
+        ),
+        lower_confining_layer=xr.full_like(
+            flat_topography_500m_cartesian().upward, 500
+        ),
     )
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -1834,12 +2093,16 @@ def test_invert_with_single_confining_layer():
     """
     test the inversion with a single confining layer
     """
-    data = invert4geom.inversion.create_data(observed_gravity(), buffer_width=10000)
+    data = invert4geom.inversion.create_data(
+        observed_gravity_prisms(), buffer_width=10000
+    )
     model = invert4geom.inversion.create_model(
-        topography=flat_topography_500m(),
+        topography=flat_topography_500m_cartesian(),
         zref=100,
         density_contrast=200,
-        upper_confining_layer=xr.full_like(flat_topography_500m().upward, 510),
+        upper_confining_layer=xr.full_like(
+            flat_topography_500m_cartesian().upward, 510
+        ),
     )
     data.inv.forward_gravity(model)
     data.inv.regional_separation(
@@ -1868,8 +2131,10 @@ def test_gravity_score():
     """
     test the gravity_score function
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
     resampled = invert4geom.cross_validation.add_test_points(data)
     resampled.inv.forward_gravity(model)
     resampled.inv.regional_separation(
@@ -1896,8 +2161,10 @@ def test_optimize_inversion_damping():
     """
     test the optimize_inversion_damping function
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
     resampled = invert4geom.cross_validation.add_test_points(data)
     resampled.inv.forward_gravity(model)
     resampled.inv.regional_separation(
@@ -1959,8 +2226,10 @@ def test_constraints_score():
     """
     test the constraints_score function
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
     constraints_df = pd.DataFrame(
         data={
             "easting": [0, 1000],
@@ -1993,8 +2262,10 @@ def test_optimize_inversion_zref_density_contrast():
     """
     test the optimize_inversion_zref_density_contrast function
     """
-    data = invert4geom.inversion.create_data(observed_gravity())
-    model = invert4geom.inversion.create_model(500, 2669, flat_topography_500m())
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
     constraints_df = pd.DataFrame(
         data={
             "easting": [0, 1000],

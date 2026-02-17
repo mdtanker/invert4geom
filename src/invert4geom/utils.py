@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import polartoolkit as ptk
 import pygmt
+import pyproj
 import sklearn
 import verde as vd
 import xarray as xr
@@ -117,12 +118,17 @@ def get_epsg(coast: bool) -> tuple[str, bool]:
 
 def _check_constraints_inside_gravity_region(
     constraints_df: pd.DataFrame,
-    grav_df: pd.DataFrame,
+    grav_ds: xr.Dataset,
 ) -> None:
     """check that all constraints are inside the region of the gravity data"""
-    grav_region = vd.get_region((grav_df.easting, grav_df.northing))
+    coord_names = grav_ds.coord_names
+
+    grav_df = grav_ds.inv.df
+
+    grav_region = vd.get_region((grav_df[coord_names[0]], grav_df[coord_names[1]]))
     inside = vd.inside(
-        (constraints_df.easting, constraints_df.northing), region=grav_region
+        (constraints_df[coord_names[0]], constraints_df[coord_names[1]]),
+        region=grav_region,
     )
     if not inside.all():
         msg = (
@@ -205,9 +211,12 @@ def _nearest_grid_fill(
         filled = (
             vd.KNeighbors()
             .fit(coords, df_dropped[grid.name])
-            .grid(region=region, shape=grid.shape, data_names=original_name)[
-                original_name
-            ]
+            .grid(
+                region=region,
+                shape=grid.shape,
+                data_names=original_name,
+                dims=(original_dims[1], original_dims[0]),
+            )[original_name]
         )
     # elif method == "pygmt":
     #     filled = pygmt.grdfill(grid, mode="n", verbose="q").rename(original_name)
@@ -234,8 +243,15 @@ def region_mask(
     Make a mask with values of 1 inside a region and 0 outside the region.
     """
 
-    mask_easting = (grid.easting >= region[0]) & (grid.easting <= region[1])
-    mask_northing = (grid.northing >= region[2]) & (grid.northing <= region[3])
+    # get coordinate names
+    coord_names = list(grid.sizes.keys())
+
+    mask_easting = (grid[coord_names[0]] >= region[0]) & (
+        grid[coord_names[0]] <= region[1]
+    )
+    mask_northing = (grid[coord_names[1]] >= region[2]) & (
+        grid[coord_names[1]] <= region[3]
+    )
 
     return xr.where(mask_easting & mask_northing, 1, 0)
 
@@ -634,8 +650,8 @@ def sample_grids(
     Parameters
     ----------
     df : pandas.DataFrame
-        Dataframe containing columns 'x', 'y', or columns with names defined by kwarg
-        "coord_names".
+        Dataframe containing columns 'easting', 'northing', 'longitude', 'latitude' or
+        columns with names defined by kwarg "coord_names".
     grid : str or xarray.DataArray
         Grid to sample, either file name or xarray.DataArray
     sampled_name : str,
@@ -647,56 +663,12 @@ def sample_grids(
         Dataframe with new column (sampled_name) of sample values from (grid)
     """
 
-    # drop name column if it already exists
-    try:
-        df1 = df.drop(columns=sampled_name)
-    except KeyError:
-        df1 = df.copy()
-
-    if "index" in df1.columns:
-        msg = "index column must be removed or renamed before sampling"
-        raise ValueError(msg)
-
-    df2 = df1.copy()
-
-    # reset the index
-    df3 = df2.reset_index()
-
-    # get x and y column names
-    x, y = kwargs.get("coord_names", ("easting", "northing"))
-
-    # check column names exist, if not, use other common names
-    if (x in df3.columns) and (y in df3.columns):
-        pass
-    elif ("x" in df3.columns) and ("y" in df3.columns):
-        x, y = ("x", "y")
-
-    # get points to sample at
-    points = df3[[x, y]].copy()
-
-    # sample the grid at all x,y points
-    sampled = pygmt.grdtrack(
-        points=points,
+    return ptk.sample_grids(
+        df=df,
         grid=grid,
-        newcolname=sampled_name,
-        # radius=kwargs.get("radius", None),
-        no_skip=True,  # if false causes issues
-        verbose=kwargs.get("verbose", "w"),
-        interpolation=kwargs.get("interpolation", "c"),
+        sampled_name=sampled_name,
+        **kwargs,
     )
-
-    df3[sampled_name] = sampled[sampled_name]
-
-    # reset index to previous
-    df4 = df3.set_index("index")
-
-    # reset index name to be same as originals
-    df4.index.name = df1.index.name
-
-    # check that dataframe is identical to original except for new column
-    pd.testing.assert_frame_equal(df4.drop(columns=sampled_name), df1)
-
-    return df4
 
 
 def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
@@ -708,55 +680,16 @@ def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
     raise DeprecationWarning(msg)
 
 
-def sample_bounding_surfaces(
-    prisms_df: pd.DataFrame,
-    upper_confining_layer: xr.DataArray | None = None,
-    lower_confining_layer: xr.DataArray | None = None,
-) -> pd.DataFrame:
-    """
-    sample upper and/or lower confining layers into prisms dataframe
-
-    Parameters
-    ----------
-    prisms_df : pandas.DataFrame
-        dataframe of prism properties
-    upper_confining_layer : xarray.DataArray | None, optional
-        layer which the inverted topography should always be below, by default None
-    lower_confining_layer : xarray.DataArray | None, optional
-        layer which the inverted topography should always be above, by default None
-
-    Returns
-    -------
-    pandas.DataFrame
-        a dataframe with added columns 'upper_bounds' and 'lower_bounds', which are the
-        sampled values of the supplied confining grids.
-    """
-    df = prisms_df.copy()
-
-    if upper_confining_layer is not None:
-        df = sample_grids(
-            df=df,
-            grid=upper_confining_layer,
-            sampled_name="upper_bounds",
-        )
-        assert len(df.upper_bounds) != 0
-    if lower_confining_layer is not None:
-        df = sample_grids(
-            df=df,
-            grid=lower_confining_layer,
-            sampled_name="lower_bounds",
-        )
-        assert len(df.lower_bounds) != 0
-    return df
-
-
 def create_topography(
     method: str,
     region: tuple[float, float, float, float],
     spacing: float,
     dampings: list[float] | None = None,
     registration: str = "g",
+    upward: float | None = None,
     upwards: float | None = None,
+    coord_names: tuple[str, str] = ("easting", "northing"),
+    projection: pyproj.Proj | None = None,
     constraints_df: pd.DataFrame | None = None,
     weights: pd.Series | NDArray | None = None,
     weights_col: str | None = None,
@@ -764,6 +697,7 @@ def create_topography(
     block_reduction: str = "median",
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
+    dataset_to_add: xr.Dataset | None = None,
 ) -> xr.Dataset:
     """
     Create a grid of topography data from either the interpolation (with splines) of
@@ -783,18 +717,32 @@ def create_topography(
     method : str
         method to use, either ``flat`` or ``splines``
     region : tuple[float, float, float, float]
-        region of the grid
+        bounding region to use for the output grid. If you are using projected
+        coordinates (meters), this is in the format (min_easting, max_easting,
+        min_northing, max_northing). If using geographic coordinates (latitude and
+        longitude), this is in the format (min_longitude, max_longitude, min_latitude,
+        max_latitude)
     spacing : float
-        spacing of the grid
+        spacing of the grid in meters if using projected coordinates, or in decimal
+        degrees if using geographic coordinates
     dampings : list[float] | None, optional
         damping values to use in spline cross validation for method ``spline``, by default
         None
     registration : str, optional
         choose between gridline ``g`` or pixel ``p`` registration, by default ``g``
+    upward : float | None, optional
+        constant elevation in meters to use for method ``flat``, by default None
     upwards : float | None, optional
-        constant value to use for method ``flat``, by default None
+        deprecated, use `upward` instead, by default None
+    coord_names : tuple[str, str], optional
+        names to use for coordinates, should be either (easting, northing) or
+        (longitude, latitude), by default (easting, northing)
+    projection : pyproj.Proj | None, optional
+        if using geographic coordinates (latitude and longitude) and the splines method,
+        provide a pyproj Proj object to convert to cartesian coordinates, by default
+        None
     constraints_df : pandas.DataFrame | None, optional
-        dataframe with column 'upwards' to use for method ``splines``, and optionally
+        dataframe with column 'upward' to use for method ``splines``, and optionally
         columns ``inside`` and ``buffer``, by default None
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
@@ -804,7 +752,9 @@ def create_topography(
         weights, by default None
     block_size : float | None, optional
         block size to use for block-reduction of constraint points before fitting
-        splines. If None, no block-reduction is applied, by default None
+        splines. In meters if using projected coordinates, or in decimal degrees if
+        using geographic coordinates. If None, no block-reduction is applied, by
+        default None
     block_reduction: str, optional
         type of block reduction to apply, if ``median``, weights will be ignored, of
         ``mean``, and weights are provided, they will be used in the block reduction.
@@ -813,12 +763,23 @@ def create_topography(
         layer which the inverted topography should always be below, by default None
     lower_confining_layer : xarray.DataArray | None, optional
         layer which the inverted topography should always be above, by default None
+    dataset_to_add : xarray.Dataset | None, optional
+        additional variables to add to the topography dataset, such as variables `mask`
+        or `geocentric_radius`, by default None
 
     Returns
     -------
     xarray.Dataset
         a topography grid
     """
+    if upwards is not None:
+        warnings.warn(
+            "`upwards` is deprecated, please use `upward` instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        upward = upwards
+
     if method == "flat":
         if registration == "g":
             pixel_register = False
@@ -828,8 +789,8 @@ def create_topography(
             msg = "registration must be 'g' or 'p'"
             raise ValueError(msg)
 
-        if upwards is None:
-            msg = "upwards must be provided if method is `flat`"
+        if upward is None:
+            msg = "upward must be provided if method is `flat`"
             raise ValueError(msg)
 
         # create grid of coordinates
@@ -838,12 +799,12 @@ def create_topography(
             spacing=spacing,
             pixel_register=pixel_register,
         )
-        # make flat topography of value = upwards
+        # make flat topography of value = upward
         grid = vd.make_xarray_grid(
             (x, y),
-            np.ones_like(x) * upwards,
+            np.ones_like(x) * upward,
             data_names="upward",
-            dims=("northing", "easting"),
+            dims=(coord_names[1], coord_names[0]),
         ).upward
 
     elif method == "splines":  # pylint: disable=too-many-nested-blocks
@@ -861,110 +822,79 @@ def create_topography(
                 region=region,
                 spacing=spacing,
             )
-            # make flat topography of value = upwards
+            # make flat topography of value = upward
             grid = vd.make_xarray_grid(
                 (x, y),
                 np.ones_like(x) * df.upward.to_numpy(),
                 data_names="upward",
-                dims=("northing", "easting"),
+                dims=(coord_names[1], coord_names[0]),
             ).upward
-
-        if pd.Series(["inside", "buffer"]).isin(df.columns).all():
-            df_to_interpolate = df[df.inside | df.buffer]
-            df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
-
-            coords = (df_to_interpolate.easting, df_to_interpolate.northing)
-            data = df_to_interpolate.upward
-            if weights_col is not None:
-                weights = df_to_interpolate[weights_col]
-
-            if block_size is not None:
-                if block_reduction == "mean":
-                    reduction = np.mean
-                elif block_reduction == "median":
-                    reduction = np.median
-                    if weights is not None:
-                        msg = "weights are ignored when block_reduction is 'median'"
-                        logger.warning(msg)
-                else:
-                    msg = "block_reduction must be 'mean' or 'median'"
-                    raise ValueError(msg)
-
-                reducer = vd.BlockReduce(
-                    reduction=reduction,
-                    spacing=block_size,
-                    region=region,
-                    center_coordinates=True,
-                )
-
-                coords, data = reducer.filter(
-                    coordinates=coords,
-                    data=data,
-                    weights=weights,
-                )
-
-            # run CV for fitting a spline to the data
-            spline = optimal_spline_damping(
-                coordinates=coords,
-                data=data,
-                weights=weights,
-                dampings=dampings,
-            )
-
-            # grid the fitted spline at desired spacing and region
-            inside_grid = spline.grid(
-                region=region,
-                spacing=spacing,
-            ).scalars
-
-            # merge interpolation of inner / buffer points with outside grid
-            # outside_grid = df_outside_buffer.set_index(
-            #   ["northing", "easting"]).to_xarray().upward
-            # outside_grid = vd.make_xarray_grid(
-            #     (df_outside_buffer.easting, df_outside_buffer.northing),
-            #     df_outside_buffer.upward,
-            #     data_names="upward",
-            # )
-            outside_grid = pygmt.xyz2grd(
-                x=df_outside_buffer.easting,
-                y=df_outside_buffer.northing,
-                z=df_outside_buffer.upward,
-                region=region,
-                spacing=spacing,
-            ).rename({"x": "easting", "y": "northing"})
-
-            grid = inside_grid.where(
-                outside_grid.isnull(),  # noqa: PD003
-                outside_grid,
-            )
-
         else:
-            coords = (df.easting, df.northing)
-            data = df.upward
-            if weights_col is not None:
-                weights = df[weights_col]
+            if (coord_names == ("longitude", "latitude")) & (projection is None):
+                msg = (
+                    "If using geographic coordinates (latitude and longitude) and the "
+                    "spline method, a pyproj.Proj projection must be provided to "
+                    "convert to projected coordinates."
+                )
+                raise ValueError(msg)
 
-            if block_size is not None:
-                if block_reduction == "mean" and weights is not None:
-                    reducer = vd.BlockMean(
-                        spacing=block_size,
-                        region=region,
-                        center_coordinates=True,
-                    )
+            # convert to projected coordinates if needed
+            if projection is not None:
+                projected_points = [
+                    projection(lon, lat)
+                    for (lon, lat) in zip(df.longitude, df.latitude, strict=True)
+                ]
+                eastings, northings = zip(*projected_points, strict=True)
+                df["easting"] = eastings
+                df["northing"] = northings
 
-                    coords, data, weights = reducer.filter(
-                        coordinates=coords,
-                        data=data,
-                        weights=weights,
-                    )
+                # convert region in lat/lon to projected easting/northing
+                corners_lonlat = [
+                    (region[0], region[2]),
+                    (region[1], region[2]),
+                    (region[1], region[3]),
+                    (region[0], region[3]),
+                ]
+                projected_corners = [
+                    projection(lon, lat) for (lon, lat) in corners_lonlat
+                ]
+                eastings, northings = zip(*projected_corners, strict=True)
+                cartesian_region = (
+                    min(eastings),
+                    max(eastings),
+                    min(northings),
+                    max(northings),
+                )
+                cartesian_spacing = (
+                    spacing * 111139
+                )  # approx conversion from degrees latitude to meters
+                if block_size is not None:
+                    block_size = (
+                        block_size * 111139
+                    )  # approx conversion from degrees latitude to meters
+            else:
+                cartesian_region = region
+                cartesian_spacing = spacing
 
-                else:
+            if pd.Series(["inside", "buffer"]).isin(df.columns).all():
+                df_to_interpolate = df[df.inside | df.buffer]
+                df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
+
+                coords = (
+                    df_to_interpolate[coord_names[0]],
+                    df_to_interpolate[coord_names[1]],
+                )
+                data = df_to_interpolate.upward
+                if weights_col is not None:
+                    weights = df_to_interpolate[weights_col]
+
+                if block_size is not None:
                     if block_reduction == "mean":
                         reduction = np.mean
                     elif block_reduction == "median":
                         reduction = np.median
                         if weights is not None:
-                            msg = "weights are ignored when block_reduction is 'median', to use weights, set block_reduction to 'mean'"
+                            msg = "weights are ignored when block_reduction is 'median'"
                             logger.warning(msg)
                     else:
                         msg = "block_reduction must be 'mean' or 'median'"
@@ -973,7 +903,7 @@ def create_topography(
                     reducer = vd.BlockReduce(
                         reduction=reduction,
                         spacing=block_size,
-                        region=region,
+                        region=cartesian_region,
                         center_coordinates=True,
                     )
 
@@ -983,22 +913,120 @@ def create_topography(
                         weights=weights,
                     )
 
-            # run CV for fitting a spline to the data
-            spline = optimal_spline_damping(
-                coordinates=coords,
-                data=data,
-                weights=weights,
-                dampings=dampings,
-            )
-            # grid the fitted spline at desired spacing and region
-            grid = spline.grid(
-                region=region,
-                spacing=spacing,
-            ).scalars
+                # run CV for fitting a spline to the data
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", message="The mindist parameter of verde.Spline"
+                    )
+                    warnings.filterwarnings(
+                        "ignore", message="The default scoring will change"
+                    )
+                    spline = optimal_spline_damping(
+                        coordinates=coords,
+                        data=data,
+                        weights=weights,
+                        dampings=dampings,
+                    )
+
+                # grid the fitted spline at desired spacing and region
+                inside_grid = spline.grid(
+                    region=region,
+                    spacing=spacing,
+                    projection=projection,
+                    dims=(coord_names[1], coord_names[0]),
+                ).scalars
+
+                # merge interpolation of inner / buffer points with outside grid
+                # outside_grid = df_outside_buffer.set_index(
+                #   ["northing", "easting"]).to_xarray().upward
+                # outside_grid = vd.make_xarray_grid(
+                #     (df_outside_buffer.easting, df_outside_buffer.northing),
+                #     df_outside_buffer.upward,
+                #     data_names="upward",
+                # )
+                outside_grid = pygmt.xyz2grd(
+                    x=df_outside_buffer[coord_names[0]],
+                    y=df_outside_buffer[coord_names[1]],
+                    z=df_outside_buffer.upward,
+                    region=cartesian_region,
+                    spacing=cartesian_spacing,
+                ).rename({"x": coord_names[0], "y": coord_names[1]})
+
+                grid = inside_grid.where(
+                    outside_grid.isnull(),  # noqa: PD003
+                    outside_grid,
+                )
+
+            else:
+                coords = (df.easting, df.northing)
+                data = df.upward
+                if weights_col is not None:
+                    weights = df[weights_col]
+
+                if block_size is not None:
+                    if block_reduction == "mean" and weights is not None:
+                        reducer = vd.BlockMean(
+                            spacing=block_size,
+                            region=cartesian_region,
+                            center_coordinates=True,
+                        )
+
+                        coords, data, weights = reducer.filter(
+                            coordinates=coords,
+                            data=data,
+                            weights=weights,
+                        )
+
+                    else:
+                        if block_reduction == "mean":
+                            reduction = np.mean
+                        elif block_reduction == "median":
+                            reduction = np.median
+                            if weights is not None:
+                                msg = "weights are ignored when block_reduction is 'median', to use weights, set block_reduction to 'mean'"
+                                logger.warning(msg)
+                        else:
+                            msg = "block_reduction must be 'mean' or 'median'"
+                            raise ValueError(msg)
+
+                        reducer = vd.BlockReduce(
+                            reduction=reduction,
+                            spacing=block_size,
+                            region=cartesian_region,
+                            center_coordinates=True,
+                        )
+
+                        coords, data = reducer.filter(
+                            coordinates=coords,
+                            data=data,
+                            weights=weights,
+                        )
+
+                # run CV for fitting a spline to the data
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", message="The mindist parameter of verde.Spline"
+                    )
+                    warnings.filterwarnings(
+                        "ignore", message="The default scoring will change"
+                    )
+                    spline = optimal_spline_damping(
+                        coordinates=coords,
+                        data=data,
+                        weights=weights,
+                        dampings=dampings,
+                    )
+                # grid the fitted spline at desired spacing and region
+                grid = spline.grid(
+                    region=region,
+                    spacing=spacing,
+                    projection=projection,
+                    dims=(coord_names[1], coord_names[0]),
+                ).scalars
 
         try:
             grid = grid.assign_attrs(damping=spline.damping_)
-        except AttributeError:
+        except UnboundLocalError:
             grid = grid.assign_attrs(damping=None)
 
     else:
@@ -1006,24 +1034,48 @@ def create_topography(
         raise ValueError(msg)
 
     # ensure grid doesn't cross supplied confining layers
-    if upper_confining_layer is not None:
+    if upper_confining_layer is None or np.all(upper_confining_layer.isnull()):  # noqa: PD003
+        pass
+    else:
         da = ptk.resample_grid(
             upper_confining_layer,
             spacing=spacing,
             region=region,
             registration=registration,
         )
+        original_dims = list(da.sizes.keys())
+        da = da.rename(
+            {original_dims[1]: coord_names[0], original_dims[0]: coord_names[1]}
+        )
         grid = xr.where(grid > da, da, grid)
-    if lower_confining_layer is not None:
+
+    if lower_confining_layer is None or np.all(lower_confining_layer.isnull()):  # noqa: PD003
+        pass
+    else:
         da = ptk.resample_grid(
             lower_confining_layer,
             spacing=spacing,
             region=region,
             registration=registration,
         )
+        original_dims = list(da.sizes.keys())
+        da = da.rename(
+            {original_dims[1]: coord_names[0], original_dims[0]: coord_names[1]}
+        )
         grid = xr.where(grid < da, da, grid)
 
-    return grid.to_dataset(name="upward")
+    ds = grid.to_dataset(name="upward")
+
+    if dataset_to_add is not None:
+        # check datasets are aligned
+        try:
+            _ = xr.align(ds, dataset_to_add, join="exact")
+        except xr.AlignmentError as err:
+            msg = "`dataset_to_add` should be exactly aligned with the create topography dataset"
+            raise xr.AlignmentError(msg) from err
+        ds = ds.merge(dataset_to_add)
+
+    return ds
 
 
 def grid_to_model(
@@ -1388,7 +1440,6 @@ def gravity_decay_buffer(
     zref: float,
     obs_height: float,
     density: float,
-    model_type: str = "prisms",
     amplitude: float | None = None,
     wavelength: float | None = None,
     checkerboard: bool = False,
@@ -1407,19 +1458,17 @@ def gravity_decay_buffer(
     buffer_perc : float
         percentage of the widest dimension of inner_region to use as buffer zone
     spacing : float
-        spacing of the prism layer and gravity observation points
+        spacing of the prism layer and gravity observation points in meters
     inner_region : tuple[float, float, float, float]
-        region boundaries for the region of interest
+        region boundaries for the region of interest in meters
     top : float
-        height for the top of the prisms
+        height in meters for the top of the prisms
     zref : float
-        reference level for the prisms
+        reference level in meters for the prisms
     obs_height : float
-        gravity observation height
+        gravity observation height in meters
     density : float
-        density value for the prisms
-    model_type : str, optional
-        type of model to create, either 'prisms' or 'tesseroids', by default 'prisms'
+        density value for the prisms in kg/m^3
     amplitude : float | None, optional
         if using `checkerboard`, this is the amplitude of each undulation, by default
         None
@@ -1445,7 +1494,7 @@ def gravity_decay_buffer(
         the maximum percentage decay of the gravity anomaly within the region of
         interest
     buffer_width : float
-        width of the buffer zone
+        width of the buffer zone in meters
     buffer_cells : int
         number of cells in the buffer zone
     grav_ds : xarray.Dataset
@@ -1497,7 +1546,7 @@ def gravity_decay_buffer(
     else:
         surface = create_topography(
             method="flat",
-            upwards=top,
+            upward=top,
             region=buffer_region,
             spacing=spacing,
         ).upward
@@ -1517,14 +1566,14 @@ def gravity_decay_buffer(
             surface,
             zref,
             density=dens,
-            model_type=model_type,
+            model_type="prisms",
         )
     else:
         model = grid_to_model(
             surface,
             zref,
             density=density,
-            model_type=model_type,
+            model_type="prisms",
         )
 
     # create prisms around mean value to compare to to calculate decay
@@ -1540,7 +1589,7 @@ def gravity_decay_buffer(
         surface,
         zref,
         density=dens,
-        model_type=model_type,
+        model_type="prisms",
     )
 
     # create set of observation points
@@ -1558,49 +1607,27 @@ def gravity_decay_buffer(
         }
     )
     # calculate forward gravity of layer
-    if model_type == "prisms":
-        forward_df["forward"] = model.prism_layer.gravity(
-            coordinates=(
-                forward_df.easting,
-                forward_df.northing,
-                forward_df.upward,
-            ),
-            field="g_z",
-            progressbar=progressbar,
-        )
-    elif model_type == "tesseroids":
-        forward_df["forward"] = model.tesseroid_layer.gravity(
-            coordinates=(
-                forward_df.easting,
-                forward_df.northing,
-                forward_df.upward,
-            ),
-            field="g_z",
-            progressbar=progressbar,
-        )
+    forward_df["forward"] = model.prism_layer.gravity(
+        coordinates=(
+            forward_df.easting,
+            forward_df.northing,
+            forward_df.upward,
+        ),
+        field="g_z",
+        progressbar=progressbar,
+    )
 
     # if checkerboard:
     # calculate forward gravity of layer
-    if model_type == "prisms":
-        forward_df["forward_no_edge_effects"] = model_mean_zref.prism_layer.gravity(
-            coordinates=(
-                forward_df.easting,
-                forward_df.northing,
-                forward_df.upward,
-            ),
-            field="g_z",
-            progressbar=progressbar,
-        )
-    elif model_type == "tesseroids":
-        forward_df["forward_no_edge_effects"] = model_mean_zref.tesseroid_layer.gravity(
-            coordinates=(
-                forward_df.easting,
-                forward_df.northing,
-                forward_df.upward,
-            ),
-            field="g_z",
-            progressbar=progressbar,
-        )
+    forward_df["forward_no_edge_effects"] = model_mean_zref.prism_layer.gravity(
+        coordinates=(
+            forward_df.easting,
+            forward_df.northing,
+            forward_df.upward,
+        ),
+        field="g_z",
+        progressbar=progressbar,
+    )
 
     grav_ds = forward_df.set_index(["northing", "easting"]).to_xarray()
 

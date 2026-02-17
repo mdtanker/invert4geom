@@ -42,6 +42,7 @@ intersphinx_mapping = {
     "pandas": ("http://pandas.pydata.org/pandas-docs/stable/", None),
     "xarray": ("https://docs.xarray.dev/en/stable/", None),
     "verde": ("https://www.fatiando.org/verde/latest/", None),
+    "boule": ("https://boule.readthedocs.io/en/latest/", None),
     "rioxarray": ("https://corteva.github.io/rioxarray/stable/", None),
     # pykdtree
     "xrft": ("https://xrft.readthedocs.io/en/stable/", None),
