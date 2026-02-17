@@ -897,6 +897,15 @@ def full_workflow_uncertainty_loop(
 
     if starting_topography_kwargs is not None:
         starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+
+        upper_confining_layer = inv.model.upper_confining_layer
+        lower_confining_layer = inv.model.lower_confining_layer
+
+        # copy over kwargs from model instance
+        starting_topography_kwargs["region"] = inv.model.region
+        starting_topography_kwargs["spacing"] = inv.model.spacing
+        starting_topography_kwargs["coord_names"] = inv.model.coord_names
+
         if inv.model.model_type == "tesseroids":
             dataset_to_add = inv.model[["mask", "geocentric_radius"]].drop_vars(
                 ["top", "bottom"]
@@ -905,6 +914,8 @@ def full_workflow_uncertainty_loop(
             dataset_to_add = inv.model[["mask"]].drop_vars(["top", "bottom"])
 
         starting_topography_kwargs["dataset_to_add"] = dataset_to_add
+        starting_topography_kwargs["upper_confining_layer"] = upper_confining_layer
+        starting_topography_kwargs["lower_confining_layer"] = lower_confining_layer
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
