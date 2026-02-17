@@ -2549,14 +2549,20 @@ class Inversion:
             errors="ignore",
         )
 
+        topography = self.model.starting_topography.to_dataset(name="upward")
+        topography["mask"] = self.model.mask
+        
+        if self.model.model_type == "tesseroids":
+            topography["geocentric_radius"] = self.model.geocentric_radius
+
         model = create_model(
             zref=self.model.zref,
             density_contrast=self.model.density_contrast,
-            topography=self.model.starting_topography.to_dataset(name="upward"),
+            topography=topography,
+            buffer_width=self.model.buffer_width,
             model_type=self.model.model_type,
             upper_confining_layer=self.model.upper_confining_layer,
             lower_confining_layer=self.model.lower_confining_layer,
-            buffer_width=self.model.buffer_width,
         )
         self.model = model
 
