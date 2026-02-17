@@ -263,7 +263,9 @@ def random_split_test_train(
             df_train = random_split_df[random_split_df.test == False]  # noqa: E712 # pylint: disable=singleton-comparison
             df_test = random_split_df[random_split_df.test == True]  # noqa: E712 # pylint: disable=singleton-comparison
 
-            region = vd.get_region((random_split_df[coord_names[0]], random_split_df[coord_names[1]]))
+            region = vd.get_region(
+                (random_split_df[coord_names[0]], random_split_df[coord_names[1]])
+            )
             plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
 
             fig = ptk.basemap(

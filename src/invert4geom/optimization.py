@@ -770,7 +770,9 @@ class OptimalInversionZrefDensity:
                 if self.starting_topography_kwargs["method"] == "flat":
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
-                    self.starting_topography_kwargs["upward"] = self.inversion_obj.model.zref
+                    self.starting_topography_kwargs["upward"] = (
+                        self.inversion_obj.model.zref
+                    )
 
             # create starting topography model if not provided
             if self.starting_topography is None:
@@ -785,13 +787,15 @@ class OptimalInversionZrefDensity:
                         "function `utils.create_topography`."
                     )
                     raise ValueError(msg)
-                if self.starting_topography_kwargs["method"] == "flat":
-                    if self.starting_topography_kwargs.get("upward", None) is None:
-                        msg = "using zref to create a flat starting topography model"
-                        logger.info(msg)
-                        self.starting_topography_kwargs["upward"] = (
-                            self.inversion_obj.model.zref
-                        )
+                if (
+                    self.starting_topography_kwargs["method"] == "flat"
+                    and self.starting_topography_kwargs.get("upward", None) is None
+                ):
+                    msg = "using zref to create a flat starting topography model"
+                    logger.info(msg)
+                    self.starting_topography_kwargs["upward"] = (
+                        self.inversion_obj.model.zref
+                    )
 
                 starting_topo = utils.create_topography(
                     **self.starting_topography_kwargs,

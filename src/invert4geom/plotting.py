@@ -858,8 +858,8 @@ def plot_inversion_iteration_results(
 
             if (constraints_df is not None) & (column in (0, 1, 2)):  # misfit grids
                 axes.plot(
-                    constraints_df[coord_names[1]],  # type: ignore[union-attr]
-                    constraints_df[coord_names[0]],  # type: ignore[union-attr]
+                    constraints_df[coord_names[1]],  # type: ignore[index]
+                    constraints_df[coord_names[0]],  # type: ignore[index]
                     "k.",
                     markersize=constraint_size,
                     markeredgewidth=1,

@@ -1,4 +1,5 @@
 import typing
+import warnings
 
 import harmonica as hm
 import numpy as np
@@ -7,7 +8,6 @@ import polartoolkit as ptk
 import pygmt
 import verde as vd
 import xarray as xr
-import warnings 
 
 from invert4geom import cross_validation, logger, optimization, utils
 
@@ -540,7 +540,9 @@ def regional_constraints(
             )
 
         # add reduced coordinates to a dictionary
-        coord_cols = dict(zip([coord_names[0], coord_names[1]], coordinates, strict=False))
+        coord_cols = dict(
+            zip([coord_names[0], coord_names[1]], coordinates, strict=False)
+        )
 
         # add reduced data to a dictionary
         data_cols = {"sampled_grav": data}
@@ -580,9 +582,7 @@ def regional_constraints(
             warnings.filterwarnings(
                 "ignore", message="The mindist parameter of verde.Spline"
             )
-            warnings.filterwarnings(
-                "ignore", message="The default scoring will change"
-            )
+            warnings.filterwarnings("ignore", message="The default scoring will change")
             spline = utils.optimal_spline_damping(
                 coordinates=(
                     constraints_df[coord_names[0]],

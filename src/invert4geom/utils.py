@@ -1034,9 +1034,7 @@ def create_topography(
         raise ValueError(msg)
 
     # ensure grid doesn't cross supplied confining layers
-    if upper_confining_layer is None:
-        pass
-    elif np.all(upper_confining_layer.isnull()):  # noqa: PD003
+    if upper_confining_layer is None or np.all(upper_confining_layer.isnull()):  # noqa: PD003
         pass
     else:
         da = ptk.resample_grid(
@@ -1050,10 +1048,8 @@ def create_topography(
             {original_dims[1]: coord_names[0], original_dims[0]: coord_names[1]}
         )
         grid = xr.where(grid > da, da, grid)
-        
-    if lower_confining_layer is None:
-        pass
-    elif np.all(lower_confining_layer.isnull()):  # noqa: PD003
+
+    if lower_confining_layer is None or np.all(lower_confining_layer.isnull()):  # noqa: PD003
         pass
     else:
         da = ptk.resample_grid(
@@ -1620,7 +1616,6 @@ def gravity_decay_buffer(
         field="g_z",
         progressbar=progressbar,
     )
-
 
     # if checkerboard:
     # calculate forward gravity of layer

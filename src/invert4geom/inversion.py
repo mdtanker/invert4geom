@@ -820,7 +820,11 @@ class DatasetAccessorInvert4Geom:
             )
         elif layer.model_type == "tesseroids":
             df[name] = layer.tesseroid_layer.gravity(
-                coordinates=(df[coord_names[0]], df[coord_names[1]], df.upward+df.geocentric_radius),
+                coordinates=(
+                    df[coord_names[0]],
+                    df[coord_names[1]],
+                    df.upward + df.geocentric_radius,
+                ),
                 field=field,
                 progressbar=progressbar,
                 **kwargs,
@@ -1405,7 +1409,7 @@ class DatasetAccessorInvert4Geom:
             None,
             None,
         ]
-        with utils._log_level(logging.CRITICAL, logging.getLogger("polartoolkit")):  # pylint: disable=protected-access
+        with utils._log_level(logging.CRITICAL, logging.getLogger("polartoolkit")):  # noqa: SIM117 # pylint: disable=protected-access
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore", message="Since limits were passed to `cpt_lims`"
@@ -1641,9 +1645,7 @@ class DatasetAccessorInvert4Geom:
             elif self._ds.model_type == "tesseroids":
                 zref = ds.geocentric_radius + ds.zref
                 topography = ds.topography + ds.geocentric_radius
-                ds.tesseroid_layer.update_top_bottom(
-                    surface=topography, reference=zref
-                )
+                ds.tesseroid_layer.update_top_bottom(surface=topography, reference=zref)
             # update the density variable
             ds["density"] = xr.where(
                 ds.top > zref,
@@ -2383,9 +2385,11 @@ class Inversion:
             :, coordinates.columns.get_loc(self.model.coord_names[1])
         ]
         grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
-        
+
         if self.model.model_type == "tesseroids":
-            grav_upward += coordinates_array[:, coordinates.columns.get_loc("geocentric_radius")]
+            grav_upward += coordinates_array[
+                :, coordinates.columns.get_loc("geocentric_radius")
+            ]
 
         assert len(grav_easting) == len(grav_northing) == len(grav_upward)
 
@@ -2459,8 +2463,10 @@ class Inversion:
         ]
         grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
         if self.model.model_type == "tesseroids":
-            grav_upward += coordinates_array[:, coordinates.columns.get_loc("geocentric_radius")]
-            
+            grav_upward += coordinates_array[
+                :, coordinates.columns.get_loc("geocentric_radius")
+            ]
+
         assert len(grav_easting) == len(grav_northing) == len(grav_upward)
 
         # create empty jacobian to fill in
@@ -2603,7 +2609,7 @@ class Inversion:
 
         topography = self.model.starting_topography.to_dataset(name="upward")
         topography["mask"] = self.model.mask
-        
+
         if self.model.model_type == "tesseroids":
             topography["geocentric_radius"] = self.model.geocentric_radius
 
@@ -2901,7 +2907,9 @@ class Inversion:
 
         if inv_copy.model.model_type == "tesseroids":
             zref_used = inv_copy.model.geocentric_radius + inv_copy.model.zref
-            topography_used = inv_copy.model.topography + inv_copy.model.geocentric_radius
+            topography_used = (
+                inv_copy.model.topography + inv_copy.model.geocentric_radius
+            )
         elif inv_copy.model.model_type == "prisms":
             zref_used = inv_copy.model.zref
             topography_used = inv_copy.model.topography
@@ -3465,19 +3473,19 @@ class Inversion:
             lower_confining_layer = inv_copy.model.lower_confining_layer
 
             if inv_copy.model.model_type == "tesseroids":
-                    dataset_to_add = inv_copy.model[["mask", "geocentric_radius"]].drop_vars(
-                        ["top", "bottom"]
-                )
+                dataset_to_add = inv_copy.model[
+                    ["mask", "geocentric_radius"]
+                ].drop_vars(["top", "bottom"])
             else:
                 dataset_to_add = inv_copy.model[["mask"]].drop_vars(["top", "bottom"])
-            
+
             starting_topography_kwargs["dataset_to_add"] = dataset_to_add
             starting_topography_kwargs["upper_confining_layer"] = upper_confining_layer
             starting_topography_kwargs["lower_confining_layer"] = lower_confining_layer
             starting_topography_kwargs["region"] = inv_copy.model.region
             starting_topography_kwargs["spacing"] = inv_copy.model.spacing
             starting_topography_kwargs["coord_names"] = inv_copy.model.coord_names
-        
+
         optuna.logging.set_verbosity(optuna.logging.WARN)
 
         # set file name for saving results with random number between 0 and 999
@@ -4500,7 +4508,7 @@ def run_inversion_workflow(
                 "create_starting_topography is True"
             )
             raise ValueError(msg)
-        
+
         starting_topography_kwargs["upper_confining_layer"] = upper_confining_layer
         starting_topography_kwargs["lower_confining_layer"] = lower_confining_layer
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
