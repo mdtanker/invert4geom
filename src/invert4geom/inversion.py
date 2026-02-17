@@ -1636,16 +1636,17 @@ class DatasetAccessorInvert4Geom:
         if style == "geometry":
             ds["topography"] = ds.topography + ds.topography_correction
             if self._ds.model_type == "prisms":
-                ds.prism_layer.update_top_bottom(
-                    surface=ds.topography, reference=ds.zref
-                )
+                zref = ds.zref
+                ds.prism_layer.update_top_bottom(surface=ds.topography, reference=zref)
             elif self._ds.model_type == "tesseroids":
+                zref = ds.geocentric_radius + ds.zref
+                topography = ds.topography + ds.geocentric_radius
                 ds.tesseroid_layer.update_top_bottom(
-                    surface=ds.topography, reference=ds.zref
+                    surface=topography, reference=zref
                 )
             # update the density variable
             ds["density"] = xr.where(
-                ds.top > ds.zref,
+                ds.top > zref,
                 ds.density_contrast,
                 -ds.density_contrast,
             )
@@ -1653,7 +1654,6 @@ class DatasetAccessorInvert4Geom:
             ds["density"] = ds.density + ds.density_correction
             # add new density_contrast variable
             ds["density_contrast"] = ds.density.where(ds.top > ds.zref, -ds.density)
-
         else:
             msg = "style must be either 'density' or 'geometry'"
             raise ValueError(msg)
@@ -2016,19 +2016,21 @@ def create_model(
 
     if model_type == "tesseroids":
         zref_used = topography.geocentric_radius + zref
+        topography_used = topography.upward + topography.geocentric_radius
     else:
         zref_used = zref
+        topography_used = topography.upward
 
     # create grid of density values, positive above zref, negative below
     density_grid = xr.where(
-        topography.upward >= zref_used,
+        topography_used >= zref_used,
         density_contrast,
         -density_contrast,
     )
 
     # create prism / tesseroid layer from topography and density grid
     model = utils.grid_to_model(
-        topography.upward,
+        topography_used,
         reference=zref_used,
         density=density_grid,
         model_type=model_type,
@@ -2040,6 +2042,9 @@ def create_model(
     model["mask"] = (
         topography.mask if "mask" in topography else xr.ones_like(topography.upward)
     )
+
+    if model_type == "tesseroids":
+        model["geocentric_radius"] = topography.geocentric_radius
 
     # add optional confining layers as variables
     if upper_confining_layer is not None:
@@ -2251,10 +2256,6 @@ class Inversion:
         # check that gravity data is inside topography region
         self.data.inv._check_gravity_inside_topography_region(self.model.topography)
 
-        # if there is a confining surface (above or below), which the inverted layer
-        # shouldn't intersect, then sample those layers into the df
-        # self.Model.inv.sample_bounding_surfaces()
-
     @property
     def already_inverted(self) -> bool:
         """
@@ -2382,6 +2383,9 @@ class Inversion:
             :, coordinates.columns.get_loc(self.model.coord_names[1])
         ]
         grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
+        
+        if self.model.model_type == "tesseroids":
+            grav_upward += coordinates_array[:, coordinates.columns.get_loc("geocentric_radius")]
 
         assert len(grav_easting) == len(grav_northing) == len(grav_upward)
 
@@ -2454,7 +2458,9 @@ class Inversion:
             :, coordinates.columns.get_loc(coord_names[1])
         ]
         grav_upward = coordinates_array[:, coordinates.columns.get_loc("upward")]
-
+        if self.model.model_type == "tesseroids":
+            grav_upward += coordinates_array[:, coordinates.columns.get_loc("geocentric_radius")]
+            
         assert len(grav_easting) == len(grav_northing) == len(grav_upward)
 
         # create empty jacobian to fill in
@@ -2893,16 +2899,26 @@ class Inversion:
                 plot_dynamic_convergence=False,
             )
 
+        if inv_copy.model.model_type == "tesseroids":
+            zref_used = inv_copy.model.geocentric_radius + inv_copy.model.zref
+            topography_used = inv_copy.model.topography + inv_copy.model.geocentric_radius
+        elif inv_copy.model.model_type == "prisms":
+            zref_used = inv_copy.model.zref
+            topography_used = inv_copy.model.topography
+        else:
+            msg = "model must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
+            raise ValueError(msg)
+
         density_grid = xr.where(
-            inv_copy.model.topography >= inv_copy.model.zref,
+            topography_used >= zref_used,
             inv_copy.model.density_contrast,
             -inv_copy.model.density_contrast,
         )
 
-        # create new layer or prisms / tesseroids
+        # create new layer of prisms / tesseroids
         layer = utils.grid_to_model(
-            inv_copy.model.topography,
-            reference=inv_copy.model.zref,
+            topography_used,
+            reference=zref_used,
             density=density_grid,
             model_type=inv_copy.model.model_type,
         )
@@ -2923,7 +2939,7 @@ class Inversion:
                 coordinates=(
                     test[coord_names[0]],
                     test[coord_names[1]],
-                    test.upward,
+                    test.upward + test.geocentric_radius,
                 ),
                 field="g_z",
                 progressbar=False,
