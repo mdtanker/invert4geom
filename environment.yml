@@ -40,6 +40,7 @@ dependencies:
   # Optional dependencies
   ## uncert
   - uqpy>=4.1.7
+  - setuptools<82
   ## synthetic data
   - xesmf
   ## test
