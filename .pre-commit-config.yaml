@@ -70,7 +70,7 @@ repos:
     hooks:
       - id: codespell
         additional_dependencies:
-          - tomli; python_version<'3.11'
+          - tomli; python_version<'3.12'
         entry:
           codespell --ignore-regex='[A-Za-z0-9+/]{100,}'
           --skip="*.ipynb,*.js,*.html,*.css,*.svg, *.bib,"
