@@ -4422,7 +4422,9 @@ def run_inversion_workflow(
                 "create_starting_topography is True"
             )
             raise ValueError(msg)
-
+        
+        starting_topography_kwargs["upper_confining_layer"] = upper_confining_layer
+        starting_topography_kwargs["lower_confining_layer"] = lower_confining_layer
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
             # create the starting topography
             starting_topography = utils.create_topography(
@@ -4435,10 +4437,10 @@ def run_inversion_workflow(
         zref=zref,  # type: ignore[arg-type]
         density_contrast=density_contrast,
         topography=starting_topography,
+        buffer_width=buffer_width,
         model_type=model_type,
         upper_confining_layer=upper_confining_layer,
         lower_confining_layer=lower_confining_layer,
-        buffer_width=buffer_width,
     )
     logger.debug("starting prisms created")
 
