@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import polartoolkit as ptk
 import pygmt
+import pyproj
 import sklearn
 import verde as vd
 import xarray as xr
@@ -685,6 +686,7 @@ def create_topography(
     upward: float | None = None,
     upwards: float | None = None,
     coord_names: tuple[str, str] = ("easting", "northing"),
+    projection: pyproj.Proj | None = None,
     constraints_df: pd.DataFrame | None = None,
     weights: pd.Series | NDArray | None = None,
     weights_col: str | None = None,
@@ -711,9 +713,14 @@ def create_topography(
     method : str
         method to use, either ``flat`` or ``splines``
     region : tuple[float, float, float, float]
-        region of the grid
+        bounding region to use for the output grid. If you are using projected
+        coordinates (meters), this is in the format (min_easting, max_easting,
+        min_northing, max_northing). If using geographic coordinates (latitude and
+        longitude), this is in the format (min_longitude, max_longitude, min_latitude,
+        max_latitude)
     spacing : float
-        spacing of the grid
+        spacing of the grid in meters if using projected coordinates, or in decimal
+        degrees if using geographic coordinates
     dampings : list[float] | None, optional
         damping values to use in spline cross validation for method ``spline``, by default
         None
@@ -726,6 +733,10 @@ def create_topography(
     coord_names : tuple[str, str], optional
         names to use for coordinates, should be either (easting, northing) or
         (longitude, latitude), by default (easting, northing)
+    projection : pyproj.Proj | None, optional
+        if using geographic coordinates (latitude and longitude) and the splines method,
+        provide a pyproj Proj object to convert to cartesian coordinates, by default
+        None
     constraints_df : pandas.DataFrame | None, optional
         dataframe with column 'upward' to use for method ``splines``, and optionally
         columns ``inside`` and ``buffer``, by default None
@@ -737,7 +748,9 @@ def create_topography(
         weights, by default None
     block_size : float | None, optional
         block size to use for block-reduction of constraint points before fitting
-        splines. If None, no block-reduction is applied, by default None
+        splines. In meters if using projected coordinates, or in decimal degrees if
+        using geographic coordinates. If None, no block-reduction is applied, by
+        default None
     block_reduction: str, optional
         type of block reduction to apply, if ``median``, weights will be ignored, of
         ``mean``, and weights are provided, they will be used in the block reduction.
@@ -809,103 +822,72 @@ def create_topography(
                 data_names="upward",
                 dims=(coord_names[1], coord_names[0]),
             ).upward
+        else:
+            if (coord_names == ("longitude", "latitude")) & (projection is None):
+                msg = (
+                    "If using geographic coordinates (latitude and longitude) and the "
+                    "spline method, a pyproj.Proj projection must be provided to "
+                    "convert to projected coordinates."
+                )
+                raise ValueError(msg)
 
-        if pd.Series(["inside", "buffer"]).isin(df.columns).all():
-            df_to_interpolate = df[df.inside | df.buffer]
-            df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
+            # convert to projected coordinates if needed
+            if projection is not None:
+                projected_points = [
+                    projection(lon, lat)
+                    for (lon, lat) in zip(df.longitude, df.latitude, strict=True)
+                ]
+                eastings, northings = zip(*projected_points, strict=True)
+                df["easting"] = eastings
+                df["northing"] = northings
+
+                # convert region in lat/lon to projected easting/northing
+                corners_lonlat = [
+                    (region[0], region[2]),
+                    (region[1], region[2]),
+                    (region[1], region[3]),
+                    (region[0], region[3]),
+                ]
+                projected_corners = [
+                    projection(lon, lat) for (lon, lat) in corners_lonlat
+                ]
+                eastings, northings = zip(*projected_corners, strict=True)
+                cartesian_region = (
+                    min(eastings),
+                    max(eastings),
+                    min(northings),
+                    max(northings),
+                )
+                cartesian_spacing = (
+                    spacing * 111139
+                )  # approx conversion from degrees latitude to meters
+                if block_size is not None:
+                    block_size = (
+                        block_size * 111139
+                    )  # approx conversion from degrees latitude to meters
+            else:
+                cartesian_region = region
+                cartesian_spacing = spacing
+
+            if pd.Series(["inside", "buffer"]).isin(df.columns).all():
+                df_to_interpolate = df[df.inside | df.buffer]
+                df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
 
                 coords = (
                     df_to_interpolate[coord_names[0]],
                     df_to_interpolate[coord_names[1]],
                 )
+                data = df_to_interpolate.upward
+                if weights_col is not None:
+                    weights = df_to_interpolate[weights_col]
 
-            if block_size is not None:
-                if block_reduction == "mean":
-                    reduction = np.mean
-                elif block_reduction == "median":
-                    reduction = np.median
-                    if weights is not None:
-                        msg = "weights are ignored when block_reduction is 'median'"
-                        logger.warning(msg)
-                else:
-                    msg = "block_reduction must be 'mean' or 'median'"
-                    raise ValueError(msg)
-
-                reducer = vd.BlockReduce(
-                    reduction=reduction,
-                    spacing=block_size,
-                    region=region,
-                    center_coordinates=True,
-                )
-
-                coords, data = reducer.filter(
-                    coordinates=coords,
-                    data=data,
-                    weights=weights,
-                )
-
-            # run CV for fitting a spline to the data
-            spline = optimal_spline_damping(
-                coordinates=coords,
-                data=data,
-                weights=weights,
-                dampings=dampings,
-            )
-
-            # grid the fitted spline at desired spacing and region
-            inside_grid = spline.grid(
-                region=region,
-                spacing=spacing,
-            ).scalars
-
-            # merge interpolation of inner / buffer points with outside grid
-            # outside_grid = df_outside_buffer.set_index(
-            #   ["northing", "easting"]).to_xarray().upward
-            # outside_grid = vd.make_xarray_grid(
-            #     (df_outside_buffer.easting, df_outside_buffer.northing),
-            #     df_outside_buffer.upward,
-            #     data_names="upward",
-            # )
-            outside_grid = pygmt.xyz2grd(
-                x=df_outside_buffer.easting,
-                y=df_outside_buffer.northing,
-                z=df_outside_buffer.upward,
-                region=region,
-                spacing=spacing,
-            ).rename({"x": "easting", "y": "northing"})
-
-            grid = inside_grid.where(
-                outside_grid.isnull(),  # noqa: PD003
-                outside_grid,
-            )
-
-        else:
-            coords = (df.easting, df.northing)
-            data = df.upward
-            if weights_col is not None:
-                weights = df[weights_col]
-
-            if block_size is not None:
-                if block_reduction == "mean" and weights is not None:
-                    reducer = vd.BlockMean(
-                        spacing=block_size,
-                        region=region,
-                        center_coordinates=True,
-                    )
-
-                    coords, data, weights = reducer.filter(
-                        coordinates=coords,
-                        data=data,
-                        weights=weights,
-                    )
-
-                else:
+                if block_size is not None:
                     if block_reduction == "mean":
                         reduction = np.mean
                     elif block_reduction == "median":
                         reduction = np.median
                         if weights is not None:
-                            msg = "weights are ignored when block_reduction is 'median', to use weights, set block_reduction to 'mean'"
+                            msg = "weights are ignored when block_reduction is 'median'"
                             logger.warning(msg)
                     else:
                         msg = "block_reduction must be 'mean' or 'median'"
@@ -914,7 +896,7 @@ def create_topography(
                     reducer = vd.BlockReduce(
                         reduction=reduction,
                         spacing=block_size,
-                        region=region,
+                        region=cartesian_region,
                         center_coordinates=True,
                     )
 
@@ -924,22 +906,120 @@ def create_topography(
                         weights=weights,
                     )
 
-            # run CV for fitting a spline to the data
-            spline = optimal_spline_damping(
-                coordinates=coords,
-                data=data,
-                weights=weights,
-                dampings=dampings,
-            )
-            # grid the fitted spline at desired spacing and region
-            grid = spline.grid(
-                region=region,
-                spacing=spacing,
-            ).scalars
+                # run CV for fitting a spline to the data
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", message="The mindist parameter of verde.Spline"
+                    )
+                    warnings.filterwarnings(
+                        "ignore", message="The default scoring will change"
+                    )
+                    spline = optimal_spline_damping(
+                        coordinates=coords,
+                        data=data,
+                        weights=weights,
+                        dampings=dampings,
+                    )
+
+                # grid the fitted spline at desired spacing and region
+                inside_grid = spline.grid(
+                    region=region,
+                    spacing=spacing,
+                    projection=projection,
+                    dims=(coord_names[1], coord_names[0]),
+                ).scalars
+
+                # merge interpolation of inner / buffer points with outside grid
+                # outside_grid = df_outside_buffer.set_index(
+                #   ["northing", "easting"]).to_xarray().upward
+                # outside_grid = vd.make_xarray_grid(
+                #     (df_outside_buffer.easting, df_outside_buffer.northing),
+                #     df_outside_buffer.upward,
+                #     data_names="upward",
+                # )
+                outside_grid = pygmt.xyz2grd(
+                    x=df_outside_buffer[coord_names[0]],
+                    y=df_outside_buffer[coord_names[1]],
+                    z=df_outside_buffer.upward,
+                    region=cartesian_region,
+                    spacing=cartesian_spacing,
+                ).rename({"x": coord_names[0], "y": coord_names[1]})
+
+                grid = inside_grid.where(
+                    outside_grid.isnull(),  # noqa: PD003
+                    outside_grid,
+                )
+
+            else:
+                coords = (df.easting, df.northing)
+                data = df.upward
+                if weights_col is not None:
+                    weights = df[weights_col]
+
+                if block_size is not None:
+                    if block_reduction == "mean" and weights is not None:
+                        reducer = vd.BlockMean(
+                            spacing=block_size,
+                            region=cartesian_region,
+                            center_coordinates=True,
+                        )
+
+                        coords, data, weights = reducer.filter(
+                            coordinates=coords,
+                            data=data,
+                            weights=weights,
+                        )
+
+                    else:
+                        if block_reduction == "mean":
+                            reduction = np.mean
+                        elif block_reduction == "median":
+                            reduction = np.median
+                            if weights is not None:
+                                msg = "weights are ignored when block_reduction is 'median', to use weights, set block_reduction to 'mean'"
+                                logger.warning(msg)
+                        else:
+                            msg = "block_reduction must be 'mean' or 'median'"
+                            raise ValueError(msg)
+
+                        reducer = vd.BlockReduce(
+                            reduction=reduction,
+                            spacing=block_size,
+                            region=cartesian_region,
+                            center_coordinates=True,
+                        )
+
+                        coords, data = reducer.filter(
+                            coordinates=coords,
+                            data=data,
+                            weights=weights,
+                        )
+
+                # run CV for fitting a spline to the data
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", message="The mindist parameter of verde.Spline"
+                    )
+                    warnings.filterwarnings(
+                        "ignore", message="The default scoring will change"
+                    )
+                    spline = optimal_spline_damping(
+                        coordinates=coords,
+                        data=data,
+                        weights=weights,
+                        dampings=dampings,
+                    )
+                # grid the fitted spline at desired spacing and region
+                grid = spline.grid(
+                    region=region,
+                    spacing=spacing,
+                    projection=projection,
+                    dims=(coord_names[1], coord_names[0]),
+                ).scalars
 
         try:
             grid = grid.assign_attrs(damping=spline.damping_)
-        except AttributeError:
+        except UnboundLocalError:
             grid = grid.assign_attrs(damping=None)
 
     else:

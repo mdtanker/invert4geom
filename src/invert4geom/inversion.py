@@ -3659,7 +3659,7 @@ class Inversion:
         )
 
         if starting_topography_kwargs is not None:
-            starting_topography_kwargs["upwards"] = inv_copy.model.zref
+            starting_topography_kwargs["upward"] = inv_copy.model.zref
 
         # run the inversion workflow with the new best parameters
         with utils._log_level(logging.WARN):  # pylint: disable=protected-access
