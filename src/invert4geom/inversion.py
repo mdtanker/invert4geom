@@ -738,10 +738,18 @@ class DatasetAccessorInvert4Geom:
     def inner(self) -> xr.Dataset:
         """return only the inside region of the xarray dataset"""
         self._check_dataset_initialized()
-        return self._ds.sel(
-            easting=slice(self._ds.inner_region[0], self._ds.inner_region[1]),
-            northing=slice(self._ds.inner_region[2], self._ds.inner_region[3]),
-        )
+        if self._ds.model_type == "tesseroids":
+            return self._ds.sel(
+                longitude=slice(self._ds.inner_region[0], self._ds.inner_region[1]),
+                latitude=slice(self._ds.inner_region[2], self._ds.inner_region[3]),
+            )
+        if self._ds.model_type == "prisms":
+            return self._ds.sel(
+                easting=slice(self._ds.inner_region[0], self._ds.inner_region[1]),
+                northing=slice(self._ds.inner_region[2], self._ds.inner_region[3]),
+            )
+        msg = "dataset must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
+        raise ValueError(msg)
 
     @property
     def masked_df(self) -> xr.Dataset:
