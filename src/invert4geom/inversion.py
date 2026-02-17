@@ -510,8 +510,8 @@ def jacobian_geometry_finite_difference_prisms(
 
 def jacobian_geometry_finite_difference_tesseroids(
     model_properties: NDArray,
-    grav_easting: NDArray,
-    grav_northing: NDArray,
+    grav_longitude: NDArray,
+    grav_latitude: NDArray,
     grav_upward: NDArray,
     delta: float,
     jac: NDArray,
@@ -529,7 +529,7 @@ def jacobian_geometry_finite_difference_tesseroids(
     model_properties : numpy.ndarray
         array of tesseroid properties of shape (number of tesseroids, 7) with the 7 entries for
         each tesseroid being: west, east, south, north, bottom, top, density
-    grav_easting, grav_northing,grav_upward : numpy.ndarray
+    grav_longitude, grav_latitude, grav_upward : numpy.ndarray
         coordinates of gravity observation points.
     delta : float
         thickness in meters of small tesseroids used to calculate vertical derivative
@@ -563,7 +563,7 @@ def jacobian_geometry_finite_difference_tesseroids(
 
         jac[:, i] = (
             hm.tesseroid_gravity(
-                coordinates=(grav_easting, grav_northing, grav_upward),
+                coordinates=(grav_longitude, grav_latitude, grav_upward),
                 tesseroids=delta_element,
                 density=density,
                 field="g_z",
