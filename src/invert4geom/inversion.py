@@ -1831,16 +1831,19 @@ def create_data(
     ----------
     gravity : xarray.Dataset
         A dataset with coordinates ``easting`` and ``northing`` (if using prisms) or
-        ``longitude`` and ``latitude`` (if using tesseroids), as well and variables
-        ``upward`` defining the gravity observation height in meters and
-        ``gravity_anomaly`` with the observed gravity values in mGals.
+        ``longitude`` and ``latitude`` (if using tesseroids), as well as variables
+        ``upward`` defining the gravity observation height (with same vertical
+        reference as the model, (i.e. WGS84) in meters and ``gravity_anomaly`` with the
+        observed gravity values in mGals. If using tesseroids, the dataset must also
+        contain a variable ``geocentric_radius`` defining the geocentric radius at each
+        observation point in meters. This can be created using the Python package Boule.
     buffer_width : float | None, optional
-        The width in meters of a buffer zone used to zoom-in on the provided data
-        creating an inner region. This inner region will be used for plotting and
-        calculating statistics for processes such as cross validation, and l2-norms,
-        this avoids skewing plots and values by edge effects, by default will use a
-        width of the 10% of the shortest dimension length, to the nearest multiple of
-        grid spacing.
+        The width in meters or decimal degrees of a buffer zone used to zoom-in on the
+        provided data creating an inner region. This inner region will be used for
+        plotting and calculating statistics for processes such as cross validation, and
+        l2-norms, this avoids skewing plots and values by edge effects, by default will
+        use a width of the 10% of the shortest dimension length, to the nearest multiple
+        of grid spacing.
     model_type : str, optional
         Choose between ``prisms`` and ``tesseroids``, which affects whether geographic
         or projected coordinates are expect, by default ``prisms``
@@ -1854,23 +1857,22 @@ def create_data(
     """
     gravity = gravity.copy()
 
+    assert "upward" in gravity, "gravity dataset must contain an 'upward' variable"
+
     if model_type == "prisms":
         coord_names = ("easting", "northing")
-        keys = ["upward"]
     elif model_type == "tesseroids":
         coord_names = ("longitude", "latitude")
-        keys = ["upward", "geocentric_radius"]
-    assert all(s in gravity.dims for s in coord_names), (
+        assert "geocentric_radius" in gravity, (
+            "for tesseroid models, gravity dataset must contain a 'geocentric_radius' variable, which can be created using the Python package Boule."
+        )
+    else:
+        msg = "model_type must be either 'prisms' or 'tesseroids'"
+        raise AssertionError(msg)
+
+    assert all(s in gravity.upward.dims for s in coord_names), (
         f"gravity dataset must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
     )
-
-    assert all(i in list(gravity.keys()) for i in keys), (
-        f"gravity dataset needs variables {keys}."
-    )
-
-    if model_type == "tesseroids":
-        gravity["geoidal_upward"] = gravity.upward
-        gravity["upward"] = gravity.geoidal_upward + gravity.geocentric_radius
 
     # set region and spacing from provided grid
     spacing, region = ptk.get_grid_info(gravity.upward)[0:2]
