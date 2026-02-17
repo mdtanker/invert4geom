@@ -3646,8 +3646,6 @@ class Inversion:
 
         # combine testing and training to get a full constraints dataframe
         reg_constraints = regional_grav_kwargs.pop("constraints_df", None)  # type: ignore[union-attr]
-        if starting_topography_kwargs is not None:
-            starting_topography_kwargs.pop("constraints_df", None)
 
         if isinstance(constraints_df, pd.DataFrame):
             constraints_df = (
@@ -3694,6 +3692,7 @@ class Inversion:
 
             inv_copy = run_inversion_workflow(
                 grav_ds=inv_copy.data,
+                model_type=inv_copy.model.model_type,
                 create_starting_topography=create_starting_topography,
                 starting_topography=starting_topography,
                 starting_topography_kwargs=starting_topography_kwargs,
