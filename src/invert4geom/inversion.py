@@ -1203,7 +1203,7 @@ class DatasetAccessorInvert4Geom:
             default None
         constraints_weights_column : str | None, optional
             column name for weighting values of each constraint point. Used if
-            ``constraint_block_size`` is not None or if ``grid_method`` is ``verde`` or
+            ``constraints_block_size`` is not None or if ``grid_method`` is ``verde`` or
             ``eq_sources``, by default None
         tension_factor : float, optional
             Tension factor used if ``grid_method`` is ``pygmt``, by default 1
