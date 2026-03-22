@@ -1203,7 +1203,7 @@ class DatasetAccessorInvert4Geom:
             default None
         constraints_weights_column : str | None, optional
             column name for weighting values of each constraint point. Used if
-            ``constraint_block_size`` is not None or if ``grid_method`` is ``verde`` or
+            ``constraints_block_size`` is not None or if ``grid_method`` is ``verde`` or
             ``eq_sources``, by default None
         tension_factor : float, optional
             Tension factor used if ``grid_method`` is ``pygmt``, by default 1
@@ -3226,45 +3226,65 @@ class Inversion:
                     progressbar=progressbar,
                 )
         else:
-            # define number of startup trials, whichever is bigger; 1/4 of trials or 4
-            if n_startup_trials is None:
-                n_startup_trials = max(4, int(n_trials / 4))
-                n_startup_trials = min(n_startup_trials, n_trials)
-            logger.info("using %s startup trials", n_startup_trials)
-            if n_startup_trials >= n_trials:
-                logger.warning(
-                    "n_startup_trials is >= n_trials resulting in all trials sampled from "
-                    "a QMC sampler instead of the GP sampler",
-                )
-            # create study
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=optuna.samplers.QMCSampler(
-                    seed=seed,
-                    qmc_type="halton",
-                    scramble=True,
-                ),
-                load_if_exists=False,
-                study_name=inv_copy.results_fname,
-                storage=storage,
-                pruner=optimization.DuplicateIterationPruner,
-            )
+            if n_startup_trials == 0:
+                # if sampler not provided, use GPsampler as default
+                if sampler is None:
+                    sampler = optuna.samplers.GPSampler(
+                        n_startup_trials=0,
+                        seed=seed,
+                        deterministic_objective=True,
+                    )
 
-            # explicitly add the limits as trials
-            study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
-            study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
-
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
+                # create study
+                study = optuna.create_study(
+                    direction="minimize",
+                    sampler=sampler,
+                    load_if_exists=False,
+                    study_name=inv_copy.results_fname,
                     storage=storage,
-                    objective=objective,
-                    n_trials=n_startup_trials,
-                    # callbacks=[_warn_limits_better_than_trial_1_param],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
+                    pruner=optimization.DuplicateIterationPruner,
                 )
+            else:
+                # define number of startup trials, whichever is bigger; 1/4 of trials or 4
+                if n_startup_trials is None:
+                    n_startup_trials = max(4, int(n_trials / 4))
+                    n_startup_trials = min(n_startup_trials, n_trials)
+                logger.info("using %s startup trials", n_startup_trials)
+                if n_startup_trials >= n_trials:
+                    logger.warning(
+                        "n_startup_trials is >= n_trials resulting in all trials sampled from "
+                        "a QMC sampler instead of the GP sampler",
+                    )
+
+                # create study
+                study = optuna.create_study(
+                    direction="minimize",
+                    sampler=optuna.samplers.QMCSampler(
+                        seed=seed,
+                        qmc_type="halton",
+                        scramble=True,
+                    ),
+                    load_if_exists=False,
+                    study_name=inv_copy.results_fname,
+                    storage=storage,
+                    pruner=optimization.DuplicateIterationPruner,
+                )
+
+                # explicitly add the limits as trials
+                study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
+                study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
+
+                with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
+                    study = optimization.run_optuna(
+                        study=study,
+                        storage=storage,
+                        objective=objective,
+                        n_trials=n_startup_trials,
+                        # callbacks=[_warn_limits_better_than_trial_1_param],
+                        maximize_cpus=True,
+                        parallel=parallel,
+                        progressbar=progressbar,
+                    )
             # continue with remaining trials with user-defined sampler
             # if sampler not provided, used GPsampler as default
             if sampler is None:
@@ -3622,76 +3642,95 @@ class Inversion:
                 )
 
         else:
-            # define number of startup trials, whichever is bigger between 1/4 of trials, or
-            # 4 x the number of parameters
-            if n_startup_trials is None:
-                n_startup_trials = max(num_params * 4, int(n_trials / 4))
-                n_startup_trials = min(n_startup_trials, n_trials)
-            logger.info("using %s startup trials", n_startup_trials)
-            if n_startup_trials >= n_trials:
-                logger.warning(
-                    "n_startup_trials is >= n_trials resulting in all trials sampled from "
-                    "a QMC sampler instead of the GP sampler",
-                )
+            if n_startup_trials == 0:
+                # if sampler not provided, use GPsampler as default
+                if sampler is None:
+                    sampler = optuna.samplers.GPSampler(
+                        n_startup_trials=0,
+                        seed=seed,
+                        deterministic_objective=True,
+                    )
 
-            # if sampler not provided, use GPsampler as default unless grid_search is True
-            if sampler is None:
-                sampler = optuna.samplers.GPSampler(
-                    n_startup_trials=0,
-                    seed=seed,
-                    deterministic_objective=True,
-                )
-
-            # create study
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=optuna.samplers.QMCSampler(
-                    seed=seed,
-                    qmc_type="halton",
-                    scramble=True,
-                ),
-                load_if_exists=False,
-                study_name=inv_copy.results_fname,
-                storage=storage,
-                pruner=optimization.DuplicateIterationPruner,
-            )
-
-            # explicitly add the limits as trials
-            to_enqueue = []
-
-            if zref_limits is not None:
-                zref_trials = [
-                    {"zref": zref_limits[0]},
-                    {"zref": zref_limits[1]},
-                ]
-                to_enqueue.append(zref_trials)
-            if density_contrast_limits is not None:
-                density_contrast_trials = [
-                    {"density_contrast": density_contrast_limits[0]},
-                    {"density_contrast": density_contrast_limits[1]},
-                ]
-                to_enqueue.append(density_contrast_trials)
-
-            # get 2 lists of lists of dicts to enqueue (2 trials)
-            to_enqueue = np.array(to_enqueue).transpose()
-
-            for i in to_enqueue:
-                # turn list of dicts into single dict
-                x = {k: v for d in i for k, v in d.items()}
-                study.enqueue_trial(x, skip_if_exists=True)
-
-            # run optimization
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
+                # create study
+                study = optuna.create_study(
+                    direction="minimize",
+                    sampler=sampler,
+                    load_if_exists=False,
+                    study_name=inv_copy.results_fname,
                     storage=storage,
-                    objective=objective,
-                    n_trials=n_startup_trials,
-                    # callbacks=[_warn_limits_better_than_trial_multi_params],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
+                    pruner=optimization.DuplicateIterationPruner,
                 )
+            else:
+                # define number of startup trials, whichever is bigger between 1/4 of trials, or
+                # 4 x the number of parameters
+                if n_startup_trials is None:
+                    n_startup_trials = max(num_params * 4, int(n_trials / 4))
+                    n_startup_trials = min(n_startup_trials, n_trials)
+                logger.info("using %s startup trials", n_startup_trials)
+                if n_startup_trials >= n_trials:
+                    logger.warning(
+                        "n_startup_trials is >= n_trials resulting in all trials sampled from "
+                        "a QMC sampler instead of the GP sampler",
+                    )
+
+                # if sampler not provided, use GPsampler as default
+                if sampler is None:
+                    sampler = optuna.samplers.GPSampler(
+                        n_startup_trials=0,
+                        seed=seed,
+                        deterministic_objective=True,
+                    )
+
+                # create study
+                study = optuna.create_study(
+                    direction="minimize",
+                    sampler=optuna.samplers.QMCSampler(
+                        seed=seed,
+                        qmc_type="halton",
+                        scramble=True,
+                    ),
+                    load_if_exists=False,
+                    study_name=inv_copy.results_fname,
+                    storage=storage,
+                    pruner=optimization.DuplicateIterationPruner,
+                )
+
+                # explicitly add the limits as trials
+                to_enqueue = []
+
+                if zref_limits is not None:
+                    zref_trials = [
+                        {"zref": zref_limits[0]},
+                        {"zref": zref_limits[1]},
+                    ]
+                    to_enqueue.append(zref_trials)
+                if density_contrast_limits is not None:
+                    density_contrast_trials = [
+                        {"density_contrast": density_contrast_limits[0]},
+                        {"density_contrast": density_contrast_limits[1]},
+                    ]
+                    to_enqueue.append(density_contrast_trials)
+
+                # get 2 lists of lists of dicts to enqueue (2 trials)
+                to_enqueue = np.array(to_enqueue).transpose()
+
+                for i in to_enqueue:
+                    # turn list of dicts into single dict
+                    x = {k: v for d in i for k, v in d.items()}
+                    study.enqueue_trial(x, skip_if_exists=True)
+
+                # run optimization
+                with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
+                    study = optimization.run_optuna(
+                        study=study,
+                        storage=storage,
+                        objective=objective,
+                        n_trials=n_startup_trials,
+                        # callbacks=[_warn_limits_better_than_trial_multi_params],
+                        maximize_cpus=True,
+                        parallel=parallel,
+                        progressbar=progressbar,
+                    )
 
             # continue with remaining trials with user-defined sampler
             # if sampler not provided, used GPsampler as default

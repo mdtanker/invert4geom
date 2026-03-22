@@ -172,3 +172,5 @@ docs/tmp/*
 !docs/tmp/.gitkeep
 
 docs/api/generated/
+
+testing_notebooks/
