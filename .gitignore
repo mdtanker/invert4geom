@@ -165,7 +165,7 @@ Thumbs.db
 # Saved pickle files
 *.pickle
 *.log
-*.lock
+# *.lock
 
 # tmp data folders
 docs/tmp/*
