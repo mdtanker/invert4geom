@@ -29,9 +29,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Switch to Current Branch
-        run: git checkout ${{ env.BRANCH }}
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
@@ -39,8 +36,7 @@ jobs:
       - uses: prefix-dev/setup-pixi@v0.9.4
         with:
           pixi-version: v0.65.0
-          cache: true
-          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+          cache: false
           environments: dev
 
       - run: pixi run style
