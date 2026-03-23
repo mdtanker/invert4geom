@@ -11,7 +11,7 @@ description = "Constrained gravity inversion to recover the geometry of a densit
 keywords = ["inversion", "gravity", "geometry", "density", "Moho", "sediment", "geophysics", "geology", "geoscience"]
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.11"
+requires-python = ">=3.12,<3.14"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -21,7 +21,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering",
@@ -78,36 +77,6 @@ uncert = [
 synth = [
   "xesmf",
 ]
-test = [
-  {include-group = "uncert"},
-  {include-group = "synth"},
-  "pytest >=6",
-  "pytest-cov >=3",
-  "deepdiff",
-]
-dev = [
-  {include-group = "test"},
-  "jupyterlab",
-]
-docs = [
-  "sphinx>=7.0",
-  "myst_parser>=0.13",
-  "sphinx_copybutton",
-  "sphinx_autodoc_typehints",
-  "sphinx-book-theme>=0.3",
-  "nbsphinx",
-  "ipykernel",
-  "nbconvert",
-  "sphinxcontrib-bibtex",
-  "sphinx_design",
-]
-all = [
-  {include-group = "test"},
-  {include-group = "dev"},
-  {include-group = "synth"},
-  {include-group = "uncert"},
-  {include-group = "docs"},
-]
 
 [project.urls]
 Homepage = "https://github.com/mdtanker/invert4geom"
@@ -121,7 +90,6 @@ version.source = "vcs"
 build.hooks.vcs.version-file = "src/invert4geom/_version.py"
 
 [tool.hatch.envs.default]
-# duplicate for now since hatch doesn't support groups yet
 dependencies = []
 scripts.test = "pytest {args}"
 
@@ -129,8 +97,8 @@ scripts.test = "pytest {args}"
 only-include = ["src"]
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+minversion = "9.0"
+addopts = ["-ra", "--showlocals"]
 xfail_strict = true
 filterwarnings = [
   "error",
@@ -139,6 +107,7 @@ filterwarnings = [
   "ignore:.*pkg_resources is deprecated*:UserWarning",
   "ignore:.*Deprecated call to `pkg_resources.declare_namespace*:DeprecationWarning",
   "ignore:.*invalid value encountered in cast*:RuntimeWarning",
+  "ignore:.*invalid escape sequence.*",
 ]
 log_cli_level = "INFO"
 testpaths = [
@@ -157,7 +126,7 @@ report.exclude_also = [
 
 [tool.mypy]
 files = ["src", "tests"]
-python_version = "3.11"
+python_version = "3.12"
 warn_unused_configs = true
 strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
@@ -179,25 +148,40 @@ disallow_incomplete_defs = true
 extend-select = [
   "ARG",      # flake8-unused-arguments
   "B",        # flake8-bugbear
+  "BLE",    # flake8-blind-except
   "C4",       # flake8-comprehensions
+  "DTZ",    # flake8-datetimez
   "EM",       # flake8-errmsg
   "EXE",      # flake8-executable
+  "FA",     # flake8-future-annotations
+  "FLY",    # flynt
+  "FURB",   # refurb
   "G",        # flake8-logging-format
   "I",        # isort
-  "ICN",      # flake8-import-conventions
-  "NPY",      # NumPy specific rules
-  "PD",       # pandas-vet
-  "PGH",      # pygrep-hooks
-  "PIE",      # flake8-pie
-  "PL",       # pylint
-  "PT",       # flake8-pytest-style
-  "PTH",      # flake8-use-pathlib
-  "RET",      # flake8-return
-  "RUF",      # Ruff-specific
-  "SIM",      # flake8-simplify
-  "T20",      # flake8-print
-  "UP",       # pyupgrade
-  "YTT",      # flake8-2020
+  "ICN",    # flake8-import-conventions
+  "ISC",    # flake8-implicit-str-concat
+  "LOG",    # flake8-logging
+  "NPY",    # NumPy specific rules
+  "PD",     # pandas-vet
+  "PERF",   # perflint
+  "PGH",    # pygrep-hooks
+  "PIE",    # flake8-pie
+  "PL",     # pylint
+  "PT",     # flake8-pytest-style
+  "PTH",    # flake8-use-pathlib
+  "PYI",    # flake8-pyi
+  "Q",      # flake8-quotes
+  "RET",    # flake8-return
+  "RSE",    # flake8-raise
+  "RUF",    # Ruff-specific
+  "SIM",    # flake8-simplify
+  "SLOT",   # flake8-slots
+  "T10",    # flake8-debugger
+  "T20",    # flake8-print
+  "TC",     # flake8-type-checking
+  "TRY",    # tryceratops
+  "UP",     # pyupgrade
+  "YTT",    # flake8-2020
 ]
 ignore = [
   "PLR09",    # Too many <...>
@@ -207,18 +191,19 @@ ignore = [
 # typing-modules = ["invert4geom._compat.typing"]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]  # disable unused-imports errors on __init__.py
 "tests/**" = ["T20"]
-"noxfile.py" = ["T20"]
+"__init__.py" = ["F401"]  # disable unused-imports errors on __init__.py
 "*.ipynb" = [
   "T201",
   "C408", # unnecessary dictionary call
   "E712", # equality comparisons, don't work with Pandas
   "B018", # useless expression
+  "PERF401",
+  "PERF102",
 ]
 
 [tool.pylint]
-py-version = "3.11"
+py-version = "3.12"
 ignore-paths = ["CHANGELOG.md", ".*\\_version.py"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
@@ -234,3 +219,138 @@ messages_control.disable = [
 
 [tool.codespell]
 ignore-words-list = ["montaj", "ore"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "win-64"] # "osx-64" has issues with pytorch
+
+[tool.pixi.pypi-dependencies]
+invert4geom = { path = ".", editable = true }
+torch = {index = "https://download.pytorch.org/whl/cu124" }
+
+[tool.pixi.target.osx.pypi-dependencies]
+# OSX has no CUDA support so use the CPU here
+torch = {index = "https://download.pytorch.org/whl/cpu" }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
+synth = { features = ["synth"], solve-group = "default" }
+test = { features = ["test"], solve-group = "default" }
+uncert = { features = ["uncert"], solve-group = "default" }
+
+[tool.pixi.feature.test.dependencies]
+deepdiff = ">=8.6.2,<9"
+pytest = ">=9"
+pytest-cov = ">=7"
+xesmf = ">=0.8.7,<0.10"
+
+[tool.pixi.feature.dev.dependencies]
+jupyterlab = ">=4.5.6,<5"
+pre-commit = ">=4.5.1,<5"
+pylint = ">=3.2"
+
+[tool.pixi.feature.docs.dependencies]
+nbconvert = ">=7.17.0,<8"
+sphinx = ">=7.0"
+myst-parser = ">=0.13"
+sphinx-copybutton = ">=0.5.2,<0.6"
+sphinx-autodoc-typehints = ">=3.9.9,<4"
+sphinx-book-theme = ">=0.3"
+nbsphinx = ">=0.9.8,<0.10"
+ipykernel = ">=7.2.0,<8"
+sphinxcontrib-bibtex = ">=2.6.5,<3"
+sphinx-design = ">=0.7.0,<0.8"
+sphinx-autobuild = ">=2025.8.25,<2026"
+
+[tool.pixi.feature.test.tasks.test_no_numba]
+cmd = "pytest {{ target }}  --cov --cov-report=xml --cov-report=term"
+args = [{ arg = "target", default = "tests/" }]
+env ={ "NUMBA_DISABLE_JIT"= "1"}
+
+[tool.pixi.feature.test.tasks.test_with_numba]
+cmd = "pytest {{ target }} -m 'use_numba'  --cov --cov-report=xml --cov-report=term"
+args = [{ arg = "target", default = "tests/" }]
+env = {"NUMBA_DISABLE_JIT"= "0"}
+
+[tool.pixi.feature.test.tasks.test]
+depends-on = ["test_no_numba", "test_with_numba"]
+
+[tool.pixi.feature.test.tasks.test_ci]
+cmd = "pytest -ra --cov --cov-report=xml --cov-report=term --durations=20"
+
+[tool.pixi.feature.dev.tasks.format]
+cmd = "pre-commit run --all-files"
+
+[tool.pixi.feature.dev.tasks.lint]
+cmd = "pylint polartoolkit"
+
+[tool.pixi.feature.dev.tasks.style]
+cmd = "pre-commit run --all-files ; pylint polartoolkit"
+
+[tool.pixi.feature.docs.tasks.docs]
+cmd = "sphinx-autobuild --open-browser -n -T -b=html docs docs/_build/html"
+
+[tool.pixi.feature.docs.tasks.docs_static]
+cmd = "sphinx-build --keep-going -n -T -b=html docs docs/_build/html"
+
+[tool.pixi.feature.docs.tasks.clear_examples]
+cmd = "jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/examples/*.ipynb"
+
+[tool.pixi.feature.docs.tasks.clear_how_to]
+cmd = "jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/how_to/*.ipynb"
+
+[tool.pixi.feature.docs.tasks.clear_tutorial]
+cmd = "jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/tutorial/*.ipynb"
+
+[tool.pixi.feature.docs.tasks.clear_docs]
+cmd = "jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/*.ipynb"
+depends-on = ["clear_examples", "clear_how_to", "clear_tutorial"]
+
+[tool.pixi.feature.docs.tasks.run_examples]
+cmd = "jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/examples/*.ipynb"
+
+[tool.pixi.feature.docs.tasks.run_how_to]
+cmd = "jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/how_to/*.ipynb"
+
+[tool.pixi.feature.docs.tasks.run_tutorial]
+cmd = "jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/tutorial/*.ipynb"
+
+[tool.pixi.feature.docs.tasks.run_docs]
+cmd = "jupyter nbconvert --ExecutePreprocessor.allow_errors=True --execute --inplace docs/*.ipynb"
+depends-on = ["run_examples", "run_how_to", "run_tutorial"]
+
+[tool.pixi.dependencies]
+numpy = ">=1.25.0"
+pandas = ">=2.0.0"
+xarray = ">=2023.4.0"
+scipy = ">=1.11.0"
+scikit-learn = ">=1.3.0"
+verde = ">=1.9.0,<2"
+boule = ">=0.5.0,<0.6"
+pooch = ">=1.9.0,<2"
+rioxarray = ">=0.22.0,<0.23"
+tqdm = ">=4.67.3,<5"
+pygmt = ">=0.18.0,<0.19"
+harmonica = ">=0.7"
+deprecation = ">=2.1.0,<3"
+pykdtree = ">=1.4.3,<2"
+xrft = ">=1.0.2,<2"
+polartoolkit = ">=1.5.0"
+numba = ">=0.64.0,<0.65"
+numba-progress = ">=1.1.0,<2"
+dask = ">=2026.3.0,<2027"
+scooby = ">=0.11.0,<0.12"
+optuna = ">=4.0"
+joblib = ">=1.5.3,<2"
+psutil = ">=7.2.2,<8"
+pyvista = ">=0.47.1,<0.48"
+ipywidgets = ">=8.1.8,<9"
+seaborn = ">=0.13.2,<0.14"
+plotly = ">=6.6.0,<7"
+matplotlib = ">=3.7.0"
+ipython = ">=8.13.0"
+xesmf = ">=0.8.7,<0.10"
+uqpy = ">=4.1.7"
+setuptools = "<82"

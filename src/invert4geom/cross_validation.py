@@ -40,13 +40,13 @@ def remove_test_points(ds: xr.Dataset) -> xr.Dataset:
 
         # retrain attributes
         ds_new.attrs.update(ds.attrs)  # pylint: disable=protected-access
-
-        return ds_new
     except AttributeError:
         msg = "gravity dataframe does not contain a 'test' column, cannot remove test points."
         warnings.warn(msg, stacklevel=2)
 
         return ds
+    else:
+        return ds_new
 
 
 def add_test_points(
@@ -289,7 +289,7 @@ def random_split_test_train(
             fig.add_box(box=region)
             fig.legend()
             fig.show()
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return random_split_df
@@ -438,7 +438,7 @@ def split_test_train(
                 )
                 fig.legend()
             fig.show()  # type: ignore[union-attr]
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return df
