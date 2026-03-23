@@ -763,16 +763,9 @@ def plot_inversion_iteration_results(
     )
 
     # set color limits for each column
-    misfit_lims = []
-    updated_lims = []
-    corrections_lims = []
-
-    for g in misfit_grids:
-        misfit_lims.append(ptk.get_min_max(g))
-    for g in updated_grids:
-        updated_lims.append(ptk.get_min_max(g))
-    for g in corrections_grids:
-        corrections_lims.append(ptk.get_min_max(g))
+    misfit_lims = [ptk.get_min_max(g) for g in misfit_grids]
+    updated_lims = [ptk.get_min_max(g) for g in updated_grids]
+    corrections_lims = [ptk.get_min_max(g) for g in corrections_grids]
 
     misfit_min = min([i[0] for i in misfit_lims])  # pylint: disable=consider-using-generator
     misfit_max = max([i[1] for i in misfit_lims])  # pylint: disable=consider-using-generator

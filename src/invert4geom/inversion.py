@@ -2014,7 +2014,7 @@ def create_model(
         pass
     else:
         msg = "`density_contrast` must be a float or xarray.DataArray"
-        raise AssertionError(msg)
+        raise AssertionError(msg)  # noqa: TRY004
 
     if model_type == "tesseroids":
         zref_used = topography.geocentric_radius + zref
@@ -2790,7 +2790,7 @@ class Inversion:
         if plot_convergence is True:
             try:
                 self.plot_convergence()
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
 
         self.params = {  # type: ignore[assignment]
@@ -2896,7 +2896,7 @@ class Inversion:
         # retrain attributes
         inv_copy.data.attrs.update(self.data.attrs)  # pylint: disable=protected-access
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             # run inversion
             inv_copy.invert(
                 results_fname=inv_copy.results_fname,
@@ -2993,7 +2993,7 @@ class Inversion:
                     coast=coast,
                     epsg=epsg,
                 )
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
 
         return inv_copy
@@ -3049,7 +3049,7 @@ class Inversion:
 
         inv_copy.results_fname = results_fname  # type: ignore[assignment]
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             # run inversion
             inv_copy.invert(
                 results_fname=inv_copy.results_fname,
@@ -3354,7 +3354,7 @@ class Inversion:
                     logx=logx,
                     logy=logy,
                 )
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
 
         return inv_copy
@@ -3802,7 +3802,7 @@ class Inversion:
             starting_topography_kwargs["upward"] = inv_copy.model.zref
 
         # run the inversion workflow with the new best parameters
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             create_starting_topography = True if starting_topography is None else False  # noqa: SIM210  # pylint: disable=simplifiable-if-expression
 
             inv_copy = run_inversion_workflow(
@@ -3920,7 +3920,7 @@ class Inversion:
                             "Density contrast (kg/m$^3$)",
                         ),
                     )
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
 
         return inv_copy
@@ -4550,7 +4550,7 @@ def run_inversion_workflow(
 
         starting_topography_kwargs["upper_confining_layer"] = upper_confining_layer
         starting_topography_kwargs["lower_confining_layer"] = lower_confining_layer
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             # create the starting topography
             starting_topography = utils.create_topography(
                 **starting_topography_kwargs,
@@ -4635,7 +4635,7 @@ def run_inversion_workflow(
     # run only the inversion with specified damping, density, and zref values
     if (run_damping_cv is False) & (run_zref_or_density_optimization is False):
         logger.info("running individual inversion")
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             inv.invert(results_fname=fname, progressbar=progressbar)
         logger.info("inversion complete, results saved to '%s'", fname)
         return inv

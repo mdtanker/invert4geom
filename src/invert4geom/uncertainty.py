@@ -24,8 +24,8 @@ try:
 
         def __init__(
             self,
-            loc: float | int = 0.0,
-            scale: float | int = 1.0,
+            loc: float = 0.0,
+            scale: float = 1.0,
         ):
             super().__init__(
                 low=loc, high=loc + scale + 1, ordered_parameters=("low", "high")
@@ -271,7 +271,7 @@ def starting_topography_uncertainty(
             for k, v in sampled_param_dict.items():
                 new_kwargs[k] = v["sampled_values"][i]
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             starting_topography = utils.create_topography(
                 constraints_df=sampled_constraints,
                 **new_kwargs,
@@ -362,7 +362,7 @@ def starting_topography_uncertainty(
                     points_style="x.3c",
                     epsg=epsg,
                 )
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return stats_ds, sampled_param_dict  # type: ignore[return-value]
@@ -444,7 +444,7 @@ def equivalent_sources_uncertainty(
             for k, v in sampled_param_dict.items():
                 new_kwargs[k] = v["sampled_values"][i]
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             # refit EqSources with best parameters
             eqs = hm.EquivalentSources(
                 **new_kwargs,
@@ -568,7 +568,7 @@ def equivalent_sources_uncertainty(
                     epsg=epsg,
                 )
                 # pylint: enable=duplicate-code
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return stats_ds, sampled_param_dict  # type: ignore[return-value]
@@ -656,7 +656,7 @@ def regional_misfit_uncertainty(
             for k, v in sampled_param_dict.items():
                 new_kwargs[k] = v["sampled_values"][i]
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             grav_ds.inv.regional_separation(
                 constraints_df=constraints_df,
                 **new_kwargs,
@@ -751,7 +751,7 @@ def regional_misfit_uncertainty(
                     points_style="x.3c",
                 )
                 # pylint: enable=duplicate-code
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return stats_ds, sampled_param_dict  # type: ignore[return-value]
@@ -1263,10 +1263,7 @@ def model_ensemble_stats(
         z_max,
         # z_var, weighted_var,
     ]
-    stats = []
-    for g in grids:
-        if g is not None:
-            stats.append(g)
+    stats = [g for g in grids if g is not None]
 
     return xr.merge(stats)
 
@@ -1379,7 +1376,7 @@ def merged_stats(
                 label="inverted topography",
                 points_label="Topography constraints",
             )
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return stats_ds

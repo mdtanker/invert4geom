@@ -22,7 +22,7 @@ from invert4geom import logger, plotting
 
 
 @contextmanager
-def _log_level(level, log_instance=logger):  # type: ignore[no-untyped-def, has-type]
+def _log_level(level, log_instance=logger):  # type: ignore[no-untyped-def]
     "Run body with logger at a different level"
     saved_logger_level = log_instance.level
     log_instance.setLevel(level)
@@ -1081,7 +1081,7 @@ def create_topography(
 def grid_to_model(
     surface: xr.DataArray,
     reference: float | xr.DataArray,
-    density: float | int | xr.DataArray,
+    density: float | xr.DataArray,
     model_type: str,
 ) -> xr.Dataset:
     """
@@ -1114,7 +1114,7 @@ def grid_to_model(
         dens = density
     else:
         msg = "invalid density type, should be a number or DataArray"
-        raise ValueError(msg)
+        raise ValueError(msg)  # noqa: TRY004
 
     # create layer of prisms/tesseroids based off input dataarrays
     if model_type == "tesseroids":
@@ -1154,7 +1154,7 @@ def grid_to_model(
 def grids_to_prisms(
     surface: xr.DataArray,  # noqa: ARG001
     reference: float | xr.DataArray,  # noqa: ARG001
-    density: float | int | xr.DataArray,  # noqa: ARG001
+    density: float | xr.DataArray,  # noqa: ARG001
     input_coord_names: tuple[str, str] = ("easting", "northing"),  # noqa: ARG001
 ) -> None:
     """
@@ -1649,7 +1649,7 @@ def gravity_decay_buffer(
                 inner_region=inner_region,
                 plot_profile=plot_profile,
             )
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return max_decay, buffer_width, int(buffer_cells), grav_ds

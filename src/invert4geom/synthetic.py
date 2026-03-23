@@ -125,7 +125,7 @@ def load_synthetic_model(
             coord_names=("easting", "northing"),
         )
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             # grid the sampled values using verde
             starting_topography = utils.create_topography(
                 method="splines",
@@ -172,7 +172,7 @@ def load_synthetic_model(
                     epsg="3031",
                     coast=False,
                 )
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
     else:
         starting_topography = None
@@ -195,7 +195,7 @@ def load_synthetic_model(
                 coast=False,
             )
             fig.show()
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     if density_contrast is not None:
@@ -273,7 +273,7 @@ def load_synthetic_model(
                     coast=False,
                 )
                 fig.show()
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
     else:
         grav_ds = None

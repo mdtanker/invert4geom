@@ -55,7 +55,7 @@ def available_cpu_count() -> typing.Any:
         with pathlib.Path("/proc/self/status").open(encoding="utf8") as f:
             m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", f.read())
         if m:
-            res = bin(int(m.group(1).replace(",", ""), 16)).count("1")
+            res = int(m.group(1).replace(",", ""), 16).bit_count()
             if res > 0:
                 return res
     except OSError:
@@ -152,7 +152,7 @@ def available_cpu_count() -> typing.Any:
         pass
 
     msg = "Can not determine number of CPUs on this system"
-    raise Exception(msg)  # pylint: disable=broad-exception-raised
+    raise Exception(msg)  # pylint: disable=broad-exception-raised # noqa: TRY002
 
 
 def run_optuna(
@@ -243,7 +243,7 @@ def _optuna_set_cores(
         trials_per_job = math.ceil(n_trials / num_cores)
 
         # set number of jobs
-        n_jobs = num_cores if n_trials >= num_cores else n_trials
+        n_jobs = min(num_cores, n_trials)
     else:
         trials_per_job = 1
         n_jobs = int(n_trials / trials_per_job)
@@ -524,9 +524,7 @@ def _warn_limits_better_than_trial_multi_params(
 
     # get scores of combos of upper and lower limits of both parameters
     # this assumes that the first four trials are set by study.enqueue_trial()
-    scores = []
-    for i in range(num_combos):
-        scores.append(study.trials[i].value)
+    scores = [study.trials[i].value for i in range(num_combos)]
 
     msg = (
         "Current trial (#%s, %s) has a worse score (%s) than any of the combinations "
@@ -824,7 +822,7 @@ class OptimalInversionZrefDensity:
             self.inversion_obj.data.inv.forward_gravity(self.inversion_obj.model)
 
             # calculate regional field
-            with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+            with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
                 self.inversion_obj.data.inv.regional_separation(**reg_kwargs)
 
             trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
@@ -874,7 +872,7 @@ class OptimalInversionZrefDensity:
                     "cross-validation to parameter `constraints_df` of "
                     "`regional_grav_kwargs`."
                 )
-                raise ValueError(msg)
+                raise TypeError(msg)
 
             assert len(training_constraints) == len(testing_constraints)
 
@@ -941,7 +939,7 @@ class OptimalInversionZrefDensity:
                 self.inversion_obj.data.inv.forward_gravity(self.inversion_obj.model)
 
                 # calculate regional field
-                with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+                with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
                     self.inversion_obj.data.inv.regional_separation(
                         constraints_df=training_constraints[i],
                         **reg_kwargs,
@@ -1355,7 +1353,7 @@ def optimize_eq_source_params(
                 plot_importance=True,
                 include_duration=False,
             )
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return study, eqs
@@ -1398,7 +1396,7 @@ class OptimizeRegionalTrend:
             self.trend_limits[1],
         )
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             residual_constraint_score, residual_amplitude_score, true_reg_score, _ = (
                 cross_validation.regional_separation_score(
                     method="trend",
@@ -1458,7 +1456,7 @@ class OptimizeRegionalFilter:
             self.filter_width_limits[1],
         )
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             residual_constraint_score, residual_amplitude_score, true_reg_score, _ = (
                 cross_validation.regional_separation_score(
                     method="filter",
@@ -1565,7 +1563,7 @@ class OptimizeRegionalEqSources:
             if key not in ["depth", "block_size", "damping", "grav_obs_height"]
         }
 
-        with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
             residual_constraint_score, residual_amplitude_score, true_reg_score, _ = (
                 cross_validation.regional_separation_score(
                     method="eq_sources",
@@ -1722,7 +1720,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                         )
                     new_kwargs["depth"] = eq_depth
 
-            with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+            with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
                 (
                     residual_constraint_score,
                     residual_amplitude_score,
@@ -1753,7 +1751,7 @@ class OptimizeRegionalConstraintsPointMinimization:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
-            with utils._log_level(logging.WARN):  # pylint: disable=protected-access
+            with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
                 # for each fold, run CV
                 results = []
                 for i, _ in enumerate(pbar):
@@ -1979,7 +1977,7 @@ def optimize_regional_filter(
                     ).show()
             if plot_grid is True:
                 grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return study, grav_ds, best_trial
@@ -2148,7 +2146,7 @@ def optimize_regional_trend(
                     ).show()
             if plot_grid is True:
                 grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return study, grav_ds, best_trial
@@ -2356,7 +2354,7 @@ def optimize_regional_eq_sources(
                     ).show()
             if plot_grid is True:
                 grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return study, grav_ds, best_trial
@@ -2683,7 +2681,7 @@ def optimize_regional_constraint_point_minimization(
                     ).show()
             if plot_grid is True:
                 grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return study, grav_ds, best_trial
@@ -2804,7 +2802,7 @@ def optimal_buffer(
 
             plot1.show()
             plot2.show()
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
     return study, results
