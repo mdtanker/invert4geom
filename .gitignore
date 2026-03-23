@@ -174,3 +174,6 @@ docs/tmp/*
 docs/api/generated/
 
 testing_notebooks/
+# pixi environments
+.pixi/*
+!.pixi/config.toml
