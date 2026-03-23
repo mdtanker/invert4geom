@@ -11626,7 +11626,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/imagesize?source=compressed-mapping
+  - pkg:pypi/imagesize?source=hash-mapping
   size: 15729
   timestamp: 1773752188889
 - conda: https://conda.anaconda.org/conda-forge/noarch/importlib-metadata-8.8.0-pyhcf101f3_0.conda
@@ -11680,7 +11680,7 @@ packages:
   timestamp: 1760831448842
 - pypi: ./
   name: invert4geom
-  version: 2.0.2.dev3+g3966f6228
+  version: 2.0.2.dev10+ga355720d2
   sha256: 591cacffc0c11786e8962523bababc181f3bc4d28cec79d84914e7a121487690
   requires_dist:
   - boule

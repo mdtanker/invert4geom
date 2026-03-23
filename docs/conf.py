@@ -95,7 +95,7 @@ nbsphinx_kernel_name = "python3"
 
 # HTML output configuration
 # -----------------------------------------------------------------------------
-html_title = f'{project} <span class="project-version">{version}</span>'
+html_title = "Invert4Geom"
 html_last_updated_fmt = "%b %d, %Y"
 html_copy_source = True
 html_show_sourcelink = True
