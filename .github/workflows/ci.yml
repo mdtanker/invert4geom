@@ -37,6 +37,7 @@ jobs:
         with:
           pixi-version: v0.65.0
           cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
           environments: dev
 
       - run: pixi run style
@@ -67,6 +68,7 @@ jobs:
         with:
           pixi-version: v0.65.0
           cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
           environments: test
 
       - run: pixi run test_ci
