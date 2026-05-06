@@ -55,7 +55,6 @@ dependencies = [
 # optimization
 ###
   "optuna>=4.0", # need updated Journal Storage API
-  "torch", # needed for GPSampler of Optuna, 'torch' is PyPI name for pytorch
   "joblib",
   "psutil",
 ###
@@ -76,6 +75,9 @@ uncert = [
 ]
 synth = [
   "xesmf",
+]
+torch = [
+  "torch", # needed for GPSampler of Optuna, 'torch' is PyPI name for pytorch
 ]
 
 [project.urls]
@@ -237,6 +239,7 @@ default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
 synth = { features = ["synth"], solve-group = "default" }
+torch = { features = ["torch"], solve-group = "default" }
 test = { features = ["test"], solve-group = "default" }
 uncert = { features = ["uncert"], solve-group = "default" }
 

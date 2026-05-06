@@ -36,7 +36,6 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
             "numba-progress",
             "dask",
             "optuna",
-            "torch",
             "joblib",
             "psutil",
             "pyvista",
@@ -51,6 +50,7 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
         optional = [
             "UQpy",
             "xesmf",
+            "torch",
         ]
 
         scooby.Report.__init__(
