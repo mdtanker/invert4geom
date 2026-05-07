@@ -2301,7 +2301,7 @@ class Inversion:
 
         # ignore for first iteration
         if self.iteration == 1:
-            pass
+            pass  # type: ignore[unreachable]
         else:
             if l2_norm > np.min(l2_norms) * (1 + self.perc_increase_limit):
                 logger.info(
@@ -4616,7 +4616,7 @@ def run_inversion_workflow(
             logger.warning(msg)
         logger.debug("calculating regional misfit")
         logger.debug("regional_grav_kwargs: %s", regional_grav_kwargs)
-        grav_ds.inv.regional_separation(**regional_grav_kwargs)
+        grav_ds.inv.regional_separation(**regional_grav_kwargs)  # type: ignore[arg-type]
         logger.debug("regional misfit calculated")
 
     # initialize inversion
