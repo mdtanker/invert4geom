@@ -30,28 +30,39 @@ Also, checkout the [Zen of Scientific Software Maintenance](https://jrleeman.git
 
 ## Contents
 
-* [What Can I Do?](#what-can-i-do)
-* [Reporting a Bug](#reporting-a-bug)
-* [Editing the Documentation](#editing-the-documentation)
-* [Contributing Code](#contributing-code)
-  - [General guidelines](#general-guidelines)
-  - [Fork the repository](#fork-the-repository)
-  - [Clone the repository](#clone-the-repository)
-  - [Setting up your environment](#setting-up-your-environment)
-  - [Make a branch](#make-a-branch)
-  - [Make your changes](#make-your-changes)
-  - [Testing your code](#testing-your-code)
-  - [Documentation](#documentation)
-  - [Committing changes](#committing-changes)
-  - [Push your changes](#push-your-changes)
-  - [Open a PR](#open-a-pr)
-  - [Code review](#code-review)
-  - [Sync your fork and local](#sync-your-fork-and-local)
-  - [Add yourself as an author](#add-yourself-as-an-author)
-* [Publish a new release](#publish-a-new-release)
-* [Update the Dependencies](#update-the-dependencies)
-* [Create a conda environment file](#create-a-conda-environment-file)
-* [Set up the binder configuration](#set-up-the-binder-configuration)
+- [How to contribute](#how-to-contribute)
+  - [TLDR (Too long; didn't read)](#tldr-too-long-didnt-read)
+  - [Contents](#contents)
+  - [What Can I Do?](#what-can-i-do)
+  - [Reporting a Bug](#reporting-a-bug)
+  - [Editing the Documentation](#editing-the-documentation)
+  - [Contributing Code](#contributing-code)
+    - [General guidelines](#general-guidelines)
+    - [Fork the repository](#fork-the-repository)
+    - [Clone the repository](#clone-the-repository)
+    - [Setting up your environment](#setting-up-your-environment)
+    - [Make a branch](#make-a-branch)
+    - [Make your changes](#make-your-changes)
+      - [Code style and linting](#code-style-and-linting)
+      - [Docstrings](#docstrings)
+      - [Type hints](#type-hints)
+      - [Logging](#logging)
+    - [Testing your code](#testing-your-code)
+    - [Documentation](#documentation)
+      - [Run all .ipynb's to update them](#run-all-ipynbs-to-update-them)
+      - [Check the build manually (optional)](#check-the-build-manually-optional)
+      - [Automatically build the docs](#automatically-build-the-docs)
+    - [Committing changes](#committing-changes)
+    - [Push your changes](#push-your-changes)
+    - [Open a PR](#open-a-pr)
+    - [Code review](#code-review)
+    - [Sync your fork and local](#sync-your-fork-and-local)
+    - [Add yourself as an author](#add-yourself-as-an-author)
+  - [Publish a new release](#publish-a-new-release)
+    - [PyPI (pip)](#pypi-pip)
+    - [Conda-Forge](#conda-forge)
+  - [Update the dependencies](#update-the-dependencies)
+  - [Set up the binder configuration](#set-up-the-binder-configuration)
 
 ## What Can I Do?
 
@@ -146,13 +157,6 @@ Now we need to configure Git to sync this fork to the main repository, not your 
 ```bash
 git remote add upstream https://github.com/mdtanker/invert4geom.git
 ```
-
-### Setting up `nox`
-
-Most of the commands used in the development of `invert4geom` use the tool `nox`.
-The `nox` commands are defined in the file [`noxfile.py`](https://github.com/mdtanker/invert4geom/blob/main/noxfile.py), and are run in the terminal / command prompt with the format ```nox -s <<command name>>```.
-
-You can install nox with `pip install nox`.
 
 ### Setting up your environment
 
