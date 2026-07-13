@@ -680,6 +680,81 @@ def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
     raise DeprecationWarning(msg)
 
 
+def _block_reduce_points(
+    coords: tuple[typing.Any, typing.Any],
+    data: typing.Any,
+    weights: typing.Any,
+    block_size: float,
+    block_reduction: str,
+    region: tuple[float, float, float, float],
+) -> tuple[typing.Any, typing.Any, typing.Any]:
+    """
+    Block-reduce point data before fitting a spline. Weighted means are computed
+    with :class:`verde.BlockMean` which also reduces the weights; otherwise
+    :class:`verde.BlockReduce` is used and any weights are dropped.
+    """
+    if block_reduction == "mean" and weights is not None:
+        reducer = vd.BlockMean(
+            spacing=block_size,
+            region=region,
+            center_coordinates=True,
+        )
+        coords, data, weights = reducer.filter(
+            coordinates=coords,
+            data=data,
+            weights=weights,
+        )
+    else:
+        if block_reduction == "mean":
+            reduction = np.mean
+        elif block_reduction == "median":
+            reduction = np.median
+            if weights is not None:
+                msg = (
+                    "weights are ignored when block_reduction is 'median', to use "
+                    "weights, set block_reduction to 'mean'"
+                )
+                logger.warning(msg)
+        else:
+            msg = "block_reduction must be 'mean' or 'median'"
+            raise ValueError(msg)
+
+        reducer = vd.BlockReduce(
+            reduction=reduction,
+            spacing=block_size,
+            region=region,
+            center_coordinates=True,
+        )
+        coords, data = reducer.filter(
+            coordinates=coords,
+            data=data,
+        )
+        # BlockReduce doesn't reduce the weights, so they can't be reused
+        weights = None
+
+    return coords, data, weights
+
+
+def _fit_spline_cv(
+    coords: tuple[typing.Any, typing.Any],
+    data: typing.Any,
+    weights: typing.Any,
+    dampings: list[float] | None,
+) -> vd.Spline:
+    """fit a cross-validated spline to the data, suppressing known verde warnings"""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="The mindist parameter of verde.Spline"
+        )
+        warnings.filterwarnings("ignore", message="The default scoring will change")
+        return optimal_spline_damping(
+            coordinates=coords,
+            data=data,
+            weights=weights,
+            dampings=dampings,
+        )
+
+
 def create_topography(
     method: str,
     region: tuple[float, float, float, float],
@@ -876,7 +951,7 @@ def create_topography(
                 cartesian_region = region
                 cartesian_spacing = spacing
 
-            if pd.Series(["inside", "buffer"]).isin(df.columns).all():
+            if {"inside", "buffer"} <= set(df.columns):
                 df_to_interpolate = df[df.inside | df.buffer]
                 df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
 
@@ -889,44 +964,17 @@ def create_topography(
                     weights = df_to_interpolate[weights_col]
 
                 if block_size is not None:
-                    if block_reduction == "mean":
-                        reduction = np.mean
-                    elif block_reduction == "median":
-                        reduction = np.median
-                        if weights is not None:
-                            msg = "weights are ignored when block_reduction is 'median'"
-                            logger.warning(msg)
-                    else:
-                        msg = "block_reduction must be 'mean' or 'median'"
-                        raise ValueError(msg)
-
-                    reducer = vd.BlockReduce(
-                        reduction=reduction,
-                        spacing=block_size,
-                        region=cartesian_region,
-                        center_coordinates=True,
-                    )
-
-                    coords, data = reducer.filter(
-                        coordinates=coords,
-                        data=data,
-                        weights=weights,
+                    coords, data, weights = _block_reduce_points(
+                        coords,
+                        data,
+                        weights,
+                        block_size,
+                        block_reduction,
+                        cartesian_region,
                     )
 
                 # run CV for fitting a spline to the data
-                with warnings.catch_warnings():
-                    warnings.filterwarnings(
-                        "ignore", message="The mindist parameter of verde.Spline"
-                    )
-                    warnings.filterwarnings(
-                        "ignore", message="The default scoring will change"
-                    )
-                    spline = optimal_spline_damping(
-                        coordinates=coords,
-                        data=data,
-                        weights=weights,
-                        dampings=dampings,
-                    )
+                spline = _fit_spline_cv(coords, data, weights, dampings)
 
                 # grid the fitted spline at desired spacing and region
                 inside_grid = spline.grid(
@@ -937,13 +985,6 @@ def create_topography(
                 ).scalars
 
                 # merge interpolation of inner / buffer points with outside grid
-                # outside_grid = df_outside_buffer.set_index(
-                #   ["northing", "easting"]).to_xarray().upward
-                # outside_grid = vd.make_xarray_grid(
-                #     (df_outside_buffer.easting, df_outside_buffer.northing),
-                #     df_outside_buffer.upward,
-                #     data_names="upward",
-                # )
                 outside_grid = pygmt.xyz2grd(
                     x=df_outside_buffer[coord_names[0]],
                     y=df_outside_buffer[coord_names[1]],
@@ -964,58 +1005,18 @@ def create_topography(
                     weights = df[weights_col]
 
                 if block_size is not None:
-                    if block_reduction == "mean" and weights is not None:
-                        reducer = vd.BlockMean(
-                            spacing=block_size,
-                            region=cartesian_region,
-                            center_coordinates=True,
-                        )
-
-                        coords, data, weights = reducer.filter(
-                            coordinates=coords,
-                            data=data,
-                            weights=weights,
-                        )
-
-                    else:
-                        if block_reduction == "mean":
-                            reduction = np.mean
-                        elif block_reduction == "median":
-                            reduction = np.median
-                            if weights is not None:
-                                msg = "weights are ignored when block_reduction is 'median', to use weights, set block_reduction to 'mean'"
-                                logger.warning(msg)
-                        else:
-                            msg = "block_reduction must be 'mean' or 'median'"
-                            raise ValueError(msg)
-
-                        reducer = vd.BlockReduce(
-                            reduction=reduction,
-                            spacing=block_size,
-                            region=cartesian_region,
-                            center_coordinates=True,
-                        )
-
-                        coords, data = reducer.filter(
-                            coordinates=coords,
-                            data=data,
-                            weights=weights,
-                        )
+                    coords, data, weights = _block_reduce_points(
+                        coords,
+                        data,
+                        weights,
+                        block_size,
+                        block_reduction,
+                        cartesian_region,
+                    )
 
                 # run CV for fitting a spline to the data
-                with warnings.catch_warnings():
-                    warnings.filterwarnings(
-                        "ignore", message="The mindist parameter of verde.Spline"
-                    )
-                    warnings.filterwarnings(
-                        "ignore", message="The default scoring will change"
-                    )
-                    spline = optimal_spline_damping(
-                        coordinates=coords,
-                        data=data,
-                        weights=weights,
-                        dampings=dampings,
-                    )
+                spline = _fit_spline_cv(coords, data, weights, dampings)
+
                 # grid the fitted spline at desired spacing and region
                 grid = spline.grid(
                     region=region,
