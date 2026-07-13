@@ -354,11 +354,8 @@ def contaminate_with_long_wavelength_noise(
         method="bilinear",
     )(grid)
 
-    low_res_grid = low_res_grid.rename(
-        {
-            list(low_res_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
-            list(low_res_grid.sizes.keys())[1]: original_dims[1],
-        }
+    low_res_grid = utils._restore_dims(  # pylint: disable=protected-access
+        low_res_grid, original_dims
     ).to_dataset(name=original_name)
 
     # turn to dataframe and contaminate with noise
@@ -381,20 +378,14 @@ def contaminate_with_long_wavelength_noise(
         region=original_region,
     )
 
-    new_grid = new_grid.rename(
-        {
-            list(new_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
-            list(new_grid.sizes.keys())[1]: original_dims[1],
-        }
+    new_grid = utils._restore_dims(  # pylint: disable=protected-access
+        new_grid, original_dims
     ).rename(original_name)
 
     final_grid = new_grid + grid
 
-    return final_grid.rename(
-        {
-            list(final_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
-            list(final_grid.sizes.keys())[1]: original_dims[1],
-        }
+    return utils._restore_dims(  # pylint: disable=protected-access
+        final_grid, original_dims
     ).rename(original_name)
 
 
@@ -499,6 +490,9 @@ def _gaussian2d(
     tmpy = 1.0 / sigma_y**2
     sintheta = np.sin(theta)
     costheta = np.cos(theta)
+    # a = tmpx * costheta**2 + tmpy * sintheta**2
+    # The below line is missing the square on the cosine term of the first
+    # quadratic-form coefficient (costheta)
     a = tmpx * costheta + tmpy * sintheta**2
     b = (tmpy - tmpx) * costheta * sintheta
     c = tmpx * sintheta**2 + tmpy * costheta**2
@@ -515,7 +509,7 @@ def synthetic_topography_simple(
     yoffset: float = 0,
     plot: bool = False,
     title: str = "Topography",
-) -> xr.Dataset:
+) -> xr.DataArray:
     """
     Create a synthetic topography dataset with a few features.
 
@@ -534,8 +528,8 @@ def synthetic_topography_simple(
 
     Returns
     -------
-    xarray.Dataset
-        synthetic topography dataset
+    xarray.DataArray
+        synthetic topography grid
     """
     if registration == "g":
         pixel_register = False
@@ -664,7 +658,7 @@ def synthetic_topography_regional(
     registration: str = "g",
     scale: float = 1,
     yoffset: float = 0,
-) -> xr.Dataset:
+) -> xr.DataArray:
     """
     Create a synthetic topography dataset with a few features which represent the
     surface responsible for the regional component of gravity.
@@ -684,8 +678,8 @@ def synthetic_topography_regional(
 
     Returns
     -------
-    xarray.Dataset
-        synthetic topography dataset
+    xarray.DataArray
+        synthetic topography grid
     """
 
     if registration == "g":
@@ -769,7 +763,7 @@ def contaminate(
     percent: bool = False,
     percent_as_max_abs: bool = True,
     seed: float = 0,
-) -> tuple[NDArray | list[NDArray], float | list[float]]:
+) -> tuple[xr.DataArray, float | pd.Series]:
     """
     Add pseudorandom gaussian noise to a xarray.DataArray.
     Noise added is normally distributed with zero mean and a standard deviation from
@@ -799,8 +793,9 @@ def contaminate(
     -------
     contam : xarray.DataArray
         contaminated data array.
-    stddev : float
-        standard deviation of the Gaussian noise added to the data.
+    stddev : float | pandas.Series
+        standard deviation of the Gaussian noise added to the data, a series of
+        per-point values if `percent` is True and `percent_as_max_abs` is False.
 
     Notes
     -----
@@ -822,17 +817,13 @@ def contaminate(
     stddev = float(stddev)
 
     # Contaminate the data
-    # get list of standard deviations to use in Normal distribution
-    # if stdev is zero, just add the uncontaminated data
-    if stddev == 0.0:
-        pass
+    # get the standard deviation(s) to use in the Normal distribution
     if percent:
         if percent_as_max_abs:
             stddev = stddev * max(abs(data_df[data.name]))
+            logger.info("Standard deviation used for noise: %s", stddev)
         else:
             stddev = stddev * abs(data_df[data.name])
-    if percent_as_max_abs is True:
-        logger.info("Standard deviation used for noise: %s", stddev)
     # use stdevs to generate random noise
     noise = rng.normal(scale=stddev, size=len(data_df[data.name]))
     # Subtract the mean so that the noise doesn't introduce a systematic shift in
