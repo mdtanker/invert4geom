@@ -336,7 +336,7 @@ def _create_regional_separation_study(
     true_regional : xarray.DataArray | None, optional
         grid of true regional values, by default None
     parallel : bool, optional
-        inform whether the study should be run in run in parallel, by default True. If
+        inform whether the study should be run in parallel, by default False. If
         True, uses file storage, which slows down the optimization, but allows for
         running in parallel.
     fname : str | None, optional

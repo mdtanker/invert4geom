@@ -786,7 +786,7 @@ def contaminate(
         If ``True``, will consider `stddev` as a decimal percentage of the `data` and
         the standard deviation of the Gaussian noise will be calculated with this, by
         default False
-    percent_as_max_abs : bool, optional`
+    percent_as_max_abs : bool, optional
         If ``True``, and `percent` is ``True``, the `stddev` used as the standard
         deviation of the Gaussian noise will be the max absolute value of the `data`.
         If ``False``, and `percent` is ``True``, the `stddev` will be calculated on a

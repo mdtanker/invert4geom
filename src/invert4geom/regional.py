@@ -54,7 +54,7 @@ def regional_constant(
     grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
     if (constraints_df is None) and (constant is None):
-        msg = "need to provide either `constraints_df` of `constant`"
+        msg = "need to provide either `constraints_df` or `constant`"
         raise ValueError(msg)
 
     if constraints_df is not None:
