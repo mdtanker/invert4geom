@@ -859,29 +859,8 @@ class OptimalInversionZrefDensity:
                     )
                     raise ValueError(msg)
                 if self.starting_topography_kwargs["method"] == "flat":
-                    msg = "using zref to create a flat starting topography model"
-                    logger.info(msg)
-                    self.starting_topography_kwargs["upward"] = (
-                        self.inversion_obj.model.zref
-                    )
-
-            # create starting topography model if not provided
-            if self.starting_topography is None:
-                msg = (
-                    "starting_topography not provided, creating a starting topography "
-                    "model with the supplied starting_topography_kwargs"
-                )
-                logger.info(msg)
-                if self.starting_topography_kwargs is None:
-                    msg = (
-                        "must provide `starting_topography_kwargs` to be passed to the "
-                        "function `utils.create_topography`."
-                    )
-                    raise ValueError(msg)
-                if (
-                    self.starting_topography_kwargs["method"] == "flat"
-                    and self.starting_topography_kwargs.get("upward", None) is None
-                ):
+                    # overwrite `upward` on every trial so the flat topography always
+                    # tracks the current trial's zref value
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
                     self.starting_topography_kwargs["upward"] = (
