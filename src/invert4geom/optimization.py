@@ -326,6 +326,57 @@ def _get_best_trial(study: optuna.study.Study) -> optuna.trial.FrozenTrial:
     logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
     return best_trial
 
+
+def _plot_regional_optimization(
+    study: optuna.study.Study,
+    grav_ds: xr.Dataset,
+    plot_grid: bool,
+    optimize_on_true_regional_misfit: bool,
+    best_trial: optuna.trial.FrozenTrial | None = None,
+    slice_per_param: bool = False,
+) -> None:
+    """
+    Plot the results of a regional separation optimization; a combined slice plot for
+    single-objective studies optimizing on the true regional misfit, a normal slice
+    plot for other single-objective studies, or a Pareto front and per-metric slice
+    plots for multi-objective studies. Optionally plot the resulting regional grid.
+    """
+    try:
+        if study._is_multi_objective() is False:  # pylint: disable=protected-access
+            if optimize_on_true_regional_misfit is True:
+                attribute_names = [
+                    "residual constraint score",
+                    "residual amplitude score",
+                ]
+                if slice_per_param:
+                    assert best_trial is not None
+                    for p in best_trial.params:
+                        plotting.plot_optimization_combined_slice(
+                            study,
+                            attribute_names=attribute_names,
+                            parameter_name=[p],  # type: ignore[arg-type]
+                        ).show()
+                else:
+                    plotting.plot_optimization_combined_slice(
+                        study,
+                        attribute_names=attribute_names,
+                    ).show()
+            else:
+                optuna.visualization.plot_slice(study).show()
+        else:
+            optuna.visualization.plot_pareto_front(study).show()
+            for i, j in enumerate(study.metric_names):
+                optuna.visualization.plot_slice(
+                    study,
+                    target=lambda t, i=i: t.values[i],  # noqa: PD011
+                    target_name=j,
+                ).show()
+        if plot_grid is True:
+            grav_ds.reg.plot()
+    except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
+        logger.error("plotting failed with error: %s", e)
+
+
 def _report_regional_scores(
     trial: optuna.trial,
     residual_constraint_score: float,
@@ -1979,30 +2030,12 @@ def optimize_regional_filter(
     )
 
     if plot is True:
-        try:
-            if study._is_multi_objective() is False:  # pylint: disable=protected-access
-                if optimize_on_true_regional_misfit is True:
-                    plotting.plot_optimization_combined_slice(
-                        study,
-                        attribute_names=[
-                            "residual constraint score",
-                            "residual amplitude score",
-                        ],
-                    ).show()
-                else:
-                    optuna.visualization.plot_slice(study).show()
-            else:
-                optuna.visualization.plot_pareto_front(study).show()
-                for i, j in enumerate(study.metric_names):
-                    optuna.visualization.plot_slice(
-                        study,
-                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-                        target_name=j,
-                    ).show()
-            if plot_grid is True:
-                grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
-            logger.error("plotting failed with error: %s", e)
+        _plot_regional_optimization(
+            study,
+            grav_ds,
+            plot_grid,
+            optimize_on_true_regional_misfit,
+        )
 
     return study, grav_ds, best_trial
 
@@ -2143,30 +2176,12 @@ def optimize_regional_trend(
     )
 
     if plot is True:
-        try:
-            if study._is_multi_objective() is False:  # pylint: disable=protected-access
-                if optimize_on_true_regional_misfit is True:
-                    plotting.plot_optimization_combined_slice(
-                        study,
-                        attribute_names=[
-                            "residual constraint score",
-                            "residual amplitude score",
-                        ],
-                    ).show()
-                else:
-                    optuna.visualization.plot_slice(study).show()
-            else:
-                optuna.visualization.plot_pareto_front(study).show()
-                for i, j in enumerate(study.metric_names):
-                    optuna.visualization.plot_slice(
-                        study,
-                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-                        target_name=j,
-                    ).show()
-            if plot_grid is True:
-                grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
-            logger.error("plotting failed with error: %s", e)
+        _plot_regional_optimization(
+            study,
+            grav_ds,
+            plot_grid,
+            optimize_on_true_regional_misfit,
+        )
 
     return study, grav_ds, best_trial
 
@@ -2344,32 +2359,14 @@ def optimize_regional_eq_sources(
         **kwargs,
     )
     if plot is True:
-        try:
-            if study._is_multi_objective() is False:  # pylint: disable=protected-access
-                if optimize_on_true_regional_misfit is True:
-                    for p in best_trial.params:
-                        plotting.plot_optimization_combined_slice(
-                            study,
-                            attribute_names=[
-                                "residual constraint score",
-                                "residual amplitude score",
-                            ],
-                            parameter_name=[p],  # type: ignore[arg-type]
-                        ).show()
-                else:
-                    optuna.visualization.plot_slice(study).show()
-            else:
-                optuna.visualization.plot_pareto_front(study).show()
-                for i, j in enumerate(study.metric_names):
-                    optuna.visualization.plot_slice(
-                        study,
-                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-                        target_name=j,
-                    ).show()
-            if plot_grid is True:
-                grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
-            logger.error("plotting failed with error: %s", e)
+        _plot_regional_optimization(
+            study,
+            grav_ds,
+            plot_grid,
+            optimize_on_true_regional_misfit,
+            best_trial=best_trial,
+            slice_per_param=True,
+        )
 
     return study, grav_ds, best_trial
 
@@ -2665,32 +2662,14 @@ def optimize_regional_constraint_point_minimization(
             pickle.dump(study, f)
 
     if plot is True:
-        try:
-            if study._is_multi_objective() is False:  # pylint: disable=protected-access
-                if optimize_on_true_regional_misfit is True:
-                    for p in best_trial.params:
-                        plotting.plot_optimization_combined_slice(
-                            study,
-                            attribute_names=[
-                                "residual constraint score",
-                                "residual amplitude score",
-                            ],
-                            parameter_name=[p],  # type: ignore[arg-type]
-                        ).show()
-                else:
-                    optuna.visualization.plot_slice(study).show()
-            else:
-                optuna.visualization.plot_pareto_front(study).show()
-                for i, j in enumerate(study.metric_names):
-                    optuna.visualization.plot_slice(
-                        study,
-                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-                        target_name=j,
-                    ).show()
-            if plot_grid is True:
-                grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
-            logger.error("plotting failed with error: %s", e)
+        _plot_regional_optimization(
+            study,
+            grav_ds,
+            plot_grid,
+            optimize_on_true_regional_misfit,
+            best_trial=best_trial,
+            slice_per_param=True,
+        )
 
     return study, grav_ds, best_trial
 
