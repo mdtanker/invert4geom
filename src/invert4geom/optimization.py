@@ -326,6 +326,32 @@ def _get_best_trial(study: optuna.study.Study) -> optuna.trial.FrozenTrial:
     logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
     return best_trial
 
+def _report_regional_scores(
+    trial: optuna.trial,
+    residual_constraint_score: float,
+    residual_amplitude_score: float,
+    true_reg_score: float | None,
+    optimize_on_true_regional_misfit: bool,
+    separate_metrics: bool,
+) -> tuple[float, float] | float:
+    """
+    Save the true regional score as a trial attribute and return the metric(s) to
+    optimize on, shared by all the regional separation objective classes.
+    """
+    trial.set_user_attr("true_reg_score", true_reg_score)
+
+    if optimize_on_true_regional_misfit is True:
+        trial.set_user_attr("residual constraint score", residual_constraint_score)
+        trial.set_user_attr("residual amplitude score", residual_amplitude_score)
+        return true_reg_score  # type: ignore[return-value]
+
+    if separate_metrics is True:
+        return residual_constraint_score, residual_amplitude_score
+
+    # combine the two metrics into one
+    return residual_constraint_score / residual_amplitude_score
+
+
 def _create_regional_separation_study(
     optimize_on_true_regional_misfit: bool,
     separate_metrics: bool,
@@ -1422,18 +1448,14 @@ class OptimizeRegionalTrend:
                 )
             )
 
-        trial.set_user_attr("true_reg_score", true_reg_score)
-
-        if self.optimize_on_true_regional_misfit is True:
-            trial.set_user_attr("residual constraint score", residual_constraint_score)
-            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
-            return true_reg_score  # type: ignore[return-value]
-
-        if self.separate_metrics is True:
-            return residual_constraint_score, residual_amplitude_score
-
-        # combine the two metrics into one
-        return residual_constraint_score / residual_amplitude_score
+        return _report_regional_scores(
+            trial,
+            residual_constraint_score,
+            residual_amplitude_score,
+            true_reg_score,
+            self.optimize_on_true_regional_misfit,
+            self.separate_metrics,
+        )
 
 
 class OptimizeRegionalFilter:
@@ -1482,18 +1504,14 @@ class OptimizeRegionalFilter:
                 )
             )
 
-        trial.set_user_attr("true_reg_score", true_reg_score)
-
-        if self.optimize_on_true_regional_misfit is True:
-            trial.set_user_attr("residual constraint score", residual_constraint_score)
-            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
-            return true_reg_score  # type: ignore[return-value]
-
-        if self.separate_metrics is True:
-            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
-
-        # combine the two metrics into one
-        return residual_constraint_score / residual_amplitude_score
+        return _report_regional_scores(
+            trial,
+            residual_constraint_score,
+            residual_amplitude_score,
+            true_reg_score,
+            self.optimize_on_true_regional_misfit,
+            self.separate_metrics,
+        )
 
 
 class OptimizeRegionalEqSources:
@@ -1592,18 +1610,14 @@ class OptimizeRegionalEqSources:
                 )
             )
 
-        trial.set_user_attr("true_reg_score", true_reg_score)
-
-        if self.optimize_on_true_regional_misfit is True:
-            trial.set_user_attr("residual constraint score", residual_constraint_score)
-            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
-            return true_reg_score  # type: ignore[return-value]
-
-        if self.separate_metrics is True:
-            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
-
-        # combine the two metrics into one
-        return residual_constraint_score / residual_amplitude_score
+        return _report_regional_scores(
+            trial,
+            residual_constraint_score,
+            residual_amplitude_score,
+            true_reg_score,
+            self.optimize_on_true_regional_misfit,
+            self.separate_metrics,
+        )
 
 
 class OptimizeRegionalConstraintsPointMinimization:
@@ -1817,18 +1831,14 @@ class OptimizeRegionalConstraintsPointMinimization:
             self.optimize_on_true_regional_misfit,
         )
 
-        trial.set_user_attr("true_reg_score", true_reg_score)
-
-        if self.optimize_on_true_regional_misfit is True:
-            trial.set_user_attr("residual constraint score", residual_constraint_score)
-            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
-            return true_reg_score  # type: ignore[return-value]
-
-        if self.separate_metrics is True:
-            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
-
-        # combine the two metrics into one
-        return residual_constraint_score / residual_amplitude_score
+        return _report_regional_scores(
+            trial,
+            residual_constraint_score,
+            residual_amplitude_score,
+            true_reg_score,
+            self.optimize_on_true_regional_misfit,
+            self.separate_metrics,
+        )
 
 
 def optimize_regional_filter(
