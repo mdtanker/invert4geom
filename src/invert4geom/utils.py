@@ -22,7 +22,7 @@ from invert4geom import logger, plotting
 
 
 @contextmanager
-def _log_level(level, log_instance=logger):  # type: ignore[no-untyped-def, has-type]
+def _log_level(level, log_instance=logger):  # type: ignore[no-untyped-def, has-type, unused-ignore]
     "Run body with logger at a different level"
     saved_logger_level = log_instance.level
     log_instance.setLevel(level)
@@ -161,6 +161,22 @@ def rmse(data: NDArray, as_median: bool = False) -> float:
     return value
 
 
+def _restore_dims(
+    grid: xr.DataArray,
+    original_dims: list[typing.Any],
+) -> xr.DataArray:
+    """rename a grid's dims back to their original (northing, easting) names"""
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="rename '")
+        dims = list(grid.dims)
+        return grid.rename(
+            {
+                dims[0]: original_dims[0],
+                dims[1]: original_dims[1],
+            }
+        )
+
+
 def _nearest_grid_fill(
     grid: xr.DataArray,
     method: str = "verde",
@@ -224,14 +240,7 @@ def _nearest_grid_fill(
         raise ValueError(msg)
 
     # reset coordinate names if changed
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="rename '")
-        return filled.rename(
-            {
-                next(iter(filled.dims)): original_dims[0],
-                list(filled.dims)[1]: original_dims[1],
-            }
-        )
+    return _restore_dims(filled, original_dims)
 
 
 def region_mask(
@@ -284,7 +293,8 @@ def filter_grid(
         factor of grid width to pad the grid by, by default 3, which equates to a pad
         with a width of 1/3 of the grid width.
     pad_mode : str, optional
-        mode of padding, can be "linear", by default "linear_ramp"
+        mode of padding, one of the modes accepted by :func:`xrft.pad`, such as
+        "constant" or "linear_ramp", by default "linear_ramp"
     pad_constant : float | None, optional
         constant value to use for padding, by default None
     pad_end_values : float | None, optional
@@ -308,14 +318,7 @@ def filter_grid(
         filled = grid.copy()
 
     # reset coordinate names if changed
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="rename '")
-        filled = filled.rename(
-            {
-                next(iter(filled.dims)): original_dims[0],
-                list(filled.dims)[1]: original_dims[1],
-            }
-        )
+    filled = _restore_dims(filled, original_dims)
 
     # define width of padding in each direction
     pad_width = {
@@ -397,15 +400,7 @@ def filter_grid(
         result = unpadded.copy()
 
     # reset coordinate names if changed
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="rename '")
-        result = result.rename(
-            {
-                next(iter(result.dims)): original_dims[0],
-                # list(result.dims)[0]: original_dims[0],
-                list(result.dims)[1]: original_dims[1],
-            }
-        )
+    result = _restore_dims(result, original_dims)
 
     return result.rename(original_name)
 
