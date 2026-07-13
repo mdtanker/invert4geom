@@ -424,3 +424,52 @@ def test_normalized_mindist_high_low():
     # test that smallest min_dist and largest min_dist are correct
     assert np.min(min_dist) == pytest.approx(0.2)
     assert np.max(min_dist) == pytest.approx(5)
+
+
+################
+################
+# region_mask
+################
+################
+
+
+def asymmetric_grid() -> xr.DataArray:
+    """create a grid with different easting and northing extents"""
+    (x, y) = vd.grid_coordinates(region=(0, 100, 0, 50), spacing=10)
+    return vd.make_xarray_grid(
+        (x, y),
+        np.ones_like(x),
+        data_names="dummy",
+        dims=("northing", "easting"),
+    ).dummy
+
+
+def test_region_mask_inside_cells_are_one():
+    """cells inside the region should have a mask value of 1"""
+    grid = asymmetric_grid()
+    masked = utils.region_mask(grid, region=(0, 30, 0, 50))
+    assert masked.sel(easting=slice(0, 30)).to_numpy().all()
+
+
+def test_region_mask_cells_east_of_region_are_zero():
+    """
+    regression test for easting and northing being swapped, which left cells
+    outside the region's easting bounds unmasked
+    """
+    grid = asymmetric_grid()
+    masked = utils.region_mask(grid, region=(0, 30, 0, 50))
+    assert masked.sel(easting=slice(40, 100)).sum() == 0
+
+
+def test_region_mask_cells_north_of_region_are_zero():
+    """cells outside the region's northing bounds should have a mask value of 0"""
+    grid = asymmetric_grid()
+    masked = utils.region_mask(grid, region=(0, 100, 0, 20))
+    assert masked.sel(northing=slice(30, 50)).sum() == 0
+
+
+def test_region_mask_full_region_all_ones():
+    """a region covering the whole grid should mask nothing"""
+    grid = asymmetric_grid()
+    masked = utils.region_mask(grid, region=(0, 100, 0, 50))
+    assert masked.to_numpy().all()

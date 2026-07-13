@@ -243,14 +243,14 @@ def region_mask(
     Make a mask with values of 1 inside a region and 0 outside the region.
     """
 
-    # get coordinate names
+    # get coordinate names; dims are ordered (northing, easting)
     coord_names = list(grid.sizes.keys())
 
-    mask_easting = (grid[coord_names[0]] >= region[0]) & (
-        grid[coord_names[0]] <= region[1]
+    mask_easting = (grid[coord_names[1]] >= region[0]) & (
+        grid[coord_names[1]] <= region[1]
     )
-    mask_northing = (grid[coord_names[1]] >= region[2]) & (
-        grid[coord_names[1]] <= region[3]
+    mask_northing = (grid[coord_names[0]] >= region[2]) & (
+        grid[coord_names[0]] <= region[3]
     )
 
     return xr.where(mask_easting & mask_northing, 1, 0)
