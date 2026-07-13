@@ -157,7 +157,7 @@ def available_cpu_count() -> typing.Any:
 
 def run_optuna(
     study: optuna.study.Study,
-    objective: typing.Callable[..., float],
+    objective: typing.Callable[..., float | tuple[float, float]],
     n_trials: int,
     storage: optuna.storages.BaseStorage | None = None,
     maximize_cpus: bool = True,
@@ -184,7 +184,7 @@ def run_optuna(
         def optimize_study(
             study_name: str,
             storage: optuna.storages.BaseStorage,
-            objective: typing.Callable[..., float],
+            objective: typing.Callable[..., float | tuple[float, float]],
             n_trials: int,
         ) -> None:
             study = optuna.load_study(study_name=study_name, storage=storage)
@@ -227,7 +227,7 @@ def _optuna_set_cores(
     optimize_study: typing.Callable[..., None],
     study_name: str,
     storage: typing.Any,
-    objective: typing.Callable[..., float],
+    objective: typing.Callable[..., float | tuple[float, float]],
     max_cores: bool = True,
 ) -> None:
     """
@@ -1114,10 +1114,10 @@ def optimize_eq_source_params(
         gravity data values
     n_trials : int, optional
         number of trials to run, by default 100
-    damping_limits : tuple[float, float], optional
-        damping parameter limits, by default (0, 10**3)
-    depth_limits : tuple[float, float], optional
-        source depth limits (positive downwards) in meters, by default (0, 10e6)
+    damping_limits : tuple[float, float] | None, optional
+        damping parameter limits, by default None
+    depth_limits : tuple[float, float] | None, optional
+        source depth limits (positive downwards) in meters, by default None
     block_size_limits : tuple[float, float] | None, optional
         block size limits in meters, by default None
     sampler : optuna.samplers.BaseSampler | None, optional
@@ -1504,7 +1504,7 @@ class OptimizeRegionalEqSources:
         self.separate_metrics = separate_metrics
         self.kwargs = kwargs
 
-    def __call__(self, trial: optuna.trial) -> float:
+    def __call__(self, trial: optuna.trial) -> tuple[float, float] | float:
         """
         Parameters
         ----------
@@ -1635,7 +1635,7 @@ class OptimizeRegionalConstraintsPointMinimization:
         self.progressbar = progressbar
         self.kwargs = kwargs
 
-    def __call__(self, trial: optuna.trial) -> float:
+    def __call__(self, trial: optuna.trial) -> tuple[float, float] | float:
         """
         Parameters
         ----------
