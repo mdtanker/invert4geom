@@ -101,8 +101,8 @@ def create_lhc(
         elif v["distribution"] == "uniform_discrete":
             dists[k] = DiscreteUniform(loc=v["loc"], scale=v["scale"])
         else:
-            msg = "Unknown distribution type: %s"
-            raise ValueError(msg, v["distribution"])
+            msg = f"Unknown distribution type: {v['distribution']}"
+            raise ValueError(msg)
 
     if criterion == "centered":
         criterion = (
@@ -117,8 +117,8 @@ def create_lhc(
             UQpy.sampling.stratified_sampling.latin_hypercube_criteria.MinCorrelation()
         )
     else:
-        msg = "Unknown criterion type: %s"
-        raise ValueError(msg, criterion)
+        msg = f"Unknown criterion type: {criterion}"
+        raise ValueError(msg)
 
     # make latin hyper cube
     lhc = UQpy.sampling.LatinHypercubeSampling(
@@ -130,19 +130,19 @@ def create_lhc(
 
     # add sampled values to parameters dict
     for j, (k, v) in enumerate(param_dict.items()):
+        values = np.asarray(lhc.samples[:, j], dtype=float)
         if v.get("norm_limits", None) is not None:
             norm_limits = v["norm_limits"]
-            lhc.samples[:, j] = utils.normalize(
-                lhc.samples[:, j],
+            values = utils.normalize(
+                values,
                 low=norm_limits[0],
                 high=norm_limits[1],
             )
         if v.get("log", False) is True:
-            v["sampled_values"] = 10 ** lhc._samples[:, j]  # pylint: disable=protected-access
-        else:
-            v["sampled_values"] = lhc.samples[:, j]  # pylint: disable=protected-access
+            values = 10**values
         if v.get("dtype", None) is int:
-            v["sampled_values"] = v["sampled_values"].round().astype(int)
+            values = values.round().astype(int)
+        v["sampled_values"] = values
 
         logger.info(
             "Sampled '%s' parameter values; mean: %s, min: %s, max: %s",
