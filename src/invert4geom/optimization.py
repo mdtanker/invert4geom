@@ -1243,7 +1243,10 @@ def optimize_eq_source_params(
     logger.debug("starting eq_source parameter optimization")
     # pylint: enable=duplicate-code
     # ignore skLearn LinAlg warnings
-    with (utils._environ(PYTHONWARNINGS="ignore")) and (utils.DuplicateFilter(logger)):  # type: ignore[no-untyped-call, truthy-bool] # pylint: disable=protected-access
+    with (
+        utils._environ(PYTHONWARNINGS="ignore"),  # pylint: disable=protected-access
+        utils.DuplicateFilter(logger),  # type: ignore[no-untyped-call]
+    ):
         # run startup trials with QMC low-discrepancy sampling
         study = run_optuna(
             study=study,
