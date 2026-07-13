@@ -1561,23 +1561,21 @@ def gravity_decay_buffer(
             spacing=spacing,
         ).upward
 
+    # create prisms around the mean surface value with signed densities (positive
+    # above, negative below); this layer has no edge effects and is the baseline for
+    # calculating the decay
+    mean_zref = surface.to_numpy().mean()
+    dens = xr.where(surface >= mean_zref, density, -density)
+    model_mean_zref = grid_to_model(
+        surface,
+        mean_zref,
+        density=dens,
+        model_type="prisms",
+    )
+
     # create prism layer
     if as_density_contrast:
-        # create prisms around mean value to compare to to calculate decay
-        zref = surface.to_numpy().mean()
-
-        # positive densities above, negative below
-        dens = surface.copy()
-        dens.to_numpy()[:] = density
-        dens = dens.where(surface >= zref, -density)
-
-        # create prism layer with a mean zref
-        model = grid_to_model(
-            surface,
-            zref,
-            density=dens,
-            model_type="prisms",
-        )
+        model = model_mean_zref
     else:
         model = grid_to_model(
             surface,
@@ -1585,22 +1583,6 @@ def gravity_decay_buffer(
             density=density,
             model_type="prisms",
         )
-
-    # create prisms around mean value to compare to to calculate decay
-    zref = surface.to_numpy().mean()
-
-    # positive densities above, negative below
-    dens = surface.copy()
-    dens.to_numpy()[:] = density
-    dens = dens.where(surface >= zref, -density)
-
-    # create prism layer with a mean zref
-    model_mean_zref = grid_to_model(
-        surface,
-        zref,
-        density=dens,
-        model_type="prisms",
-    )
 
     # create set of observation points
     data = vd.grid_coordinates(
@@ -1627,8 +1609,7 @@ def gravity_decay_buffer(
         progressbar=progressbar,
     )
 
-    # if checkerboard:
-    # calculate forward gravity of layer
+    # calculate forward gravity of the layer without edge effects
     forward_df["forward_no_edge_effects"] = model_mean_zref.prism_layer.gravity(
         coordinates=(
             forward_df.easting,
