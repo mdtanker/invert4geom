@@ -1550,11 +1550,11 @@ class DatasetAccessorInvert4Geom:
             # positive values indicate max allowed upward change
             # negative values indicate topography is already too far above upper bound
             df["max_change_above"] = df.upper_confining_layer - df.topography
-            number_enforced = 0
-            for i, j in enumerate(df.topography_correction):
-                if j > df.max_change_above[i]:
-                    number_enforced += 1
-                    df.loc[i, "topography_correction"] = df.max_change_above[i]
+            number_enforced = (df.topography_correction > df.max_change_above).sum()
+            # NaN bounds (no confining layer at that prism) are ignored by clip
+            df["topography_correction"] = df.topography_correction.clip(
+                upper=df.max_change_above
+            )
             logger.info(
                 "enforced upper confining surface at %s prisms", number_enforced
             )
@@ -1563,12 +1563,10 @@ class DatasetAccessorInvert4Geom:
             # negative values indicate max allowed downward change
             # positive values indicate topography is already too far below lower bound
             df["max_change_below"] = df.lower_confining_layer - df.topography
-            number_enforced = 0
-            for i, j in enumerate(df.topography_correction):
-                if j < df.max_change_below[i]:
-                    number_enforced += 1
-                    df.loc[i, "topography_correction"] = df.max_change_below[i]
-
+            number_enforced = (df.topography_correction < df.max_change_below).sum()
+            df["topography_correction"] = df.topography_correction.clip(
+                lower=df.max_change_below
+            )
             logger.info(
                 "enforced lower confining surface at %s prisms", number_enforced
             )
