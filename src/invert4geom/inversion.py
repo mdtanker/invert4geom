@@ -3590,6 +3590,9 @@ class Inversion:
 
         # get number of parameters included in optimization
         num_params = sum(x is not None for x in [zref_limits, density_contrast_limits])
+        if num_params == 0:
+            msg = "must provide `zref_limits` and/or `density_contrast_limits`"
+            raise ValueError(msg)
 
         # define the objective function
         objective = optimization.OptimalInversionZrefDensity(
