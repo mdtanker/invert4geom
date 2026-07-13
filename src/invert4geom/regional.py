@@ -40,6 +40,28 @@ def _check_projected_units(grav_ds: xr.Dataset, function_name: str) -> None:
         )
         raise NotImplementedError(msg)
 
+
+def _finalize_separation(
+    grav_ds: xr.Dataset,
+    regional_shift: float,
+    mask_column: str | None,
+    reverse_regional_residual: bool,
+) -> None:
+    """
+    Apply the optional shift to the estimated regional field, calculate the residual
+    field, optionally mask the residual, and optionally swap the two fields.
+    """
+    grav_ds["reg"] = grav_ds.reg + regional_shift
+    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
+
+    if mask_column is not None:
+        grav_ds["res"] = grav_ds.res * grav_ds[mask_column]
+        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
+
+    if reverse_regional_residual:
+        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+
+
 def regional_constant(
     grav_ds: xr.Dataset,
     constant: float | None = None,
@@ -108,16 +130,11 @@ def regional_constant(
         )
         logger.info(msg)
 
-    grav_ds["reg"] = xr.full_like(grav_ds.misfit, constant + regional_shift)  # type: ignore[operator]
+    grav_ds["reg"] = xr.full_like(grav_ds.misfit, constant)
 
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
-
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
+    )
 
 
 def regional_filter(
@@ -165,17 +182,11 @@ def regional_filter(
     # add the mean back to the data
     regional_grid += data_mean
 
-    regional_grid += regional_shift
-
     grav_ds["reg"] = regional_grid
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
 
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
+    )
 
 
 def regional_trend(
@@ -213,23 +224,15 @@ def regional_trend(
         grav_ds.inv.df.misfit,
     )
 
-    grav_ds["reg"] = (
-        vdtrend.grid(
-            coordinates=(grav_ds[coord_names[0]], grav_ds[coord_names[1]]),
-            data_names=["reg"],
-            dims=(coord_names[1], coord_names[0]),
-        ).reg
-        + regional_shift
+    grav_ds["reg"] = vdtrend.grid(
+        coordinates=(grav_ds[coord_names[0]], grav_ds[coord_names[1]]),
+        data_names=["reg"],
+        dims=(coord_names[1], coord_names[0]),
+    ).reg
+
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
     )
-
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
-
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
 
 
 def regional_eq_sources(
@@ -327,17 +330,12 @@ def regional_eq_sources(
         upward_continuation_height,
     )
     df = grav_ds.inv.df
-    df["reg"] = eqs.predict(coords) + regional_shift
+    df["reg"] = eqs.predict(coords)
     grav_ds["reg"] = df.set_index([coord_names[1], coord_names[0]]).to_xarray().reg
 
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
-
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
+    )
 
 
 def regional_constraints(
@@ -638,9 +636,6 @@ def regional_constraints(
                 )
 
         else:
-            if depth is None:
-                depth = "default"
-
             # create set of deep sources
             eqs = hm.EquivalentSources(
                 depth=depth,
@@ -671,15 +666,9 @@ def regional_constraints(
         msg = "invalid string for grid_method"
         raise ValueError(msg)
 
-    grav_ds["reg"] += regional_shift
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
-
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
+    )
 
 
 def regional_constraints_cv(
@@ -732,7 +721,9 @@ def regional_constraints_cv(
         **split_kwargs,
     )
 
-    _, grav_ds, _ = optimization.optimize_regional_constraint_point_minimization(
+    # this updates grav_ds in place with the best regional separation; the returned
+    # dataset is the same object so the return values are not needed here
+    optimization.optimize_regional_constraint_point_minimization(
         grav_ds=grav_ds,
         testing_training_df=testing_training_df,
         **kwargs,
