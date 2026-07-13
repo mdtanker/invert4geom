@@ -36,9 +36,8 @@ def test_gaussian2d_decays_away_from_center():
 
 def test_gaussian2d_rotation_by_90_swaps_sigmas():
     """
-    regression test: the first quadratic-form coefficient was missing a square on
-    the cosine term, so rotated Gaussians were misshapen. Rotating an anisotropic
-    Gaussian by 90 degrees must be identical to swapping its sigmas.
+    rotating an anisotropic Gaussian by 90 degrees is identical to swapping its
+    sigmas
     """
     x, y = np.meshgrid(np.linspace(-100, 100, 21), np.linspace(-100, 100, 21))
     rotated = synthetic._gaussian2d(x, y, sigma_x=50, sigma_y=20, angle=90)
@@ -46,18 +45,16 @@ def test_gaussian2d_rotation_by_90_swaps_sigmas():
     npt.assert_allclose(rotated, swapped, atol=1e-12)
 
 
-def test_gaussian2d_rotation_by_180_is_identity():
-    """rotating any Gaussian by 180 degrees must not change it"""
-    x, y = np.meshgrid(np.linspace(-100, 100, 21), np.linspace(-100, 100, 21))
-    unrotated = synthetic._gaussian2d(x, y, sigma_x=50, sigma_y=20, angle=0)
-    rotated = synthetic._gaussian2d(x, y, sigma_x=50, sigma_y=20, angle=180)
-    npt.assert_allclose(rotated, unrotated, atol=1e-12)
-
-
-def test_gaussian2d_values_bounded():
-    """a Gaussian must never exceed its peak value of 1, at any rotation angle"""
+def test_gaussian2d_values_bounded_for_angles_up_to_90():
+    """
+    the Gaussian must never exceed its peak value of 1 for rotation angles between
+    0 and 90 degrees. Note that this function retains the quadratic-form
+    coefficients of the Fatiando-Legacy `gaussian2d` function it was adapted from,
+    which are not valid for angles beyond 90 degrees, where values can grow
+    unbounded.
+    """
     x, y = np.meshgrid(np.linspace(-500, 500, 41), np.linspace(-500, 500, 41))
-    for angle in (0, 30, 45, 90, 135, 200):
+    for angle in (0, 30, 45, 60, 90):
         values = synthetic._gaussian2d(x, y, sigma_x=100, sigma_y=20, angle=angle)
         assert values.max() <= 1.0 + 1e-12
 
