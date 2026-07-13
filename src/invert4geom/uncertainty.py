@@ -40,6 +40,16 @@ if typing.TYPE_CHECKING:
     from invert4geom.inversion import Inversion
 
 
+def _mean_and_stdev(stats_ds: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+    """
+    return the weighted mean and standard deviation of an ensemble statistics
+    dataset if present, otherwise the unweighted versions
+    """
+    if "weighted_mean" in stats_ds:
+        return stats_ds.weighted_mean, stats_ds.weighted_stdev
+    return stats_ds.z_mean, stats_ds.z_stdev
+
+
 def create_lhc(
     n_samples: int,
     parameter_dict: dict[str, dict[str, typing.Any]],
@@ -316,12 +326,7 @@ def starting_topography_uncertainty(
                 region=plot_region,
             )
             if true_topography is not None:
-                try:
-                    mean = stats_ds.weighted_mean
-                    stdev = stats_ds.weighted_stdev
-                except AttributeError:
-                    mean = stats_ds.z_mean
-                    stdev = stats_ds.z_stdev
+                mean, stdev = _mean_and_stdev(stats_ds)
 
                 _ = ptk.grid_compare(
                     np.abs(true_topography - mean),
@@ -512,12 +517,7 @@ def equivalent_sources_uncertainty(
                 region=plot_region,
             )
             if true_gravity is not None:
-                try:
-                    mean = stats_ds.weighted_mean
-                    stdev = stats_ds.weighted_stdev
-                except AttributeError:
-                    mean = stats_ds.z_mean
-                    stdev = stats_ds.z_stdev
+                mean, stdev = _mean_and_stdev(stats_ds)
 
                 # pylint: disable=duplicate-code
                 _ = ptk.grid_compare(
@@ -709,12 +709,7 @@ def regional_misfit_uncertainty(
                 region=plot_region,
             )
             if true_regional is not None:
-                try:
-                    mean = stats_ds.weighted_mean
-                    stdev = stats_ds.weighted_stdev
-                except AttributeError:
-                    mean = stats_ds.z_mean
-                    stdev = stats_ds.z_stdev
+                mean, stdev = _mean_and_stdev(stats_ds)
                 # pylint: disable=duplicate-code
                 _ = ptk.grid_compare(
                     np.abs(true_regional - mean),
