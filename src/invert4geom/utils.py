@@ -1236,8 +1236,8 @@ def optimal_spline_damping(
     else:
         dampings = [dampings]
 
-    n_splits = 5
-    while n_splits > 0:
+    spline = None
+    for n_splits in range(5, 1, -1):
         try:
             spline = vd.SplineCV(
                 dampings=dampings,
@@ -1258,24 +1258,32 @@ def optimal_spline_damping(
             logger.error(e)
             msg = "decreasing number of splits by 1 until ValueError is resolved"
             logger.warning(msg)
-        if n_splits == 1:
-            msg = "ValueError not resolved, fitting spline with no damping"
-            logger.warning(msg)
-            spline = vd.Spline(
-                damping=None,
-                **kwargs,
-            )
-            spline.fit(
-                coordinates,
-                data,
-                weights=weights,
-            )
-        n_splits -= 1
+            spline = None
 
-    if len(dampings) > 1:
+    if spline is None:
+        msg = "ValueError not resolved, fitting spline with no damping"
+        logger.warning(msg)
+        # drop kwargs only valid for SplineCV, not Spline
+        spline_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k not in ("cv", "delayed", "scoring", "client")
+        }
+        spline = vd.Spline(
+            damping=None,
+            **spline_kwargs,
+        )
+        spline.fit(
+            coordinates,
+            data,
+            weights=weights,
+        )
+
+    if len(dampings) > 1 and hasattr(spline, "scores_"):
         try:
             logger.info("Best SplineCV score: %s", spline.scores_.max())
         except AttributeError:
+            # scores are dask delayed objects
             logger.info("Best SplineCV score: %s", max(dask.compute(spline.scores_)[0]))
 
         logger.info("Best damping: %s", spline.damping_)
@@ -1292,7 +1300,7 @@ def optimal_spline_damping(
             logger.warning(
                 "Best damping value (%s) is at the limit of provided values (%s, %s) "
                 "and thus is likely not a global minimum, expand the range of values "
-                "test to ensure the best parameter value value is found.",
+                "tested to ensure the best parameter value is found.",
                 spline.damping_,
                 np.nanmin(dampings_without_none),
                 np.nanmax(dampings_without_none),
