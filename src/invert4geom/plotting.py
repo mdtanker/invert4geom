@@ -783,7 +783,7 @@ def plot_inversion_iteration_results(
     for column, j in enumerate(grids):
         for row, _y in enumerate(j):
             # if only 1 iteration
-            axes = ax[column] if max(iterations) == 1 else ax[row, column]
+            axes = ax[column] if len(iterations) == 1 else ax[row, column]
             # add iteration number as text
             plt.text(
                 -0.1,
@@ -867,7 +867,7 @@ def plot_inversion_iteration_results(
 
     # add text with inversion parameter info
     text1, text2, text3 = [], [], []
-    params.pop("Iteration times")
+    params.pop("Iteration times", None)
     for i, (k, v) in enumerate(params.items(), start=1):
         if i <= 5:
             text1.append(f"{k}: {v}\n")
@@ -881,7 +881,7 @@ def plot_inversion_iteration_results(
     text3 = "".join(text3)  # type: ignore[assignment]
 
     # if only 1 iteration
-    if max(iterations) == 1:
+    if len(iterations) == 1:
         plt.text(
             x=0.0,
             y=1.1,
