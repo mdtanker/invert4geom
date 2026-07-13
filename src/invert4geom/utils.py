@@ -608,11 +608,15 @@ def normalized_mindist(
         coord_names=(str(original_dims[1]), str(original_dims[0])),
     ).min_dist
 
-    # set points < mindist to low
+    if (low is None) != (high is None):
+        msg = "must provide both `low` and `high`, or neither"
+        raise ValueError(msg)
+
+    # set points < mindist to 0 (normalized to `low` below if provided)
     if mindist is not None:
         min_dist = xr.where(min_dist < mindist, 0, min_dist)
 
-    # set points outside of region to low
+    # set points outside of region to 0 (normalized to `low` below if provided)
     if region is not None:
         df = vd.grid_to_table(min_dist)
         df["are_inside"] = vd.inside(
@@ -628,11 +632,7 @@ def normalized_mindist(
         min_dist = new_min_dist.min_dist
 
     # normalize from low to high
-    if (low is None) & (high is None):
-        pass
-    else:
-        assert low is not None
-        assert high is not None
+    if (low is not None) and (high is not None):
         min_dist = normalize_xarray(min_dist, low=low, high=high)
 
     return min_dist
