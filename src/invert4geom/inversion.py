@@ -3581,6 +3581,11 @@ class Inversion:
             inv_copy.results_fname = fname  # type: ignore[assignment]
 
         if "test" in inv_copy.data.inv.df.columns:
+            assert not inv_copy.data.inv.df.test.any(), (
+                "test column contains True values, but testing points are only needed "
+                "during damping CV, remove them with `remove_test_points` first"
+            )
+
         storage = _setup_journal_storage(inv_copy.results_fname, parallel)  # type: ignore[arg-type]
 
         # get number of parameters included in optimization
