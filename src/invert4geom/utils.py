@@ -1383,7 +1383,7 @@ def best_equivalent_source_damping(
         msg = "coordinates contain NaN"
         raise ValueError(msg)
     if np.isnan(data).any():
-        msg = "data contains is NaN"
+        msg = "data contains NaN"
         raise ValueError(msg)
 
     scores = []
@@ -1420,14 +1420,16 @@ def best_equivalent_source_damping(
     ]:
         logger.warning(
             "Best damping value (%s) is at the limit of provided values (%s, %s) and "
-            "thus is likely not a global minimum, expand the range of values test to "
-            "ensure the best parameter value value is found.",
+            "thus is likely not a global minimum, expand the range of values tested to "
+            "ensure the best parameter value is found.",
             dampings[best],
             np.nanmin(dampings_without_none),
             np.nanmax(dampings_without_none),
         )
 
-    return hm.EquivalentSources(damping=dampings[best]).fit(
+    # refit with the same kwargs used during scoring so the returned model matches
+    # the model which was cross-validated
+    return hm.EquivalentSources(damping=dampings[best], **kwargs).fit(
         coordinates, data, weights=weights
     )
 

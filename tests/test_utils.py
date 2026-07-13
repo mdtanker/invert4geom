@@ -473,3 +473,28 @@ def test_region_mask_full_region_all_ones():
     grid = asymmetric_grid()
     masked = utils.region_mask(grid, region=(0, 100, 0, 50))
     assert masked.to_numpy().all()
+################
+################
+# best_equivalent_source_damping
+################
+################
+
+
+def test_best_equivalent_source_damping_keeps_kwargs():
+    """
+    regression test: the returned equivalent sources must be fitted with the same
+    kwargs (e.g. depth) that were used during cross-validation scoring
+    """
+    rng = np.random.default_rng(seed=0)
+    easting = rng.uniform(0, 10000, 30)
+    northing = rng.uniform(0, 10000, 30)
+    upward = np.full_like(easting, 1000)
+    data = 1e-7 * (easting**2 + northing**2)
+
+    eqs = utils.best_equivalent_source_damping(
+        coordinates=(easting, northing, upward),
+        data=data,
+        dampings=[None],
+        depth=5000,
+    )
+    assert eqs.depth == 5000
