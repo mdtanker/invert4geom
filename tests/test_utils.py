@@ -1,3 +1,5 @@
+import typing
+
 import harmonica as hm
 import numpy as np
 import numpy.testing as npt
@@ -473,6 +475,138 @@ def test_region_mask_full_region_all_ones():
     grid = asymmetric_grid()
     masked = utils.region_mask(grid, region=(0, 100, 0, 50))
     assert masked.to_numpy().all()
+
+
+################
+################
+# get_epsg
+################
+################
+
+
+def test_get_epsg_no_env_var_coast_false():
+    """without the env vars, should fall back to 3857 without warning"""
+    with utils._environ(POLARTOOLKIT_EPSG=None, POLARTOOLKIT_HEMISPHERE=None):
+        epsg, coast = utils.get_epsg(coast=False)
+    assert epsg == "3857"
+    assert coast is False
+
+
+def test_get_epsg_no_env_var_coast_true_warns():
+    """without the env vars, requesting coastlines should warn and disable them"""
+    with (
+        utils._environ(POLARTOOLKIT_EPSG=None, POLARTOOLKIT_HEMISPHERE=None),
+        pytest.warns(UserWarning, match="POLARTOOLKIT_EPSG"),
+    ):
+        epsg, coast = utils.get_epsg(coast=True)
+    assert epsg == "3857"
+    assert coast is False
+
+
+def test_get_epsg_with_env_var():
+    """with the env var set, should return its EPSG code and keep coast enabled"""
+    with utils._environ(POLARTOOLKIT_EPSG="3031"):
+        epsg, coast = utils.get_epsg(coast=True)
+    assert str(epsg) == "3031"
+    assert coast is True
+
+
+################
+################
+# normalized_mindist input validation
+################
+################
+
+
+def normalized_mindist_inputs() -> tuple[pd.DataFrame, xr.DataArray]:
+    points = pd.DataFrame({"easting": [0, 2], "northing": [0, -1]})
+    df = pd.DataFrame(
+        {
+            "easting": [-4, 4, 0, 4, -4],
+            "northing": [-4, 4, 0, -4, 4],
+            "z": [0, 1, 2, 3, 4],
+        }
+    )
+    da = df.set_index(["northing", "easting"]).to_xarray().z
+    return points, da
+
+
+def test_normalized_mindist_only_low_raises():
+    """providing `low` without `high` should raise a clear error"""
+    points, da = normalized_mindist_inputs()
+    with pytest.raises(ValueError, match="both `low` and `high`"):
+        utils.normalized_mindist(points=points, grid=da, low=0.2)
+
+
+def test_normalized_mindist_only_high_raises():
+    """providing `high` without `low` should raise a clear error"""
+    points, da = normalized_mindist_inputs()
+    with pytest.raises(ValueError, match="both `low` and `high`"):
+        utils.normalized_mindist(points=points, grid=da, high=5)
+
+
+################
+################
+# _block_reduce_points
+################
+################
+
+
+def block_reduce_inputs() -> tuple[typing.Any, typing.Any, typing.Any]:
+    rng = np.random.default_rng(seed=0)
+    coords = (rng.uniform(0, 1000, 40), rng.uniform(0, 1000, 40))
+    data = coords[0] + coords[1]
+    weights = np.ones_like(data)
+    return coords, data, weights
+
+
+def test_block_reduce_points_weighted_mean_reduces_weights():
+    """a weighted mean reduction should return weights matching the reduced data"""
+    coords, data, weights = block_reduce_inputs()
+    (
+        reduced_coords,
+        reduced_data,
+        reduced_weights,
+    ) = utils._block_reduce_points(
+        coords,
+        data,
+        weights,
+        block_size=500,
+        block_reduction="mean",
+        region=(0, 1000, 0, 1000),
+    )
+    assert len(reduced_data) < len(data)
+    assert len(reduced_weights) == len(reduced_data) == len(reduced_coords[0])
+
+
+def test_block_reduce_points_median_drops_weights():
+    """a median reduction can't use weights, so they should be dropped"""
+    coords, data, weights = block_reduce_inputs()
+    _, reduced_data, reduced_weights = utils._block_reduce_points(
+        coords,
+        data,
+        weights,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+    )
+    assert len(reduced_data) < len(data)
+    assert reduced_weights is None
+
+
+def test_block_reduce_points_invalid_reduction_raises():
+    coords, data, weights = block_reduce_inputs()
+    with pytest.raises(ValueError, match="block_reduction must be"):
+        utils._block_reduce_points(
+            coords,
+            data,
+            weights,
+            block_size=500,
+            block_reduction="mode",
+            region=(0, 1000, 0, 1000),
+        )
+
+
 ################
 ################
 # best_equivalent_source_damping
@@ -498,3 +632,64 @@ def test_best_equivalent_source_damping_keeps_kwargs():
         depth=5000,
     )
     assert eqs.depth == 5000
+
+
+################
+################
+# gravity_decay_buffer
+################
+################
+
+
+def test_gravity_decay_buffer_returns_valid_outputs():
+    max_decay, buffer_width, buffer_cells, grav_ds = utils.gravity_decay_buffer(
+        buffer_perc=10,
+        spacing=1000,
+        inner_region=(0, 10000, 0, 10000),
+        top=0,
+        zref=-1000,
+        obs_height=1000,
+        density=2670,
+        plot=False,
+    )
+    assert buffer_width % 1000 == 0
+    assert buffer_cells == buffer_width / 1000
+    assert max_decay > 0
+    assert "forward" in grav_ds
+    assert "forward_no_edge_effects" in grav_ds
+
+
+def test_gravity_decay_buffer_as_density_contrast_no_decay():
+    """
+    discretizing the topography as a density contrast should result in no
+    edge effects, and therefore no decay
+    """
+    max_decay, _, _, _ = utils.gravity_decay_buffer(
+        buffer_perc=10,
+        spacing=1000,
+        inner_region=(0, 10000, 0, 10000),
+        top=0,
+        zref=-1000,
+        obs_height=1000,
+        density=2670,
+        as_density_contrast=True,
+        checkerboard=True,
+        amplitude=100,
+        wavelength=5000,
+        plot=False,
+    )
+    assert max_decay == pytest.approx(0, abs=1e-10)
+
+
+def test_gravity_decay_buffer_flat_topo_equal_top_and_zref_raises():
+    with pytest.raises(ValueError, match="top and zref must be different"):
+        utils.gravity_decay_buffer(
+            buffer_perc=10,
+            spacing=1000,
+            inner_region=(0, 10000, 0, 10000),
+            top=0,
+            zref=0,
+            obs_height=1000,
+            density=2670,
+            plot=False,
+        )
