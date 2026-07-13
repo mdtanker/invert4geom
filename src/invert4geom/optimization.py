@@ -2315,8 +2315,9 @@ def optimize_regional_eq_sources(
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     if depth == "default":
         # calculate 4.5 times the mean distance between points
+        grav_df = grav_ds.inv.df
         depth = 4.5 * np.mean(
-            vd.median_distance((grav_ds.easting, grav_ds.northing), k_nearest=1)
+            vd.median_distance((grav_df.easting, grav_df.northing), k_nearest=1)
         )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
     block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))
