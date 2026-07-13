@@ -478,52 +478,25 @@ def grid_inversion_results(
     corrections_grids : list[xarray.DataArray]
         list of correction grids
     """
-    coord_names = prisms_ds.coord_names
+    coord_names = tuple(prisms_ds.coord_names)
+
+    if coord_names not in (("easting", "northing"), ("longitude", "latitude")):
+        msg = "prism dataset must have either 'easting' and 'northing' or 'longitude' and 'latitude' as coordinate names"
+        raise ValueError(msg)
 
     misfit_grids = []
     for m in misfits:
         grid = grav_results.set_index([coord_names[1], coord_names[0]]).to_xarray()[m]
         misfit_grids.append(grid)
 
-    topo_grids = []
-    for t in topos:
-        if coord_names == ["easting", "northing"]:
-            topo_grids.append(
-                prisms_ds[t].sel(
-                    easting=slice(region[0], region[1]),
-                    northing=slice(region[2], region[3]),
-                )
-            )
-        elif coord_names == ["longitude", "latitude"]:
-            topo_grids.append(
-                prisms_ds[t].sel(
-                    longitude=slice(region[0], region[1]),
-                    latitude=slice(region[2], region[3]),
-                )
-            )
-        else:
-            msg = "prism dataset must have either 'easting' and 'northing' or 'longitude' and 'latitude' as coordinate names"
-            raise ValueError(msg)
+    # subset the region with dim names matching the coordinate names
+    region_indexers = {
+        coord_names[0]: slice(region[0], region[1]),
+        coord_names[1]: slice(region[2], region[3]),
+    }
 
-    corrections_grids = []
-    for m in corrections:
-        if coord_names == ["easting", "northing"]:
-            corrections_grids.append(
-                prisms_ds[m].sel(
-                    easting=slice(region[0], region[1]),
-                    northing=slice(region[2], region[3]),
-                )
-            )
-        elif coord_names == ["longitude", "latitude"]:
-            corrections_grids.append(
-                prisms_ds[m].sel(
-                    longitude=slice(region[0], region[1]),
-                    latitude=slice(region[2], region[3]),
-                )
-            )
-        else:
-            msg = "prism dataset must have either 'easting' and 'northing' or 'longitude' and 'latitude' as coordinate names"
-            raise ValueError(msg)
+    topo_grids = [prisms_ds[t].sel(region_indexers) for t in topos]
+    corrections_grids = [prisms_ds[m].sel(region_indexers) for m in corrections]
 
     return (misfit_grids, topo_grids, corrections_grids)
 
