@@ -357,7 +357,7 @@ def _create_regional_separation_study(
     separate_metrics: bool,
     sampler: optuna.samplers.BaseSampler,
     true_regional: xr.DataArray | None = None,
-    parallel: bool = True,
+    parallel: bool = False,
     fname: str | None = None,
 ) -> tuple[optuna.study.Study, optuna.storages.BaseStorage | None]:
     """
@@ -1940,6 +1940,7 @@ def optimize_regional_filter(
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        parallel=parallel,
         fname=results_fname,
     )
 
@@ -2102,6 +2103,7 @@ def optimize_regional_trend(
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        parallel=parallel,
         fname=results_fname,
     )
 
@@ -2282,6 +2284,7 @@ def optimize_regional_eq_sources(
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        parallel=parallel,
         fname=results_fname,
     )
 
