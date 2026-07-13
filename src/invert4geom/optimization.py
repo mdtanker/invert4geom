@@ -1532,7 +1532,7 @@ class OptimizeRegionalFilter:
                 )
             )
 
-        return _report_regional_scores(
+        return _report_regional_scores(  # type: ignore[return-value]
             trial,
             residual_constraint_score,
             residual_amplitude_score,
