@@ -261,7 +261,7 @@ def _optuna_set_cores(
                 objective,
                 n_trials=trials_per_job,
             )
-            for i in range(n_trials)
+            for _ in range(n_jobs)
         )
     except FileNotFoundError:
         logger.exception("FileNotFoundError occurred in parallel optimization")
