@@ -39,6 +39,33 @@ warnings.simplefilter(
 )
 
 
+def _default_sampler(
+    seed: int,
+    n_startup_trials: int = 0,
+) -> optuna.samplers.BaseSampler:
+    """
+    the default sampler for the remaining (non-startup) Optuna trials: a GPSampler if
+    torch is installed, otherwise falls back to a TPESampler. GPSampler only imports
+    torch lazily, so check for it explicitly here instead of relying on GPSampler to
+    raise an ImportError.
+    """
+    try:
+        import torch  # noqa: F401 PLC0415 # pylint: disable=import-outside-toplevel,unused-import
+    except ImportError:
+        logger.warning(
+            "torch is not installed, falling back to TPESampler instead of the "
+            "preferred GPSampler; install the 'gpsampler' extra "
+            "(pip install invert4geom[gpsampler]) for better sample efficiency",
+        )
+        return optuna.samplers.TPESampler(seed=seed)
+
+    return optuna.samplers.GPSampler(
+        n_startup_trials=n_startup_trials,
+        seed=seed,
+        deterministic_objective=True,
+    )
+
+
 def available_cpu_count() -> typing.Any:
     """
     Number of available virtual or physical CPUs on this system, i.e.
@@ -1334,11 +1361,7 @@ def optimize_eq_source_params(
     # continue with remaining trials with user-defined sampler
     # if sampler not provided, used GPsampler as default
     if sampler is None:
-        sampler = optuna.samplers.GPSampler(
-            n_startup_trials=0,
-            seed=seed,
-            deterministic_objective=True,
-        )
+        sampler = _default_sampler(seed)
     study.sampler = sampler
     with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
         study = run_optuna(
@@ -2685,11 +2708,7 @@ def optimal_buffer(
             )
         else:
             with warnings.catch_warnings():
-                sampler = optuna.samplers.GPSampler(
-                    n_startup_trials=int(n_trials / 4),
-                    seed=seed,
-                    deterministic_objective=True,
-                )
+                sampler = _default_sampler(seed, n_startup_trials=int(n_trials / 4))
     # pylint: disable=duplicate-code
     # set file name for saving results with random number between 0 and 999
     if fname is None:

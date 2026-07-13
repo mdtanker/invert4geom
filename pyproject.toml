@@ -55,7 +55,6 @@ dependencies = [
 # optimization
 ###
   "optuna>=4.0", # need updated Journal Storage API
-  "torch", # needed for GPSampler of Optuna, 'torch' is PyPI name for pytorch
   "joblib",
   "psutil",
 ###
@@ -67,6 +66,11 @@ dependencies = [
   "seaborn",
   "ipython>=8.13.0",
   "plotly",
+]
+
+[project.optional-dependencies]
+gpsampler = [
+  "torch", # needed for GPSampler of Optuna, 'torch' is PyPI name for pytorch
 ]
 
 [dependency-groups]
@@ -225,7 +229,10 @@ channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"] # "osx-64" has issues with pytorch
 
 [tool.pixi.pypi-dependencies]
-invert4geom = { path = ".", editable = true }
+# include the optional 'gpsampler' extra so pixi environments keep testing/using GPSampler
+invert4geom = { path = ".", editable = true, extras = ["gpsampler"] }
+# torch isn't listed in [project.optional-dependencies] with an index since it needs a
+# non-default index here
 torch = {index = "https://download.pytorch.org/whl/cu124" }
 
 [tool.pixi.target.osx.pypi-dependencies]

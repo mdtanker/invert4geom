@@ -2211,11 +2211,7 @@ def _run_optuna_with_startup(
     if n_startup_trials == 0:
         # no startup trials, all trials use `sampler`
         if sampler is None:
-            sampler = optuna.samplers.GPSampler(
-                n_startup_trials=0,
-                seed=seed,
-                deterministic_objective=True,
-            )
+            sampler = optimization._default_sampler(seed)
         study = optuna.create_study(
             direction="minimize",
             sampler=sampler,
@@ -2267,11 +2263,7 @@ def _run_optuna_with_startup(
 
     # continue with remaining trials using `sampler`
     if sampler is None:
-        sampler = optuna.samplers.GPSampler(
-            n_startup_trials=0,
-            seed=seed,
-            deterministic_objective=True,
-        )
+        sampler = optimization._default_sampler(seed)
     study.sampler = sampler
     with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
         return optimization.run_optuna(
