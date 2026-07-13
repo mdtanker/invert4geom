@@ -643,7 +643,9 @@ class OptimalInversionDamping:
 
         trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
-        _new_inversion_obj = self.inversion_obj.gravity_score(
+        # gravity_score runs the inversion on a copy and saves the score on the
+        # original object, so the returned copy is not needed here
+        self.inversion_obj.gravity_score(
             rmse_as_median=self.rmse_as_median,
             plot=self.plot_grids,
             results_fname=trial.user_attrs.get("fname"),
