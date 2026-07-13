@@ -257,7 +257,6 @@ def _model_properties(
                         layer.density.to_numpy()[y, x],
                     ]
                 )
-        layer_properties = np.array(layer_properties)
     elif method == "forloops":
         layer_properties = []
         for y in range(layer[coord_names[1]].size):
@@ -276,7 +275,6 @@ def _model_properties(
                             layer.density.to_numpy()[y, x],
                         ]
                     )
-        np.asarray(layer_properties)
     elif method == "generator":
         # slower, but doesn't allocate memory
         if layer.model_type == "prisms":
@@ -297,7 +295,9 @@ def _model_properties(
         msg = "method must be one of 'itertools', 'forloops', or 'generator'"
         raise ValueError(msg)
 
-    return layer_properties
+    # all methods build a list of lists, convert to a 2D array so callers can use
+    # numpy indexing (e.g. properties[:, 4])
+    return np.asarray(layer_properties)
 
 
 def jacobian_prism(
