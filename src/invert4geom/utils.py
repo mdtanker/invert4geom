@@ -110,7 +110,6 @@ def get_epsg(coast: bool) -> tuple[str, bool]:
                 stacklevel=2,
             )
             logger.warning(msg)
-            epsg = "3857"
             coast = False
         epsg = "3857"
     return epsg, coast
