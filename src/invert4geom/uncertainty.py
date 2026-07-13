@@ -263,8 +263,10 @@ def starting_topography_uncertainty(
         rand = np.random.default_rng(seed=i)
 
         if sample_constraints:
+            # always sample from the original constraint values, not the previously
+            # sampled values, to avoid a random walk of accumulating noise
             sampled_constraints["upward"] = rand.normal(
-                sampled_constraints.upward, sampled_constraints.uncert
+                constraints_df.upward, constraints_df.uncert
             )
 
         if sampled_param_dict is not None:
@@ -629,6 +631,9 @@ def regional_misfit_uncertainty(
     if isinstance(grav_ds, pd.DataFrame):
         msg = "DataFrame representation of gravity data is deprecated, use a dataset created through function `create_data`"
         raise DeprecationWarning(msg)
+    if grav_ds is None:
+        msg = "grav_ds must be provided"
+        raise ValueError(msg)
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -640,27 +645,28 @@ def regional_misfit_uncertainty(
     else:
         sampled_param_dict = None
 
+    original_gravity = grav_ds.gravity_anomaly.copy()
+
+    # only constraint-based regional separation methods accept constraints
+    if constraints_df is not None:
+        new_kwargs["constraints_df"] = constraints_df
+
     regional_grids = []
     for i in tqdm(range(runs), desc="starting regional ensemble"):
         # create random generator
         rand = np.random.default_rng(seed=i)
         if sample_gravity is True:
-            sampled_grav = grav_ds.copy()
-            gobs_sampled = rand.normal(
-                sampled_grav.gravity_anomaly, sampled_grav.uncert
-            )
-            sampled_grav["gravity_anomaly"] = gobs_sampled
-            grav_ds = sampled_grav.copy()
+            # always sample from the original gravity values, not the previously
+            # sampled values, to avoid a random walk of accumulating noise
+            sampled_values = rand.normal(original_gravity, grav_ds.uncert)
+            grav_ds["gravity_anomaly"] = original_gravity.copy(data=sampled_values)
 
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
                 new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
-            grav_ds.inv.regional_separation(
-                constraints_df=constraints_df,
-                **new_kwargs,
-            )
+            grav_ds.inv.regional_separation(**new_kwargs)
 
         regional_grids.append(grav_ds.reg)
 
@@ -1001,8 +1007,10 @@ def full_workflow_uncertainty_loop(
             assert test_grav_value == original_grav_df.gravity_anomaly.iloc[0], (
                 "original gravity values have been altered by sampling!"
             )
+            # always sample from the original gravity values, not the previously
+            # sampled values in inv.data, to avoid a random walk of accumulating noise
             sampled_grav["gravity_anomaly"] = rand.normal(
-                inv.data.inv.df.gravity_anomaly, inv.data.inv.df.uncert
+                original_grav_df.gravity_anomaly, original_grav_df.uncert
             )
             # low-pass filter the sampled gravity data
             if gravity_filter_width is not None:
