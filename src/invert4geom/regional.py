@@ -12,6 +12,34 @@ import xarray as xr
 from invert4geom import cross_validation, logger, optimization, utils
 
 
+def _initialize_separation(grav_ds: xr.Dataset, function_name: str) -> None:
+    """
+    Validate the gravity dataset and (re)calculate the gravity misfit as the
+    difference between the observed and forward gravity.
+    """
+    if not isinstance(grav_ds, xr.Dataset):
+        msg = (
+            f"Function `{function_name}` has been changed, data must be provided as "
+            "an xarray dataset initialized through function `create_data`"
+        )
+        raise DeprecationWarning(msg)
+
+    logger.debug("starting %s", function_name)
+
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
+
+    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
+
+
+def _check_projected_units(grav_ds: xr.Dataset, function_name: str) -> None:
+    """raise an error for methods which only support projected coordinates"""
+    if grav_ds.model_type == "tesseroids":
+        msg = (
+            f"function `{function_name}` only supports gravity data with projected "
+            "units, not geographic units (i.e. lat/lon)"
+        )
+        raise NotImplementedError(msg)
+
 def regional_constant(
     grav_ds: xr.Dataset,
     constant: float | None = None,
@@ -44,14 +72,7 @@ def regional_constant(
         False
     """
 
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_constant` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    logger.debug("starting regional_constant")
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
+    _initialize_separation(grav_ds, "regional_constant")
 
     if (constraints_df is None) and (constant is None):
         msg = "need to provide either `constraints_df` or `constant`"
@@ -128,15 +149,7 @@ def regional_filter(
         if True, reverse the regional and residual fields after calculation, by default
         False
     """
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_filter` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    logger.debug("starting regional_filter")
-
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
+    _initialize_separation(grav_ds, "regional_filter")
 
     # remove the mean from the data
     data_mean = grav_ds.misfit.mean()
@@ -191,17 +204,9 @@ def regional_trend(
         if True, reverse the regional and residual fields after calculation, by default
         False
     """
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_trend` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    logger.debug("starting regional_trend")
-
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
+    _initialize_separation(grav_ds, "regional_trend")
 
     coord_names = grav_ds.coord_names
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
     vdtrend = vd.Trend(degree=trend).fit(
         (grav_ds.inv.df[coord_names[0]], grav_ds.inv.df[coord_names[1]]),
@@ -274,21 +279,10 @@ def regional_eq_sources(
         if True, reverse the regional and residual fields after calculation, by default
         False
     """
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_eq_sources` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    if grav_ds.model_type == "tesseroids":
-        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
-        raise NotImplementedError(msg)
+    _initialize_separation(grav_ds, "regional_eq_sources")
+    _check_projected_units(grav_ds, "regional_eq_sources")
 
     coord_names = ("easting", "northing")
-
-    logger.debug("starting regional_eq_sources")
-
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
     grav_df = grav_ds.inv.df
 
@@ -429,15 +423,8 @@ def regional_constraints(
         False
     """
 
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_constraints` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    if grav_ds.model_type == "tesseroids":
-        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
-        raise NotImplementedError(msg)
-
-    logger.debug("starting regional_constraints")
+    _initialize_separation(grav_ds, "regional_constraints")
+    _check_projected_units(grav_ds, "regional_constraints")
 
     if constraints_df is None:
         msg = "need to provide constraints_df"
@@ -470,11 +457,7 @@ def regional_constraints(
             msg = "`cv_kwargs` only used if `grid_method` is 'eq_sources'"
             logger.warning(msg)
 
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
-
     constraints_df = constraints_df.copy()
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
     coord_names = grav_ds.coord_names
 
@@ -729,9 +712,7 @@ def regional_constraints_cv(
     """
     logger.debug("starting regional_constraints_cv")
 
-    if grav_ds.model_type == "tesseroids":
-        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
-        raise NotImplementedError(msg)
+    _check_projected_units(grav_ds, "regional_constraints_cv")
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df,
