@@ -1505,7 +1505,9 @@ def plot_latin_hypercube(
     problem = {
         "num_vars": dim,
         "names": [i.replace("_", " ") for i in df.columns],
-        "bounds": [[-1, 1]] * dim,
+        "bounds": [
+            [param_values[:, i].min(), param_values[:, i].max()] for i in range(dim)
+        ],
     }
 
     # Rescale to the unit hypercube for the analysis
