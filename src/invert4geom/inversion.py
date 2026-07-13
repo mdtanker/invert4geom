@@ -3701,23 +3701,25 @@ class Inversion:
         # log the results of the best trial
         optimization.log_optuna_results(study.best_trial)
 
-        # combine testing and training to get a full constraints dataframe
-        reg_constraints = regional_grav_kwargs.pop("constraints_df", None)  # type: ignore[union-attr]
-
-        if isinstance(constraints_df, pd.DataFrame):
-            constraints_df = (
-                pd.concat([constraints_df, reg_constraints])
-                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
-                .sort_index()
-            )
-        else:
-            constraints_df = (
-                pd.concat(constraints_df + reg_constraints)
-                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
-                .sort_index()
-            )
-        # add to regional grav kwargs
+        # if the regional separation uses constraints (training points), combine them
+        # with the testing points to get a full constraints dataframe to use for the
+        # final regional separation and starting topography
+        reg_constraints = (
+            None
+            if regional_grav_kwargs is None
+            else regional_grav_kwargs.pop("constraints_df", None)
+        )
         if reg_constraints is not None:
+            if isinstance(constraints_df, pd.DataFrame):
+                frames = [constraints_df, reg_constraints]
+            else:
+                # k-folds: both are lists of dataframes, one per fold
+                frames = list(constraints_df) + list(reg_constraints)
+            constraints_df = (
+                pd.concat(frames)
+                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
+                .sort_index()
+            )
             regional_grav_kwargs["constraints_df"] = constraints_df  # type: ignore[index]
             if starting_topography_kwargs is not None:
                 starting_topography_kwargs["constraints_df"] = constraints_df
