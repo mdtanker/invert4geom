@@ -2393,6 +2393,8 @@ class Inversion:
         self.elapsed_time = None
         self.termination_reason = None
         self.params = None
+        self.used_zref: float | None = None
+        self.used_density_contrast: float | None = None
         self.results_fname = None
         self.gravity_best_score = None
         self.constraints_best_score = None
@@ -2949,6 +2951,14 @@ class Inversion:
                 self.plot_convergence()
             except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
+
+        # save the actual values used, since the strings in `params` are for display
+        self.used_zref = self.model.zref
+        self.used_density_contrast = (
+            None
+            if isinstance(self.model.density_contrast, xr.DataArray)
+            else self.model.density_contrast
+        )
 
         self.params = {  # type: ignore[assignment]
             # first column
@@ -3756,6 +3766,16 @@ class Inversion:
                     "weighting_grid": inv_copy.weighting_grid,
                 },
                 progressbar=False,
+            )
+
+        # check the final inversion used the optimal parameter values
+        assert inv_copy.used_zref is not None
+        assert math.isclose(inv_copy.used_zref, inv_copy.model.zref, rel_tol=0.02)
+        if inv_copy.used_density_contrast is not None:
+            assert math.isclose(
+                inv_copy.used_density_contrast,
+                inv_copy.model.density_contrast,
+                rel_tol=0.02,
             )
 
         _save_study_and_results(
@@ -4624,11 +4644,11 @@ def run_inversion_workflow(
             )
         )
 
-        used_zref = float(inv.params["Reference level"][:-2])  # type: ignore[index]
-        used_density_contrast = float(inv.params["Density contrast(s)"][1:-7])  # type: ignore[index]
-        assert math.isclose(
-            used_density_contrast, inv.model.density_contrast, rel_tol=0.02
-        )
-        assert math.isclose(used_zref, inv.model.zref, rel_tol=0.02)
+        assert inv.used_zref is not None
+        assert math.isclose(inv.used_zref, inv.model.zref, rel_tol=0.02)
+        if inv.used_density_contrast is not None:
+            assert math.isclose(
+                inv.used_density_contrast, inv.model.density_contrast, rel_tol=0.02
+            )
 
     return inv
