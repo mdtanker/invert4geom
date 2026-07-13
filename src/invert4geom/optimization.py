@@ -314,6 +314,18 @@ def log_optuna_results(
     logger.info("\tscores: %s", trial.values)
 
 
+def _get_best_trial(study: optuna.study.Study) -> optuna.trial.FrozenTrial:
+    """
+    Get the best trial from a single- or multi-objective study. For multi-objective
+    studies, returns the Pareto-front trial with the lowest first objective value.
+    """
+    if study._is_multi_objective() is False:  # pylint: disable=protected-access
+        return study.best_trial
+
+    best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
+    logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    return best_trial
+
 def _create_regional_separation_study(
     optimize_on_true_regional_misfit: bool,
     separate_metrics: bool,
@@ -1939,13 +1951,7 @@ def optimize_regional_filter(
         parallel=parallel,
     )
 
-    if study._is_multi_objective() is False:  # pylint: disable=protected-access
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
-
-        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    best_trial = _get_best_trial(study)
 
     # warn if any best parameter values are at their limits
     warn_parameter_at_limits(best_trial)
@@ -2108,13 +2114,7 @@ def optimize_regional_trend(
         progressbar=progressbar,
     )
 
-    if study._is_multi_objective() is False:  # pylint: disable=protected-access
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
-
-        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    best_trial = _get_best_trial(study)
 
     # warn if any best parameter values are at their limits
     warn_parameter_at_limits(best_trial)
@@ -2298,13 +2298,7 @@ def optimize_regional_eq_sources(
         progressbar=progressbar,
     )
 
-    if study._is_multi_objective() is False:  # pylint: disable=protected-access
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
-
-        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    best_trial = _get_best_trial(study)
 
     # warn if any best parameter values are at their limits
     warn_parameter_at_limits(best_trial)
@@ -2609,13 +2603,7 @@ def optimize_regional_constraint_point_minimization(
         progressbar=progressbar,
     )
 
-    if study._is_multi_objective() is False:  # pylint: disable=protected-access
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
-
-        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    best_trial = _get_best_trial(study)
 
     # warn if any best parameter values are at their limits
     warn_parameter_at_limits(best_trial)
