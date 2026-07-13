@@ -599,6 +599,8 @@ def eq_sources_score(
 def regional_separation_score(
     grav_ds: xr.Dataset,
     testing_df: pd.DataFrame,
+    method: str,
+    true_regional: xr.DataArray | None = None,
     score_as_median: bool = False,
     **kwargs: typing.Any,
 ) -> tuple[float, float, float | None, xr.Dataset]:
@@ -614,9 +616,15 @@ def regional_separation_score(
     testing_df : pandas.DataFrame
         dataframe containing a priori measurements of the topography of interest with
         columns "upward", "easting", and "northing"
+    method : str
+        regional separation method to use, passed to
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`.
+    true_regional : xarray.DataArray | None, optional
+        the true regional field, if known, used to calculate an additional score, by
+        default None
     score_as_median : bool, optional
         switch from using the root mean square to the root median square for the score,
-        by default is False., by default False
+        by default False
     **kwargs: typing.Any,
         additional keyword arguments for the specified method.
 
@@ -630,13 +638,10 @@ def regional_separation_score(
         the RMSE between the true regional field and the estimated field, if provided,
         otherwise None
     ds_anomalies : xarray.Dataset
-        the dataframe of the regional and residual gravity anomalies
+        the dataset of the regional and residual gravity anomalies
     """
 
-    # pull out kwargs
     kwargs = copy.deepcopy(kwargs)
-    method = kwargs.pop("method")
-    true_regional = kwargs.pop("true_regional", None)
 
     if method == "constraints_cv":
         msg = (
