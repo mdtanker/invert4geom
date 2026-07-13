@@ -4441,6 +4441,15 @@ def run_inversion_workflow(
         fname = f"tmp_{random.randint(0, 999)}"
 
     logger.info("saving all results with root name '%s'", fname)
+
+    # zref and density_contrast are needed to build the starting model, even when
+    # they are being optimized
+    if zref is None or density_contrast is None:
+        msg = (
+            "`zref` and `density_contrast` must both be provided; they are used to "
+            "build the starting model, even when optimizing for them"
+        )
+        raise ValueError(msg)
     ###
     ###
     # figure out what needs to be done
@@ -4524,15 +4533,7 @@ def run_inversion_workflow(
             raise ValueError(msg)
 
     # Starting Topography
-    if create_starting_topography is False:
-        if (starting_topography is None) & (run_zref_or_density_optimization is False):
-            msg = (
-                "starting_topography must be provided since create_starting_topography "
-                "is False."
-            )
-            raise ValueError(msg)
-        logger.debug("not creating starting topo because it is provided")
-    elif create_starting_topography is True:
+    if create_starting_topography is True:
         if starting_topography is not None:
             msg = (
                 "starting_topography provided but unused since "
@@ -4557,7 +4558,7 @@ def run_inversion_workflow(
 
     # starting prism model
     model = create_model(
-        zref=zref,  # type: ignore[arg-type]
+        zref=zref,
         density_contrast=density_contrast,
         topography=starting_topography,
         buffer_width=buffer_width,
