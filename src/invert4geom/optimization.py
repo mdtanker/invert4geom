@@ -2096,8 +2096,6 @@ def optimize_regional_trend(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
-    optuna.logging.set_verbosity(optuna.logging.WARN)
-
     # if sampler not provided, use GridSampler as default
     if sampler is None:
         sampler = optuna.samplers.GridSampler(
@@ -2121,7 +2119,7 @@ def optimize_regional_trend(
     study = run_optuna(
         study=study,
         storage=storage,
-        objective=OptimizeRegionalTrend(  # type: ignore[arg-type]
+        objective=OptimizeRegionalTrend(
             trend_limits=trend_limits,
             testing_df=testing_df,
             grav_ds=grav_ds,
@@ -2254,8 +2252,6 @@ def optimize_regional_eq_sources(
     if isinstance(grav_ds, xr.Dataset) is False:
         msg = "Function `optimize_regional_eq_sources` has been changed, data must be provided to parameter `grav_ds` as an xarray dataset initialized through function `create_data`"
         raise DeprecationWarning(msg)
-
-    optuna.logging.set_verbosity(optuna.logging.WARN)
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
