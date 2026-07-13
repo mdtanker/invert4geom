@@ -1150,26 +1150,25 @@ def plot_optimization_combined_slice(
 
     figs = []
     names = []
-    for i, j in enumerate(study.metric_names):
-        f = optuna.visualization.plot_slice(
-            study,
-            params=parameter_name,
-            target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-            target_name=j,
-        )
-        if i == 0:
-            figs.append(f)
-            names.append(j)
+    first_metric = study.metric_names[0]
+    f = optuna.visualization.plot_slice(
+        study,
+        params=parameter_name,
+        target=lambda t: t.values[0],  # noqa: PD011
+        target_name=first_metric,
+    )
+    figs.append(f)
+    names.append(first_metric)
 
-    for i in attribute_names:  # type: ignore[assignment]
+    for attribute in attribute_names:
         f = optuna.visualization.plot_slice(
             study,
             params=parameter_name,
-            target=lambda t: t.user_attrs[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
-            target_name=i,
+            target=lambda t, attribute=attribute: t.user_attrs[attribute],
+            target_name=attribute,
         )
         figs.append(f)
-        names.append(i)
+        names.append(attribute)
 
     yaxes = {}
     for i, j in enumerate(names, start=1):
