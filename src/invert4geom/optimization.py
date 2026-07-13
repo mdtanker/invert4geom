@@ -282,6 +282,8 @@ def warn_parameter_at_limits(
     """
     for k, v in trial.params.items():
         dist = trial.distributions.get(k)
+        if dist is None or not hasattr(dist, "high"):
+            continue
         lims = (dist.high, dist.low)
         if v in lims:
             logger.warning(
