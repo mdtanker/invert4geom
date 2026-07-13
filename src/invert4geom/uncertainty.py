@@ -1337,10 +1337,9 @@ def merged_stats(
     merged = merge_simulation_results([ds.topography for ds in prism_dss])
     # get final gravity residual RMS of each model
     if weight_by == "residual":
-        # get the RMS of the final gravity residual of each model
-        weight_vals = [
-            utils.rmse(ds[list(ds.inv.df.columns)[-1]]) for ds in grav_datasets
-        ]
+        # get the RMS of the final gravity residual of each model; "res" is updated
+        # after every inversion iteration so holds the final residual
+        weight_vals = [utils.rmse(ds.res) for ds in grav_datasets]
         # convert residuals into weights
         weights = [1 / (x**2) for x in weight_vals]
     # get constraint point RMSE of each model
