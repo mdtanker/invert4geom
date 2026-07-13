@@ -547,7 +547,7 @@ def eq_sources_score(
         msg = "coordinates contain NaN"
         raise ValueError(msg)
     if np.isnan(data).any():
-        msg = "data contains is NaN"
+        msg = "data contains NaN"
         raise ValueError(msg)
 
     eqs = hm.EquivalentSources(
@@ -559,8 +559,7 @@ def eq_sources_score(
             "ignore", category=sklearn.exceptions.UndefinedMetricWarning
         )
         score = np.nan
-        n_splits = 5
-        while np.isnan(score):
+        for n_splits in range(5, 1, -1):
             try:
                 score = np.mean(
                     vd.cross_val_score(
@@ -579,16 +578,13 @@ def eq_sources_score(
                 )
             except ValueError:
                 score = np.nan
-            if (n_splits == 5) and (np.isnan(score)):
-                msg = (
-                    "eq sources score is NaN, reducing n_splits (5) by 1 until "
-                    "scoring metric is defined"
-                )
-                logger.warning(msg)
-
-            n_splits -= 1
-            if n_splits == 0:
+            if not np.isnan(score):
                 break
+            msg = (
+                "eq sources score is NaN with %s splits, reducing n_splits by 1 "
+                "until scoring metric is defined"
+            )
+            logger.warning(msg, n_splits)
 
     if np.isnan(score):
         msg = (
