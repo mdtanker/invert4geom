@@ -112,31 +112,34 @@ def add_test_points(
     df2["test"] = df2.test.astype(bool)
 
     # sample any other columns in original df at new locations
+    failed_casts = set()
     for i in list(ds):
         if i == "test" or ds[i].dtype == object:
-            pass
-        else:
-            if not bool(ds[i].coords):
-                msg = ("Issue with dataset variable '%s'.", i)  # type: ignore[assignment]
-                raise ValueError(msg)
-            try:
-                df2[i] = utils.sample_grids(
-                    df=df2,
-                    grid=ds[i],
-                    sampled_name=i,
-                    coord_names=coord_names,
-                )[i].astype(ds[i].dtype)
-            except pd.errors.IntCastingNaNError as e:
-                logger.error(e)
-                df2[i] = utils.sample_grids(
-                    df=df2,
-                    grid=ds[i],
-                    sampled_name=i,
-                    coord_names=coord_names,
-                )[i].astype(ds[i].dtype)
+            continue
+        if not bool(ds[i].coords):
+            msg = f"Issue with dataset variable '{i}'."
+            raise ValueError(msg)
+        sampled = utils.sample_grids(
+            df=df2,
+            grid=ds[i],
+            sampled_name=i,
+            coord_names=coord_names,
+        )[i]
+        try:
+            df2[i] = sampled.astype(ds[i].dtype)
+        except pd.errors.IntCastingNaNError as e:
+            # sampled values contain NaNs which can't be cast to an integer dtype,
+            # keep the sampled (float) dtype instead
+            logger.error(e)
+            df2[i] = sampled
+            failed_casts.add(i)
 
     # retain original data types
-    dtypes = {k: v for k, v in ds.inv.df.dtypes.items() if k in ds.inv.df}
+    dtypes = {
+        k: v
+        for k, v in ds.inv.df.dtypes.items()
+        if k in df2.columns and k not in failed_casts
+    }
     df2 = df2.astype(dtypes)
 
     # test with this, using same input spacing as original
