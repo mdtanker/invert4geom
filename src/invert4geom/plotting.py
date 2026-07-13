@@ -1623,10 +1623,11 @@ def plot_edge_effects(
             ["blue", "darkorange"],
         )
 
+        northing_mid = (inner_region[2] + inner_region[3]) / 2
         fig, _, _ = ptk.plot_profile(
             "points",
-            start=(inner_region[0], (inner_region[3] - inner_region[2]) / 2),
-            stop=(inner_region[1], (inner_region[3] - inner_region[2]) / 2),
+            start=(inner_region[0], northing_mid),
+            stop=(inner_region[1], northing_mid),
             layers_dict=layers_dict,
             data_dict=data_dict,
             fill_layers=False,
