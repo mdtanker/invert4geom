@@ -2126,6 +2126,165 @@ def create_model(
     return model
 
 
+def _setup_journal_storage(
+    fname: str,
+    parallel: bool,
+) -> typing.Any:
+    """create a journal file storage for running optuna in parallel"""
+    if not parallel:
+        return None
+    pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
+    pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
+    pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
+    return optuna.storages.JournalStorage(
+        optuna.storages.journal.JournalFileBackend(f"{fname}.log"),
+    )
+
+
+def _save_study_and_results(
+    fname: str,
+    study: optuna.study.Study,
+    results: typing.Any,
+    n_trials: int,
+) -> None:
+    """
+    save the study to <fname>_study.pickle and the results to <fname>.pickle, and
+    delete the per-trial results files
+    """
+    pathlib.Path(f"{fname}_study.pickle").unlink(missing_ok=True)
+    pathlib.Path(f"{fname}.pickle").unlink(missing_ok=True)
+
+    with pathlib.Path(f"{fname}_study.pickle").open("wb") as f:
+        pickle.dump(study, f)
+
+    with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+        pickle.dump(results, f)
+
+    for i in range(n_trials):
+        pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
+
+
+def _run_optuna_with_startup(
+    objective: typing.Any,
+    study_name: str,
+    storage: typing.Any,
+    n_trials: int,
+    seed: int,
+    parallel: bool,
+    progressbar: bool,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    grid_space: dict[str, typing.Any] | None = None,
+    n_startup_trials: int | None = None,
+    min_startup_trials: int = 4,
+    enqueue: list[dict[str, float]] | None = None,
+) -> optuna.study.Study:
+    """
+    Create and run an Optuna study, used by the inversion optimization methods.
+
+    If ``grid_space`` is provided, all trials are sampled from a GridSampler over that
+    space and ``sampler``, ``n_startup_trials`` and ``enqueue`` are ignored. Otherwise,
+    the study starts with ``n_startup_trials`` quasi-random (Halton QMC) trials, with
+    the parameter sets in ``enqueue`` (typically the parameter limits) explicitly added
+    as the first trials, and then continues with ``sampler`` (a GPSampler by default)
+    for the remaining trials.
+    """
+    if grid_space is not None:
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=optuna.samplers.GridSampler(search_space=grid_space, seed=seed),
+            load_if_exists=False,
+            study_name=study_name,
+            storage=storage,
+            pruner=optimization.DuplicateIterationPruner,
+        )
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
+            return optimization.run_optuna(
+                study=study,
+                storage=storage,
+                objective=objective,
+                n_trials=n_trials,
+                maximize_cpus=True,
+                parallel=parallel,
+                progressbar=progressbar,
+            )
+
+    if n_startup_trials == 0:
+        # no startup trials, all trials use `sampler`
+        if sampler is None:
+            sampler = optuna.samplers.GPSampler(
+                n_startup_trials=0,
+                seed=seed,
+                deterministic_objective=True,
+            )
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=sampler,
+            load_if_exists=False,
+            study_name=study_name,
+            storage=storage,
+            pruner=optimization.DuplicateIterationPruner,
+        )
+    else:
+        # number of startup trials defaults to the larger of `min_startup_trials` and
+        # 1/4 of the total trials, but no more than the total number of trials
+        if n_startup_trials is None:
+            n_startup_trials = max(min_startup_trials, int(n_trials / 4))
+            n_startup_trials = min(n_startup_trials, n_trials)
+        logger.info("using %s startup trials", n_startup_trials)
+        if n_startup_trials >= n_trials:
+            logger.warning(
+                "n_startup_trials is >= n_trials resulting in all trials sampled from "
+                "a QMC sampler instead of the GP sampler",
+            )
+
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=optuna.samplers.QMCSampler(
+                seed=seed,
+                qmc_type="halton",
+                scramble=True,
+            ),
+            load_if_exists=False,
+            study_name=study_name,
+            storage=storage,
+            pruner=optimization.DuplicateIterationPruner,
+        )
+
+        # explicitly add the parameter limits as trials
+        for params in enqueue or []:
+            study.enqueue_trial(params, skip_if_exists=True)
+
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
+            study = optimization.run_optuna(
+                study=study,
+                storage=storage,
+                objective=objective,
+                n_trials=n_startup_trials,
+                maximize_cpus=True,
+                parallel=parallel,
+                progressbar=progressbar,
+            )
+
+    # continue with remaining trials using `sampler`
+    if sampler is None:
+        sampler = optuna.samplers.GPSampler(
+            n_startup_trials=0,
+            seed=seed,
+            deterministic_objective=True,
+        )
+    study.sampler = sampler
+    with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
+        return optimization.run_optuna(
+            study=study,
+            storage=storage,
+            objective=objective,
+            n_trials=n_trials - (n_startup_trials or 0),
+            maximize_cpus=True,
+            parallel=parallel,
+            progressbar=progressbar,
+        )
+
+
 class Inversion:
     """
     A class which holds the gravity dataset, the model dataset, inversion stopping
@@ -3166,17 +3325,7 @@ class Inversion:
         else:
             inv_copy.results_fname = fname  # type: ignore[assignment]
 
-        if parallel:
-            pathlib.Path(f"{inv_copy.results_fname}.log").unlink(missing_ok=True)
-            pathlib.Path(f"{inv_copy.results_fname}.lock").unlink(missing_ok=True)
-            pathlib.Path(f"{inv_copy.results_fname}.log.lock").unlink(missing_ok=True)
-            storage = optuna.storages.JournalStorage(
-                optuna.storages.journal.JournalFileBackend(
-                    f"{inv_copy.results_fname}.log"
-                ),
-            )
-        else:
-            storage = None
+        storage = _setup_journal_storage(inv_copy.results_fname, parallel)  # type: ignore[arg-type]
 
         # define the objective function
         objective = optimization.OptimalInversionDamping(
@@ -3194,115 +3343,33 @@ class Inversion:
                 )
                 logger.warning(msg)
                 n_trials = 4
-            space = np.logspace(
-                np.log10(damping_limits[0]), np.log10(damping_limits[1]), n_trials
-            )
-            sampler = optuna.samplers.GridSampler(
-                search_space={"damping": space},
-                seed=seed,
-            )
-
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-                study_name=inv_copy.results_fname,
-                storage=storage,
-                pruner=optimization.DuplicateIterationPruner,
-            )
-
-            # run optimization
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
-                    storage=storage,
-                    objective=objective,
-                    n_trials=n_trials,
-                    # callbacks=[_warn_limits_better_than_trial_1_param],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
+            grid_space = {
+                "damping": np.logspace(
+                    np.log10(damping_limits[0]), np.log10(damping_limits[1]), n_trials
                 )
+            }
+            enqueue = None
         else:
-            if n_startup_trials == 0:
-                # if sampler not provided, use GPsampler as default
-                if sampler is None:
-                    sampler = optuna.samplers.GPSampler(
-                        n_startup_trials=0,
-                        seed=seed,
-                        deterministic_objective=True,
-                    )
+            grid_space = None
+            enqueue = [
+                {"damping": damping_limits[0]},
+                {"damping": damping_limits[1]},
+            ]
 
-                # create study
-                study = optuna.create_study(
-                    direction="minimize",
-                    sampler=sampler,
-                    load_if_exists=False,
-                    study_name=inv_copy.results_fname,
-                    storage=storage,
-                    pruner=optimization.DuplicateIterationPruner,
-                )
-            else:
-                # define number of startup trials, whichever is bigger; 1/4 of trials or 4
-                if n_startup_trials is None:
-                    n_startup_trials = max(4, int(n_trials / 4))
-                    n_startup_trials = min(n_startup_trials, n_trials)
-                logger.info("using %s startup trials", n_startup_trials)
-                if n_startup_trials >= n_trials:
-                    logger.warning(
-                        "n_startup_trials is >= n_trials resulting in all trials sampled from "
-                        "a QMC sampler instead of the GP sampler",
-                    )
-
-                # create study
-                study = optuna.create_study(
-                    direction="minimize",
-                    sampler=optuna.samplers.QMCSampler(
-                        seed=seed,
-                        qmc_type="halton",
-                        scramble=True,
-                    ),
-                    load_if_exists=False,
-                    study_name=inv_copy.results_fname,
-                    storage=storage,
-                    pruner=optimization.DuplicateIterationPruner,
-                )
-
-                # explicitly add the limits as trials
-                study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
-                study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
-
-                with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                    study = optimization.run_optuna(
-                        study=study,
-                        storage=storage,
-                        objective=objective,
-                        n_trials=n_startup_trials,
-                        # callbacks=[_warn_limits_better_than_trial_1_param],
-                        maximize_cpus=True,
-                        parallel=parallel,
-                        progressbar=progressbar,
-                    )
-            # continue with remaining trials with user-defined sampler
-            # if sampler not provided, used GPsampler as default
-            if sampler is None:
-                sampler = optuna.samplers.GPSampler(
-                    n_startup_trials=0,
-                    seed=seed,
-                    deterministic_objective=True,
-                )
-            study.sampler = sampler
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
-                    storage=storage,
-                    objective=objective,
-                    n_trials=n_trials - n_startup_trials,
-                    # callbacks=[_warn_limits_better_than_trial_1_param],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
-                )
+        study = _run_optuna_with_startup(
+            objective=objective,
+            study_name=inv_copy.results_fname,  # type: ignore[arg-type]
+            storage=storage,
+            n_trials=n_trials,
+            seed=seed,
+            parallel=parallel,
+            progressbar=progressbar,
+            sampler=sampler,
+            grid_space=grid_space,
+            n_startup_trials=n_startup_trials,
+            min_startup_trials=4,
+            enqueue=enqueue,
+        )
         inv_copy.best_trial = study.best_trial
 
         # warn if any best parameter values are at their limits
@@ -3317,23 +3384,12 @@ class Inversion:
         ).open("rb") as f:
             inv_results = pickle.load(f)
 
-        # remove if exists
-        pathlib.Path(f"{inv_copy.results_fname}_study.pickle").unlink(missing_ok=True)
-        pathlib.Path(f"{inv_copy.results_fname}.pickle").unlink(missing_ok=True)
-
-        # save study to pickle
-        with pathlib.Path(f"{inv_copy.results_fname}_study.pickle").open("wb") as f:
-            pickle.dump(study, f)
-
-        # save inversion results tuple to pickle
-        with pathlib.Path(f"{inv_copy.results_fname}.pickle").open("wb") as f:
-            pickle.dump(inv_results, f)
-
-        # delete all inversion results
-        for i in range(n_trials):
-            pathlib.Path(f"{inv_copy.results_fname}_trial_{i}.pickle").unlink(
-                missing_ok=True
-            )
+        _save_study_and_results(
+            inv_copy.results_fname,  # type: ignore[arg-type]
+            study,
+            inv_results,
+            n_trials,
+        )
 
         inv_copy.damping_cv_study_fname = f"{inv_copy.results_fname}_study.pickle"  # type: ignore[assignment]
         inv_copy.damping_cv_results_fname = f"{inv_copy.results_fname}.pickle"  # type: ignore[assignment]
@@ -3515,21 +3571,8 @@ class Inversion:
             inv_copy.results_fname = fname  # type: ignore[assignment]
 
         if "test" in inv_copy.data.inv.df.columns:
-            assert inv_copy.data.inv.df.test.any(), (
-                "test column contains True value, not needed except for during damping CV"
-            )
+        storage = _setup_journal_storage(inv_copy.results_fname, parallel)  # type: ignore[arg-type]
 
-        if parallel:
-            pathlib.Path(f"{inv_copy.results_fname}.log").unlink(missing_ok=True)
-            pathlib.Path(f"{inv_copy.results_fname}.lock").unlink(missing_ok=True)
-            pathlib.Path(f"{inv_copy.results_fname}.log.lock").unlink(missing_ok=True)
-            storage = optuna.storages.JournalStorage(
-                optuna.storages.journal.JournalFileBackend(
-                    f"{inv_copy.results_fname}.log"
-                ),
-            )
-        else:
-            storage = None
         # get number of parameters included in optimization
         num_params = sum(x is not None for x in [zref_limits, density_contrast_limits])
 
@@ -3557,22 +3600,18 @@ class Inversion:
                     n_trials = 4
 
                 if zref_limits is None:
-                    space = np.linspace(
-                        int(density_contrast_limits[0]),  # type: ignore[index]
-                        int(density_contrast_limits[1]),  # type: ignore[index]
-                        n_trials,
-                        dtype=int,
-                    )
-                    sampler = optuna.samplers.GridSampler(
-                        search_space={"density_contrast": space},
-                        seed=seed,
-                    )
-                if density_contrast_limits is None:
-                    space = np.linspace(zref_limits[0], zref_limits[1], n_trials)  # type: ignore[index]
-                    sampler = optuna.samplers.GridSampler(
-                        search_space={"zref": space},
-                        seed=seed,
-                    )
+                    grid_space = {
+                        "density_contrast": np.linspace(
+                            int(density_contrast_limits[0]),  # type: ignore[index]
+                            int(density_contrast_limits[1]),  # type: ignore[index]
+                            n_trials,
+                            dtype=int,
+                        )
+                    }
+                else:
+                    grid_space = {
+                        "zref": np.linspace(zref_limits[0], zref_limits[1], n_trials)
+                    }
             else:
                 if n_trials < 16:
                     msg = (
@@ -3591,165 +3630,52 @@ class Inversion:
                     msg = (
                         "if grid_search is True with provided limits for both zref and "
                         "density contrast, n_trials (%s) must have an integer square "
-                        "root. Resetting n_trials to to next largest compatible value "
+                        "root. Resetting n_trials to next largest compatible value "
                         "now (%s)"
                     )
                     logger.warning(msg, old_n_trials, n_trials)
 
-                zref_space = np.linspace(
-                    zref_limits[0],  # type: ignore[index]
-                    zref_limits[1],  # type: ignore[index]
-                    int(np.sqrt(n_trials)),
-                )
-
-                density_contrast_space = np.linspace(
-                    int(density_contrast_limits[0]),  # type: ignore[index]
-                    int(density_contrast_limits[1]),  # type: ignore[index]
-                    int(np.sqrt(n_trials)),
-                    dtype=int,
-                )
-
-                sampler = optuna.samplers.GridSampler(
-                    search_space={
-                        "zref": zref_space,
-                        "density_contrast": density_contrast_space,
-                    },
-                    seed=seed,
-                )
-
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-                study_name=inv_copy.results_fname,
-                storage=storage,
-                pruner=optimization.DuplicateIterationPruner,
-            )
-
-            # run optimization
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
-                    storage=storage,
-                    objective=objective,
-                    n_trials=n_trials,
-                    # callbacks=[_warn_limits_better_than_trial_multi_params],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
-                )
-
-        else:
-            if n_startup_trials == 0:
-                # if sampler not provided, use GPsampler as default
-                if sampler is None:
-                    sampler = optuna.samplers.GPSampler(
-                        n_startup_trials=0,
-                        seed=seed,
-                        deterministic_objective=True,
-                    )
-
-                # create study
-                study = optuna.create_study(
-                    direction="minimize",
-                    sampler=sampler,
-                    load_if_exists=False,
-                    study_name=inv_copy.results_fname,
-                    storage=storage,
-                    pruner=optimization.DuplicateIterationPruner,
-                )
-            else:
-                # define number of startup trials, whichever is bigger between 1/4 of trials, or
-                # 4 x the number of parameters
-                if n_startup_trials is None:
-                    n_startup_trials = max(num_params * 4, int(n_trials / 4))
-                    n_startup_trials = min(n_startup_trials, n_trials)
-                logger.info("using %s startup trials", n_startup_trials)
-                if n_startup_trials >= n_trials:
-                    logger.warning(
-                        "n_startup_trials is >= n_trials resulting in all trials sampled from "
-                        "a QMC sampler instead of the GP sampler",
-                    )
-
-                # if sampler not provided, use GPsampler as default
-                if sampler is None:
-                    sampler = optuna.samplers.GPSampler(
-                        n_startup_trials=0,
-                        seed=seed,
-                        deterministic_objective=True,
-                    )
-
-                # create study
-                study = optuna.create_study(
-                    direction="minimize",
-                    sampler=optuna.samplers.QMCSampler(
-                        seed=seed,
-                        qmc_type="halton",
-                        scramble=True,
+                grid_space = {
+                    "zref": np.linspace(
+                        zref_limits[0],  # type: ignore[index]
+                        zref_limits[1],  # type: ignore[index]
+                        int(np.sqrt(n_trials)),
                     ),
-                    load_if_exists=False,
-                    study_name=inv_copy.results_fname,
-                    storage=storage,
-                    pruner=optimization.DuplicateIterationPruner,
-                )
+                    "density_contrast": np.linspace(
+                        int(density_contrast_limits[0]),  # type: ignore[index]
+                        int(density_contrast_limits[1]),  # type: ignore[index]
+                        int(np.sqrt(n_trials)),
+                        dtype=int,
+                    ),
+                }
+            enqueue = None
+        else:
+            grid_space = None
+            # explicitly add the limits as the first two trials
+            lower_limits = {}
+            upper_limits = {}
+            if zref_limits is not None:
+                lower_limits["zref"] = zref_limits[0]
+                upper_limits["zref"] = zref_limits[1]
+            if density_contrast_limits is not None:
+                lower_limits["density_contrast"] = density_contrast_limits[0]
+                upper_limits["density_contrast"] = density_contrast_limits[1]
+            enqueue = [lower_limits, upper_limits]
 
-                # explicitly add the limits as trials
-                to_enqueue = []
-
-                if zref_limits is not None:
-                    zref_trials = [
-                        {"zref": zref_limits[0]},
-                        {"zref": zref_limits[1]},
-                    ]
-                    to_enqueue.append(zref_trials)
-                if density_contrast_limits is not None:
-                    density_contrast_trials = [
-                        {"density_contrast": density_contrast_limits[0]},
-                        {"density_contrast": density_contrast_limits[1]},
-                    ]
-                    to_enqueue.append(density_contrast_trials)
-
-                # get 2 lists of lists of dicts to enqueue (2 trials)
-                to_enqueue = np.array(to_enqueue).transpose()
-
-                for i in to_enqueue:
-                    # turn list of dicts into single dict
-                    x = {k: v for d in i for k, v in d.items()}
-                    study.enqueue_trial(x, skip_if_exists=True)
-
-                # run optimization
-                with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                    study = optimization.run_optuna(
-                        study=study,
-                        storage=storage,
-                        objective=objective,
-                        n_trials=n_startup_trials,
-                        # callbacks=[_warn_limits_better_than_trial_multi_params],
-                        maximize_cpus=True,
-                        parallel=parallel,
-                        progressbar=progressbar,
-                    )
-
-            # continue with remaining trials with user-defined sampler
-            # if sampler not provided, used GPsampler as default
-            if sampler is None:
-                sampler = optuna.samplers.GPSampler(
-                    n_startup_trials=0,
-                    seed=seed,
-                    deterministic_objective=True,
-                )
-            study.sampler = sampler
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
-                    storage=storage,
-                    objective=objective,
-                    n_trials=n_trials - n_startup_trials,
-                    # callbacks=[_warn_limits_better_than_trial_multi_params],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
-                )
+        study = _run_optuna_with_startup(
+            objective=objective,
+            study_name=inv_copy.results_fname,  # type: ignore[arg-type]
+            storage=storage,
+            n_trials=n_trials,
+            seed=seed,
+            parallel=parallel,
+            progressbar=progressbar,
+            sampler=sampler,
+            grid_space=grid_space,
+            n_startup_trials=n_startup_trials,
+            min_startup_trials=num_params * 4,
+            enqueue=enqueue,
+        )
 
         # warn if any best parameter values are at their limits
         optimization.warn_parameter_at_limits(study.best_trial)
@@ -3832,31 +3758,12 @@ class Inversion:
                 progressbar=False,
             )
 
-        used_zref = float(inv_copy.params["Reference level"][:-2])  # type: ignore[index]
-        used_density_contrast = float(inv_copy.params["Density contrast(s)"][1:-7])  # type: ignore[index]
-
-        assert math.isclose(
-            used_density_contrast, inv_copy.model.density_contrast, rel_tol=0.02
+        _save_study_and_results(
+            inv_copy.results_fname,  # type: ignore[arg-type]
+            study,
+            inv_copy,
+            n_trials,
         )
-        assert math.isclose(used_zref, inv_copy.model.zref, rel_tol=0.02)
-
-        # remove if exists
-        pathlib.Path(f"{inv_copy.results_fname}_study.pickle").unlink(missing_ok=True)
-        pathlib.Path(f"{inv_copy.results_fname}.pickle").unlink(missing_ok=True)
-
-        # save study to pickle
-        with pathlib.Path(f"{inv_copy.results_fname}_study.pickle").open("wb") as f:
-            pickle.dump(study, f)
-
-        # save inversion results tuple to pickle
-        with pathlib.Path(f"{inv_copy.results_fname}.pickle").open("wb") as f:
-            pickle.dump(inv_copy, f)
-
-        # delete all inversion results
-        for i in range(n_trials):
-            pathlib.Path(f"{inv_copy.results_fname}_trial_{i}.pickle").unlink(
-                missing_ok=True
-            )
 
         inv_copy.zref_density_optimization_study_fname = (
             f"{inv_copy.results_fname}_study.pickle"  # type: ignore[assignment]
