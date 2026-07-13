@@ -1409,14 +1409,10 @@ def optimize_eq_source_params(
     )
     eqs.fit(coordinates, data, weights=kwargs.pop("weights", None))
 
-    # save study
-    if study_fname is not None:
-        # remove if exists
-        pathlib.Path(f"{study_fname}.pickle").unlink(missing_ok=True)
-
-        # save study to pickle
-        with pathlib.Path(f"{study_fname}.pickle").open("wb") as f:
-            pickle.dump(study, f)
+    # save study, remove first if it exists
+    pathlib.Path(f"{study_fname}.pickle").unlink(missing_ok=True)
+    with pathlib.Path(f"{study_fname}.pickle").open("wb") as f:
+        pickle.dump(study, f)
 
     if plot is True:
         try:
