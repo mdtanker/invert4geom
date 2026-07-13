@@ -351,7 +351,7 @@ def split_test_train(
             msg = "n_splits must be greater than 1"
             raise ValueError(msg)
 
-        if spacing or shape is None:
+        if (spacing is None) and (shape is None):
             kfold = sklearn.model_selection.KFold(
                 n_splits=n_splits,
                 shuffle=True,
@@ -365,13 +365,6 @@ def split_test_train(
                 shuffle=True,
                 random_state=random_state,
             )
-            # kfold = vd.BlockShuffleSplit(
-            #     spacing=spacing,
-            #     shape=shape,
-            #     n_splits=n_splits,
-            #     test_size=test_size,
-            #     random_state = random_state,
-            # )
     else:
         msg = "invalid string for `method`"
         raise ValueError(msg)
@@ -379,16 +372,14 @@ def split_test_train(
     coords = (df[coord_names[0]], df[coord_names[1]])
     feature_matrix = np.transpose(coords)
     coord_shape = coords[0].shape
-    mask = np.full(shape=coord_shape, fill_value="     ")
 
-    for iteration, (train, test) in enumerate(kfold.split(feature_matrix)):
-        mask[np.unravel_index(train, coord_shape)] = "train"
-        mask[np.unravel_index(test, coord_shape)] = "_test"
-        df = pd.concat(
-            [df, pd.DataFrame({f"fold_{iteration}": mask}, index=df.index)], axis=1
-        )
+    fold_cols = {}
+    for iteration, (_train, test) in enumerate(kfold.split(feature_matrix)):
+        mask = np.full(shape=coord_shape, fill_value="train", dtype=object)
+        mask[np.unravel_index(test, coord_shape)] = "test"
+        fold_cols[f"fold_{iteration}"] = mask
 
-    df = df.replace("_test", "test")
+    df = pd.concat([df, pd.DataFrame(fold_cols, index=df.index)], axis=1)
     if plot is True:
         try:
             folds = list(df.columns[df.columns.str.startswith("fold_")])
