@@ -2758,8 +2758,8 @@ def optimal_buffer(
     )
 
     # explicitly add the limits as trials
-    study.enqueue_trial({"damping": buffer_perc_limits[0]}, skip_if_exists=True)
-    study.enqueue_trial({"damping": buffer_perc_limits[1]}, skip_if_exists=True)
+    study.enqueue_trial({"buffer_perc": buffer_perc_limits[0]}, skip_if_exists=True)
+    study.enqueue_trial({"buffer_perc": buffer_perc_limits[1]}, skip_if_exists=True)
 
     # run optimization
     with warnings.catch_warnings():
