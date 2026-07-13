@@ -444,6 +444,9 @@ def equivalent_sources_uncertainty(
     else:
         sampled_param_dict = None
 
+    # weights are passed to fit and score, not the EquivalentSources constructor
+    data_weights = new_kwargs.pop("weights", None)
+
     grav_grids = []
     scores = []
     for i in tqdm(range(runs), desc="starting equivalent sources ensemble"):
@@ -456,12 +459,10 @@ def equivalent_sources_uncertainty(
             eqs = hm.EquivalentSources(
                 **new_kwargs,
             )
-            eqs.fit(coords, data, weights=new_kwargs.get("weights", None))
+            eqs.fit(coords, data, weights=data_weights)
 
         if weight_by == "score":
-            scores.append(
-                eqs.score(coords, data, weights=new_kwargs.get("weights", None))
-            )
+            scores.append(eqs.score(coords, data, weights=data_weights))
 
         # predict sources onto grid
         grid_points["predicted_grav"] = eqs.predict(
@@ -481,9 +482,10 @@ def equivalent_sources_uncertainty(
 
     # get constraint point RMSE of each model
     if weight_by == "score":
-        # convert residuals into weights
-        weights = [1 / (x**2) for x in scores]
-        # weights = scores
+        # scores are R² values where higher is better, so use them directly as
+        # weights (1/x² would incorrectly give the best-fitting models the
+        # lowest weights)
+        weights = scores
     elif weight_by == "rmse":
         weight_vals = []
         for g in grav_grids:
