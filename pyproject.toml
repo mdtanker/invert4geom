@@ -44,6 +44,7 @@ dependencies = [
   "tqdm",
   "pygmt",
   "harmonica>=0.7", # need default depth arg for equivalent sources
+  "choclo>=0.3", # used directly for jacobian kernels
   "deprecation",
   "pykdtree",
   "xrft",
@@ -331,6 +332,7 @@ rioxarray = ">=0.22.0,<0.23"
 tqdm = ">=4.67.3,<5"
 pygmt = ">=0.18.0,<0.19"
 harmonica = ">=0.7"
+choclo = ">=0.3"
 deprecation = ">=2.1.0,<3"
 pykdtree = ">=1.4.3,<2"
 xrft = ">=1.0.2,<2"

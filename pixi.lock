@@ -22487,6 +22487,7 @@ packages:
   requires_dist:
   - bordado
   - boule
+  - choclo>=0.3
   - dask
   - deprecation
   - harmonica>=0.7

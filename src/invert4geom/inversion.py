@@ -22,6 +22,7 @@ import scipy as sp
 import seaborn as sns
 import verde as vd
 import xarray as xr
+from choclo.prism import gravity_u
 from IPython.display import clear_output
 from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
@@ -367,18 +368,49 @@ def jacobian_density_finite_difference_prisms(
     # simplifying: f'(x) = f(p_Δx)/Δx
     # where p_Δx is a prism the same dimensions as p1 but with a small density value Δx
 
-    for i in numba.prange(len(model_properties)):  # pylint: disable=not-an-iterable
-        element = model_properties[i]
-        jac[:, i] = (
-            hm.prism_gravity(
-                coordinates=(grav_easting, grav_northing, grav_upward),
-                prisms=element[0:6],  # prism boundaries
-                density=delta,  # new density is delta,
-                field="g_z",
-                parallel=True,
+    return _fill_jacobian_density_prisms(
+        model_properties,
+        grav_easting,
+        grav_northing,
+        grav_upward,
+        delta,
+        jac,
+    )
+
+
+@numba.njit(parallel=True)
+def _fill_jacobian_density_prisms(
+    model_properties: NDArray,
+    grav_easting: NDArray,
+    grav_northing: NDArray,
+    grav_upward: NDArray,
+    delta: float,
+    jac: NDArray,
+) -> NDArray:
+    """
+    fill the density jacobian using choclo's prism kernel, with each entry the
+    gravity effect (in mGal) of the prism with a density of delta, divided by delta
+    """
+    for j in numba.prange(len(grav_easting)):  # pylint: disable=not-an-iterable
+        for i in range(len(model_properties)):
+            element = model_properties[i]
+            # gravity_u returns m/s^2, convert to mGal
+            jac[j, i] = (
+                gravity_u(
+                    grav_easting[j],
+                    grav_northing[j],
+                    grav_upward[j],
+                    element[0],
+                    element[1],
+                    element[2],
+                    element[3],
+                    element[4],
+                    element[5],
+                    delta,  # new density is delta
+                )
+                * -1e5  # upward (m/s^2) to downward g_z (mGal), as harmonica does
+                / delta
             )
-            / delta
-        )
     return jac
 
 
@@ -488,24 +520,50 @@ def jacobian_geometry_finite_difference_prisms(
     # where p2 is the small prism of thickness Δx
 
     # Add a small model element on top of existing model element with thickness of delta
-    for i in numba.prange(len(model_properties)):  # pylint: disable=not-an-iterable
-        element = model_properties[i]
-        density = element[6]
-        bottom = element[5]  # new prism bottom is top of old prism
-        top = element[5] + delta  # new prism top is old prism top + delta
-        delta_element = (element[0], element[1], element[2], element[3], bottom, top)
+    return _fill_jacobian_geometry_prisms(
+        model_properties,
+        grav_easting,
+        grav_northing,
+        grav_upward,
+        delta,
+        jac,
+    )
 
-        jac[:, i] = (
-            hm.prism_gravity(
-                coordinates=(grav_easting, grav_northing, grav_upward),
-                prisms=delta_element,
-                density=density,
-                field="g_z",
-                parallel=True,
+
+@numba.njit(parallel=True)
+def _fill_jacobian_geometry_prisms(
+    model_properties: NDArray,
+    grav_easting: NDArray,
+    grav_northing: NDArray,
+    grav_upward: NDArray,
+    delta: float,
+    jac: NDArray,
+) -> NDArray:
+    """
+    fill the geometry jacobian using choclo's prism kernel, with each entry the
+    gravity effect (in mGal) of a small prism of thickness delta added on top of the
+    model element, divided by delta
+    """
+    for j in numba.prange(len(grav_easting)):  # pylint: disable=not-an-iterable
+        for i in range(len(model_properties)):
+            element = model_properties[i]
+            # gravity_u returns m/s^2, convert to mGal
+            jac[j, i] = (
+                gravity_u(
+                    grav_easting[j],
+                    grav_northing[j],
+                    grav_upward[j],
+                    element[0],
+                    element[1],
+                    element[2],
+                    element[3],
+                    element[5],  # new prism bottom is top of old prism
+                    element[5] + delta,  # new prism top is old prism top + delta
+                    element[6],
+                )
+                * -1e5  # upward (m/s^2) to downward g_z (mGal), as harmonica does
+                / delta
             )
-            / delta
-        )
-
     return jac
 
 
