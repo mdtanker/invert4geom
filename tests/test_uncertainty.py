@@ -1,4 +1,3 @@
-import deepdiff
 import numpy as np
 import pandas as pd
 import pytest
@@ -22,21 +21,13 @@ def test_create_lhc():
         },
     )
 
-    expected = {
-        "param1": {
-            "distribution": "uniform",
-            "loc": 0,
-            "scale": 1,
-            "sampled_values": np.array([0.16666667, 0.83333333, 0.5]),
-        }
-    }
+    expected_values = np.array([0.16666667, 0.5, 0.83333333])
 
-    assert not deepdiff.DeepDiff(
-        lhc,
-        expected,
-        ignore_order=True,
-        ignore_numeric_type_changes=True,
-        significant_digits=6,
+    assert lhc["param1"]["distribution"] == "uniform"
+    assert lhc["param1"]["loc"] == 0
+    assert lhc["param1"]["scale"] == 1
+    np.testing.assert_allclose(
+        np.sort(lhc["param1"]["sampled_values"]), expected_values
     )
 
 

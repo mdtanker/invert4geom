@@ -74,10 +74,6 @@ gpsampler = [
 ]
 
 [dependency-groups]
-uncert = [
-  "UQpy >=4.1.7", # need fixed issue with scipy
-  "setuptools<82", # needed for it to include pkg_resources needed for uqpy
-]
 synth = [
   "xesmf",
 ]
@@ -245,7 +241,6 @@ dev = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
 synth = { features = ["synth"], solve-group = "default" }
 test = { features = ["test"], solve-group = "default" }
-uncert = { features = ["uncert"], solve-group = "default" }
 
 [tool.pixi.feature.test.dependencies]
 deepdiff = ">=8.6.2,<9"
@@ -359,6 +354,4 @@ plotly = ">=6.6.0,<7"
 matplotlib = ">=3.7.0"
 ipython = ">=8.13.0"
 xesmf = ">=0.8.7,<0.10"
-uqpy = ">=4.1.7"
-setuptools = "<82"
 ipykernel = ">=7.3.0,<8"

@@ -14,26 +14,6 @@ import xarray as xr
 from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
 
-try:
-    import UQpy
-
-    class DiscreteUniform(UQpy.distributions.DistributionDiscrete1D):  # type: ignore[misc]
-        """
-        Discrete uniform distribution.
-        """
-
-        def __init__(
-            self,
-            loc: float = 0.0,
-            scale: float = 1.0,
-        ):
-            super().__init__(
-                low=loc, high=loc + scale + 1, ordered_parameters=("low", "high")
-            )
-            self._construct_from_scipy(scipy_name=sp.stats.randint)
-except ImportError:
-    UQpy = None
-
 from invert4geom import inversion, logger, plotting, utils
 
 if typing.TYPE_CHECKING:
@@ -77,60 +57,57 @@ def create_lhc(
         random state to use for sampling, by default 1
     criterion : str, optional
         criterion to use for sampling, by default "centered", options are "centered",
-        "random", "maximin", or "mincorrelation", which each relate to a criterion from
-        the Python package UQpy.
+        "random", "maximin", or "mincorrelation". These control how the Latin
+        Hypercube's unit-interval strata are sampled via
+        :class:`scipy.stats.qmc.LatinHypercube`: "centered" takes the midpoint of each
+        stratum, "random" takes a uniformly random point within each stratum, and
+        "maximin" / "mincorrelation" both use scipy's "random-cd" optimization, which
+        iteratively improves the sample's space-filling properties.
     Returns
     -------
     dict[dict[typing.Any]]
         nested dictionary with parameter names, distribution specifics, and sampled
         values
     """
-    if UQpy is None:
-        msg = "Missing optional dependency 'UQpy' required for uncertainty analysis."
-        raise ImportError(msg)
-
     param_dict = copy.deepcopy(parameter_dict)
 
-    # create distributions for parameters
-    dists = {}
-    for k, v in param_dict.items():
-        if v["distribution"] == "uniform":
-            dists[k] = UQpy.distributions.Uniform(loc=v["loc"], scale=v["scale"])
-        elif v["distribution"] == "normal":
-            dists[k] = UQpy.distributions.Normal(loc=v["loc"], scale=v["scale"])
-        elif v["distribution"] == "uniform_discrete":
-            dists[k] = DiscreteUniform(loc=v["loc"], scale=v["scale"])
-        else:
-            msg = f"Unknown distribution type: {v['distribution']}"
-            raise ValueError(msg)
-
     if criterion == "centered":
-        criterion = (
-            UQpy.sampling.stratified_sampling.latin_hypercube_criteria.Centered()
-        )
+        scramble = False
+        optimization = None
     elif criterion == "random":
-        criterion = UQpy.sampling.stratified_sampling.latin_hypercube_criteria.Random()
-    elif criterion == "maximin":
-        criterion = UQpy.sampling.stratified_sampling.latin_hypercube_criteria.MaxiMin()
-    elif criterion == "mincorrelation":
-        criterion = (
-            UQpy.sampling.stratified_sampling.latin_hypercube_criteria.MinCorrelation()
-        )
+        scramble = True
+        optimization = None
+    elif criterion in ("maximin", "mincorrelation"):
+        scramble = True
+        optimization = "random-cd"
     else:
         msg = f"Unknown criterion type: {criterion}"
         raise ValueError(msg)
 
-    # make latin hyper cube
-    lhc = UQpy.sampling.LatinHypercubeSampling(
-        distributions=[v for k, v in dists.items()],
-        criterion=criterion,
-        random_state=np.random.RandomState(random_state),  # pylint: disable=no-member
-        nsamples=n_samples,
+    # sample the unit hypercube, 1 dimension per parameter
+    sampler = sp.stats.qmc.LatinHypercube(
+        d=len(param_dict),
+        scramble=scramble,
+        optimization=optimization,
+        seed=random_state,
     )
+    unit_samples = sampler.random(n=n_samples)
 
-    # add sampled values to parameters dict
+    # transform unit samples into each parameter's distribution via its inverse CDF
     for j, (k, v) in enumerate(param_dict.items()):
-        values = np.asarray(lhc.samples[:, j], dtype=float)
+        unit_values = unit_samples[:, j]
+        if v["distribution"] == "uniform":
+            values = sp.stats.uniform(loc=v["loc"], scale=v["scale"]).ppf(unit_values)
+        elif v["distribution"] == "normal":
+            values = sp.stats.norm(loc=v["loc"], scale=v["scale"]).ppf(unit_values)
+        elif v["distribution"] == "uniform_discrete":
+            values = sp.stats.randint(low=v["loc"], high=v["loc"] + v["scale"] + 1).ppf(
+                unit_values
+            )
+        else:
+            msg = f"Unknown distribution type: {v['distribution']}"
+            raise ValueError(msg)
+        values = np.asarray(values, dtype=float)
         if v.get("norm_limits", None) is not None:
             norm_limits = v["norm_limits"]
             values = utils.normalize(

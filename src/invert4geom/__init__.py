@@ -48,7 +48,6 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
 
         # Optional packages.
         optional = [
-            "UQpy",
             "xesmf",
             "torch",
         ]
