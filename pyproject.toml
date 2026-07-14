@@ -75,11 +75,6 @@ gpsampler = [
   "torch", # needed for GPSampler of Optuna, 'torch' is PyPI name for pytorch
 ]
 
-[dependency-groups]
-synth = [
-  "xesmf",
-]
-
 [project.urls]
 Homepage = "https://github.com/mdtanker/invert4geom"
 Documentation = "https://invert4geom.readthedocs.io/"
@@ -241,14 +236,12 @@ torch = {index = "https://download.pytorch.org/whl/cpu" }
 default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
-synth = { features = ["synth"], solve-group = "default" }
 test = { features = ["test"], solve-group = "default" }
 
 [tool.pixi.feature.test.dependencies]
 deepdiff = ">=8.6.2,<9"
 pytest = ">=9"
 pytest-cov = ">=7"
-xesmf = ">=0.8.7,<0.10"
 
 [tool.pixi.feature.dev.dependencies]
 jupyterlab = ">=4.5.6,<5"
@@ -355,5 +348,4 @@ seaborn = ">=0.13.2,<0.14"
 plotly = ">=6.6.0,<7"
 matplotlib = ">=3.7.0"
 ipython = ">=8.13.0"
-xesmf = ">=0.8.7,<0.10"
 ipykernel = ">=7.3.0,<8"

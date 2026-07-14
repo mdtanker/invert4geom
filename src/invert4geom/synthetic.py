@@ -14,11 +14,6 @@ from numpy.typing import NDArray
 
 from invert4geom import logger, utils
 
-try:
-    import xesmf
-except ImportError:
-    xesmf = None
-
 
 def load_synthetic_model(
     spacing: float = 1e3,
@@ -315,13 +310,6 @@ def contaminate_with_long_wavelength_noise(
     xarray.DataArray
         Contaminated grid
     """
-    if xesmf is None:
-        msg = (
-            "To use the `contaminate_with_long_wavelength_noise` function, you must "
-            "have the `xesmf` package installed."
-        )
-        raise ImportError(msg)
-
     grid = copy.deepcopy(grid)
 
     # get original coordinate names
@@ -343,17 +331,18 @@ def contaminate_with_long_wavelength_noise(
     else:
         new_spacing = original_spacing
 
-    low_res_grid = vd.make_xarray_grid(
+    coarse_coords = vd.make_xarray_grid(
         bd.grid_coordinates(original_region, spacing=new_spacing),
         data=None,
         data_names=None,
-    ).rename({"northing": "lat", "easting": "lon"})
+    )
 
-    low_res_grid = xesmf.Regridder(
-        grid.rename({"northing": "lat", "easting": "lon"}),
-        low_res_grid,
-        method="bilinear",
-    )(grid)
+    # bilinear interpolation onto the coarser grid
+    low_res_grid = grid.interp(
+        easting=coarse_coords.easting,
+        northing=coarse_coords.northing,
+        method="linear",
+    )
 
     low_res_grid = utils._restore_dims(  # pylint: disable=protected-access
         low_res_grid, original_dims
