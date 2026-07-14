@@ -11,13 +11,13 @@ import subprocess
 import typing
 import warnings
 
+import bordado as bd
 import harmonica as hm
 import joblib
 import numpy as np
 import optuna
 import pandas as pd
 import psutil
-import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
@@ -1137,9 +1137,10 @@ class OptimalEqSourceParams:
         # calculate 4.5 times the mean distance between points
         if depth == "default":
             depth = 4.5 * np.mean(
-                vd.median_distance(
+                bd.neighbor_distance_statistics(
                     (kwargs.get("coordinates")[0], kwargs.get("coordinates")[1]),  # type: ignore[unused-ignore, index]
-                    k_nearest=1,
+                    "median",
+                    k=1,
                 )
             )
         block_size = kwargs.pop("block_size", None)
@@ -1409,7 +1410,9 @@ def optimize_eq_source_params(
             best_depth = "default"
     if best_depth == "default":
         best_depth = 4.5 * np.mean(
-            vd.median_distance((coordinates[0], coordinates[1]), k_nearest=1)
+            bd.neighbor_distance_statistics(
+                (coordinates[0], coordinates[1]), "median", k=1
+            )
         )
     if best_block_size is None:
         try:
@@ -1795,9 +1798,10 @@ class OptimizeRegionalConstraintsPointMinimization:
                     if eq_depth == "default":
                         # calculate 4.5 times the mean distance between points
                         eq_depth = 4.5 * np.mean(
-                            vd.median_distance(
+                            bd.neighbor_distance_statistics(
                                 (self.training_df.easting, self.training_df.northing),
-                                k_nearest=1,
+                                "median",
+                                k=1,
                             )
                         )
                     new_kwargs["depth"] = eq_depth
@@ -1850,12 +1854,13 @@ class OptimizeRegionalConstraintsPointMinimization:
                         if eq_depth == "default":
                             # calculate 4.5 times the mean distance between points
                             eq_depth = 4.5 * np.mean(
-                                vd.median_distance(
+                                bd.neighbor_distance_statistics(
                                     (
                                         self.training_df[i].easting,
                                         self.training_df[i].northing,
                                     ),
-                                    k_nearest=1,
+                                    "median",
+                                    k=1,
                                 )
                             )
                         new_kwargs["depth"] = eq_depth
@@ -2337,7 +2342,9 @@ def optimize_regional_eq_sources(
         # calculate 4.5 times the mean distance between points
         grav_df = grav_ds.inv.df
         depth = 4.5 * np.mean(
-            vd.median_distance((grav_df.easting, grav_df.northing), k_nearest=1)
+            bd.neighbor_distance_statistics(
+                (grav_df.easting, grav_df.northing), "median", k=1
+            )
         )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
     block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))

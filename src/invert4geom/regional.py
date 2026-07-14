@@ -1,6 +1,7 @@
 import typing
 import warnings
 
+import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -598,9 +599,10 @@ def regional_constraints(
             depth = "default"
         if depth == "default":
             depth = 4.5 * np.mean(
-                vd.median_distance(
+                bd.neighbor_distance_statistics(
                     (coords[0], coords[1]),
-                    k_nearest=1,
+                    "median",
+                    k=1,
                 )
             )
 

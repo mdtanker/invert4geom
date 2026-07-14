@@ -1,6 +1,7 @@
 import copy
 import logging
 
+import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -81,7 +82,7 @@ def load_synthetic_model(
         the gravity data
     """
 
-    buffer_region = vd.pad_region(region, buffer) if buffer != 0 else region
+    buffer_region = bd.pad_region(region, buffer) if buffer != 0 else region
 
     true_topography = synthetic_topography_simple(spacing, region)
 
@@ -108,10 +109,10 @@ def load_synthetic_model(
         )
     # create random points within the region
     if number_of_constraints is not None:
-        coords = vd.scatter_points(
+        coords = bd.random_coordinates(
             region=region,
             size=number_of_constraints,
-            random_state=7,
+            random_seed=7,
         )
         constraint_points = pd.DataFrame(
             data={"easting": coords[0], "northing": coords[1]},
@@ -220,11 +221,11 @@ def load_synthetic_model(
         # make pandas dataframe of locations to calculate gravity
         # this represents the station locations of a gravity survey
         # create lists of coordinates
-        coords = vd.grid_coordinates(
+        coords = bd.grid_coordinates(
             region=region,
             spacing=spacing,
             pixel_register=False,
-            extra_coords=gravity_obs_height,  # survey elevation
+            non_dimensional_coords=gravity_obs_height,  # survey elevation
         )
 
         # grid the coordinates
@@ -343,7 +344,7 @@ def contaminate_with_long_wavelength_noise(
         new_spacing = original_spacing
 
     low_res_grid = vd.make_xarray_grid(
-        vd.grid_coordinates(original_region, spacing=new_spacing),
+        bd.grid_coordinates(original_region, spacing=new_spacing),
         data=None,
         data_names=None,
     ).rename({"northing": "lat", "easting": "lon"})
@@ -540,7 +541,7 @@ def synthetic_topography_simple(
         raise ValueError(msg)
 
     # create grid of coordinates
-    (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+    (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
         region=region,
         spacing=spacing,
         pixel_register=pixel_register,
@@ -691,7 +692,7 @@ def synthetic_topography_regional(
         raise ValueError(msg)
 
     # create grid of coordinates
-    (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+    (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
         region=region,
         spacing=spacing,
         pixel_register=pixel_register,

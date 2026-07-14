@@ -1,6 +1,7 @@
 import copy  # pylint: disable=too-many-lines
 import typing
 
+import bordado as bd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -937,7 +938,7 @@ def add_light(
     """
 
     # Add a ceiling light
-    west, east, south, north = vd.get_region((prisms.easting, prisms.northing))
+    west, east, south, north = bd.get_region((prisms.easting, prisms.northing))
     easting_center, northing_center = (east + west) / 2, (north + south) / 2
     light = pyvista.Light(
         position=(easting_center, northing_center, 100e3),
@@ -1040,7 +1041,7 @@ def plot_prism_layers(
     # clip corner out of model to help visualize
     if clip_box is True:
         # extract region from first prism layer
-        reg = vd.get_region(
+        reg = bd.get_region(
             (prisms[0].easting.to_numpy(), prisms[0].northing.to_numpy())
         )
 

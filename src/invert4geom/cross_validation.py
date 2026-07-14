@@ -2,6 +2,7 @@ import copy  # pylint: disable=too-many-lines
 import typing
 import warnings
 
+import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -78,7 +79,7 @@ def add_test_points(
     coord_names = ds.coord_names
 
     # create coords for full data at half spacing
-    coords = vd.grid_coordinates(
+    coords = bd.grid_coordinates(
         region=ds.region,
         spacing=ds.spacing / 2,
         pixel_register=False,
@@ -266,10 +267,10 @@ def random_split_test_train(
             df_train = random_split_df[random_split_df.test == False]  # noqa: E712 # pylint: disable=singleton-comparison
             df_test = random_split_df[random_split_df.test == True]  # noqa: E712 # pylint: disable=singleton-comparison
 
-            region = vd.get_region(
+            region = bd.get_region(
                 (random_split_df[coord_names[0]], random_split_df[coord_names[1]])
             )
-            plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
+            plot_region = bd.pad_region(region, (region[1] - region[0]) / 10)
 
             fig = ptk.basemap(
                 region=plot_region,
@@ -405,8 +406,8 @@ def split_test_train(
 
                 df_test = df[df[f"fold_{i}"] == "test"]
                 df_train = df[df[f"fold_{i}"] == "train"]
-                region = vd.get_region((df[coord_names[0]], df[coord_names[1]]))
-                plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
+                region = bd.get_region((df[coord_names[0]], df[coord_names[1]]))
+                plot_region = bd.pad_region(region, (region[1] - region[0]) / 10)
                 fig = ptk.basemap(
                     region=plot_region,
                     title=f"Fold {i} ({len(df_test)} testing points)",

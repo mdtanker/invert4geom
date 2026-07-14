@@ -9,6 +9,7 @@ import time
 import typing
 import warnings
 
+import bordado as bd
 import harmonica as hm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -1772,14 +1773,12 @@ class DatasetAccessorInvert4Geom:
 
         coord_names = self._ds.coord_names
 
-        topo_region = vd.get_region(
-            (
-                topography[coord_names[0]].to_numpy(),
-                topography[coord_names[1]].to_numpy(),
-            )
-        )
+        # bordado requires coordinate arrays of equal shape, so convert the
+        # grid to a table before extracting the region
+        topo_df = vd.grid_to_table(topography)
+        topo_region = bd.get_region((topo_df[coord_names[0]], topo_df[coord_names[1]]))
         df = self.df
-        inside = vd.inside((df[coord_names[0]], df[coord_names[1]]), region=topo_region)
+        inside = bd.inside((df[coord_names[0]], df[coord_names[1]]), region=topo_region)
 
         if not inside.all():
             msg = (
@@ -1893,7 +1892,7 @@ def create_data(
         "buffer_width must be smaller than half the smallest dimension of the region"
     )
 
-    inner_region = vd.pad_region(region, -buffer_width)
+    inner_region = bd.pad_region(region, -buffer_width)
 
     # Append some attributes to the xr.Dataset
     attrs = {
@@ -2114,7 +2113,7 @@ def create_model(
         assert buffer_width * 2 < min_region_width, (
             "buffer_width must be smaller than half the smallest dimension of the region"
         )
-        inner_region = vd.pad_region(region, -buffer_width)
+        inner_region = bd.pad_region(region, -buffer_width)
     else:
         msg = "buffer_width must be >= 0"
         raise ValueError(msg)
@@ -4159,7 +4158,7 @@ class Inversion:
         results: list[dict[str, typing.Any]] = []
         for i, window in enumerate(pbar):
             # pad the window with a buffer of gravity data, clipped to the full region
-            padded = vd.pad_region(window, window_buffer)
+            padded = bd.pad_region(window, window_buffer)
             data_region = (
                 max(padded[0], region[0]),
                 min(padded[1], region[1]),

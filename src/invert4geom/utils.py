@@ -125,8 +125,8 @@ def _check_constraints_inside_gravity_region(
 
     grav_df = grav_ds.inv.df
 
-    grav_region = vd.get_region((grav_df[coord_names[0]], grav_df[coord_names[1]]))
-    inside = vd.inside(
+    grav_region = bd.get_region((grav_df[coord_names[0]], grav_df[coord_names[1]]))
+    inside = bd.inside(
         (constraints_df[coord_names[0]], constraints_df[coord_names[1]]),
         region=grav_region,
     )
@@ -223,7 +223,7 @@ def _nearest_grid_fill(
         df = vd.grid_to_table(grid)
         df_dropped = df[df[grid.name].notna()]
         coords = (df_dropped[grid.dims[1]], df_dropped[grid.dims[0]])
-        region = vd.get_region((df[grid.dims[1]], df[grid.dims[0]]))
+        region = bd.get_region((df[grid.dims[1]], df[grid.dims[0]]))
         filled = (
             vd.KNeighbors()
             .fit(coords, df_dropped[grid.name])
@@ -614,7 +614,7 @@ def normalized_mindist(
     # set points outside of region to 0 (normalized to `low` below if provided)
     if region is not None:
         df = vd.grid_to_table(min_dist)
-        df["are_inside"] = vd.inside(
+        df["are_inside"] = bd.inside(
             (df[original_dims[1]], df[original_dims[0]]),
             region=region,
         )
@@ -864,7 +864,7 @@ def create_topography(
             raise ValueError(msg)
 
         # create grid of coordinates
-        (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+        (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
             region=region,
             spacing=spacing,
             pixel_register=pixel_register,
@@ -888,7 +888,7 @@ def create_topography(
         # if only 1 point, return a flat topography
         if len(df) == 1:
             # create grid of coordinates
-            (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+            (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
                 region=region,
                 spacing=spacing,
             )
@@ -1600,7 +1600,7 @@ def gravity_decay_buffer(
     buffer_width = round_to_input(buffer_width, spacing)
 
     # define buffer region
-    buffer_region = vd.pad_region(inner_region, buffer_width)
+    buffer_region = bd.pad_region(inner_region, buffer_width)
 
     # calculate buffer width in terms of number of cells
     buffer_cells = buffer_width / spacing
@@ -1652,10 +1652,10 @@ def gravity_decay_buffer(
         )
 
     # create set of observation points
-    data = vd.grid_coordinates(
+    data = bd.grid_coordinates(
         inner_region,
         spacing=spacing,
-        extra_coords=obs_height,
+        non_dimensional_coords=obs_height,
     )
 
     forward_df = pd.DataFrame(
