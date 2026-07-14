@@ -1,6 +1,7 @@
 import copy
 import logging
 
+import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -12,11 +13,6 @@ import xrft
 from numpy.typing import NDArray
 
 from invert4geom import logger, utils
-
-try:
-    import xesmf
-except ImportError:
-    xesmf = None
 
 
 def load_synthetic_model(
@@ -81,7 +77,7 @@ def load_synthetic_model(
         the gravity data
     """
 
-    buffer_region = vd.pad_region(region, buffer) if buffer != 0 else region
+    buffer_region = bd.pad_region(region, buffer) if buffer != 0 else region
 
     true_topography = synthetic_topography_simple(spacing, region)
 
@@ -108,10 +104,10 @@ def load_synthetic_model(
         )
     # create random points within the region
     if number_of_constraints is not None:
-        coords = vd.scatter_points(
+        coords = bd.random_coordinates(
             region=region,
             size=number_of_constraints,
-            random_state=7,
+            random_seed=7,
         )
         constraint_points = pd.DataFrame(
             data={"easting": coords[0], "northing": coords[1]},
@@ -220,11 +216,11 @@ def load_synthetic_model(
         # make pandas dataframe of locations to calculate gravity
         # this represents the station locations of a gravity survey
         # create lists of coordinates
-        coords = vd.grid_coordinates(
+        coords = bd.grid_coordinates(
             region=region,
             spacing=spacing,
             pixel_register=False,
-            extra_coords=gravity_obs_height,  # survey elevation
+            non_dimensional_coords=gravity_obs_height,  # survey elevation
         )
 
         # grid the coordinates
@@ -314,13 +310,6 @@ def contaminate_with_long_wavelength_noise(
     xarray.DataArray
         Contaminated grid
     """
-    if xesmf is None:
-        msg = (
-            "To use the `contaminate_with_long_wavelength_noise` function, you must "
-            "have the `xesmf` package installed."
-        )
-        raise ImportError(msg)
-
     grid = copy.deepcopy(grid)
 
     # get original coordinate names
@@ -342,23 +331,21 @@ def contaminate_with_long_wavelength_noise(
     else:
         new_spacing = original_spacing
 
-    low_res_grid = vd.make_xarray_grid(
-        vd.grid_coordinates(original_region, spacing=new_spacing),
+    coarse_coords = vd.make_xarray_grid(
+        bd.grid_coordinates(original_region, spacing=new_spacing),
         data=None,
         data_names=None,
-    ).rename({"northing": "lat", "easting": "lon"})
+    )
 
-    low_res_grid = xesmf.Regridder(
-        grid.rename({"northing": "lat", "easting": "lon"}),
-        low_res_grid,
-        method="bilinear",
-    )(grid)
+    # bilinear interpolation onto the coarser grid
+    low_res_grid = grid.interp(
+        easting=coarse_coords.easting,
+        northing=coarse_coords.northing,
+        method="linear",
+    )
 
-    low_res_grid = low_res_grid.rename(
-        {
-            list(low_res_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
-            list(low_res_grid.sizes.keys())[1]: original_dims[1],
-        }
+    low_res_grid = utils._restore_dims(  # pylint: disable=protected-access
+        low_res_grid, original_dims
     ).to_dataset(name=original_name)
 
     # turn to dataframe and contaminate with noise
@@ -381,20 +368,14 @@ def contaminate_with_long_wavelength_noise(
         region=original_region,
     )
 
-    new_grid = new_grid.rename(
-        {
-            list(new_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
-            list(new_grid.sizes.keys())[1]: original_dims[1],
-        }
+    new_grid = utils._restore_dims(  # pylint: disable=protected-access
+        new_grid, original_dims
     ).rename(original_name)
 
     final_grid = new_grid + grid
 
-    return final_grid.rename(
-        {
-            list(final_grid.sizes.keys())[0]: original_dims[0],  # noqa: RUF015
-            list(final_grid.sizes.keys())[1]: original_dims[1],
-        }
+    return utils._restore_dims(  # pylint: disable=protected-access
+        final_grid, original_dims
     ).rename(original_name)
 
 
@@ -499,6 +480,9 @@ def _gaussian2d(
     tmpy = 1.0 / sigma_y**2
     sintheta = np.sin(theta)
     costheta = np.cos(theta)
+    # a = tmpx * costheta**2 + tmpy * sintheta**2
+    # The below line is missing the square on the cosine term of the first
+    # quadratic-form coefficient (costheta)
     a = tmpx * costheta + tmpy * sintheta**2
     b = (tmpy - tmpx) * costheta * sintheta
     c = tmpx * sintheta**2 + tmpy * costheta**2
@@ -515,7 +499,7 @@ def synthetic_topography_simple(
     yoffset: float = 0,
     plot: bool = False,
     title: str = "Topography",
-) -> xr.Dataset:
+) -> xr.DataArray:
     """
     Create a synthetic topography dataset with a few features.
 
@@ -534,8 +518,8 @@ def synthetic_topography_simple(
 
     Returns
     -------
-    xarray.Dataset
-        synthetic topography dataset
+    xarray.DataArray
+        synthetic topography grid
     """
     if registration == "g":
         pixel_register = False
@@ -546,7 +530,7 @@ def synthetic_topography_simple(
         raise ValueError(msg)
 
     # create grid of coordinates
-    (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+    (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
         region=region,
         spacing=spacing,
         pixel_register=pixel_register,
@@ -664,7 +648,7 @@ def synthetic_topography_regional(
     registration: str = "g",
     scale: float = 1,
     yoffset: float = 0,
-) -> xr.Dataset:
+) -> xr.DataArray:
     """
     Create a synthetic topography dataset with a few features which represent the
     surface responsible for the regional component of gravity.
@@ -684,8 +668,8 @@ def synthetic_topography_regional(
 
     Returns
     -------
-    xarray.Dataset
-        synthetic topography dataset
+    xarray.DataArray
+        synthetic topography grid
     """
 
     if registration == "g":
@@ -697,7 +681,7 @@ def synthetic_topography_regional(
         raise ValueError(msg)
 
     # create grid of coordinates
-    (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+    (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
         region=region,
         spacing=spacing,
         pixel_register=pixel_register,
@@ -769,7 +753,7 @@ def contaminate(
     percent: bool = False,
     percent_as_max_abs: bool = True,
     seed: float = 0,
-) -> tuple[NDArray | list[NDArray], float | list[float]]:
+) -> tuple[xr.DataArray, float | pd.Series]:
     """
     Add pseudorandom gaussian noise to a xarray.DataArray.
     Noise added is normally distributed with zero mean and a standard deviation from
@@ -786,7 +770,7 @@ def contaminate(
         If ``True``, will consider `stddev` as a decimal percentage of the `data` and
         the standard deviation of the Gaussian noise will be calculated with this, by
         default False
-    percent_as_max_abs : bool, optional`
+    percent_as_max_abs : bool, optional
         If ``True``, and `percent` is ``True``, the `stddev` used as the standard
         deviation of the Gaussian noise will be the max absolute value of the `data`.
         If ``False``, and `percent` is ``True``, the `stddev` will be calculated on a
@@ -799,8 +783,9 @@ def contaminate(
     -------
     contam : xarray.DataArray
         contaminated data array.
-    stddev : float
-        standard deviation of the Gaussian noise added to the data.
+    stddev : float | pandas.Series
+        standard deviation of the Gaussian noise added to the data, a series of
+        per-point values if `percent` is True and `percent_as_max_abs` is False.
 
     Notes
     -----
@@ -813,7 +798,7 @@ def contaminate(
         raise DeprecationWarning(msg)
 
     # convert dataarray to dataframe
-    data_df = data.to_dataframe().reset_index()
+    data_df = vd.grid_to_table(data)
 
     # initiate a random number generator
     rng = np.random.default_rng(seed)
@@ -822,17 +807,13 @@ def contaminate(
     stddev = float(stddev)
 
     # Contaminate the data
-    # get list of standard deviations to use in Normal distribution
-    # if stdev is zero, just add the uncontaminated data
-    if stddev == 0.0:
-        pass
+    # get the standard deviation(s) to use in the Normal distribution
     if percent:
         if percent_as_max_abs:
             stddev = stddev * max(abs(data_df[data.name]))
+            logger.info("Standard deviation used for noise: %s", stddev)
         else:
             stddev = stddev * abs(data_df[data.name])
-    if percent_as_max_abs is True:
-        logger.info("Standard deviation used for noise: %s", stddev)
     # use stdevs to generate random noise
     noise = rng.normal(scale=stddev, size=len(data_df[data.name]))
     # Subtract the mean so that the noise doesn't introduce a systematic shift in

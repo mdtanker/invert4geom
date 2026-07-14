@@ -1,6 +1,7 @@
 import copy  # pylint: disable=too-many-lines
 import typing
 
+import bordado as bd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -478,52 +479,25 @@ def grid_inversion_results(
     corrections_grids : list[xarray.DataArray]
         list of correction grids
     """
-    coord_names = prisms_ds.coord_names
+    coord_names = tuple(prisms_ds.coord_names)
+
+    if coord_names not in (("easting", "northing"), ("longitude", "latitude")):
+        msg = "prism dataset must have either 'easting' and 'northing' or 'longitude' and 'latitude' as coordinate names"
+        raise ValueError(msg)
 
     misfit_grids = []
     for m in misfits:
         grid = grav_results.set_index([coord_names[1], coord_names[0]]).to_xarray()[m]
         misfit_grids.append(grid)
 
-    topo_grids = []
-    for t in topos:
-        if coord_names == ["easting", "northing"]:
-            topo_grids.append(
-                prisms_ds[t].sel(
-                    easting=slice(region[0], region[1]),
-                    northing=slice(region[2], region[3]),
-                )
-            )
-        elif coord_names == ["longitude", "latitude"]:
-            topo_grids.append(
-                prisms_ds[t].sel(
-                    longitude=slice(region[0], region[1]),
-                    latitude=slice(region[2], region[3]),
-                )
-            )
-        else:
-            msg = "prism dataset must have either 'easting' and 'northing' or 'longitude' and 'latitude' as coordinate names"
-            raise ValueError(msg)
+    # subset the region with dim names matching the coordinate names
+    region_indexers = {
+        coord_names[0]: slice(region[0], region[1]),
+        coord_names[1]: slice(region[2], region[3]),
+    }
 
-    corrections_grids = []
-    for m in corrections:
-        if coord_names == ["easting", "northing"]:
-            corrections_grids.append(
-                prisms_ds[m].sel(
-                    easting=slice(region[0], region[1]),
-                    northing=slice(region[2], region[3]),
-                )
-            )
-        elif coord_names == ["longitude", "latitude"]:
-            corrections_grids.append(
-                prisms_ds[m].sel(
-                    longitude=slice(region[0], region[1]),
-                    latitude=slice(region[2], region[3]),
-                )
-            )
-        else:
-            msg = "prism dataset must have either 'easting' and 'northing' or 'longitude' and 'latitude' as coordinate names"
-            raise ValueError(msg)
+    topo_grids = [prisms_ds[t].sel(region_indexers) for t in topos]
+    corrections_grids = [prisms_ds[m].sel(region_indexers) for m in corrections]
 
     return (misfit_grids, topo_grids, corrections_grids)
 
@@ -783,7 +757,7 @@ def plot_inversion_iteration_results(
     for column, j in enumerate(grids):
         for row, _y in enumerate(j):
             # if only 1 iteration
-            axes = ax[column] if max(iterations) == 1 else ax[row, column]
+            axes = ax[column] if len(iterations) == 1 else ax[row, column]
             # add iteration number as text
             plt.text(
                 -0.1,
@@ -867,7 +841,7 @@ def plot_inversion_iteration_results(
 
     # add text with inversion parameter info
     text1, text2, text3 = [], [], []
-    params.pop("Iteration times")
+    params.pop("Iteration times", None)
     for i, (k, v) in enumerate(params.items(), start=1):
         if i <= 5:
             text1.append(f"{k}: {v}\n")
@@ -881,7 +855,7 @@ def plot_inversion_iteration_results(
     text3 = "".join(text3)  # type: ignore[assignment]
 
     # if only 1 iteration
-    if max(iterations) == 1:
+    if len(iterations) == 1:
         plt.text(
             x=0.0,
             y=1.1,
@@ -964,7 +938,7 @@ def add_light(
     """
 
     # Add a ceiling light
-    west, east, south, north = vd.get_region((prisms.easting, prisms.northing))
+    west, east, south, north = bd.get_region((prisms.easting, prisms.northing))
     easting_center, northing_center = (east + west) / 2, (north + south) / 2
     light = pyvista.Light(
         position=(easting_center, northing_center, 100e3),
@@ -1067,7 +1041,7 @@ def plot_prism_layers(
     # clip corner out of model to help visualize
     if clip_box is True:
         # extract region from first prism layer
-        reg = vd.get_region(
+        reg = bd.get_region(
             (prisms[0].easting.to_numpy(), prisms[0].northing.to_numpy())
         )
 
@@ -1177,26 +1151,25 @@ def plot_optimization_combined_slice(
 
     figs = []
     names = []
-    for i, j in enumerate(study.metric_names):
-        f = optuna.visualization.plot_slice(
-            study,
-            params=parameter_name,
-            target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-            target_name=j,
-        )
-        if i == 0:
-            figs.append(f)
-            names.append(j)
+    first_metric = study.metric_names[0]
+    f = optuna.visualization.plot_slice(
+        study,
+        params=parameter_name,
+        target=lambda t: t.values[0],  # noqa: PD011
+        target_name=first_metric,
+    )
+    figs.append(f)
+    names.append(first_metric)
 
-    for i in attribute_names:  # type: ignore[assignment]
+    for attribute in attribute_names:
         f = optuna.visualization.plot_slice(
             study,
             params=parameter_name,
-            target=lambda t: t.user_attrs[i],  # noqa: B023 # pylint: disable=cell-var-from-loop
-            target_name=i,
+            target=lambda t, attribute=attribute: t.user_attrs[attribute],
+            target_name=attribute,
         )
         figs.append(f)
-        names.append(i)
+        names.append(attribute)
 
     yaxes = {}
     for i, j in enumerate(names, start=1):
@@ -1505,7 +1478,9 @@ def plot_latin_hypercube(
     problem = {
         "num_vars": dim,
         "names": [i.replace("_", " ") for i in df.columns],
-        "bounds": [[-1, 1]] * dim,
+        "bounds": [
+            [param_values[:, i].min(), param_values[:, i].max()] for i in range(dim)
+        ],
     }
 
     # Rescale to the unit hypercube for the analysis
@@ -1623,10 +1598,11 @@ def plot_edge_effects(
             ["blue", "darkorange"],
         )
 
+        northing_mid = (inner_region[2] + inner_region[3]) / 2
         fig, _, _ = ptk.plot_profile(
             "points",
-            start=(inner_region[0], (inner_region[3] - inner_region[2]) / 2),
-            stop=(inner_region[1], (inner_region[3] - inner_region[2]) / 2),
+            start=(inner_region[0], northing_mid),
+            stop=(inner_region[1], northing_mid),
             layers_dict=layers_dict,
             data_dict=data_dict,
             fill_layers=False,

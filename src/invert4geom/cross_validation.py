@@ -2,6 +2,7 @@ import copy  # pylint: disable=too-many-lines
 import typing
 import warnings
 
+import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -38,8 +39,8 @@ def remove_test_points(ds: xr.Dataset) -> xr.Dataset:
 
         ds_new = df.set_index(list(ds.dims)).to_xarray()
 
-        # retrain attributes
-        ds_new.attrs.update(ds.attrs)  # pylint: disable=protected-access
+        # retain attributes
+        ds_new.attrs.update(ds.attrs)
     except AttributeError:
         msg = "gravity dataframe does not contain a 'test' column, cannot remove test points."
         warnings.warn(msg, stacklevel=2)
@@ -78,7 +79,7 @@ def add_test_points(
     coord_names = ds.coord_names
 
     # create coords for full data at half spacing
-    coords = vd.grid_coordinates(
+    coords = bd.grid_coordinates(
         region=ds.region,
         spacing=ds.spacing / 2,
         pixel_register=False,
@@ -112,31 +113,34 @@ def add_test_points(
     df2["test"] = df2.test.astype(bool)
 
     # sample any other columns in original df at new locations
+    failed_casts = set()
     for i in list(ds):
         if i == "test" or ds[i].dtype == object:
-            pass
-        else:
-            if not bool(ds[i].coords):
-                msg = ("Issue with dataset variable '%s'.", i)  # type: ignore[assignment]
-                raise ValueError(msg)
-            try:
-                df2[i] = utils.sample_grids(
-                    df=df2,
-                    grid=ds[i],
-                    sampled_name=i,
-                    coord_names=coord_names,
-                )[i].astype(ds[i].dtype)
-            except pd.errors.IntCastingNaNError as e:
-                logger.error(e)
-                df2[i] = utils.sample_grids(
-                    df=df2,
-                    grid=ds[i],
-                    sampled_name=i,
-                    coord_names=coord_names,
-                )[i].astype(ds[i].dtype)
+            continue
+        if not bool(ds[i].coords):
+            msg = f"Issue with dataset variable '{i}'."
+            raise ValueError(msg)
+        sampled = utils.sample_grids(
+            df=df2,
+            grid=ds[i],
+            sampled_name=i,
+            coord_names=coord_names,
+        )[i]
+        try:
+            df2[i] = sampled.astype(ds[i].dtype)
+        except pd.errors.IntCastingNaNError as e:
+            # sampled values contain NaNs which can't be cast to an integer dtype,
+            # keep the sampled (float) dtype instead
+            logger.error(e)
+            df2[i] = sampled
+            failed_casts.add(i)
 
     # retain original data types
-    dtypes = {k: v for k, v in ds.inv.df.dtypes.items() if k in ds.inv.df}
+    dtypes = {
+        k: v
+        for k, v in ds.inv.df.dtypes.items()
+        if k in df2.columns and k not in failed_casts
+    }
     df2 = df2.astype(dtypes)
 
     # test with this, using same input spacing as original
@@ -263,10 +267,10 @@ def random_split_test_train(
             df_train = random_split_df[random_split_df.test == False]  # noqa: E712 # pylint: disable=singleton-comparison
             df_test = random_split_df[random_split_df.test == True]  # noqa: E712 # pylint: disable=singleton-comparison
 
-            region = vd.get_region(
+            region = bd.get_region(
                 (random_split_df[coord_names[0]], random_split_df[coord_names[1]])
             )
-            plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
+            plot_region = bd.pad_region(region, (region[1] - region[0]) / 10)
 
             fig = ptk.basemap(
                 region=plot_region,
@@ -351,7 +355,7 @@ def split_test_train(
             msg = "n_splits must be greater than 1"
             raise ValueError(msg)
 
-        if spacing or shape is None:
+        if (spacing is None) and (shape is None):
             kfold = sklearn.model_selection.KFold(
                 n_splits=n_splits,
                 shuffle=True,
@@ -365,13 +369,6 @@ def split_test_train(
                 shuffle=True,
                 random_state=random_state,
             )
-            # kfold = vd.BlockShuffleSplit(
-            #     spacing=spacing,
-            #     shape=shape,
-            #     n_splits=n_splits,
-            #     test_size=test_size,
-            #     random_state = random_state,
-            # )
     else:
         msg = "invalid string for `method`"
         raise ValueError(msg)
@@ -379,16 +376,14 @@ def split_test_train(
     coords = (df[coord_names[0]], df[coord_names[1]])
     feature_matrix = np.transpose(coords)
     coord_shape = coords[0].shape
-    mask = np.full(shape=coord_shape, fill_value="     ")
 
-    for iteration, (train, test) in enumerate(kfold.split(feature_matrix)):
-        mask[np.unravel_index(train, coord_shape)] = "train"
-        mask[np.unravel_index(test, coord_shape)] = "_test"
-        df = pd.concat(
-            [df, pd.DataFrame({f"fold_{iteration}": mask}, index=df.index)], axis=1
-        )
+    fold_cols = {}
+    for iteration, (_train, test) in enumerate(kfold.split(feature_matrix)):
+        mask = np.full(shape=coord_shape, fill_value="train", dtype=object)
+        mask[np.unravel_index(test, coord_shape)] = "test"
+        fold_cols[f"fold_{iteration}"] = mask
 
-    df = df.replace("_test", "test")
+    df = pd.concat([df, pd.DataFrame(fold_cols, index=df.index)], axis=1)
     if plot is True:
         try:
             folds = list(df.columns[df.columns.str.startswith("fold_")])
@@ -411,8 +406,8 @@ def split_test_train(
 
                 df_test = df[df[f"fold_{i}"] == "test"]
                 df_train = df[df[f"fold_{i}"] == "train"]
-                region = vd.get_region((df[coord_names[0]], df[coord_names[1]]))
-                plot_region = vd.pad_region(region, (region[1] - region[0]) / 10)
+                region = bd.get_region((df[coord_names[0]], df[coord_names[1]]))
+                plot_region = bd.pad_region(region, (region[1] - region[0]) / 10)
                 fig = ptk.basemap(
                     region=plot_region,
                     title=f"Fold {i} ({len(df_test)} testing points)",
@@ -553,7 +548,7 @@ def eq_sources_score(
         msg = "coordinates contain NaN"
         raise ValueError(msg)
     if np.isnan(data).any():
-        msg = "data contains is NaN"
+        msg = "data contains NaN"
         raise ValueError(msg)
 
     eqs = hm.EquivalentSources(
@@ -565,8 +560,7 @@ def eq_sources_score(
             "ignore", category=sklearn.exceptions.UndefinedMetricWarning
         )
         score = np.nan
-        n_splits = 5
-        while np.isnan(score):
+        for n_splits in range(5, 1, -1):
             try:
                 score = np.mean(
                     vd.cross_val_score(
@@ -585,16 +579,13 @@ def eq_sources_score(
                 )
             except ValueError:
                 score = np.nan
-            if (n_splits == 5) and (np.isnan(score)):
-                msg = (
-                    "eq sources score is NaN, reducing n_splits (5) by 1 until "
-                    "scoring metric is defined"
-                )
-                logger.warning(msg)
-
-            n_splits -= 1
-            if n_splits == 0:
+            if not np.isnan(score):
                 break
+            msg = (
+                "eq sources score is NaN with %s splits, reducing n_splits by 1 "
+                "until scoring metric is defined"
+            )
+            logger.warning(msg, n_splits)
 
     if np.isnan(score):
         msg = (
@@ -609,6 +600,8 @@ def eq_sources_score(
 def regional_separation_score(
     grav_ds: xr.Dataset,
     testing_df: pd.DataFrame,
+    method: str,
+    true_regional: xr.DataArray | None = None,
     score_as_median: bool = False,
     **kwargs: typing.Any,
 ) -> tuple[float, float, float | None, xr.Dataset]:
@@ -624,9 +617,15 @@ def regional_separation_score(
     testing_df : pandas.DataFrame
         dataframe containing a priori measurements of the topography of interest with
         columns "upward", "easting", and "northing"
+    method : str
+        regional separation method to use, passed to
+        :meth:`DatasetAccessorInvert4Geom.regional_separation`.
+    true_regional : xarray.DataArray | None, optional
+        the true regional field, if known, used to calculate an additional score, by
+        default None
     score_as_median : bool, optional
         switch from using the root mean square to the root median square for the score,
-        by default is False., by default False
+        by default False
     **kwargs: typing.Any,
         additional keyword arguments for the specified method.
 
@@ -640,13 +639,10 @@ def regional_separation_score(
         the RMSE between the true regional field and the estimated field, if provided,
         otherwise None
     ds_anomalies : xarray.Dataset
-        the dataframe of the regional and residual gravity anomalies
+        the dataset of the regional and residual gravity anomalies
     """
 
-    # pull out kwargs
     kwargs = copy.deepcopy(kwargs)
-    method = kwargs.pop("method")
-    true_regional = kwargs.pop("true_regional", None)
 
     if method == "constraints_cv":
         msg = (

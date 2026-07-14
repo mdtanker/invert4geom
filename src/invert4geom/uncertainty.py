@@ -14,30 +14,20 @@ import xarray as xr
 from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
 
-try:
-    import UQpy
-
-    class DiscreteUniform(UQpy.distributions.DistributionDiscrete1D):  # type: ignore[misc]
-        """
-        Discrete uniform distribution.
-        """
-
-        def __init__(
-            self,
-            loc: float = 0.0,
-            scale: float = 1.0,
-        ):
-            super().__init__(
-                low=loc, high=loc + scale + 1, ordered_parameters=("low", "high")
-            )
-            self._construct_from_scipy(scipy_name=sp.stats.randint)
-except ImportError:
-    UQpy = None
-
 from invert4geom import inversion, logger, plotting, utils
 
 if typing.TYPE_CHECKING:
     from invert4geom.inversion import Inversion
+
+
+def _mean_and_stdev(stats_ds: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+    """
+    return the weighted mean and standard deviation of an ensemble statistics
+    dataset if present, otherwise the unweighted versions
+    """
+    if "weighted_mean" in stats_ds:
+        return stats_ds.weighted_mean, stats_ds.weighted_stdev
+    return stats_ds.z_mean, stats_ds.z_stdev
 
 
 def create_lhc(
@@ -67,72 +57,69 @@ def create_lhc(
         random state to use for sampling, by default 1
     criterion : str, optional
         criterion to use for sampling, by default "centered", options are "centered",
-        "random", "maximin", or "mincorrelation", which each relate to a criterion from
-        the Python package UQpy.
+        "random", "maximin", or "mincorrelation". These control how the Latin
+        Hypercube's unit-interval strata are sampled via
+        :class:`scipy.stats.qmc.LatinHypercube`: "centered" takes the midpoint of each
+        stratum, "random" takes a uniformly random point within each stratum, and
+        "maximin" / "mincorrelation" both use scipy's "random-cd" optimization, which
+        iteratively improves the sample's space-filling properties.
     Returns
     -------
     dict[dict[typing.Any]]
         nested dictionary with parameter names, distribution specifics, and sampled
         values
     """
-    if UQpy is None:
-        msg = "Missing optional dependency 'UQpy' required for uncertainty analysis."
-        raise ImportError(msg)
-
     param_dict = copy.deepcopy(parameter_dict)
 
-    # create distributions for parameters
-    dists = {}
-    for k, v in param_dict.items():
-        if v["distribution"] == "uniform":
-            dists[k] = UQpy.distributions.Uniform(loc=v["loc"], scale=v["scale"])
-        elif v["distribution"] == "normal":
-            dists[k] = UQpy.distributions.Normal(loc=v["loc"], scale=v["scale"])
-        elif v["distribution"] == "uniform_discrete":
-            dists[k] = DiscreteUniform(loc=v["loc"], scale=v["scale"])
-        else:
-            msg = "Unknown distribution type: %s"
-            raise ValueError(msg, v["distribution"])
-
     if criterion == "centered":
-        criterion = (
-            UQpy.sampling.stratified_sampling.latin_hypercube_criteria.Centered()
-        )
+        scramble = False
+        optimization = None
     elif criterion == "random":
-        criterion = UQpy.sampling.stratified_sampling.latin_hypercube_criteria.Random()
-    elif criterion == "maximin":
-        criterion = UQpy.sampling.stratified_sampling.latin_hypercube_criteria.MaxiMin()
-    elif criterion == "mincorrelation":
-        criterion = (
-            UQpy.sampling.stratified_sampling.latin_hypercube_criteria.MinCorrelation()
-        )
+        scramble = True
+        optimization = None
+    elif criterion in ("maximin", "mincorrelation"):
+        scramble = True
+        optimization = "random-cd"
     else:
-        msg = "Unknown criterion type: %s"
-        raise ValueError(msg, criterion)
+        msg = f"Unknown criterion type: {criterion}"
+        raise ValueError(msg)
 
-    # make latin hyper cube
-    lhc = UQpy.sampling.LatinHypercubeSampling(
-        distributions=[v for k, v in dists.items()],
-        criterion=criterion,
-        random_state=np.random.RandomState(random_state),  # pylint: disable=no-member
-        nsamples=n_samples,
+    # sample the unit hypercube, 1 dimension per parameter
+    sampler = sp.stats.qmc.LatinHypercube(
+        d=len(param_dict),
+        scramble=scramble,
+        optimization=optimization,
+        seed=random_state,
     )
+    unit_samples = sampler.random(n=n_samples)
 
-    # add sampled values to parameters dict
+    # transform unit samples into each parameter's distribution via its inverse CDF
     for j, (k, v) in enumerate(param_dict.items()):
+        unit_values = unit_samples[:, j]
+        if v["distribution"] == "uniform":
+            values = sp.stats.uniform(loc=v["loc"], scale=v["scale"]).ppf(unit_values)
+        elif v["distribution"] == "normal":
+            values = sp.stats.norm(loc=v["loc"], scale=v["scale"]).ppf(unit_values)
+        elif v["distribution"] == "uniform_discrete":
+            values = sp.stats.randint(low=v["loc"], high=v["loc"] + v["scale"] + 1).ppf(
+                unit_values
+            )
+        else:
+            msg = f"Unknown distribution type: {v['distribution']}"
+            raise ValueError(msg)
+        values = np.asarray(values, dtype=float)
         if v.get("norm_limits", None) is not None:
             norm_limits = v["norm_limits"]
-            lhc.samples[:, j] = utils.normalize(
-                lhc.samples[:, j],
+            values = utils.normalize(
+                values,
                 low=norm_limits[0],
                 high=norm_limits[1],
             )
         if v.get("log", False) is True:
-            v["sampled_values"] = 10 ** lhc._samples[:, j]  # pylint: disable=protected-access
-        else:
-            v["sampled_values"] = lhc.samples[:, j]  # pylint: disable=protected-access
+            values = 10**values
         if v.get("dtype", None) is int:
-            v["sampled_values"] = v["sampled_values"].round().astype(int)
+            values = values.round().astype(int)
+        v["sampled_values"] = values
 
         logger.info(
             "Sampled '%s' parameter values; mean: %s, min: %s, max: %s",
@@ -263,8 +250,10 @@ def starting_topography_uncertainty(
         rand = np.random.default_rng(seed=i)
 
         if sample_constraints:
+            # always sample from the original constraint values, not the previously
+            # sampled values, to avoid a random walk of accumulating noise
             sampled_constraints["upward"] = rand.normal(
-                sampled_constraints.upward, sampled_constraints.uncert
+                constraints_df.upward, constraints_df.uncert
             )
 
         if sampled_param_dict is not None:
@@ -314,12 +303,7 @@ def starting_topography_uncertainty(
                 region=plot_region,
             )
             if true_topography is not None:
-                try:
-                    mean = stats_ds.weighted_mean
-                    stdev = stats_ds.weighted_stdev
-                except AttributeError:
-                    mean = stats_ds.z_mean
-                    stdev = stats_ds.z_stdev
+                mean, stdev = _mean_and_stdev(stats_ds)
 
                 _ = ptk.grid_compare(
                     np.abs(true_topography - mean),
@@ -437,6 +421,9 @@ def equivalent_sources_uncertainty(
     else:
         sampled_param_dict = None
 
+    # weights are passed to fit and score, not the EquivalentSources constructor
+    data_weights = new_kwargs.pop("weights", None)
+
     grav_grids = []
     scores = []
     for i in tqdm(range(runs), desc="starting equivalent sources ensemble"):
@@ -449,12 +436,10 @@ def equivalent_sources_uncertainty(
             eqs = hm.EquivalentSources(
                 **new_kwargs,
             )
-            eqs.fit(coords, data, weights=new_kwargs.get("weights", None))
+            eqs.fit(coords, data, weights=data_weights)
 
         if weight_by == "score":
-            scores.append(
-                eqs.score(coords, data, weights=new_kwargs.get("weights", None))
-            )
+            scores.append(eqs.score(coords, data, weights=data_weights))
 
         # predict sources onto grid
         grid_points["predicted_grav"] = eqs.predict(
@@ -474,9 +459,10 @@ def equivalent_sources_uncertainty(
 
     # get constraint point RMSE of each model
     if weight_by == "score":
-        # convert residuals into weights
-        weights = [1 / (x**2) for x in scores]
-        # weights = scores
+        # scores are R² values where higher is better, so use them directly as
+        # weights (1/x² would incorrectly give the best-fitting models the
+        # lowest weights)
+        weights = scores
     elif weight_by == "rmse":
         weight_vals = []
         for g in grav_grids:
@@ -510,12 +496,7 @@ def equivalent_sources_uncertainty(
                 region=plot_region,
             )
             if true_gravity is not None:
-                try:
-                    mean = stats_ds.weighted_mean
-                    stdev = stats_ds.weighted_stdev
-                except AttributeError:
-                    mean = stats_ds.z_mean
-                    stdev = stats_ds.z_stdev
+                mean, stdev = _mean_and_stdev(stats_ds)
 
                 # pylint: disable=duplicate-code
                 _ = ptk.grid_compare(
@@ -629,6 +610,9 @@ def regional_misfit_uncertainty(
     if isinstance(grav_ds, pd.DataFrame):
         msg = "DataFrame representation of gravity data is deprecated, use a dataset created through function `create_data`"
         raise DeprecationWarning(msg)
+    if grav_ds is None:
+        msg = "grav_ds must be provided"
+        raise ValueError(msg)
 
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
@@ -640,27 +624,28 @@ def regional_misfit_uncertainty(
     else:
         sampled_param_dict = None
 
+    original_gravity = grav_ds.gravity_anomaly.copy()
+
+    # only constraint-based regional separation methods accept constraints
+    if constraints_df is not None:
+        new_kwargs["constraints_df"] = constraints_df
+
     regional_grids = []
     for i in tqdm(range(runs), desc="starting regional ensemble"):
         # create random generator
         rand = np.random.default_rng(seed=i)
         if sample_gravity is True:
-            sampled_grav = grav_ds.copy()
-            gobs_sampled = rand.normal(
-                sampled_grav.gravity_anomaly, sampled_grav.uncert
-            )
-            sampled_grav["gravity_anomaly"] = gobs_sampled
-            grav_ds = sampled_grav.copy()
+            # always sample from the original gravity values, not the previously
+            # sampled values, to avoid a random walk of accumulating noise
+            sampled_values = rand.normal(original_gravity, grav_ds.uncert)
+            grav_ds["gravity_anomaly"] = original_gravity.copy(data=sampled_values)
 
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
                 new_kwargs[k] = v["sampled_values"][i]
 
         with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
-            grav_ds.inv.regional_separation(
-                constraints_df=constraints_df,
-                **new_kwargs,
-            )
+            grav_ds.inv.regional_separation(**new_kwargs)
 
         regional_grids.append(grav_ds.reg)
 
@@ -703,12 +688,7 @@ def regional_misfit_uncertainty(
                 region=plot_region,
             )
             if true_regional is not None:
-                try:
-                    mean = stats_ds.weighted_mean
-                    stdev = stats_ds.weighted_stdev
-                except AttributeError:
-                    mean = stats_ds.z_mean
-                    stdev = stats_ds.z_stdev
+                mean, stdev = _mean_and_stdev(stats_ds)
                 # pylint: disable=duplicate-code
                 _ = ptk.grid_compare(
                     np.abs(true_regional - mean),
@@ -1001,8 +981,10 @@ def full_workflow_uncertainty_loop(
             assert test_grav_value == original_grav_df.gravity_anomaly.iloc[0], (
                 "original gravity values have been altered by sampling!"
             )
+            # always sample from the original gravity values, not the previously
+            # sampled values in inv.data, to avoid a random walk of accumulating noise
             sampled_grav["gravity_anomaly"] = rand.normal(
-                inv.data.inv.df.gravity_anomaly, inv.data.inv.df.uncert
+                original_grav_df.gravity_anomaly, original_grav_df.uncert
             )
             # low-pass filter the sampled gravity data
             if gravity_filter_width is not None:
@@ -1337,10 +1319,9 @@ def merged_stats(
     merged = merge_simulation_results([ds.topography for ds in prism_dss])
     # get final gravity residual RMS of each model
     if weight_by == "residual":
-        # get the RMS of the final gravity residual of each model
-        weight_vals = [
-            utils.rmse(ds[list(ds.inv.df.columns)[-1]]) for ds in grav_datasets
-        ]
+        # get the RMS of the final gravity residual of each model; "res" is updated
+        # after every inversion iteration so holds the final residual
+        weight_vals = [utils.rmse(ds.res) for ds in grav_datasets]
         # convert residuals into weights
         weights = [1 / (x**2) for x in weight_vals]
     # get constraint point RMSE of each model

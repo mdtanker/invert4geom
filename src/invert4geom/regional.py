@@ -1,6 +1,7 @@
 import typing
 import warnings
 
+import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
@@ -10,6 +11,56 @@ import verde as vd
 import xarray as xr
 
 from invert4geom import cross_validation, logger, optimization, utils
+
+
+def _initialize_separation(grav_ds: xr.Dataset, function_name: str) -> None:
+    """
+    Validate the gravity dataset and (re)calculate the gravity misfit as the
+    difference between the observed and forward gravity.
+    """
+    if not isinstance(grav_ds, xr.Dataset):
+        msg = (
+            f"Function `{function_name}` has been changed, data must be provided as "
+            "an xarray dataset initialized through function `create_data`"
+        )
+        raise DeprecationWarning(msg)
+
+    logger.debug("starting %s", function_name)
+
+    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
+
+    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
+
+
+def _check_projected_units(grav_ds: xr.Dataset, function_name: str) -> None:
+    """raise an error for methods which only support projected coordinates"""
+    if grav_ds.model_type == "tesseroids":
+        msg = (
+            f"function `{function_name}` only supports gravity data with projected "
+            "units, not geographic units (i.e. lat/lon)"
+        )
+        raise NotImplementedError(msg)
+
+
+def _finalize_separation(
+    grav_ds: xr.Dataset,
+    regional_shift: float,
+    mask_column: str | None,
+    reverse_regional_residual: bool,
+) -> None:
+    """
+    Apply the optional shift to the estimated regional field, calculate the residual
+    field, optionally mask the residual, and optionally swap the two fields.
+    """
+    grav_ds["reg"] = grav_ds.reg + regional_shift
+    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
+
+    if mask_column is not None:
+        grav_ds["res"] = grav_ds.res * grav_ds[mask_column]
+        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
+
+    if reverse_regional_residual:
+        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
 
 
 def regional_constant(
@@ -44,17 +95,10 @@ def regional_constant(
         False
     """
 
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_constant` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    logger.debug("starting regional_constant")
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
+    _initialize_separation(grav_ds, "regional_constant")
 
     if (constraints_df is None) and (constant is None):
-        msg = "need to provide either `constraints_df` of `constant`"
+        msg = "need to provide either `constraints_df` or `constant`"
         raise ValueError(msg)
 
     if constraints_df is not None:
@@ -87,16 +131,11 @@ def regional_constant(
         )
         logger.info(msg)
 
-    grav_ds["reg"] = xr.full_like(grav_ds.misfit, constant + regional_shift)  # type: ignore[operator]
+    grav_ds["reg"] = xr.full_like(grav_ds.misfit, constant)
 
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
-
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
+    )
 
 
 def regional_filter(
@@ -128,15 +167,7 @@ def regional_filter(
         if True, reverse the regional and residual fields after calculation, by default
         False
     """
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_filter` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    logger.debug("starting regional_filter")
-
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
+    _initialize_separation(grav_ds, "regional_filter")
 
     # remove the mean from the data
     data_mean = grav_ds.misfit.mean()
@@ -152,17 +183,11 @@ def regional_filter(
     # add the mean back to the data
     regional_grid += data_mean
 
-    regional_grid += regional_shift
-
     grav_ds["reg"] = regional_grid
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
 
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
+    )
 
 
 def regional_trend(
@@ -191,40 +216,24 @@ def regional_trend(
         if True, reverse the regional and residual fields after calculation, by default
         False
     """
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_trend` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    logger.debug("starting regional_trend")
-
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
+    _initialize_separation(grav_ds, "regional_trend")
 
     coord_names = grav_ds.coord_names
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
     vdtrend = vd.Trend(degree=trend).fit(
         (grav_ds.inv.df[coord_names[0]], grav_ds.inv.df[coord_names[1]]),
         grav_ds.inv.df.misfit,
     )
 
-    grav_ds["reg"] = (
-        vdtrend.grid(
-            coordinates=(grav_ds[coord_names[0]], grav_ds[coord_names[1]]),
-            data_names=["reg"],
-            dims=(coord_names[1], coord_names[0]),
-        ).reg
-        + regional_shift
+    grav_ds["reg"] = vdtrend.grid(
+        coordinates=(grav_ds[coord_names[0]], grav_ds[coord_names[1]]),
+        data_names=["reg"],
+        dims=(coord_names[1], coord_names[0]),
+    ).reg
+
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
     )
-
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
-
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
 
 
 def regional_eq_sources(
@@ -274,21 +283,10 @@ def regional_eq_sources(
         if True, reverse the regional and residual fields after calculation, by default
         False
     """
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_eq_sources` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    if grav_ds.model_type == "tesseroids":
-        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
-        raise NotImplementedError(msg)
+    _initialize_separation(grav_ds, "regional_eq_sources")
+    _check_projected_units(grav_ds, "regional_eq_sources")
 
     coord_names = ("easting", "northing")
-
-    logger.debug("starting regional_eq_sources")
-
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
     grav_df = grav_ds.inv.df
 
@@ -333,17 +331,12 @@ def regional_eq_sources(
         upward_continuation_height,
     )
     df = grav_ds.inv.df
-    df["reg"] = eqs.predict(coords) + regional_shift
+    df["reg"] = eqs.predict(coords)
     grav_ds["reg"] = df.set_index([coord_names[1], coord_names[0]]).to_xarray().reg
 
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
-
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
+    )
 
 
 def regional_constraints(
@@ -429,15 +422,8 @@ def regional_constraints(
         False
     """
 
-    if isinstance(grav_ds, xr.Dataset) is False:
-        msg = "Function `regional_constraints` has been changed, data must be provided as an xarray dataset initialized through function `create_data`"
-        raise DeprecationWarning(msg)
-
-    if grav_ds.model_type == "tesseroids":
-        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
-        raise NotImplementedError(msg)
-
-    logger.debug("starting regional_constraints")
+    _initialize_separation(grav_ds, "regional_constraints")
+    _check_projected_units(grav_ds, "regional_constraints")
 
     if constraints_df is None:
         msg = "need to provide constraints_df"
@@ -470,11 +456,7 @@ def regional_constraints(
             msg = "`cv_kwargs` only used if `grid_method` is 'eq_sources'"
             logger.warning(msg)
 
-    grav_ds.inv._check_grav_vars_for_regional()  # pylint: disable=protected-access
-
     constraints_df = constraints_df.copy()
-
-    grav_ds["misfit"] = grav_ds.gravity_anomaly - grav_ds.forward_gravity
 
     coord_names = grav_ds.coord_names
 
@@ -617,9 +599,10 @@ def regional_constraints(
             depth = "default"
         if depth == "default":
             depth = 4.5 * np.mean(
-                vd.median_distance(
+                bd.neighbor_distance_statistics(
                     (coords[0], coords[1]),
-                    k_nearest=1,
+                    "median",
+                    k=1,
                 )
             )
 
@@ -655,9 +638,6 @@ def regional_constraints(
                 )
 
         else:
-            if depth is None:
-                depth = "default"
-
             # create set of deep sources
             eqs = hm.EquivalentSources(
                 depth=depth,
@@ -688,15 +668,9 @@ def regional_constraints(
         msg = "invalid string for grid_method"
         raise ValueError(msg)
 
-    grav_ds["reg"] += regional_shift
-    grav_ds["res"] = grav_ds.misfit - grav_ds.reg
-
-    if mask_column is not None:
-        grav_ds["res"] *= grav_ds[mask_column]
-        grav_ds["reg"] = grav_ds.misfit - grav_ds.res
-
-    if reverse_regional_residual is True:
-        grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+    _finalize_separation(
+        grav_ds, regional_shift, mask_column, reverse_regional_residual
+    )
 
 
 def regional_constraints_cv(
@@ -729,9 +703,7 @@ def regional_constraints_cv(
     """
     logger.debug("starting regional_constraints_cv")
 
-    if grav_ds.model_type == "tesseroids":
-        msg = "function `regional_eq_sources` only supports gravity data with projected units, not geographic units (i.e. lat/lon)"
-        raise NotImplementedError(msg)
+    _check_projected_units(grav_ds, "regional_constraints_cv")
 
     utils._check_constraints_inside_gravity_region(  # pylint: disable=protected-access
         constraints_df,
@@ -751,7 +723,9 @@ def regional_constraints_cv(
         **split_kwargs,
     )
 
-    _, grav_ds, _ = optimization.optimize_regional_constraint_point_minimization(
+    # this updates grav_ds in place with the best regional separation; the returned
+    # dataset is the same object so the return values are not needed here
+    optimization.optimize_regional_constraint_point_minimization(
         grav_ds=grav_ds,
         testing_training_df=testing_training_df,
         **kwargs,

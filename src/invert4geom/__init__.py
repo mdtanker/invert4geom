@@ -22,6 +22,7 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
             "scipy",
             "scikit-learn",
             "verde",
+            "bordado",
             "boule",
             "pooch",
             "rioxarray",
@@ -36,7 +37,6 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
             "numba-progress",
             "dask",
             "optuna",
-            "torch",
             "joblib",
             "psutil",
             "pyvista",
@@ -49,8 +49,7 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
 
         # Optional packages.
         optional = [
-            "UQpy",
-            "xesmf",
+            "torch",
         ]
 
         scooby.Report.__init__(
@@ -119,6 +118,7 @@ from .uncertainty import (  # noqa: E402
 )
 from .utils import (  # noqa: E402
     create_topography,
+    create_window_regions,
     filter_grid,
     gravity_decay_buffer,
     normalized_mindist,

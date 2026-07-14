@@ -26,6 +26,7 @@ Create a topography grid (or provide your own) and convert it into an initial pr
 
     create_topography
     create_model
+    create_window_regions
     normalized_mindist
 
 
@@ -137,6 +138,7 @@ Routines for optimal inversion parameters.
     Inversion.optimize_inversion_damping
     Inversion.optimize_inversion_zref_density_contrast
     Inversion.optimize_inversion_zref_density_contrast_kfolds
+    Inversion.optimize_inversion_zref_density_contrast_windowed
     optimal_buffer
 
 

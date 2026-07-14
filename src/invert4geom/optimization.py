@@ -11,13 +11,13 @@ import subprocess
 import typing
 import warnings
 
+import bordado as bd
 import harmonica as hm
 import joblib
 import numpy as np
 import optuna
 import pandas as pd
 import psutil
-import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
@@ -37,6 +37,33 @@ warnings.simplefilter(
     "ignore",
     category=optuna.exceptions.ExperimentalWarning,
 )
+
+
+def _default_sampler(
+    seed: int,
+    n_startup_trials: int = 0,
+) -> optuna.samplers.BaseSampler:
+    """
+    the default sampler for the remaining (non-startup) Optuna trials: a GPSampler if
+    torch is installed, otherwise falls back to a TPESampler. GPSampler only imports
+    torch lazily, so check for it explicitly here instead of relying on GPSampler to
+    raise an ImportError.
+    """
+    try:
+        import torch  # noqa: F401 PLC0415 # pylint: disable=import-outside-toplevel,unused-import
+    except ImportError:
+        logger.warning(
+            "torch is not installed, falling back to TPESampler instead of the "
+            "preferred GPSampler; install the 'gpsampler' extra "
+            "(pip install invert4geom[gpsampler]) for better sample efficiency",
+        )
+        return optuna.samplers.TPESampler(seed=seed)
+
+    return optuna.samplers.GPSampler(
+        n_startup_trials=n_startup_trials,
+        seed=seed,
+        deterministic_objective=True,
+    )
 
 
 def available_cpu_count() -> typing.Any:
@@ -157,7 +184,7 @@ def available_cpu_count() -> typing.Any:
 
 def run_optuna(
     study: optuna.study.Study,
-    objective: typing.Callable[..., float],
+    objective: typing.Callable[..., float | tuple[float, float]],
     n_trials: int,
     storage: optuna.storages.BaseStorage | None = None,
     maximize_cpus: bool = True,
@@ -184,7 +211,7 @@ def run_optuna(
         def optimize_study(
             study_name: str,
             storage: optuna.storages.BaseStorage,
-            objective: typing.Callable[..., float],
+            objective: typing.Callable[..., float | tuple[float, float]],
             n_trials: int,
         ) -> None:
             study = optuna.load_study(study_name=study_name, storage=storage)
@@ -227,7 +254,7 @@ def _optuna_set_cores(
     optimize_study: typing.Callable[..., None],
     study_name: str,
     storage: typing.Any,
-    objective: typing.Callable[..., float],
+    objective: typing.Callable[..., float | tuple[float, float]],
     max_cores: bool = True,
 ) -> None:
     """
@@ -261,7 +288,7 @@ def _optuna_set_cores(
                 objective,
                 n_trials=trials_per_job,
             )
-            for i in range(n_trials)
+            for _ in range(n_jobs)
         )
     except FileNotFoundError:
         logger.exception("FileNotFoundError occurred in parallel optimization")
@@ -282,6 +309,8 @@ def warn_parameter_at_limits(
     """
     for k, v in trial.params.items():
         dist = trial.distributions.get(k)
+        if dist is None or not hasattr(dist, "high"):
+            continue
         lims = (dist.high, dist.low)
         if v in lims:
             logger.warning(
@@ -312,12 +341,101 @@ def log_optuna_results(
     logger.info("\tscores: %s", trial.values)
 
 
+def _get_best_trial(study: optuna.study.Study) -> optuna.trial.FrozenTrial:
+    """
+    Get the best trial from a single- or multi-objective study. For multi-objective
+    studies, returns the Pareto-front trial with the lowest first objective value.
+    """
+    if study._is_multi_objective() is False:  # pylint: disable=protected-access
+        return study.best_trial
+
+    best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
+    logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    return best_trial
+
+
+def _plot_regional_optimization(
+    study: optuna.study.Study,
+    grav_ds: xr.Dataset,
+    plot_grid: bool,
+    optimize_on_true_regional_misfit: bool,
+    best_trial: optuna.trial.FrozenTrial | None = None,
+    slice_per_param: bool = False,
+) -> None:
+    """
+    Plot the results of a regional separation optimization; a combined slice plot for
+    single-objective studies optimizing on the true regional misfit, a normal slice
+    plot for other single-objective studies, or a Pareto front and per-metric slice
+    plots for multi-objective studies. Optionally plot the resulting regional grid.
+    """
+    try:
+        if study._is_multi_objective() is False:  # pylint: disable=protected-access
+            if optimize_on_true_regional_misfit is True:
+                attribute_names = [
+                    "residual constraint score",
+                    "residual amplitude score",
+                ]
+                if slice_per_param:
+                    assert best_trial is not None
+                    for p in best_trial.params:
+                        plotting.plot_optimization_combined_slice(
+                            study,
+                            attribute_names=attribute_names,
+                            parameter_name=[p],  # type: ignore[arg-type]
+                        ).show()
+                else:
+                    plotting.plot_optimization_combined_slice(
+                        study,
+                        attribute_names=attribute_names,
+                    ).show()
+            else:
+                optuna.visualization.plot_slice(study).show()
+        else:
+            optuna.visualization.plot_pareto_front(study).show()
+            for i, j in enumerate(study.metric_names):
+                optuna.visualization.plot_slice(
+                    study,
+                    target=lambda t, i=i: t.values[i],  # noqa: PD011
+                    target_name=j,
+                ).show()
+        if plot_grid is True:
+            grav_ds.reg.plot()
+    except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
+        logger.error("plotting failed with error: %s", e)
+
+
+def _report_regional_scores(
+    trial: optuna.trial,
+    residual_constraint_score: float,
+    residual_amplitude_score: float,
+    true_reg_score: float | None,
+    optimize_on_true_regional_misfit: bool,
+    separate_metrics: bool,
+) -> tuple[float, float] | float:
+    """
+    Save the true regional score as a trial attribute and return the metric(s) to
+    optimize on, shared by all the regional separation objective classes.
+    """
+    trial.set_user_attr("true_reg_score", true_reg_score)
+
+    if optimize_on_true_regional_misfit is True:
+        trial.set_user_attr("residual constraint score", residual_constraint_score)
+        trial.set_user_attr("residual amplitude score", residual_amplitude_score)
+        return true_reg_score  # type: ignore[return-value]
+
+    if separate_metrics is True:
+        return residual_constraint_score, residual_amplitude_score
+
+    # combine the two metrics into one
+    return residual_constraint_score / residual_amplitude_score
+
+
 def _create_regional_separation_study(
     optimize_on_true_regional_misfit: bool,
     separate_metrics: bool,
     sampler: optuna.samplers.BaseSampler,
     true_regional: xr.DataArray | None = None,
-    parallel: bool = True,
+    parallel: bool = False,
     fname: str | None = None,
 ) -> tuple[optuna.study.Study, optuna.storages.BaseStorage | None]:
     """
@@ -336,7 +454,7 @@ def _create_regional_separation_study(
     true_regional : xarray.DataArray | None, optional
         grid of true regional values, by default None
     parallel : bool, optional
-        inform whether the study should be run in run in parallel, by default True. If
+        inform whether the study should be run in parallel, by default False. If
         True, uses file storage, which slows down the optimization, but allows for
         running in parallel.
     fname : str | None, optional
@@ -603,7 +721,9 @@ class OptimalInversionDamping:
 
         trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
-        _new_inversion_obj = self.inversion_obj.gravity_score(
+        # gravity_score runs the inversion on a copy and saves the score on the
+        # original object, so the returned copy is not needed here
+        self.inversion_obj.gravity_score(
             rmse_as_median=self.rmse_as_median,
             plot=self.plot_grids,
             results_fname=trial.user_attrs.get("fname"),
@@ -766,29 +886,8 @@ class OptimalInversionZrefDensity:
                     )
                     raise ValueError(msg)
                 if self.starting_topography_kwargs["method"] == "flat":
-                    msg = "using zref to create a flat starting topography model"
-                    logger.info(msg)
-                    self.starting_topography_kwargs["upward"] = (
-                        self.inversion_obj.model.zref
-                    )
-
-            # create starting topography model if not provided
-            if self.starting_topography is None:
-                msg = (
-                    "starting_topography not provided, creating a starting topography "
-                    "model with the supplied starting_topography_kwargs"
-                )
-                logger.info(msg)
-                if self.starting_topography_kwargs is None:
-                    msg = (
-                        "must provide `starting_topography_kwargs` to be passed to the "
-                        "function `utils.create_topography`."
-                    )
-                    raise ValueError(msg)
-                if (
-                    self.starting_topography_kwargs["method"] == "flat"
-                    and self.starting_topography_kwargs.get("upward", None) is None
-                ):
+                    # overwrite `upward` on every trial so the flat topography always
+                    # tracks the current trial's zref value
                     msg = "using zref to create a flat starting topography model"
                     logger.info(msg)
                     self.starting_topography_kwargs["upward"] = (
@@ -1038,9 +1137,10 @@ class OptimalEqSourceParams:
         # calculate 4.5 times the mean distance between points
         if depth == "default":
             depth = 4.5 * np.mean(
-                vd.median_distance(
+                bd.neighbor_distance_statistics(
                     (kwargs.get("coordinates")[0], kwargs.get("coordinates")[1]),  # type: ignore[unused-ignore, index]
-                    k_nearest=1,
+                    "median",
+                    k=1,
                 )
             )
         block_size = kwargs.pop("block_size", None)
@@ -1114,10 +1214,10 @@ def optimize_eq_source_params(
         gravity data values
     n_trials : int, optional
         number of trials to run, by default 100
-    damping_limits : tuple[float, float], optional
-        damping parameter limits, by default (0, 10**3)
-    depth_limits : tuple[float, float], optional
-        source depth limits (positive downwards) in meters, by default (0, 10e6)
+    damping_limits : tuple[float, float] | None, optional
+        damping parameter limits, by default None
+    depth_limits : tuple[float, float] | None, optional
+        source depth limits (positive downwards) in meters, by default None
     block_size_limits : tuple[float, float] | None, optional
         block size limits in meters, by default None
     sampler : optuna.samplers.BaseSampler | None, optional
@@ -1243,7 +1343,10 @@ def optimize_eq_source_params(
     logger.debug("starting eq_source parameter optimization")
     # pylint: enable=duplicate-code
     # ignore skLearn LinAlg warnings
-    with (utils._environ(PYTHONWARNINGS="ignore")) and (utils.DuplicateFilter(logger)):  # type: ignore[no-untyped-call, truthy-bool] # pylint: disable=protected-access
+    with (
+        utils._environ(PYTHONWARNINGS="ignore"),  # pylint: disable=protected-access
+        utils.DuplicateFilter(logger),  # type: ignore[no-untyped-call]
+    ):
         # run startup trials with QMC low-discrepancy sampling
         study = run_optuna(
             study=study,
@@ -1259,11 +1362,7 @@ def optimize_eq_source_params(
     # continue with remaining trials with user-defined sampler
     # if sampler not provided, used GPsampler as default
     if sampler is None:
-        sampler = optuna.samplers.GPSampler(
-            n_startup_trials=0,
-            seed=seed,
-            deterministic_objective=True,
-        )
+        sampler = _default_sampler(seed)
     study.sampler = sampler
     with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
         study = run_optuna(
@@ -1311,7 +1410,9 @@ def optimize_eq_source_params(
             best_depth = "default"
     if best_depth == "default":
         best_depth = 4.5 * np.mean(
-            vd.median_distance((coordinates[0], coordinates[1]), k_nearest=1)
+            bd.neighbor_distance_statistics(
+                (coordinates[0], coordinates[1]), "median", k=1
+            )
         )
     if best_block_size is None:
         try:
@@ -1334,14 +1435,10 @@ def optimize_eq_source_params(
     )
     eqs.fit(coordinates, data, weights=kwargs.pop("weights", None))
 
-    # save study
-    if study_fname is not None:
-        # remove if exists
-        pathlib.Path(f"{study_fname}.pickle").unlink(missing_ok=True)
-
-        # save study to pickle
-        with pathlib.Path(f"{study_fname}.pickle").open("wb") as f:
-            pickle.dump(study, f)
+    # save study, remove first if it exists
+    pathlib.Path(f"{study_fname}.pickle").unlink(missing_ok=True)
+    with pathlib.Path(f"{study_fname}.pickle").open("wb") as f:
+        pickle.dump(study, f)
 
     if plot is True:
         try:
@@ -1405,18 +1502,14 @@ class OptimizeRegionalTrend:
                 )
             )
 
-        trial.set_user_attr("true_reg_score", true_reg_score)
-
-        if self.optimize_on_true_regional_misfit is True:
-            trial.set_user_attr("residual constraint score", residual_constraint_score)
-            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
-            return true_reg_score  # type: ignore[return-value]
-
-        if self.separate_metrics is True:
-            return residual_constraint_score, residual_amplitude_score
-
-        # combine the two metrics into one
-        return residual_constraint_score / residual_amplitude_score
+        return _report_regional_scores(
+            trial,
+            residual_constraint_score,
+            residual_amplitude_score,
+            true_reg_score,
+            self.optimize_on_true_regional_misfit,
+            self.separate_metrics,
+        )
 
 
 class OptimizeRegionalFilter:
@@ -1465,18 +1558,14 @@ class OptimizeRegionalFilter:
                 )
             )
 
-        trial.set_user_attr("true_reg_score", true_reg_score)
-
-        if self.optimize_on_true_regional_misfit is True:
-            trial.set_user_attr("residual constraint score", residual_constraint_score)
-            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
-            return true_reg_score  # type: ignore[return-value]
-
-        if self.separate_metrics is True:
-            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
-
-        # combine the two metrics into one
-        return residual_constraint_score / residual_amplitude_score
+        return _report_regional_scores(  # type: ignore[return-value]
+            trial,
+            residual_constraint_score,
+            residual_amplitude_score,
+            true_reg_score,
+            self.optimize_on_true_regional_misfit,
+            self.separate_metrics,
+        )
 
 
 class OptimizeRegionalEqSources:
@@ -1504,7 +1593,7 @@ class OptimizeRegionalEqSources:
         self.separate_metrics = separate_metrics
         self.kwargs = kwargs
 
-    def __call__(self, trial: optuna.trial) -> float:
+    def __call__(self, trial: optuna.trial) -> tuple[float, float] | float:
         """
         Parameters
         ----------
@@ -1575,18 +1664,14 @@ class OptimizeRegionalEqSources:
                 )
             )
 
-        trial.set_user_attr("true_reg_score", true_reg_score)
-
-        if self.optimize_on_true_regional_misfit is True:
-            trial.set_user_attr("residual constraint score", residual_constraint_score)
-            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
-            return true_reg_score  # type: ignore[return-value]
-
-        if self.separate_metrics is True:
-            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
-
-        # combine the two metrics into one
-        return residual_constraint_score / residual_amplitude_score
+        return _report_regional_scores(
+            trial,
+            residual_constraint_score,
+            residual_amplitude_score,
+            true_reg_score,
+            self.optimize_on_true_regional_misfit,
+            self.separate_metrics,
+        )
 
 
 class OptimizeRegionalConstraintsPointMinimization:
@@ -1635,7 +1720,7 @@ class OptimizeRegionalConstraintsPointMinimization:
         self.progressbar = progressbar
         self.kwargs = kwargs
 
-    def __call__(self, trial: optuna.trial) -> float:
+    def __call__(self, trial: optuna.trial) -> tuple[float, float] | float:
         """
         Parameters
         ----------
@@ -1713,9 +1798,10 @@ class OptimizeRegionalConstraintsPointMinimization:
                     if eq_depth == "default":
                         # calculate 4.5 times the mean distance between points
                         eq_depth = 4.5 * np.mean(
-                            vd.median_distance(
+                            bd.neighbor_distance_statistics(
                                 (self.training_df.easting, self.training_df.northing),
-                                k_nearest=1,
+                                "median",
+                                k=1,
                             )
                         )
                     new_kwargs["depth"] = eq_depth
@@ -1751,31 +1837,33 @@ class OptimizeRegionalConstraintsPointMinimization:
                 msg = "progressbar must be a boolean"  # type: ignore[unreachable]
                 raise ValueError(msg)
 
+            # suggest the depth once per trial, it is the same value for every fold
+            if self.grid_method == "eq_sources" and self.depth_limits is not None:
+                new_kwargs["depth"] = trial.suggest_float(
+                    "depth",
+                    self.depth_limits[0],
+                    self.depth_limits[1],
+                )
+
             with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
                 # for each fold, run CV
                 results = []
                 for i, _ in enumerate(pbar):
-                    if self.grid_method == "eq_sources":
-                        if self.depth_limits is not None:
-                            new_kwargs["depth"] = trial.suggest_float(
-                                "depth",
-                                self.depth_limits[0],
-                                self.depth_limits[1],
-                            )
-                        else:
-                            eq_depth = self.kwargs.get("depth", "default")
-                            if eq_depth == "default":
-                                # calculate 4.5 times the mean distance between points
-                                eq_depth = 4.5 * np.mean(
-                                    vd.median_distance(
-                                        (
-                                            self.training_df[i].easting,
-                                            self.training_df[i].northing,
-                                        ),
-                                        k_nearest=1,
-                                    )
+                    if self.grid_method == "eq_sources" and self.depth_limits is None:
+                        eq_depth = self.kwargs.get("depth", "default")
+                        if eq_depth == "default":
+                            # calculate 4.5 times the mean distance between points
+                            eq_depth = 4.5 * np.mean(
+                                bd.neighbor_distance_statistics(
+                                    (
+                                        self.training_df[i].easting,
+                                        self.training_df[i].northing,
+                                    ),
+                                    "median",
+                                    k=1,
                                 )
-                            new_kwargs["depth"] = eq_depth
+                            )
+                        new_kwargs["depth"] = eq_depth
 
                     fold_results = cross_validation.regional_separation_score(
                         constraints_df=self.training_df[i],
@@ -1800,18 +1888,14 @@ class OptimizeRegionalConstraintsPointMinimization:
             self.optimize_on_true_regional_misfit,
         )
 
-        trial.set_user_attr("true_reg_score", true_reg_score)
-
-        if self.optimize_on_true_regional_misfit is True:
-            trial.set_user_attr("residual constraint score", residual_constraint_score)
-            trial.set_user_attr("residual amplitude score", residual_amplitude_score)
-            return true_reg_score  # type: ignore[return-value]
-
-        if self.separate_metrics is True:
-            return residual_constraint_score, residual_amplitude_score  # type: ignore[return-value]
-
-        # combine the two metrics into one
-        return residual_constraint_score / residual_amplitude_score
+        return _report_regional_scores(
+            trial,
+            residual_constraint_score,
+            residual_amplitude_score,
+            true_reg_score,
+            self.optimize_on_true_regional_misfit,
+            self.separate_metrics,
+        )
 
 
 def optimize_regional_filter(
@@ -1913,6 +1997,7 @@ def optimize_regional_filter(
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        parallel=parallel,
         fname=results_fname,
     )
 
@@ -1934,13 +2019,7 @@ def optimize_regional_filter(
         parallel=parallel,
     )
 
-    if study._is_multi_objective() is False:  # pylint: disable=protected-access
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
-
-        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    best_trial = _get_best_trial(study)
 
     # warn if any best parameter values are at their limits
     warn_parameter_at_limits(best_trial)
@@ -1955,30 +2034,12 @@ def optimize_regional_filter(
     )
 
     if plot is True:
-        try:
-            if study._is_multi_objective() is False:  # pylint: disable=protected-access
-                if optimize_on_true_regional_misfit is True:
-                    plotting.plot_optimization_combined_slice(
-                        study,
-                        attribute_names=[
-                            "residual constraint score",
-                            "residual amplitude score",
-                        ],
-                    ).show()
-                else:
-                    optuna.visualization.plot_slice(study).show()
-            else:
-                optuna.visualization.plot_pareto_front(study).show()
-                for i, j in enumerate(study.metric_names):
-                    optuna.visualization.plot_slice(
-                        study,
-                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-                        target_name=j,
-                    ).show()
-            if plot_grid is True:
-                grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
-            logger.error("plotting failed with error: %s", e)
+        _plot_regional_optimization(
+            study,
+            grav_ds,
+            plot_grid,
+            optimize_on_true_regional_misfit,
+        )
 
     return study, grav_ds, best_trial
 
@@ -2064,8 +2125,6 @@ def optimize_regional_trend(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
-    optuna.logging.set_verbosity(optuna.logging.WARN)
-
     # if sampler not provided, use GridSampler as default
     if sampler is None:
         sampler = optuna.samplers.GridSampler(
@@ -2081,6 +2140,7 @@ def optimize_regional_trend(
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        parallel=parallel,
         fname=results_fname,
     )
 
@@ -2088,7 +2148,7 @@ def optimize_regional_trend(
     study = run_optuna(
         study=study,
         storage=storage,
-        objective=OptimizeRegionalTrend(  # type: ignore[arg-type]
+        objective=OptimizeRegionalTrend(
             trend_limits=trend_limits,
             testing_df=testing_df,
             grav_ds=grav_ds,
@@ -2103,13 +2163,7 @@ def optimize_regional_trend(
         progressbar=progressbar,
     )
 
-    if study._is_multi_objective() is False:  # pylint: disable=protected-access
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
-
-        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    best_trial = _get_best_trial(study)
 
     # warn if any best parameter values are at their limits
     warn_parameter_at_limits(best_trial)
@@ -2124,30 +2178,12 @@ def optimize_regional_trend(
     )
 
     if plot is True:
-        try:
-            if study._is_multi_objective() is False:  # pylint: disable=protected-access
-                if optimize_on_true_regional_misfit is True:
-                    plotting.plot_optimization_combined_slice(
-                        study,
-                        attribute_names=[
-                            "residual constraint score",
-                            "residual amplitude score",
-                        ],
-                    ).show()
-                else:
-                    optuna.visualization.plot_slice(study).show()
-            else:
-                optuna.visualization.plot_pareto_front(study).show()
-                for i, j in enumerate(study.metric_names):
-                    optuna.visualization.plot_slice(
-                        study,
-                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-                        target_name=j,
-                    ).show()
-            if plot_grid is True:
-                grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
-            logger.error("plotting failed with error: %s", e)
+        _plot_regional_optimization(
+            study,
+            grav_ds,
+            plot_grid,
+            optimize_on_true_regional_misfit,
+        )
 
     return study, grav_ds, best_trial
 
@@ -2248,8 +2284,6 @@ def optimize_regional_eq_sources(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
-    optuna.logging.set_verbosity(optuna.logging.WARN)
-
     kwargs = copy.deepcopy(kwargs)
 
     # if sampler not provided, use TPE as default
@@ -2267,6 +2301,7 @@ def optimize_regional_eq_sources(
         separate_metrics=separate_metrics,
         sampler=sampler,
         true_regional=true_regional,
+        parallel=parallel,
         fname=results_fname,
     )
 
@@ -2293,13 +2328,7 @@ def optimize_regional_eq_sources(
         progressbar=progressbar,
     )
 
-    if study._is_multi_objective() is False:  # pylint: disable=protected-access
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
-
-        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    best_trial = _get_best_trial(study)
 
     # warn if any best parameter values are at their limits
     warn_parameter_at_limits(best_trial)
@@ -2311,8 +2340,11 @@ def optimize_regional_eq_sources(
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     if depth == "default":
         # calculate 4.5 times the mean distance between points
+        grav_df = grav_ds.inv.df
         depth = 4.5 * np.mean(
-            vd.median_distance((grav_ds.easting, grav_ds.northing), k_nearest=1)
+            bd.neighbor_distance_statistics(
+                (grav_df.easting, grav_df.northing), "median", k=1
+            )
         )
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
     block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))
@@ -2330,32 +2362,14 @@ def optimize_regional_eq_sources(
         **kwargs,
     )
     if plot is True:
-        try:
-            if study._is_multi_objective() is False:  # pylint: disable=protected-access
-                if optimize_on_true_regional_misfit is True:
-                    for p in best_trial.params:
-                        plotting.plot_optimization_combined_slice(
-                            study,
-                            attribute_names=[
-                                "residual constraint score",
-                                "residual amplitude score",
-                            ],
-                            parameter_name=[p],  # type: ignore[arg-type]
-                        ).show()
-                else:
-                    optuna.visualization.plot_slice(study).show()
-            else:
-                optuna.visualization.plot_pareto_front(study).show()
-                for i, j in enumerate(study.metric_names):
-                    optuna.visualization.plot_slice(
-                        study,
-                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-                        target_name=j,
-                    ).show()
-            if plot_grid is True:
-                grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
-            logger.error("plotting failed with error: %s", e)
+        _plot_regional_optimization(
+            study,
+            grav_ds,
+            plot_grid,
+            optimize_on_true_regional_misfit,
+            best_trial=best_trial,
+            slice_per_param=True,
+        )
 
     return study, grav_ds, best_trial
 
@@ -2604,13 +2618,7 @@ def optimize_regional_constraint_point_minimization(
         progressbar=progressbar,
     )
 
-    if study._is_multi_objective() is False:  # pylint: disable=protected-access
-        best_trial = study.best_trial
-    else:
-        best_trial = min(study.best_trials, key=lambda t: t.values[0])  # noqa: PD011
-        # best_trial = max(study.best_trials, key=lambda t: t.values[1])
-
-        logger.info("Number of trials on the Pareto front: %s", len(study.best_trials))
+    best_trial = _get_best_trial(study)
 
     # warn if any best parameter values are at their limits
     warn_parameter_at_limits(best_trial)
@@ -2657,32 +2665,14 @@ def optimize_regional_constraint_point_minimization(
             pickle.dump(study, f)
 
     if plot is True:
-        try:
-            if study._is_multi_objective() is False:  # pylint: disable=protected-access
-                if optimize_on_true_regional_misfit is True:
-                    for p in best_trial.params:
-                        plotting.plot_optimization_combined_slice(
-                            study,
-                            attribute_names=[
-                                "residual constraint score",
-                                "residual amplitude score",
-                            ],
-                            parameter_name=[p],  # type: ignore[arg-type]
-                        ).show()
-                else:
-                    optuna.visualization.plot_slice(study).show()
-            else:
-                optuna.visualization.plot_pareto_front(study).show()
-                for i, j in enumerate(study.metric_names):
-                    optuna.visualization.plot_slice(
-                        study,
-                        target=lambda t: t.values[i],  # noqa: B023 PD011 # pylint: disable=cell-var-from-loop
-                        target_name=j,
-                    ).show()
-            if plot_grid is True:
-                grav_ds.reg.plot()
-        except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
-            logger.error("plotting failed with error: %s", e)
+        _plot_regional_optimization(
+            study,
+            grav_ds,
+            plot_grid,
+            optimize_on_true_regional_misfit,
+            best_trial=best_trial,
+            slice_per_param=True,
+        )
 
     return study, grav_ds, best_trial
 
@@ -2725,11 +2715,7 @@ def optimal_buffer(
             )
         else:
             with warnings.catch_warnings():
-                sampler = optuna.samplers.GPSampler(
-                    n_startup_trials=int(n_trials / 4),
-                    seed=seed,
-                    deterministic_objective=True,
-                )
+                sampler = _default_sampler(seed, n_startup_trials=int(n_trials / 4))
     # pylint: disable=duplicate-code
     # set file name for saving results with random number between 0 and 999
     if fname is None:
@@ -2753,10 +2739,6 @@ def optimal_buffer(
         storage=storage,
         pruner=DuplicateIterationPruner,
     )
-
-    # explicitly add the limits as trials
-    study.enqueue_trial({"damping": buffer_perc_limits[0]}, skip_if_exists=True)
-    study.enqueue_trial({"damping": buffer_perc_limits[1]}, skip_if_exists=True)
 
     # run optimization
     with warnings.catch_warnings():

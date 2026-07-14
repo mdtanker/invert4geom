@@ -275,3 +275,139 @@ def test_regional_constraints(test_input):
 
 
 # %%
+
+################
+################
+# shared behavior of the regional separation functions
+################
+################
+
+# (method suffix, minimal kwargs) pairs for functions sharing common behavior
+REGIONAL_METHODS = [
+    ("constant", {"constant": -100.0}),
+    ("trend", {"trend": 1}),
+    ("filter", {"filter_width": 300e3}),
+]
+
+
+@pytest.mark.filterwarnings("ignore:dropping variables using `drop` is deprecated")
+@pytest.mark.filterwarnings("ignore:Default ifft's behaviour")
+@pytest.mark.parametrize(("method", "kwargs"), REGIONAL_METHODS)
+def test_regional_and_residual_sum_to_misfit(method, kwargs):
+    """the regional and residual components should always sum to the misfit"""
+    grav_data = observed_gravity()
+    func = getattr(invert4geom.regional, f"regional_{method}")
+    func(grav_ds=grav_data, **kwargs)
+    xr.testing.assert_allclose(grav_data.reg + grav_data.res, grav_data.misfit)
+
+
+@pytest.mark.filterwarnings("ignore:dropping variables using `drop` is deprecated")
+@pytest.mark.filterwarnings("ignore:Default ifft's behaviour")
+@pytest.mark.parametrize(("method", "kwargs"), REGIONAL_METHODS)
+def test_regional_shift_added_to_regional(method, kwargs):
+    """regional_shift should shift the regional field by a constant"""
+    func = getattr(invert4geom.regional, f"regional_{method}")
+
+    grav_data = observed_gravity()
+    func(grav_ds=grav_data, **kwargs)
+
+    grav_data_shifted = observed_gravity()
+    func(grav_ds=grav_data_shifted, regional_shift=10, **kwargs)
+
+    xr.testing.assert_allclose(grav_data_shifted.reg, grav_data.reg + 10)
+
+
+@pytest.mark.filterwarnings("ignore:dropping variables using `drop` is deprecated")
+@pytest.mark.filterwarnings("ignore:Default ifft's behaviour")
+@pytest.mark.parametrize(("method", "kwargs"), REGIONAL_METHODS)
+def test_reverse_regional_residual_swaps_fields(method, kwargs):
+    """reverse_regional_residual should swap the two calculated fields"""
+    func = getattr(invert4geom.regional, f"regional_{method}")
+
+    grav_data = observed_gravity()
+    func(grav_ds=grav_data, **kwargs)
+
+    grav_data_reversed = observed_gravity()
+    func(grav_ds=grav_data_reversed, reverse_regional_residual=True, **kwargs)
+
+    xr.testing.assert_allclose(grav_data_reversed.reg, grav_data.res)
+    xr.testing.assert_allclose(grav_data_reversed.res, grav_data.reg)
+
+
+def test_regional_mask_column_zeroes_residual():
+    """a mask of zeros should zero the residual and put the misfit in the regional"""
+    grav_data = observed_gravity()
+    grav_data["mask"] = xr.zeros_like(grav_data.upward)
+
+    invert4geom.regional.regional_constant(
+        grav_ds=grav_data,
+        constant=-100,
+        mask_column="mask",
+    )
+
+    assert (grav_data.res == 0).all()
+    xr.testing.assert_allclose(grav_data.reg, grav_data.misfit)
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("constant", {"constant": -100.0}),
+        ("trend", {"trend": 1}),
+        ("filter", {"filter_width": 300e3}),
+        ("eq_sources", {}),
+        ("constraints", {"constraints_df": pd.DataFrame()}),
+    ],
+)
+def test_regional_functions_reject_non_dataset(method, kwargs):
+    """passing a dataframe (the old API) should raise a deprecation error"""
+    func = getattr(invert4geom.regional, f"regional_{method}")
+    with pytest.raises(DeprecationWarning, match=f"regional_{method}"):
+        func(grav_ds=pd.DataFrame(), **kwargs)
+
+
+################
+################
+# input validation
+################
+################
+
+
+def test_regional_constant_no_args_raises():
+    grav_data = observed_gravity()
+    with pytest.raises(ValueError, match="need to provide either"):
+        invert4geom.regional.regional_constant(grav_ds=grav_data)
+
+
+def test_regional_constant_both_args_raises():
+    grav_data = observed_gravity()
+    constraints = pd.DataFrame(
+        {
+            "easting": [10000.0],
+            "northing": [10000.0],
+            "upward": [500.0],
+        }
+    )
+    with pytest.raises(ValueError, match="not used"):
+        invert4geom.regional.regional_constant(
+            grav_ds=grav_data,
+            constant=-100,
+            constraints_df=constraints,
+        )
+
+
+def test_regional_constraints_invalid_grid_method_raises():
+    grav_data = observed_gravity()
+    constraints = pd.DataFrame(
+        {
+            "easting": [5000.0, 35000.0, 5000.0, 35000.0],
+            "northing": [5000.0, 25000.0, 25000.0, 5000.0],
+            "upward": [500.0, 500.0, 500.0, 500.0],
+        }
+    )
+    with pytest.raises(ValueError, match="invalid string for grid_method"):
+        invert4geom.regional.regional_constraints(
+            constraints_df=constraints,
+            grav_ds=grav_data,
+            grid_method="not_a_method",
+        )

@@ -1329,11 +1329,20 @@ def test_model_properties():
     generator_result = invert4geom.inversion._model_properties(
         model, method="generator"
     )
+    # all methods must return arrays so callers can use numpy indexing
+    # (regression test: 'forloops' and 'generator' used to return lists)
+    assert isinstance(itertools_result, np.ndarray)
+    assert isinstance(forloops_result, np.ndarray)
+    assert isinstance(generator_result, np.ndarray)
     # test that the prism properties are the same with 3 methods
-    np.array_equal(itertools_result, forloops_result)
-    np.array_equal(itertools_result, generator_result)
+    npt.assert_array_equal(itertools_result, forloops_result)
+    npt.assert_array_equal(itertools_result, generator_result)
     # test that the first prism's properties are correct
-    np.array_equal(itertools_result[0], np.array([-300, -100, 0, 200, -100, 2670]))
+    # (west, east, south, north, bottom, top, density)
+    npt.assert_array_equal(
+        itertools_result[0],
+        np.array([-5000, 5000, -5000, 5000, 100, 500, 200]),
+    )
 
     with pytest.raises(ValueError, match="method must be"):
         invert4geom.inversion._model_properties(model, method="wrong_input")
@@ -2317,6 +2326,101 @@ def test_optimize_inversion_zref_density_contrast():
     pathlib.Path("test_zref_density_contrast_study.pickle").unlink()
 
 
+def test_create_model_variable_zref():
+    """
+    test the create_model function with a spatially variable zref
+    """
+    topo = true_topography_cartesian()
+    zref = xr.full_like(topo.upward, 500)
+    zref[:2, :] = 400
+
+    model = invert4geom.inversion.create_model(zref, 2670, topo)
+
+    assert isinstance(model.zref, xr.DataArray)
+    # density sign should follow the local reference level
+    expected_sign = np.where(topo.upward.to_numpy() >= zref.to_numpy(), 1, -1)
+    npt.assert_array_equal(np.sign(model.density.to_numpy()), expected_sign)
+
+    # misaligned zref grid should raise an error
+    with pytest.raises(xr.AlignmentError, match="zref"):
+        invert4geom.inversion.create_model(zref.isel(easting=slice(0, 3)), 2670, topo)
+
+
+@pytest.mark.filterwarnings("ignore:QMCSampler is experimental")
+@pytest.mark.filterwarnings("ignore:GPSampler is experimental")
+def test_optimize_inversion_zref_density_contrast_windowed():
+    """
+    test the optimize_inversion_zref_density_contrast_windowed function
+    """
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
+    # one constraint point in each of the 4 windows
+    constraints_df = pd.DataFrame(
+        data={
+            "easting": [5000, 25000, 5000, 25000],
+            "northing": [5000, 5000, 25000, 25000],
+            "upward": [500, 450, 550, 500],
+        }
+    )
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=5,
+    )
+
+    opti_obj = inv.optimize_inversion_zref_density_contrast_windowed(
+        n_trials=5,
+        constraints_df=constraints_df,
+        window_width=20000,
+        window_overlap=0,
+        window_buffer=10000,
+        zref_limits=(0, 2e3),
+        density_contrast_limits=(1000, 3000),
+        regional_grav_kwargs={"method": "constant", "constant": 0},
+        starting_topography_kwargs={"method": "flat"},
+        fname="test_windowed_zref_density_contrast",
+        progressbar=False,
+    )
+
+    # each window has 1 constraint so all 4 windows should succeed
+    df = opti_obj.windowed_optimization_df
+    assert df is not None
+    assert len(df) == 4
+    assert df.zref.between(0, 2e3).all()
+    assert df.density_contrast.between(1000, 3000).all()
+
+    # merged values should be spatially variable grids within the limits, unless
+    # all windows found the same value
+    for param, limits in [
+        ("zref", (0, 2e3)),
+        ("density_contrast", (1000, 3000)),
+    ]:
+        value = getattr(inv.model, param)
+        if isinstance(value, xr.DataArray):
+            assert value.min() >= min(df[param].min(), limits[0])
+            assert value.max() <= max(df[param].max(), limits[1])
+            assert set(value.dims) == {"easting", "northing"}
+        else:
+            assert limits[0] <= value <= limits[1]
+
+    # the final inversion was run and results saved
+    assert inv.already_inverted
+    assert pathlib.Path("test_windowed_zref_density_contrast.pickle").exists()
+
+    xr.testing.assert_equal(opti_obj.model, inv.model)
+
+    # delete files
+    for f in pathlib.Path().glob("test_windowed_zref_density_contrast*"):
+        f.unlink()
+
+
 @pytest.mark.use_numba
 def test_grav_column_der_relative_values():
     """
@@ -2552,3 +2656,124 @@ def test_grav_column_der():
 #     misfit = np.array([-100, -100, 100, 100])
 #     correction = inversion.solver(jac.copy(), misfit, solver_type=solver_type)
 #     assert correction.mean() == pytest.approx(0, abs=1e-5)
+
+
+################
+################
+# new regression tests
+################
+################
+
+
+def test_add_topography_correction_partial_confining_layer():
+    """
+    a confining layer with NaNs should only be enforced where it has values
+    """
+    upper = xr.full_like(
+        flat_topography_500m_cartesian().upward, np.nan, dtype=np.double
+    )
+    upper[0, 0] = 600
+
+    model = invert4geom.inversion.create_model(
+        topography=flat_topography_500m_cartesian(),
+        zref=100,
+        density_contrast=200,
+        upper_confining_layer=upper,
+    )
+    # a correction of 200 m would lift the surface (500 m) above the one
+    # confined cell (600 m), so it should be clipped to 100 m there only
+    step = np.full_like(model.inv.df.topography.to_numpy(), 200.0)
+
+    model = model.inv.add_topography_correction(step)
+
+    correction = model.topography_correction.to_numpy()
+    assert correction[0, 0] == 100
+    other_corrections = np.delete(correction.flatten(), 0)
+    npt.assert_array_equal(other_corrections, 200)
+
+
+def test_invert_records_used_parameters():
+    """
+    after an inversion, the numeric zref and density contrast values used should be
+    saved as attributes, since the strings in `params` are only for display
+    """
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
+
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(method="constant", constant=10)
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=1,
+    )
+    inv.invert(progressbar=False)
+
+    assert inv.used_zref == 500
+    assert inv.used_density_contrast == 2669
+
+
+def test_invert_spatially_variable_density_records_none():
+    """
+    a spatially variable density contrast can't be represented by a single number,
+    so used_density_contrast should be None
+    """
+    density = xr.full_like(flat_topography_500m_cartesian().upward, 2669)
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, density, flat_topography_500m_cartesian()
+    )
+
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(method="constant", constant=10)
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=1,
+    )
+    inv.invert(progressbar=False)
+
+    assert inv.used_zref == 500
+    assert inv.used_density_contrast is None
+
+
+def test_run_inversion_workflow_requires_zref_and_density():
+    """zref and density_contrast are always needed to build the starting model"""
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    with pytest.raises(ValueError, match="must both be provided"):
+        invert4geom.inversion.run_inversion_workflow(
+            grav_ds=data,
+            starting_topography=flat_topography_500m_cartesian(),
+        )
+
+
+def test_optimize_zref_density_contrast_requires_limits():
+    """omitting both parameter limits should raise a clear error"""
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(method="constant", constant=10)
+
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=1,
+    )
+    constraints = pd.DataFrame(
+        {
+            "easting": [10000.0],
+            "northing": [10000.0],
+            "upward": [500.0],
+        }
+    )
+    with pytest.raises(ValueError, match=r"zref_limits.*density_contrast_limits"):
+        inv.optimize_inversion_zref_density_contrast(
+            n_trials=1,
+            constraints_df=constraints,
+        )

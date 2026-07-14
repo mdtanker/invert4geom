@@ -4,6 +4,7 @@ import typing
 import warnings
 from contextlib import contextmanager
 
+import bordado as bd
 import dask
 import harmonica as hm
 import numpy as np
@@ -22,7 +23,7 @@ from invert4geom import logger, plotting
 
 
 @contextmanager
-def _log_level(level, log_instance=logger):  # type: ignore[no-untyped-def, has-type]
+def _log_level(level, log_instance=logger):  # type: ignore[no-untyped-def, has-type, unused-ignore]
     "Run body with logger at a different level"
     saved_logger_level = log_instance.level
     log_instance.setLevel(level)
@@ -110,7 +111,6 @@ def get_epsg(coast: bool) -> tuple[str, bool]:
                 stacklevel=2,
             )
             logger.warning(msg)
-            epsg = "3857"
             coast = False
         epsg = "3857"
     return epsg, coast
@@ -125,8 +125,8 @@ def _check_constraints_inside_gravity_region(
 
     grav_df = grav_ds.inv.df
 
-    grav_region = vd.get_region((grav_df[coord_names[0]], grav_df[coord_names[1]]))
-    inside = vd.inside(
+    grav_region = bd.get_region((grav_df[coord_names[0]], grav_df[coord_names[1]]))
+    inside = bd.inside(
         (constraints_df[coord_names[0]], constraints_df[coord_names[1]]),
         region=grav_region,
     )
@@ -160,6 +160,22 @@ def rmse(data: NDArray, as_median: bool = False) -> float:
         value = np.sqrt(np.nanmean(data**2).item())
 
     return value
+
+
+def _restore_dims(
+    grid: xr.DataArray,
+    original_dims: list[typing.Any],
+) -> xr.DataArray:
+    """rename a grid's dims back to their original (northing, easting) names"""
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="rename '")
+        dims = list(grid.dims)
+        return grid.rename(
+            {
+                dims[0]: original_dims[0],
+                dims[1]: original_dims[1],
+            }
+        )
 
 
 def _nearest_grid_fill(
@@ -207,7 +223,7 @@ def _nearest_grid_fill(
         df = vd.grid_to_table(grid)
         df_dropped = df[df[grid.name].notna()]
         coords = (df_dropped[grid.dims[1]], df_dropped[grid.dims[0]])
-        region = vd.get_region((df[grid.dims[1]], df[grid.dims[0]]))
+        region = bd.get_region((df[grid.dims[1]], df[grid.dims[0]]))
         filled = (
             vd.KNeighbors()
             .fit(coords, df_dropped[grid.name])
@@ -225,14 +241,7 @@ def _nearest_grid_fill(
         raise ValueError(msg)
 
     # reset coordinate names if changed
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="rename '")
-        return filled.rename(
-            {
-                next(iter(filled.dims)): original_dims[0],
-                list(filled.dims)[1]: original_dims[1],
-            }
-        )
+    return _restore_dims(filled, original_dims)
 
 
 def region_mask(
@@ -243,14 +252,14 @@ def region_mask(
     Make a mask with values of 1 inside a region and 0 outside the region.
     """
 
-    # get coordinate names
+    # get coordinate names; dims are ordered (northing, easting)
     coord_names = list(grid.sizes.keys())
 
-    mask_easting = (grid[coord_names[0]] >= region[0]) & (
-        grid[coord_names[0]] <= region[1]
+    mask_easting = (grid[coord_names[1]] >= region[0]) & (
+        grid[coord_names[1]] <= region[1]
     )
-    mask_northing = (grid[coord_names[1]] >= region[2]) & (
-        grid[coord_names[1]] <= region[3]
+    mask_northing = (grid[coord_names[0]] >= region[2]) & (
+        grid[coord_names[0]] <= region[3]
     )
 
     return xr.where(mask_easting & mask_northing, 1, 0)
@@ -285,7 +294,8 @@ def filter_grid(
         factor of grid width to pad the grid by, by default 3, which equates to a pad
         with a width of 1/3 of the grid width.
     pad_mode : str, optional
-        mode of padding, can be "linear", by default "linear_ramp"
+        mode of padding, one of the modes accepted by :func:`xrft.pad`, such as
+        "constant" or "linear_ramp", by default "linear_ramp"
     pad_constant : float | None, optional
         constant value to use for padding, by default None
     pad_end_values : float | None, optional
@@ -309,14 +319,7 @@ def filter_grid(
         filled = grid.copy()
 
     # reset coordinate names if changed
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="rename '")
-        filled = filled.rename(
-            {
-                next(iter(filled.dims)): original_dims[0],
-                list(filled.dims)[1]: original_dims[1],
-            }
-        )
+    filled = _restore_dims(filled, original_dims)
 
     # define width of padding in each direction
     pad_width = {
@@ -398,15 +401,7 @@ def filter_grid(
         result = unpadded.copy()
 
     # reset coordinate names if changed
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="rename '")
-        result = result.rename(
-            {
-                next(iter(result.dims)): original_dims[0],
-                # list(result.dims)[0]: original_dims[0],
-                list(result.dims)[1]: original_dims[1],
-            }
-        )
+    result = _restore_dims(result, original_dims)
 
     return result.rename(original_name)
 
@@ -608,14 +603,18 @@ def normalized_mindist(
         coord_names=(str(original_dims[1]), str(original_dims[0])),
     ).min_dist
 
-    # set points < mindist to low
+    if (low is None) != (high is None):
+        msg = "must provide both `low` and `high`, or neither"
+        raise ValueError(msg)
+
+    # set points < mindist to 0 (normalized to `low` below if provided)
     if mindist is not None:
         min_dist = xr.where(min_dist < mindist, 0, min_dist)
 
-    # set points outside of region to low
+    # set points outside of region to 0 (normalized to `low` below if provided)
     if region is not None:
         df = vd.grid_to_table(min_dist)
-        df["are_inside"] = vd.inside(
+        df["are_inside"] = bd.inside(
             (df[original_dims[1]], df[original_dims[0]]),
             region=region,
         )
@@ -628,11 +627,7 @@ def normalized_mindist(
         min_dist = new_min_dist.min_dist
 
     # normalize from low to high
-    if (low is None) & (high is None):
-        pass
-    else:
-        assert low is not None
-        assert high is not None
+    if (low is not None) and (high is not None):
         min_dist = normalize_xarray(min_dist, low=low, high=high)
 
     return min_dist
@@ -678,6 +673,81 @@ def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
     # pylint: disable=W0613
     msg = "Function `get_spacing` deprecated"
     raise DeprecationWarning(msg)
+
+
+def _block_reduce_points(
+    coords: tuple[typing.Any, typing.Any],
+    data: typing.Any,
+    weights: typing.Any,
+    block_size: float,
+    block_reduction: str,
+    region: tuple[float, float, float, float],
+) -> tuple[typing.Any, typing.Any, typing.Any]:
+    """
+    Block-reduce point data before fitting a spline. Weighted means are computed
+    with :class:`verde.BlockMean` which also reduces the weights; otherwise
+    :class:`verde.BlockReduce` is used and any weights are dropped.
+    """
+    if block_reduction == "mean" and weights is not None:
+        reducer = vd.BlockMean(
+            spacing=block_size,
+            region=region,
+            center_coordinates=True,
+        )
+        coords, data, weights = reducer.filter(
+            coordinates=coords,
+            data=data,
+            weights=weights,
+        )
+    else:
+        if block_reduction == "mean":
+            reduction = np.mean
+        elif block_reduction == "median":
+            reduction = np.median
+            if weights is not None:
+                msg = (
+                    "weights are ignored when block_reduction is 'median', to use "
+                    "weights, set block_reduction to 'mean'"
+                )
+                logger.warning(msg)
+        else:
+            msg = "block_reduction must be 'mean' or 'median'"
+            raise ValueError(msg)
+
+        reducer = vd.BlockReduce(
+            reduction=reduction,
+            spacing=block_size,
+            region=region,
+            center_coordinates=True,
+        )
+        coords, data = reducer.filter(
+            coordinates=coords,
+            data=data,
+        )
+        # BlockReduce doesn't reduce the weights, so they can't be reused
+        weights = None
+
+    return coords, data, weights
+
+
+def _fit_spline_cv(
+    coords: tuple[typing.Any, typing.Any],
+    data: typing.Any,
+    weights: typing.Any,
+    dampings: list[float] | None,
+) -> vd.Spline:
+    """fit a cross-validated spline to the data, suppressing known verde warnings"""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="The mindist parameter of verde.Spline"
+        )
+        warnings.filterwarnings("ignore", message="The default scoring will change")
+        return optimal_spline_damping(
+            coordinates=coords,
+            data=data,
+            weights=weights,
+            dampings=dampings,
+        )
 
 
 def create_topography(
@@ -794,7 +864,7 @@ def create_topography(
             raise ValueError(msg)
 
         # create grid of coordinates
-        (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+        (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
             region=region,
             spacing=spacing,
             pixel_register=pixel_register,
@@ -818,7 +888,7 @@ def create_topography(
         # if only 1 point, return a flat topography
         if len(df) == 1:
             # create grid of coordinates
-            (x, y) = vd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+            (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
                 region=region,
                 spacing=spacing,
             )
@@ -876,7 +946,7 @@ def create_topography(
                 cartesian_region = region
                 cartesian_spacing = spacing
 
-            if pd.Series(["inside", "buffer"]).isin(df.columns).all():
+            if {"inside", "buffer"} <= set(df.columns):
                 df_to_interpolate = df[df.inside | df.buffer]
                 df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
 
@@ -889,44 +959,17 @@ def create_topography(
                     weights = df_to_interpolate[weights_col]
 
                 if block_size is not None:
-                    if block_reduction == "mean":
-                        reduction = np.mean
-                    elif block_reduction == "median":
-                        reduction = np.median
-                        if weights is not None:
-                            msg = "weights are ignored when block_reduction is 'median'"
-                            logger.warning(msg)
-                    else:
-                        msg = "block_reduction must be 'mean' or 'median'"
-                        raise ValueError(msg)
-
-                    reducer = vd.BlockReduce(
-                        reduction=reduction,
-                        spacing=block_size,
-                        region=cartesian_region,
-                        center_coordinates=True,
-                    )
-
-                    coords, data = reducer.filter(
-                        coordinates=coords,
-                        data=data,
-                        weights=weights,
+                    coords, data, weights = _block_reduce_points(
+                        coords,
+                        data,
+                        weights,
+                        block_size,
+                        block_reduction,
+                        cartesian_region,
                     )
 
                 # run CV for fitting a spline to the data
-                with warnings.catch_warnings():
-                    warnings.filterwarnings(
-                        "ignore", message="The mindist parameter of verde.Spline"
-                    )
-                    warnings.filterwarnings(
-                        "ignore", message="The default scoring will change"
-                    )
-                    spline = optimal_spline_damping(
-                        coordinates=coords,
-                        data=data,
-                        weights=weights,
-                        dampings=dampings,
-                    )
+                spline = _fit_spline_cv(coords, data, weights, dampings)
 
                 # grid the fitted spline at desired spacing and region
                 inside_grid = spline.grid(
@@ -937,13 +980,6 @@ def create_topography(
                 ).scalars
 
                 # merge interpolation of inner / buffer points with outside grid
-                # outside_grid = df_outside_buffer.set_index(
-                #   ["northing", "easting"]).to_xarray().upward
-                # outside_grid = vd.make_xarray_grid(
-                #     (df_outside_buffer.easting, df_outside_buffer.northing),
-                #     df_outside_buffer.upward,
-                #     data_names="upward",
-                # )
                 outside_grid = pygmt.xyz2grd(
                     x=df_outside_buffer[coord_names[0]],
                     y=df_outside_buffer[coord_names[1]],
@@ -964,58 +1000,18 @@ def create_topography(
                     weights = df[weights_col]
 
                 if block_size is not None:
-                    if block_reduction == "mean" and weights is not None:
-                        reducer = vd.BlockMean(
-                            spacing=block_size,
-                            region=cartesian_region,
-                            center_coordinates=True,
-                        )
-
-                        coords, data, weights = reducer.filter(
-                            coordinates=coords,
-                            data=data,
-                            weights=weights,
-                        )
-
-                    else:
-                        if block_reduction == "mean":
-                            reduction = np.mean
-                        elif block_reduction == "median":
-                            reduction = np.median
-                            if weights is not None:
-                                msg = "weights are ignored when block_reduction is 'median', to use weights, set block_reduction to 'mean'"
-                                logger.warning(msg)
-                        else:
-                            msg = "block_reduction must be 'mean' or 'median'"
-                            raise ValueError(msg)
-
-                        reducer = vd.BlockReduce(
-                            reduction=reduction,
-                            spacing=block_size,
-                            region=cartesian_region,
-                            center_coordinates=True,
-                        )
-
-                        coords, data = reducer.filter(
-                            coordinates=coords,
-                            data=data,
-                            weights=weights,
-                        )
+                    coords, data, weights = _block_reduce_points(
+                        coords,
+                        data,
+                        weights,
+                        block_size,
+                        block_reduction,
+                        cartesian_region,
+                    )
 
                 # run CV for fitting a spline to the data
-                with warnings.catch_warnings():
-                    warnings.filterwarnings(
-                        "ignore", message="The mindist parameter of verde.Spline"
-                    )
-                    warnings.filterwarnings(
-                        "ignore", message="The default scoring will change"
-                    )
-                    spline = optimal_spline_damping(
-                        coordinates=coords,
-                        data=data,
-                        weights=weights,
-                        dampings=dampings,
-                    )
+                spline = _fit_spline_cv(coords, data, weights, dampings)
+
                 # grid the fitted spline at desired spacing and region
                 grid = spline.grid(
                     region=region,
@@ -1076,6 +1072,77 @@ def create_topography(
         ds = ds.merge(dataset_to_add)
 
     return ds
+
+
+def create_window_regions(
+    region: tuple[float, float, float, float],
+    window_width: float,
+    window_overlap: float = 0.0,
+    spacing: float | None = None,
+) -> list[tuple[float, float, float, float]]:
+    """
+    Tile a region with square windows of a set width, optionally overlapping. Window
+    placement uses :func:`bordado.line_coordinates` (the same placement as
+    :func:`bordado.rolling_window`); the first and last windows in each dimension
+    align with the region edges, the entire region is covered, and the actual overlap
+    is adjusted (up or down) from the requested value so the windows are evenly
+    distributed. If the region is smaller than the window width in a dimension, a
+    single window spanning that dimension is used.
+
+    Parameters
+    ----------
+    region : tuple[float, float, float, float]
+        bounding region to tile, in the format (min_easting, max_easting,
+        min_northing, max_northing).
+    window_width : float
+        width of the square windows, in the same units as the region.
+    window_overlap : float, optional
+        fraction (0 to <1) of the window width which adjacent windows should overlap
+        by, by default 0.0
+    spacing : float | None, optional
+        if provided, window edges are snapped to multiples of this grid spacing, by
+        default None
+
+    Returns
+    -------
+    list[tuple[float, float, float, float]]
+        list of window regions in the same format as the input region.
+    """
+    if not 0 <= window_overlap < 1:
+        msg = "window_overlap must be greater or equal to 0 and less than 1"
+        raise ValueError(msg)
+    if window_width <= 0:
+        msg = "window_width must be greater than 0"
+        raise ValueError(msg)
+
+    step = window_width * (1 - window_overlap)
+
+    def _starts(minc: float, maxc: float) -> NDArray:
+        if maxc - minc <= window_width:
+            return np.array([minc])
+        centers = bd.line_coordinates(
+            minc + window_width / 2,
+            maxc - window_width / 2,
+            spacing=step,
+            adjust="spacing",
+        )
+        starts = centers - window_width / 2
+        if spacing is not None:
+            starts = minc + np.round((starts - minc) / spacing) * spacing
+        return starts
+
+    windows = []
+    for n_start in _starts(region[2], region[3]):
+        for e_start in _starts(region[0], region[1]):
+            windows.append(  # noqa: PERF401
+                (
+                    e_start,
+                    min(e_start + window_width, region[1]),
+                    n_start,
+                    min(n_start + window_width, region[3]),
+                )
+            )
+    return windows
 
 
 def grid_to_model(
@@ -1236,8 +1303,8 @@ def optimal_spline_damping(
     else:
         dampings = [dampings]
 
-    n_splits = 5
-    while n_splits > 0:
+    spline = None
+    for n_splits in range(5, 1, -1):
         try:
             spline = vd.SplineCV(
                 dampings=dampings,
@@ -1258,24 +1325,32 @@ def optimal_spline_damping(
             logger.error(e)
             msg = "decreasing number of splits by 1 until ValueError is resolved"
             logger.warning(msg)
-        if n_splits == 1:
-            msg = "ValueError not resolved, fitting spline with no damping"
-            logger.warning(msg)
-            spline = vd.Spline(
-                damping=None,
-                **kwargs,
-            )
-            spline.fit(
-                coordinates,
-                data,
-                weights=weights,
-            )
-        n_splits -= 1
+            spline = None
 
-    if len(dampings) > 1:
+    if spline is None:
+        msg = "ValueError not resolved, fitting spline with no damping"
+        logger.warning(msg)
+        # drop kwargs only valid for SplineCV, not Spline
+        spline_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k not in ("cv", "delayed", "scoring", "client")
+        }
+        spline = vd.Spline(
+            damping=None,
+            **spline_kwargs,
+        )
+        spline.fit(
+            coordinates,
+            data,
+            weights=weights,
+        )
+
+    if len(dampings) > 1 and hasattr(spline, "scores_"):
         try:
             logger.info("Best SplineCV score: %s", spline.scores_.max())
         except AttributeError:
+            # scores are dask delayed objects
             logger.info("Best SplineCV score: %s", max(dask.compute(spline.scores_)[0]))
 
         logger.info("Best damping: %s", spline.damping_)
@@ -1292,7 +1367,7 @@ def optimal_spline_damping(
             logger.warning(
                 "Best damping value (%s) is at the limit of provided values (%s, %s) "
                 "and thus is likely not a global minimum, expand the range of values "
-                "test to ensure the best parameter value value is found.",
+                "tested to ensure the best parameter value is found.",
                 spline.damping_,
                 np.nanmin(dampings_without_none),
                 np.nanmax(dampings_without_none),
@@ -1383,7 +1458,7 @@ def best_equivalent_source_damping(
         msg = "coordinates contain NaN"
         raise ValueError(msg)
     if np.isnan(data).any():
-        msg = "data contains is NaN"
+        msg = "data contains NaN"
         raise ValueError(msg)
 
     scores = []
@@ -1420,14 +1495,16 @@ def best_equivalent_source_damping(
     ]:
         logger.warning(
             "Best damping value (%s) is at the limit of provided values (%s, %s) and "
-            "thus is likely not a global minimum, expand the range of values test to "
-            "ensure the best parameter value value is found.",
+            "thus is likely not a global minimum, expand the range of values tested to "
+            "ensure the best parameter value is found.",
             dampings[best],
             np.nanmin(dampings_without_none),
             np.nanmax(dampings_without_none),
         )
 
-    return hm.EquivalentSources(damping=dampings[best]).fit(
+    # refit with the same kwargs used during scoring so the returned model matches
+    # the model which was cross-validated
+    return hm.EquivalentSources(damping=dampings[best], **kwargs).fit(
         coordinates, data, weights=weights
     )
 
@@ -1523,7 +1600,7 @@ def gravity_decay_buffer(
     buffer_width = round_to_input(buffer_width, spacing)
 
     # define buffer region
-    buffer_region = vd.pad_region(inner_region, buffer_width)
+    buffer_region = bd.pad_region(inner_region, buffer_width)
 
     # calculate buffer width in terms of number of cells
     buffer_cells = buffer_width / spacing
@@ -1551,23 +1628,21 @@ def gravity_decay_buffer(
             spacing=spacing,
         ).upward
 
+    # create prisms around the mean surface value with signed densities (positive
+    # above, negative below); this layer has no edge effects and is the baseline for
+    # calculating the decay
+    mean_zref = surface.to_numpy().mean()
+    dens = xr.where(surface >= mean_zref, density, -density)
+    model_mean_zref = grid_to_model(
+        surface,
+        mean_zref,
+        density=dens,
+        model_type="prisms",
+    )
+
     # create prism layer
     if as_density_contrast:
-        # create prisms around mean value to compare to to calculate decay
-        zref = surface.to_numpy().mean()
-
-        # positive densities above, negative below
-        dens = surface.copy()
-        dens.to_numpy()[:] = density
-        dens = dens.where(surface >= zref, -density)
-
-        # create prism layer with a mean zref
-        model = grid_to_model(
-            surface,
-            zref,
-            density=dens,
-            model_type="prisms",
-        )
+        model = model_mean_zref
     else:
         model = grid_to_model(
             surface,
@@ -1576,27 +1651,11 @@ def gravity_decay_buffer(
             model_type="prisms",
         )
 
-    # create prisms around mean value to compare to to calculate decay
-    zref = surface.to_numpy().mean()
-
-    # positive densities above, negative below
-    dens = surface.copy()
-    dens.to_numpy()[:] = density
-    dens = dens.where(surface >= zref, -density)
-
-    # create prism layer with a mean zref
-    model_mean_zref = grid_to_model(
-        surface,
-        zref,
-        density=dens,
-        model_type="prisms",
-    )
-
     # create set of observation points
-    data = vd.grid_coordinates(
+    data = bd.grid_coordinates(
         inner_region,
         spacing=spacing,
-        extra_coords=obs_height,
+        non_dimensional_coords=obs_height,
     )
 
     forward_df = pd.DataFrame(
@@ -1617,8 +1676,7 @@ def gravity_decay_buffer(
         progressbar=progressbar,
     )
 
-    # if checkerboard:
-    # calculate forward gravity of layer
+    # calculate forward gravity of the layer without edge effects
     forward_df["forward_no_edge_effects"] = model_mean_zref.prism_layer.gravity(
         coordinates=(
             forward_df.easting,

@@ -9,6 +9,7 @@ import time
 import typing
 import warnings
 
+import bordado as bd
 import harmonica as hm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -257,7 +258,6 @@ def _model_properties(
                         layer.density.to_numpy()[y, x],
                     ]
                 )
-        layer_properties = np.array(layer_properties)
     elif method == "forloops":
         layer_properties = []
         for y in range(layer[coord_names[1]].size):
@@ -276,7 +276,6 @@ def _model_properties(
                             layer.density.to_numpy()[y, x],
                         ]
                     )
-        np.asarray(layer_properties)
     elif method == "generator":
         # slower, but doesn't allocate memory
         if layer.model_type == "prisms":
@@ -297,7 +296,9 @@ def _model_properties(
         msg = "method must be one of 'itertools', 'forloops', or 'generator'"
         raise ValueError(msg)
 
-    return layer_properties
+    # all methods build a list of lists, convert to a 2D array so callers can use
+    # numpy indexing (e.g. properties[:, 4])
+    return np.asarray(layer_properties)
 
 
 def jacobian_prism(
@@ -706,13 +707,12 @@ class DatasetAccessorInvert4Geom:
         """return the dataframe representation of the xarray dataset without nans"""
         if self._ds.dataset_type == "data":
             return (
-                self._ds.to_dataframe()
-                .reset_index()
+                vd.grid_to_table(self._ds)
                 .dropna(how="any", axis=0)
                 .reset_index(drop=True)
             )
         if self._ds.dataset_type == "model":
-            return self._ds.to_dataframe().reset_index()
+            return vd.grid_to_table(self._ds)
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
         raise ValueError(msg)
 
@@ -724,13 +724,12 @@ class DatasetAccessorInvert4Geom:
         """
         if self._ds.dataset_type == "data":
             return (
-                self.inner.to_dataframe()
-                .reset_index()
+                vd.grid_to_table(self.inner)
                 .dropna(how="any", axis=0)
                 .reset_index(drop=True)
             )
         if self._ds.dataset_type == "model":
-            return self.inner.to_dataframe().reset_index()
+            return vd.grid_to_table(self.inner)
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
         raise ValueError(msg)
 
@@ -758,8 +757,7 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
         return (
-            self.masked.to_dataframe()
-            .reset_index()
+            vd.grid_to_table(self.masked)
             .dropna(subset=["mask"], axis=0)
             .reset_index(drop=True)
         )
@@ -1550,11 +1548,11 @@ class DatasetAccessorInvert4Geom:
             # positive values indicate max allowed upward change
             # negative values indicate topography is already too far above upper bound
             df["max_change_above"] = df.upper_confining_layer - df.topography
-            number_enforced = 0
-            for i, j in enumerate(df.topography_correction):
-                if j > df.max_change_above[i]:
-                    number_enforced += 1
-                    df.loc[i, "topography_correction"] = df.max_change_above[i]
+            number_enforced = (df.topography_correction > df.max_change_above).sum()
+            # NaN bounds (no confining layer at that prism) are ignored by clip
+            df["topography_correction"] = df.topography_correction.clip(
+                upper=df.max_change_above
+            )
             logger.info(
                 "enforced upper confining surface at %s prisms", number_enforced
             )
@@ -1563,12 +1561,10 @@ class DatasetAccessorInvert4Geom:
             # negative values indicate max allowed downward change
             # positive values indicate topography is already too far below lower bound
             df["max_change_below"] = df.lower_confining_layer - df.topography
-            number_enforced = 0
-            for i, j in enumerate(df.topography_correction):
-                if j < df.max_change_below[i]:
-                    number_enforced += 1
-                    df.loc[i, "topography_correction"] = df.max_change_below[i]
-
+            number_enforced = (df.topography_correction < df.max_change_below).sum()
+            df["topography_correction"] = df.topography_correction.clip(
+                lower=df.max_change_below
+            )
             logger.info(
                 "enforced lower confining surface at %s prisms", number_enforced
             )
@@ -1774,14 +1770,12 @@ class DatasetAccessorInvert4Geom:
 
         coord_names = self._ds.coord_names
 
-        topo_region = vd.get_region(
-            (
-                topography[coord_names[0]].to_numpy(),
-                topography[coord_names[1]].to_numpy(),
-            )
-        )
+        # bordado requires coordinate arrays of equal shape, so convert the
+        # grid to a table before extracting the region
+        topo_df = vd.grid_to_table(topography)
+        topo_region = bd.get_region((topo_df[coord_names[0]], topo_df[coord_names[1]]))
         df = self.df
-        inside = vd.inside((df[coord_names[0]], df[coord_names[1]]), region=topo_region)
+        inside = bd.inside((df[coord_names[0]], df[coord_names[1]]), region=topo_region)
 
         if not inside.all():
             msg = (
@@ -1895,7 +1889,7 @@ def create_data(
         "buffer_width must be smaller than half the smallest dimension of the region"
     )
 
-    inner_region = vd.pad_region(region, -buffer_width)
+    inner_region = bd.pad_region(region, -buffer_width)
 
     # Append some attributes to the xr.Dataset
     attrs = {
@@ -1913,7 +1907,7 @@ def create_data(
 
 
 def create_model(
-    zref: float,
+    zref: xr.DataArray | float,
     density_contrast: xr.DataArray | float,
     topography: xr.Dataset,
     buffer_width: float = 0,
@@ -1928,12 +1922,14 @@ def create_model(
 
     Parameters
     ----------
-    zref : float
+    zref : xarray.DataArray | float
         The reference elevation to build prisms or tesseroids around. Model elements
         above this reference are assigned positive density contrasts while those below
         are assigned negative density contrasts. This value should be relative to the
         same reference frame as the ``upward`` variable in the ``topography`` Dataset
-        (e.g., WGS84 ellipsoidal height, mean sea level, etc).
+        (e.g., WGS84 ellipsoidal height, mean sea level, etc). This can be a constant
+        value, or a DataArray with the same dimensions as the ``topography`` Dataset
+        for a spatially variable reference level.
     density_contrast : xarray.DataArray | float
         The density contrast to use for the prisms or tesseroids. This can be
         a constant value, or a DataArray with the same dimensions as the
@@ -2014,6 +2010,21 @@ def create_model(
         pass
     else:
         msg = "`density_contrast` must be a float or xarray.DataArray"
+        raise AssertionError(msg)  # noqa: TRY004
+
+    if isinstance(zref, xr.DataArray):
+        assert all(s in zref.dims for s in coord_names), (
+            f"`zref` dataarray must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
+        )
+        try:
+            _ = xr.align(topography.upward, zref, join="exact")
+        except xr.AlignmentError as err:
+            msg = "`zref` should be exactly aligned with the topography dataset"
+            raise xr.AlignmentError(msg) from err
+    elif isinstance(zref, float | int):
+        pass
+    else:
+        msg = "`zref` must be a float or xarray.DataArray"
         raise AssertionError(msg)  # noqa: TRY004
 
     if model_type == "tesseroids":
@@ -2099,7 +2110,7 @@ def create_model(
         assert buffer_width * 2 < min_region_width, (
             "buffer_width must be smaller than half the smallest dimension of the region"
         )
-        inner_region = vd.pad_region(region, -buffer_width)
+        inner_region = bd.pad_region(region, -buffer_width)
     else:
         msg = "buffer_width must be >= 0"
         raise ValueError(msg)
@@ -2126,6 +2137,187 @@ def create_model(
     model.attrs = attrs
 
     return model
+
+
+def _crop_dataset_to_region(
+    ds: xr.Dataset,
+    region: tuple[float, float, float, float],
+    coord_names: tuple[str, str],
+) -> xr.Dataset:
+    """
+    crop a gridded dataset to a region, inclusive of the region edges
+    """
+    e, n = coord_names
+    ds = ds.sortby([e, n])
+    return ds.sel({e: slice(region[0], region[1]), n: slice(region[2], region[3])})
+
+
+def _crop_df_to_region(
+    df: pd.DataFrame,
+    region: tuple[float, float, float, float],
+    coord_names: tuple[str, str],
+) -> pd.DataFrame:
+    """
+    crop a dataframe of points to a region, inclusive of the region edges
+    """
+    e, n = coord_names
+    return df[
+        (df[e] >= region[0])
+        & (df[e] <= region[1])
+        & (df[n] >= region[2])
+        & (df[n] <= region[3])
+    ].copy()
+
+
+def _setup_journal_storage(
+    fname: str,
+    parallel: bool,
+) -> typing.Any:
+    """create a journal file storage for running optuna in parallel"""
+    if not parallel:
+        return None
+    pathlib.Path(f"{fname}.log").unlink(missing_ok=True)
+    pathlib.Path(f"{fname}.lock").unlink(missing_ok=True)
+    pathlib.Path(f"{fname}.log.lock").unlink(missing_ok=True)
+    return optuna.storages.JournalStorage(
+        optuna.storages.journal.JournalFileBackend(f"{fname}.log"),
+    )
+
+
+def _save_study_and_results(
+    fname: str,
+    study: optuna.study.Study,
+    results: typing.Any,
+    n_trials: int,
+) -> None:
+    """
+    save the study to <fname>_study.pickle and the results to <fname>.pickle, and
+    delete the per-trial results files
+    """
+    pathlib.Path(f"{fname}_study.pickle").unlink(missing_ok=True)
+    pathlib.Path(f"{fname}.pickle").unlink(missing_ok=True)
+
+    with pathlib.Path(f"{fname}_study.pickle").open("wb") as f:
+        pickle.dump(study, f)
+
+    with pathlib.Path(f"{fname}.pickle").open("wb") as f:
+        pickle.dump(results, f)
+
+    for i in range(n_trials):
+        pathlib.Path(f"{fname}_trial_{i}.pickle").unlink(missing_ok=True)
+
+
+def _run_optuna_with_startup(
+    objective: typing.Any,
+    study_name: str,
+    storage: typing.Any,
+    n_trials: int,
+    seed: int,
+    parallel: bool,
+    progressbar: bool,
+    sampler: optuna.samplers.BaseSampler | None = None,
+    grid_space: dict[str, typing.Any] | None = None,
+    n_startup_trials: int | None = None,
+    min_startup_trials: int = 4,
+    enqueue: list[dict[str, float]] | None = None,
+) -> optuna.study.Study:
+    """
+    Create and run an Optuna study, used by the inversion optimization methods.
+
+    If ``grid_space`` is provided, all trials are sampled from a GridSampler over that
+    space and ``sampler``, ``n_startup_trials`` and ``enqueue`` are ignored. Otherwise,
+    the study starts with ``n_startup_trials`` quasi-random (Halton QMC) trials, with
+    the parameter sets in ``enqueue`` (typically the parameter limits) explicitly added
+    as the first trials, and then continues with ``sampler`` (a GPSampler by default)
+    for the remaining trials.
+    """
+    if grid_space is not None:
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=optuna.samplers.GridSampler(search_space=grid_space, seed=seed),
+            load_if_exists=False,
+            study_name=study_name,
+            storage=storage,
+            pruner=optimization.DuplicateIterationPruner,
+        )
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
+            return optimization.run_optuna(
+                study=study,
+                storage=storage,
+                objective=objective,
+                n_trials=n_trials,
+                maximize_cpus=True,
+                parallel=parallel,
+                progressbar=progressbar,
+            )
+
+    if n_startup_trials == 0:
+        # no startup trials, all trials use `sampler`
+        if sampler is None:
+            sampler = optimization._default_sampler(seed)
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=sampler,
+            load_if_exists=False,
+            study_name=study_name,
+            storage=storage,
+            pruner=optimization.DuplicateIterationPruner,
+        )
+    else:
+        # number of startup trials defaults to the larger of `min_startup_trials` and
+        # 1/4 of the total trials, but no more than the total number of trials
+        if n_startup_trials is None:
+            n_startup_trials = max(min_startup_trials, int(n_trials / 4))
+            n_startup_trials = min(n_startup_trials, n_trials)
+        logger.info("using %s startup trials", n_startup_trials)
+        if n_startup_trials >= n_trials:
+            logger.warning(
+                "n_startup_trials is >= n_trials resulting in all trials sampled from "
+                "a QMC sampler instead of the GP sampler",
+            )
+
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=optuna.samplers.QMCSampler(
+                seed=seed,
+                qmc_type="halton",
+                scramble=True,
+            ),
+            load_if_exists=False,
+            study_name=study_name,
+            storage=storage,
+            pruner=optimization.DuplicateIterationPruner,
+        )
+
+        # explicitly add the parameter limits as trials
+        for params in enqueue or []:
+            study.enqueue_trial(params, skip_if_exists=True)
+
+        with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
+            study = optimization.run_optuna(
+                study=study,
+                storage=storage,
+                objective=objective,
+                n_trials=n_startup_trials,
+                maximize_cpus=True,
+                parallel=parallel,
+                progressbar=progressbar,
+            )
+
+    # continue with remaining trials using `sampler`
+    if sampler is None:
+        sampler = optimization._default_sampler(seed)
+    study.sampler = sampler
+    with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
+        return optimization.run_optuna(
+            study=study,
+            storage=storage,
+            objective=objective,
+            n_trials=n_trials - (n_startup_trials or 0),
+            maximize_cpus=True,
+            parallel=parallel,
+            progressbar=progressbar,
+        )
 
 
 class Inversion:
@@ -2236,6 +2428,8 @@ class Inversion:
         self.elapsed_time = None
         self.termination_reason = None
         self.params = None
+        self.used_zref: float | None = None
+        self.used_density_contrast: float | None = None
         self.results_fname = None
         self.gravity_best_score = None
         self.constraints_best_score = None
@@ -2245,6 +2439,7 @@ class Inversion:
         self.damping_cv_study_fname = None
         self.zref_density_optimization_study_fname = None
         self.zref_density_optimization_results_fname = None
+        self.windowed_optimization_df: pd.DataFrame | None = None
 
         # check invalid deriv type
         valid_deriv_types = ["annulus", "finite_difference"]
@@ -2793,13 +2988,25 @@ class Inversion:
             except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
 
+        # save the actual values used, since the strings in `params` are for display
+        self.used_zref = (
+            None if isinstance(self.model.zref, xr.DataArray) else self.model.zref
+        )
+        self.used_density_contrast = (
+            None
+            if isinstance(self.model.density_contrast, xr.DataArray)
+            else self.model.density_contrast
+        )
+
         self.params = {  # type: ignore[assignment]
             # first column
             "Density contrast(s)": "Spatially variable"
             if isinstance(self.model.density_contrast, xr.DataArray)
             else f"{np.unique(np.abs(self.model.density_contrast))} kg/m3",
             "Inversion style": self.style,
-            "Reference level": f"{self.model.zref} m",
+            "Reference level": "Spatially variable"
+            if isinstance(self.model.zref, xr.DataArray)
+            else f"{self.model.zref} m",
             "Max iterations": self.max_iterations,
             "L2 norm tolerance": f"{self.l2_norm_tolerance}",
             "Delta L2 norm tolerance": f"{self.delta_l2_norm_tolerance}",
@@ -3168,17 +3375,7 @@ class Inversion:
         else:
             inv_copy.results_fname = fname  # type: ignore[assignment]
 
-        if parallel:
-            pathlib.Path(f"{inv_copy.results_fname}.log").unlink(missing_ok=True)
-            pathlib.Path(f"{inv_copy.results_fname}.lock").unlink(missing_ok=True)
-            pathlib.Path(f"{inv_copy.results_fname}.log.lock").unlink(missing_ok=True)
-            storage = optuna.storages.JournalStorage(
-                optuna.storages.journal.JournalFileBackend(
-                    f"{inv_copy.results_fname}.log"
-                ),
-            )
-        else:
-            storage = None
+        storage = _setup_journal_storage(inv_copy.results_fname, parallel)  # type: ignore[arg-type]
 
         # define the objective function
         objective = optimization.OptimalInversionDamping(
@@ -3196,115 +3393,33 @@ class Inversion:
                 )
                 logger.warning(msg)
                 n_trials = 4
-            space = np.logspace(
-                np.log10(damping_limits[0]), np.log10(damping_limits[1]), n_trials
-            )
-            sampler = optuna.samplers.GridSampler(
-                search_space={"damping": space},
-                seed=seed,
-            )
-
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-                study_name=inv_copy.results_fname,
-                storage=storage,
-                pruner=optimization.DuplicateIterationPruner,
-            )
-
-            # run optimization
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
-                    storage=storage,
-                    objective=objective,
-                    n_trials=n_trials,
-                    # callbacks=[_warn_limits_better_than_trial_1_param],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
+            grid_space = {
+                "damping": np.logspace(
+                    np.log10(damping_limits[0]), np.log10(damping_limits[1]), n_trials
                 )
+            }
+            enqueue = None
         else:
-            if n_startup_trials == 0:
-                # if sampler not provided, use GPsampler as default
-                if sampler is None:
-                    sampler = optuna.samplers.GPSampler(
-                        n_startup_trials=0,
-                        seed=seed,
-                        deterministic_objective=True,
-                    )
+            grid_space = None
+            enqueue = [
+                {"damping": damping_limits[0]},
+                {"damping": damping_limits[1]},
+            ]
 
-                # create study
-                study = optuna.create_study(
-                    direction="minimize",
-                    sampler=sampler,
-                    load_if_exists=False,
-                    study_name=inv_copy.results_fname,
-                    storage=storage,
-                    pruner=optimization.DuplicateIterationPruner,
-                )
-            else:
-                # define number of startup trials, whichever is bigger; 1/4 of trials or 4
-                if n_startup_trials is None:
-                    n_startup_trials = max(4, int(n_trials / 4))
-                    n_startup_trials = min(n_startup_trials, n_trials)
-                logger.info("using %s startup trials", n_startup_trials)
-                if n_startup_trials >= n_trials:
-                    logger.warning(
-                        "n_startup_trials is >= n_trials resulting in all trials sampled from "
-                        "a QMC sampler instead of the GP sampler",
-                    )
-
-                # create study
-                study = optuna.create_study(
-                    direction="minimize",
-                    sampler=optuna.samplers.QMCSampler(
-                        seed=seed,
-                        qmc_type="halton",
-                        scramble=True,
-                    ),
-                    load_if_exists=False,
-                    study_name=inv_copy.results_fname,
-                    storage=storage,
-                    pruner=optimization.DuplicateIterationPruner,
-                )
-
-                # explicitly add the limits as trials
-                study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
-                study.enqueue_trial({"damping": damping_limits[1]}, skip_if_exists=True)
-
-                with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                    study = optimization.run_optuna(
-                        study=study,
-                        storage=storage,
-                        objective=objective,
-                        n_trials=n_startup_trials,
-                        # callbacks=[_warn_limits_better_than_trial_1_param],
-                        maximize_cpus=True,
-                        parallel=parallel,
-                        progressbar=progressbar,
-                    )
-            # continue with remaining trials with user-defined sampler
-            # if sampler not provided, used GPsampler as default
-            if sampler is None:
-                sampler = optuna.samplers.GPSampler(
-                    n_startup_trials=0,
-                    seed=seed,
-                    deterministic_objective=True,
-                )
-            study.sampler = sampler
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
-                    storage=storage,
-                    objective=objective,
-                    n_trials=n_trials - n_startup_trials,
-                    # callbacks=[_warn_limits_better_than_trial_1_param],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
-                )
+        study = _run_optuna_with_startup(
+            objective=objective,
+            study_name=inv_copy.results_fname,  # type: ignore[arg-type]
+            storage=storage,
+            n_trials=n_trials,
+            seed=seed,
+            parallel=parallel,
+            progressbar=progressbar,
+            sampler=sampler,
+            grid_space=grid_space,
+            n_startup_trials=n_startup_trials,
+            min_startup_trials=4,
+            enqueue=enqueue,
+        )
         inv_copy.best_trial = study.best_trial
 
         # warn if any best parameter values are at their limits
@@ -3319,23 +3434,12 @@ class Inversion:
         ).open("rb") as f:
             inv_results = pickle.load(f)
 
-        # remove if exists
-        pathlib.Path(f"{inv_copy.results_fname}_study.pickle").unlink(missing_ok=True)
-        pathlib.Path(f"{inv_copy.results_fname}.pickle").unlink(missing_ok=True)
-
-        # save study to pickle
-        with pathlib.Path(f"{inv_copy.results_fname}_study.pickle").open("wb") as f:
-            pickle.dump(study, f)
-
-        # save inversion results tuple to pickle
-        with pathlib.Path(f"{inv_copy.results_fname}.pickle").open("wb") as f:
-            pickle.dump(inv_results, f)
-
-        # delete all inversion results
-        for i in range(n_trials):
-            pathlib.Path(f"{inv_copy.results_fname}_trial_{i}.pickle").unlink(
-                missing_ok=True
-            )
+        _save_study_and_results(
+            inv_copy.results_fname,  # type: ignore[arg-type]
+            study,
+            inv_results,
+            n_trials,
+        )
 
         inv_copy.damping_cv_study_fname = f"{inv_copy.results_fname}_study.pickle"  # type: ignore[assignment]
         inv_copy.damping_cv_results_fname = f"{inv_copy.results_fname}.pickle"  # type: ignore[assignment]
@@ -3517,23 +3621,18 @@ class Inversion:
             inv_copy.results_fname = fname  # type: ignore[assignment]
 
         if "test" in inv_copy.data.inv.df.columns:
-            assert inv_copy.data.inv.df.test.any(), (
-                "test column contains True value, not needed except for during damping CV"
+            assert not inv_copy.data.inv.df.test.any(), (
+                "test column contains True values, but testing points are only needed "
+                "during damping CV, remove them with `remove_test_points` first"
             )
 
-        if parallel:
-            pathlib.Path(f"{inv_copy.results_fname}.log").unlink(missing_ok=True)
-            pathlib.Path(f"{inv_copy.results_fname}.lock").unlink(missing_ok=True)
-            pathlib.Path(f"{inv_copy.results_fname}.log.lock").unlink(missing_ok=True)
-            storage = optuna.storages.JournalStorage(
-                optuna.storages.journal.JournalFileBackend(
-                    f"{inv_copy.results_fname}.log"
-                ),
-            )
-        else:
-            storage = None
+        storage = _setup_journal_storage(inv_copy.results_fname, parallel)  # type: ignore[arg-type]
+
         # get number of parameters included in optimization
         num_params = sum(x is not None for x in [zref_limits, density_contrast_limits])
+        if num_params == 0:
+            msg = "must provide `zref_limits` and/or `density_contrast_limits`"
+            raise ValueError(msg)
 
         # define the objective function
         objective = optimization.OptimalInversionZrefDensity(
@@ -3559,22 +3658,18 @@ class Inversion:
                     n_trials = 4
 
                 if zref_limits is None:
-                    space = np.linspace(
-                        int(density_contrast_limits[0]),  # type: ignore[index]
-                        int(density_contrast_limits[1]),  # type: ignore[index]
-                        n_trials,
-                        dtype=int,
-                    )
-                    sampler = optuna.samplers.GridSampler(
-                        search_space={"density_contrast": space},
-                        seed=seed,
-                    )
-                if density_contrast_limits is None:
-                    space = np.linspace(zref_limits[0], zref_limits[1], n_trials)  # type: ignore[index]
-                    sampler = optuna.samplers.GridSampler(
-                        search_space={"zref": space},
-                        seed=seed,
-                    )
+                    grid_space = {
+                        "density_contrast": np.linspace(
+                            int(density_contrast_limits[0]),  # type: ignore[index]
+                            int(density_contrast_limits[1]),  # type: ignore[index]
+                            n_trials,
+                            dtype=int,
+                        )
+                    }
+                else:
+                    grid_space = {
+                        "zref": np.linspace(zref_limits[0], zref_limits[1], n_trials)
+                    }
             else:
                 if n_trials < 16:
                     msg = (
@@ -3593,165 +3688,52 @@ class Inversion:
                     msg = (
                         "if grid_search is True with provided limits for both zref and "
                         "density contrast, n_trials (%s) must have an integer square "
-                        "root. Resetting n_trials to to next largest compatible value "
+                        "root. Resetting n_trials to next largest compatible value "
                         "now (%s)"
                     )
                     logger.warning(msg, old_n_trials, n_trials)
 
-                zref_space = np.linspace(
-                    zref_limits[0],  # type: ignore[index]
-                    zref_limits[1],  # type: ignore[index]
-                    int(np.sqrt(n_trials)),
-                )
-
-                density_contrast_space = np.linspace(
-                    int(density_contrast_limits[0]),  # type: ignore[index]
-                    int(density_contrast_limits[1]),  # type: ignore[index]
-                    int(np.sqrt(n_trials)),
-                    dtype=int,
-                )
-
-                sampler = optuna.samplers.GridSampler(
-                    search_space={
-                        "zref": zref_space,
-                        "density_contrast": density_contrast_space,
-                    },
-                    seed=seed,
-                )
-
-            study = optuna.create_study(
-                direction="minimize",
-                sampler=sampler,
-                load_if_exists=False,
-                study_name=inv_copy.results_fname,
-                storage=storage,
-                pruner=optimization.DuplicateIterationPruner,
-            )
-
-            # run optimization
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
-                    storage=storage,
-                    objective=objective,
-                    n_trials=n_trials,
-                    # callbacks=[_warn_limits_better_than_trial_multi_params],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
-                )
-
-        else:
-            if n_startup_trials == 0:
-                # if sampler not provided, use GPsampler as default
-                if sampler is None:
-                    sampler = optuna.samplers.GPSampler(
-                        n_startup_trials=0,
-                        seed=seed,
-                        deterministic_objective=True,
-                    )
-
-                # create study
-                study = optuna.create_study(
-                    direction="minimize",
-                    sampler=sampler,
-                    load_if_exists=False,
-                    study_name=inv_copy.results_fname,
-                    storage=storage,
-                    pruner=optimization.DuplicateIterationPruner,
-                )
-            else:
-                # define number of startup trials, whichever is bigger between 1/4 of trials, or
-                # 4 x the number of parameters
-                if n_startup_trials is None:
-                    n_startup_trials = max(num_params * 4, int(n_trials / 4))
-                    n_startup_trials = min(n_startup_trials, n_trials)
-                logger.info("using %s startup trials", n_startup_trials)
-                if n_startup_trials >= n_trials:
-                    logger.warning(
-                        "n_startup_trials is >= n_trials resulting in all trials sampled from "
-                        "a QMC sampler instead of the GP sampler",
-                    )
-
-                # if sampler not provided, use GPsampler as default
-                if sampler is None:
-                    sampler = optuna.samplers.GPSampler(
-                        n_startup_trials=0,
-                        seed=seed,
-                        deterministic_objective=True,
-                    )
-
-                # create study
-                study = optuna.create_study(
-                    direction="minimize",
-                    sampler=optuna.samplers.QMCSampler(
-                        seed=seed,
-                        qmc_type="halton",
-                        scramble=True,
+                grid_space = {
+                    "zref": np.linspace(
+                        zref_limits[0],  # type: ignore[index]
+                        zref_limits[1],  # type: ignore[index]
+                        int(np.sqrt(n_trials)),
                     ),
-                    load_if_exists=False,
-                    study_name=inv_copy.results_fname,
-                    storage=storage,
-                    pruner=optimization.DuplicateIterationPruner,
-                )
+                    "density_contrast": np.linspace(
+                        int(density_contrast_limits[0]),  # type: ignore[index]
+                        int(density_contrast_limits[1]),  # type: ignore[index]
+                        int(np.sqrt(n_trials)),
+                        dtype=int,
+                    ),
+                }
+            enqueue = None
+        else:
+            grid_space = None
+            # explicitly add the limits as the first two trials
+            lower_limits = {}
+            upper_limits = {}
+            if zref_limits is not None:
+                lower_limits["zref"] = zref_limits[0]
+                upper_limits["zref"] = zref_limits[1]
+            if density_contrast_limits is not None:
+                lower_limits["density_contrast"] = density_contrast_limits[0]
+                upper_limits["density_contrast"] = density_contrast_limits[1]
+            enqueue = [lower_limits, upper_limits]
 
-                # explicitly add the limits as trials
-                to_enqueue = []
-
-                if zref_limits is not None:
-                    zref_trials = [
-                        {"zref": zref_limits[0]},
-                        {"zref": zref_limits[1]},
-                    ]
-                    to_enqueue.append(zref_trials)
-                if density_contrast_limits is not None:
-                    density_contrast_trials = [
-                        {"density_contrast": density_contrast_limits[0]},
-                        {"density_contrast": density_contrast_limits[1]},
-                    ]
-                    to_enqueue.append(density_contrast_trials)
-
-                # get 2 lists of lists of dicts to enqueue (2 trials)
-                to_enqueue = np.array(to_enqueue).transpose()
-
-                for i in to_enqueue:
-                    # turn list of dicts into single dict
-                    x = {k: v for d in i for k, v in d.items()}
-                    study.enqueue_trial(x, skip_if_exists=True)
-
-                # run optimization
-                with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                    study = optimization.run_optuna(
-                        study=study,
-                        storage=storage,
-                        objective=objective,
-                        n_trials=n_startup_trials,
-                        # callbacks=[_warn_limits_better_than_trial_multi_params],
-                        maximize_cpus=True,
-                        parallel=parallel,
-                        progressbar=progressbar,
-                    )
-
-            # continue with remaining trials with user-defined sampler
-            # if sampler not provided, used GPsampler as default
-            if sampler is None:
-                sampler = optuna.samplers.GPSampler(
-                    n_startup_trials=0,
-                    seed=seed,
-                    deterministic_objective=True,
-                )
-            study.sampler = sampler
-            with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
-                study = optimization.run_optuna(
-                    study=study,
-                    storage=storage,
-                    objective=objective,
-                    n_trials=n_trials - n_startup_trials,
-                    # callbacks=[_warn_limits_better_than_trial_multi_params],
-                    maximize_cpus=True,
-                    parallel=parallel,
-                    progressbar=progressbar,
-                )
+        study = _run_optuna_with_startup(
+            objective=objective,
+            study_name=inv_copy.results_fname,  # type: ignore[arg-type]
+            storage=storage,
+            n_trials=n_trials,
+            seed=seed,
+            parallel=parallel,
+            progressbar=progressbar,
+            sampler=sampler,
+            grid_space=grid_space,
+            n_startup_trials=n_startup_trials,
+            min_startup_trials=num_params * 4,
+            enqueue=enqueue,
+        )
 
         # warn if any best parameter values are at their limits
         optimization.warn_parameter_at_limits(study.best_trial)
@@ -3759,23 +3741,25 @@ class Inversion:
         # log the results of the best trial
         optimization.log_optuna_results(study.best_trial)
 
-        # combine testing and training to get a full constraints dataframe
-        reg_constraints = regional_grav_kwargs.pop("constraints_df", None)  # type: ignore[union-attr]
-
-        if isinstance(constraints_df, pd.DataFrame):
-            constraints_df = (
-                pd.concat([constraints_df, reg_constraints])
-                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
-                .sort_index()
-            )
-        else:
-            constraints_df = (
-                pd.concat(constraints_df + reg_constraints)
-                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
-                .sort_index()
-            )
-        # add to regional grav kwargs
+        # if the regional separation uses constraints (training points), combine them
+        # with the testing points to get a full constraints dataframe to use for the
+        # final regional separation and starting topography
+        reg_constraints = (
+            None
+            if regional_grav_kwargs is None
+            else regional_grav_kwargs.pop("constraints_df", None)
+        )
         if reg_constraints is not None:
+            if isinstance(constraints_df, pd.DataFrame):
+                frames = [constraints_df, reg_constraints]
+            else:
+                # k-folds: both are lists of dataframes, one per fold
+                frames = list(constraints_df) + list(reg_constraints)
+            constraints_df = (
+                pd.concat(frames)
+                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
+                .sort_index()
+            )
             regional_grav_kwargs["constraints_df"] = constraints_df  # type: ignore[index]
             if starting_topography_kwargs is not None:
                 starting_topography_kwargs["constraints_df"] = constraints_df
@@ -3834,31 +3818,22 @@ class Inversion:
                 progressbar=False,
             )
 
-        used_zref = float(inv_copy.params["Reference level"][:-2])  # type: ignore[index]
-        used_density_contrast = float(inv_copy.params["Density contrast(s)"][1:-7])  # type: ignore[index]
-
-        assert math.isclose(
-            used_density_contrast, inv_copy.model.density_contrast, rel_tol=0.02
-        )
-        assert math.isclose(used_zref, inv_copy.model.zref, rel_tol=0.02)
-
-        # remove if exists
-        pathlib.Path(f"{inv_copy.results_fname}_study.pickle").unlink(missing_ok=True)
-        pathlib.Path(f"{inv_copy.results_fname}.pickle").unlink(missing_ok=True)
-
-        # save study to pickle
-        with pathlib.Path(f"{inv_copy.results_fname}_study.pickle").open("wb") as f:
-            pickle.dump(study, f)
-
-        # save inversion results tuple to pickle
-        with pathlib.Path(f"{inv_copy.results_fname}.pickle").open("wb") as f:
-            pickle.dump(inv_copy, f)
-
-        # delete all inversion results
-        for i in range(n_trials):
-            pathlib.Path(f"{inv_copy.results_fname}_trial_{i}.pickle").unlink(
-                missing_ok=True
+        # check the final inversion used the optimal parameter values
+        assert inv_copy.used_zref is not None
+        assert math.isclose(inv_copy.used_zref, inv_copy.model.zref, rel_tol=0.02)
+        if inv_copy.used_density_contrast is not None:
+            assert math.isclose(
+                inv_copy.used_density_contrast,
+                inv_copy.model.density_contrast,
+                rel_tol=0.02,
             )
+
+        _save_study_and_results(
+            inv_copy.results_fname,  # type: ignore[arg-type]
+            study,
+            inv_copy,
+            n_trials,
+        )
 
         inv_copy.zref_density_optimization_study_fname = (
             f"{inv_copy.results_fname}_study.pickle"  # type: ignore[assignment]
@@ -4026,6 +4001,454 @@ class Inversion:
         self.__dict__.update(inv_copy.__dict__)
 
         return inv_copy
+
+    def optimize_inversion_zref_density_contrast_windowed(
+        self,
+        n_trials: int,
+        constraints_df: pd.DataFrame,
+        window_width: float,
+        window_overlap: float = 0.0,
+        window_buffer: float = 0.0,
+        min_constraints: int = 1,
+        merge_method: str = "spline",
+        merge_damping: float | None = None,
+        zref_limits: tuple[float, float] | None = None,
+        density_contrast_limits: tuple[float, float] | None = None,
+        starting_topography: xr.Dataset | None = None,
+        starting_topography_kwargs: dict[str, typing.Any] | None = None,
+        regional_grav_kwargs: dict[str, typing.Any] | None = None,
+        fname: str | None = None,
+        progressbar: bool = True,
+        **kwargs: typing.Any,
+    ) -> "Inversion":
+        """
+        Find spatially variable optimal zref and / or density contrast values by
+        running independent zref / density contrast optimizations within windows of the
+        model region, and merging the per-window optimal values into grids used in a
+        final inversion.
+
+        The model region is tiled with square windows of width ``window_width``,
+        optionally overlapping by a fraction ``window_overlap`` of their width. For
+        each window, the gravity data, model, and constraint points are cropped to the
+        window (padded by ``window_buffer`` to reduce edge effects) and a standard
+        optimization (:meth:`optimize_inversion_zref_density_contrast`) is run to find
+        the window's optimal parameter values, scored with the constraint points
+        falling inside the (unpadded) window. Windows containing fewer than
+        ``min_constraints`` constraint points are skipped, as are windows where the
+        optimization fails. The optimal values of all successful windows, located at
+        the window centers, are then merged into continuous grids by interpolation
+        (``merge_method``), clipped to the range of the per-window values. A final
+        inversion is then run over the full region using these spatially variable
+        zref and / or density contrast grids.
+
+        K-folds cross-validation (lists of constraint dataframes) is not supported;
+        provide a single dataframe of constraint points.
+
+        Parameters
+        ----------
+        n_trials : int
+            number of optimization trials to run within each window.
+        constraints_df : pandas.DataFrame
+            constraint points used for scoring, with columns for the two horizontal
+            coordinates and "upward".
+        window_width : float
+            width of the square windows, in meters (or degrees for tesseroid models).
+        window_overlap : float, optional
+            fraction (0 to <1) of the window width which adjacent windows overlap by,
+            by default 0.0
+        window_buffer : float, optional
+            width of a buffer zone of gravity data included around each window to
+            reduce edge effects, must be a multiple of the grid spacing. Constraint
+            points within the buffer are not used for scoring, by default 0.0
+        min_constraints : int, optional
+            minimum number of constraint points which must fall within a window for it
+            to be included, by default 1
+        merge_method : str, optional
+            method used to interpolate the per-window optimal values into grids,
+            either "spline" (:class:`verde.Spline`) or "nearest"
+            (:class:`verde.KNeighbors`), by default "spline"
+        merge_damping : float | None, optional
+            damping parameter for the merging spline, by default None
+        zref_limits : tuple[float, float] | None, optional
+            upper and lower limits for the reference level, in meters, by default None
+        density_contrast_limits : tuple[float, float] | None, optional
+            upper and lower limits for the density contrast, in kg/m^-3, by default
+            None
+        starting_topography : xarray.Dataset | None, optional
+            a starting topography model, cropped to each window, by default None
+        starting_topography_kwargs : dict[str, typing.Any] | None, optional
+            kwargs passed to `utils.create_topography`, same as in
+            :meth:`optimize_inversion_zref_density_contrast`, by default None
+        regional_grav_kwargs : dict[str, typing.Any] | None, optional
+            kwargs passed to :meth:`DatasetAccessorInvert4Geom.regional_separation`.
+            Any dataframes (e.g. training constraints) are automatically cropped to
+            each window, by default None
+        fname : str | None, optional
+            root file name for saving results, each window's results are saved to
+            <fname>_window_<i> and the final inversion to <fname>.pickle, by default
+            a random name.
+        progressbar : bool, optional
+            show a progress bar over the windows, by default True
+        **kwargs : typing.Any
+            additional kwargs passed to each window's
+            :meth:`optimize_inversion_zref_density_contrast` call.
+
+        Returns
+        -------
+        Inversion
+            Inversion object with the final inversion results, the merged zref and
+            density contrast grids as attributes of the `model` attribute, and the
+            per-window results in the `windowed_optimization_df` attribute.
+        """
+        if not isinstance(constraints_df, pd.DataFrame):
+            msg = (
+                "windowed optimization does not support K-folds cross-validation, "
+                "`constraints_df` must be a single dataframe"
+            )
+            raise TypeError(msg)
+        if (zref_limits is None) & (density_contrast_limits is None):
+            msg = "must provide `zref_limits` and/or `density_contrast_limits`"
+            raise ValueError(msg)
+        if regional_grav_kwargs is None:
+            msg = "must provide `regional_grav_kwargs`"
+            raise ValueError(msg)
+        if merge_method not in ("spline", "nearest"):
+            msg = "merge_method must be 'spline' or 'nearest'"
+            raise ValueError(msg)
+
+        # make copies of Inversion and underlying data and model dataset so as not
+        # to alter the original
+        inv_copy = copy.deepcopy(self)
+
+        coord_names = inv_copy.model.coord_names
+        region = inv_copy.model.region
+        spacing = inv_copy.model.spacing
+
+        if window_buffer % spacing != 0:
+            msg = (
+                f"window_buffer ({window_buffer}) must be a multiple of the grid "
+                f"spacing ({spacing})"
+            )
+            raise ValueError(msg)
+
+        if fname is None:
+            fname = f"tmp_{random.randint(0, 999)}_windowed_zref_density_optimization"
+
+        windows = utils.create_window_regions(
+            region,
+            window_width=window_width,
+            window_overlap=window_overlap,
+            spacing=spacing,
+        )
+        logger.info("running zref / density optimization in %s windows", len(windows))
+
+        # variables needed to build each window's model
+        topo_vars = ["mask"]
+        if inv_copy.model.model_type == "tesseroids":
+            topo_vars.append("geocentric_radius")
+
+        if progressbar is True:
+            pbar = tqdm(windows, desc="Optimization windows")
+        else:
+            pbar = windows
+
+        results: list[dict[str, typing.Any]] = []
+        for i, window in enumerate(pbar):
+            # pad the window with a buffer of gravity data, clipped to the full region
+            padded = bd.pad_region(window, window_buffer)
+            data_region = (
+                max(padded[0], region[0]),
+                min(padded[1], region[1]),
+                max(padded[2], region[2]),
+                min(padded[3], region[3]),
+            )
+
+            # only score with constraints inside the unpadded window
+            win_constraints = _crop_df_to_region(constraints_df, window, coord_names)
+            if len(win_constraints) < min_constraints:
+                logger.warning(
+                    "skipping window %s; %s constraint points inside window but "
+                    "%s required",
+                    i,
+                    len(win_constraints),
+                    min_constraints,
+                )
+                continue
+
+            # crop gravity data to the padded window, dropping derived variables
+            # since they are recalculated for each trial
+            grav_vars = ["gravity_anomaly", "upward"]
+            if "geocentric_radius" in inv_copy.data:
+                grav_vars.append("geocentric_radius")
+            win_data = create_data(
+                _crop_dataset_to_region(
+                    inv_copy.data[grav_vars], data_region, coord_names
+                ),
+                buffer_width=0,
+                model_type=inv_copy.model.model_type,
+            )
+
+            # build the window's starting model from the cropped starting topography
+            if starting_topography is not None:
+                win_topo = _crop_dataset_to_region(
+                    starting_topography, data_region, coord_names
+                )
+            else:
+                win_topo = _crop_dataset_to_region(
+                    inv_copy.model[["starting_topography", *topo_vars]].rename(
+                        starting_topography="upward"
+                    ),
+                    data_region,
+                    coord_names,
+                )
+
+            def _crop_scalarize(
+                value: xr.DataArray | float,
+                win_region: tuple[float, float, float, float],
+            ) -> float:
+                if isinstance(value, xr.DataArray):
+                    return float(
+                        _crop_dataset_to_region(
+                            value.to_dataset(name="v"), win_region, coord_names
+                        ).v.mean()
+                    )
+                return value
+
+            win_layers = _crop_dataset_to_region(
+                inv_copy.model[["upper_confining_layer", "lower_confining_layer"]],
+                data_region,
+                coord_names,
+            )
+            win_model = create_model(
+                zref=_crop_scalarize(inv_copy.model.zref, data_region),
+                density_contrast=_crop_scalarize(
+                    inv_copy.model.density_contrast, data_region
+                ),
+                topography=win_topo,
+                buffer_width=0,
+                model_type=inv_copy.model.model_type,
+                upper_confining_layer=win_layers.upper_confining_layer,
+                lower_confining_layer=win_layers.lower_confining_layer,
+            )
+
+            # crop any dataframes (e.g. training constraints) in the kwargs to the
+            # padded window
+            win_reg_kwargs = copy.deepcopy(regional_grav_kwargs)
+            for k, v in win_reg_kwargs.items():
+                if isinstance(v, pd.DataFrame):
+                    win_reg_kwargs[k] = _crop_df_to_region(v, data_region, coord_names)
+            win_stk = copy.deepcopy(starting_topography_kwargs)
+            if win_stk is not None:
+                for k, v in win_stk.items():
+                    if isinstance(v, pd.DataFrame):
+                        win_stk[k] = _crop_df_to_region(v, data_region, coord_names)
+
+            # the initial forward gravity and regional separation of the window,
+            # recalculated for each trial by the optimization
+            with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
+                win_data.inv.forward_gravity(win_model, progressbar=False)
+                win_data.inv.regional_separation(**win_reg_kwargs)
+
+            win_inv = Inversion(
+                data=win_data,
+                model=win_model,
+                style=inv_copy.style,
+                max_iterations=inv_copy.max_iterations,
+                l2_norm_tolerance=inv_copy.l2_norm_tolerance,
+                delta_l2_norm_tolerance=inv_copy.delta_l2_norm_tolerance,
+                perc_increase_limit=inv_copy.perc_increase_limit,
+                deriv_type=inv_copy.deriv_type,
+                jacobian_finite_step_size=inv_copy.jacobian_finite_step_size,
+                model_properties_method=inv_copy.model_properties_method,
+                solver_type=inv_copy.solver_type,
+                solver_damping=inv_copy.solver_damping,
+            )
+
+            try:
+                with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
+                    win_inv = win_inv.optimize_inversion_zref_density_contrast(
+                        n_trials=n_trials,
+                        constraints_df=win_constraints,
+                        zref_limits=zref_limits,
+                        density_contrast_limits=density_contrast_limits,
+                        starting_topography=None
+                        if starting_topography is None
+                        else win_topo,
+                        starting_topography_kwargs=win_stk,
+                        regional_grav_kwargs=win_reg_kwargs,
+                        fname=f"{fname}_window_{i}",
+                        plot_scores=False,
+                        progressbar=False,
+                        **kwargs,
+                    )
+            except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
+                logger.warning(
+                    "skipping window %s; optimization failed with error: %s", i, e
+                )
+                continue
+
+            results.append(
+                {
+                    "window": i,
+                    coord_names[0]: (window[0] + window[1]) / 2,
+                    coord_names[1]: (window[2] + window[3]) / 2,
+                    "region": window,
+                    "zref": win_inv.best_trial.params.get("zref"),  # type: ignore[attr-defined]
+                    "density_contrast": win_inv.best_trial.params.get(  # type: ignore[attr-defined]
+                        "density_contrast"
+                    ),
+                    "score": win_inv.best_trial.value,  # type: ignore[attr-defined]
+                    "n_constraints": len(win_constraints),
+                }
+            )
+
+        if len(results) == 0:
+            msg = (
+                "no windows completed successfully, check the log for warnings; "
+                "consider increasing `window_width` or decreasing `min_constraints`"
+            )
+            raise RuntimeError(msg)
+
+        results_df = pd.DataFrame(results)
+        logger.info(
+            "windowed optimization complete for %s of %s windows",
+            len(results_df),
+            len(windows),
+        )
+
+        # merge per-window values into grids on the model's grid
+        def _merge_values(col: str) -> xr.DataArray | float:
+            values = results_df[col]
+            if (values == values.iloc[0]).all() or len(values) < 3:
+                return float(values.mean())
+            if merge_method == "nearest":
+                gridder = vd.KNeighbors(k=1)
+            else:
+                gridder = vd.Spline(damping=merge_damping)
+            gridder.fit(
+                (results_df[coord_names[0]], results_df[coord_names[1]]),
+                values,
+            )
+            e_coords = inv_copy.model[coord_names[0]].to_numpy()
+            n_coords = inv_copy.model[coord_names[1]].to_numpy()
+            ee, nn = np.meshgrid(e_coords, n_coords)
+            predicted = np.clip(
+                np.asarray(gridder.predict((ee, nn))),
+                values.min(),
+                values.max(),
+            )
+            return xr.DataArray(
+                predicted,
+                coords={
+                    coord_names[1]: n_coords,
+                    coord_names[0]: e_coords,
+                },
+                dims=(coord_names[1], coord_names[0]),
+            )
+
+        best_zref = (
+            _merge_values("zref") if zref_limits is not None else inv_copy.model.zref
+        )
+        best_density = (
+            _merge_values("density_contrast")
+            if density_contrast_limits is not None
+            else inv_copy.model.density_contrast
+        )
+
+        # if the regional separation uses constraints (training points), combine them
+        # with the testing points to get a full constraints dataframe to use for the
+        # final regional separation and starting topography
+        regional_grav_kwargs = copy.deepcopy(regional_grav_kwargs)
+        starting_topography_kwargs = copy.deepcopy(starting_topography_kwargs)
+        reg_constraints = regional_grav_kwargs.pop("constraints_df", None)
+        full_constraints = constraints_df
+        if reg_constraints is not None:
+            full_constraints = (
+                pd.concat([constraints_df, reg_constraints])
+                .drop_duplicates(subset=[coord_names[0], coord_names[1], "upward"])
+                .sort_index()
+            )
+            regional_grav_kwargs["constraints_df"] = full_constraints
+
+        # create the final starting topography
+        if starting_topography is not None:
+            final_topo = starting_topography.copy()
+        else:
+            if starting_topography_kwargs is None:
+                msg = (
+                    "must provide `starting_topography` or `starting_topography_kwargs`"
+                )
+                raise ValueError(msg)
+            if starting_topography_kwargs["method"] == "flat":
+                # a flat starting topography which tracks the (possibly spatially
+                # variable) optimal zref
+                final_topo = inv_copy.model[topo_vars].copy()
+                final_topo["upward"] = (
+                    best_zref
+                    if isinstance(best_zref, xr.DataArray)
+                    else xr.full_like(inv_copy.model.topography, best_zref)
+                )
+            else:
+                starting_topography_kwargs["constraints_df"] = full_constraints
+                if "weights" in starting_topography_kwargs:
+                    starting_topography_kwargs["weights_col"] = (
+                        starting_topography_kwargs["weights"].name
+                    )
+                starting_topography_kwargs["dataset_to_add"] = inv_copy.model[
+                    topo_vars
+                ].drop_vars([v for v in ("top", "bottom") if v in inv_copy.model])
+                starting_topography_kwargs["upper_confining_layer"] = (
+                    inv_copy.model.upper_confining_layer
+                )
+                starting_topography_kwargs["lower_confining_layer"] = (
+                    inv_copy.model.lower_confining_layer
+                )
+                starting_topography_kwargs["region"] = region
+                starting_topography_kwargs["spacing"] = spacing
+                starting_topography_kwargs["coord_names"] = coord_names
+                with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
+                    final_topo = utils.create_topography(**starting_topography_kwargs)
+
+        # rerun the full workflow with the merged optimal parameter grids
+        final_model = create_model(
+            zref=best_zref,
+            density_contrast=best_density,
+            topography=final_topo,
+            buffer_width=inv_copy.model.buffer_width,
+            model_type=inv_copy.model.model_type,
+            upper_confining_layer=inv_copy.model.upper_confining_layer,
+            lower_confining_layer=inv_copy.model.lower_confining_layer,
+        )
+
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
+            inv_copy.data.inv.forward_gravity(final_model)
+            inv_copy.data.inv.regional_separation(**regional_grav_kwargs)
+
+        final_inv = Inversion(
+            data=inv_copy.data,
+            model=final_model,
+            style=inv_copy.style,
+            max_iterations=inv_copy.max_iterations,
+            l2_norm_tolerance=inv_copy.l2_norm_tolerance,
+            delta_l2_norm_tolerance=inv_copy.delta_l2_norm_tolerance,
+            perc_increase_limit=inv_copy.perc_increase_limit,
+            deriv_type=inv_copy.deriv_type,
+            jacobian_finite_step_size=inv_copy.jacobian_finite_step_size,
+            model_properties_method=inv_copy.model_properties_method,
+            solver_type=inv_copy.solver_type,
+            solver_damping=inv_copy.solver_damping,
+            apply_weighting_grid=inv_copy.apply_weighting_grid,
+            weighting_grid=inv_copy.weighting_grid,
+        )
+        final_inv.windowed_optimization_df = results_df
+
+        with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
+            final_inv.invert(results_fname=fname, progressbar=False)
+
+        # update the inversion object with the best inversion results
+        self.__dict__.update(final_inv.__dict__)
+
+        return final_inv
 
     ###
     ###
@@ -4443,6 +4866,15 @@ def run_inversion_workflow(
         fname = f"tmp_{random.randint(0, 999)}"
 
     logger.info("saving all results with root name '%s'", fname)
+
+    # zref and density_contrast are needed to build the starting model, even when
+    # they are being optimized
+    if zref is None or density_contrast is None:
+        msg = (
+            "`zref` and `density_contrast` must both be provided; they are used to "
+            "build the starting model, even when optimizing for them"
+        )
+        raise ValueError(msg)
     ###
     ###
     # figure out what needs to be done
@@ -4526,15 +4958,7 @@ def run_inversion_workflow(
             raise ValueError(msg)
 
     # Starting Topography
-    if create_starting_topography is False:
-        if (starting_topography is None) & (run_zref_or_density_optimization is False):
-            msg = (
-                "starting_topography must be provided since create_starting_topography "
-                "is False."
-            )
-            raise ValueError(msg)
-        logger.debug("not creating starting topo because it is provided")
-    elif create_starting_topography is True:
+    if create_starting_topography is True:
         if starting_topography is not None:
             msg = (
                 "starting_topography provided but unused since "
@@ -4559,7 +4983,7 @@ def run_inversion_workflow(
 
     # starting prism model
     model = create_model(
-        zref=zref,  # type: ignore[arg-type]
+        zref=zref,
         density_contrast=density_contrast,
         topography=starting_topography,
         buffer_width=buffer_width,
@@ -4718,11 +5142,11 @@ def run_inversion_workflow(
             )
         )
 
-        used_zref = float(inv.params["Reference level"][:-2])  # type: ignore[index]
-        used_density_contrast = float(inv.params["Density contrast(s)"][1:-7])  # type: ignore[index]
-        assert math.isclose(
-            used_density_contrast, inv.model.density_contrast, rel_tol=0.02
-        )
-        assert math.isclose(used_zref, inv.model.zref, rel_tol=0.02)
+        assert inv.used_zref is not None
+        assert math.isclose(inv.used_zref, inv.model.zref, rel_tol=0.02)
+        if inv.used_density_contrast is not None:
+            assert math.isclose(
+                inv.used_density_contrast, inv.model.density_contrast, rel_tol=0.02
+            )
 
     return inv
