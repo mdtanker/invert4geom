@@ -707,13 +707,12 @@ class DatasetAccessorInvert4Geom:
         """return the dataframe representation of the xarray dataset without nans"""
         if self._ds.dataset_type == "data":
             return (
-                self._ds.to_dataframe()
-                .reset_index()
+                vd.grid_to_table(self._ds)
                 .dropna(how="any", axis=0)
                 .reset_index(drop=True)
             )
         if self._ds.dataset_type == "model":
-            return self._ds.to_dataframe().reset_index()
+            return vd.grid_to_table(self._ds)
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
         raise ValueError(msg)
 
@@ -725,13 +724,12 @@ class DatasetAccessorInvert4Geom:
         """
         if self._ds.dataset_type == "data":
             return (
-                self.inner.to_dataframe()
-                .reset_index()
+                vd.grid_to_table(self.inner)
                 .dropna(how="any", axis=0)
                 .reset_index(drop=True)
             )
         if self._ds.dataset_type == "model":
-            return self.inner.to_dataframe().reset_index()
+            return vd.grid_to_table(self.inner)
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
         raise ValueError(msg)
 
@@ -759,8 +757,7 @@ class DatasetAccessorInvert4Geom:
         """
         self._check_correct_dataset_type("model")
         return (
-            self.masked.to_dataframe()
-            .reset_index()
+            vd.grid_to_table(self.masked)
             .dropna(subset=["mask"], axis=0)
             .reset_index(drop=True)
         )

@@ -798,7 +798,7 @@ def contaminate(
         raise DeprecationWarning(msg)
 
     # convert dataarray to dataframe
-    data_df = data.to_dataframe().reset_index()
+    data_df = vd.grid_to_table(data)
 
     # initiate a random number generator
     rng = np.random.default_rng(seed)
