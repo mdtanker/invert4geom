@@ -2326,6 +2326,101 @@ def test_optimize_inversion_zref_density_contrast():
     pathlib.Path("test_zref_density_contrast_study.pickle").unlink()
 
 
+def test_create_model_variable_zref():
+    """
+    test the create_model function with a spatially variable zref
+    """
+    topo = true_topography_cartesian()
+    zref = xr.full_like(topo.upward, 500)
+    zref[:2, :] = 400
+
+    model = invert4geom.inversion.create_model(zref, 2670, topo)
+
+    assert isinstance(model.zref, xr.DataArray)
+    # density sign should follow the local reference level
+    expected_sign = np.where(topo.upward.to_numpy() >= zref.to_numpy(), 1, -1)
+    npt.assert_array_equal(np.sign(model.density.to_numpy()), expected_sign)
+
+    # misaligned zref grid should raise an error
+    with pytest.raises(xr.AlignmentError, match="zref"):
+        invert4geom.inversion.create_model(zref.isel(easting=slice(0, 3)), 2670, topo)
+
+
+@pytest.mark.filterwarnings("ignore:QMCSampler is experimental")
+@pytest.mark.filterwarnings("ignore:GPSampler is experimental")
+def test_optimize_inversion_zref_density_contrast_windowed():
+    """
+    test the optimize_inversion_zref_density_contrast_windowed function
+    """
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
+    # one constraint point in each of the 4 windows
+    constraints_df = pd.DataFrame(
+        data={
+            "easting": [5000, 25000, 5000, 25000],
+            "northing": [5000, 5000, 25000, 25000],
+            "upward": [500, 450, 550, 500],
+        }
+    )
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+    inv = invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        max_iterations=5,
+    )
+
+    opti_obj = inv.optimize_inversion_zref_density_contrast_windowed(
+        n_trials=5,
+        constraints_df=constraints_df,
+        window_width=20000,
+        window_overlap=0,
+        window_buffer=10000,
+        zref_limits=(0, 2e3),
+        density_contrast_limits=(1000, 3000),
+        regional_grav_kwargs={"method": "constant", "constant": 0},
+        starting_topography_kwargs={"method": "flat"},
+        fname="test_windowed_zref_density_contrast",
+        progressbar=False,
+    )
+
+    # each window has 1 constraint so all 4 windows should succeed
+    df = opti_obj.windowed_optimization_df
+    assert df is not None
+    assert len(df) == 4
+    assert df.zref.between(0, 2e3).all()
+    assert df.density_contrast.between(1000, 3000).all()
+
+    # merged values should be spatially variable grids within the limits, unless
+    # all windows found the same value
+    for param, limits in [
+        ("zref", (0, 2e3)),
+        ("density_contrast", (1000, 3000)),
+    ]:
+        value = getattr(inv.model, param)
+        if isinstance(value, xr.DataArray):
+            assert value.min() >= min(df[param].min(), limits[0])
+            assert value.max() <= max(df[param].max(), limits[1])
+            assert set(value.dims) == {"easting", "northing"}
+        else:
+            assert limits[0] <= value <= limits[1]
+
+    # the final inversion was run and results saved
+    assert inv.already_inverted
+    assert pathlib.Path("test_windowed_zref_density_contrast.pickle").exists()
+
+    xr.testing.assert_equal(opti_obj.model, inv.model)
+
+    # delete files
+    for f in pathlib.Path().glob("test_windowed_zref_density_contrast*"):
+        f.unlink()
+
+
 @pytest.mark.use_numba
 def test_grav_column_der_relative_values():
     """

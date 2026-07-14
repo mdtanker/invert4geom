@@ -693,3 +693,42 @@ def test_gravity_decay_buffer_flat_topo_equal_top_and_zref_raises():
             density=2670,
             plot=False,
         )
+
+
+def test_create_window_regions():
+    """
+    test the create_window_regions function
+    """
+    # no overlap, region evenly divisible by window width
+    windows = utils.create_window_regions((0, 100, 0, 100), window_width=50)
+    assert windows == [
+        (0, 50, 0, 50),
+        (50, 100, 0, 50),
+        (0, 50, 50, 100),
+        (50, 100, 50, 100),
+    ]
+
+    # 50% overlap
+    windows = utils.create_window_regions(
+        (0, 100, 0, 100), window_width=50, window_overlap=0.5
+    )
+    assert len(windows) == 9
+    assert windows[0] == (0.0, 50.0, 0.0, 50.0)
+    assert windows[-1] == (50.0, 100.0, 50.0, 100.0)
+
+    # window larger than region gives a single window spanning the region
+    windows = utils.create_window_regions((0, 100, 0, 100), window_width=200)
+    assert windows == [(0, 100, 0, 100)]
+
+    # uneven division still covers the full region, snapped to spacing
+    windows = utils.create_window_regions((0, 90, 0, 90), window_width=50, spacing=10)
+    for window in windows:
+        for edge in window:
+            assert edge % 10 == 0
+    assert max(w[1] for w in windows) == 90
+    assert max(w[3] for w in windows) == 90
+
+    with pytest.raises(ValueError, match="window_overlap"):
+        utils.create_window_regions((0, 100, 0, 100), 50, window_overlap=1)
+    with pytest.raises(ValueError, match="window_width"):
+        utils.create_window_regions((0, 100, 0, 100), 0)

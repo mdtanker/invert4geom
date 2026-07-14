@@ -118,6 +118,7 @@ from .uncertainty import (  # noqa: E402
 )
 from .utils import (  # noqa: E402
     create_topography,
+    create_window_regions,
     filter_grid,
     gravity_decay_buffer,
     normalized_mindist,

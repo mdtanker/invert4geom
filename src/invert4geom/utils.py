@@ -4,6 +4,7 @@ import typing
 import warnings
 from contextlib import contextmanager
 
+import bordado as bd
 import dask
 import harmonica as hm
 import numpy as np
@@ -1071,6 +1072,77 @@ def create_topography(
         ds = ds.merge(dataset_to_add)
 
     return ds
+
+
+def create_window_regions(
+    region: tuple[float, float, float, float],
+    window_width: float,
+    window_overlap: float = 0.0,
+    spacing: float | None = None,
+) -> list[tuple[float, float, float, float]]:
+    """
+    Tile a region with square windows of a set width, optionally overlapping. Window
+    placement uses :func:`bordado.line_coordinates` (the same placement as
+    :func:`bordado.rolling_window`); the first and last windows in each dimension
+    align with the region edges, the entire region is covered, and the actual overlap
+    is adjusted (up or down) from the requested value so the windows are evenly
+    distributed. If the region is smaller than the window width in a dimension, a
+    single window spanning that dimension is used.
+
+    Parameters
+    ----------
+    region : tuple[float, float, float, float]
+        bounding region to tile, in the format (min_easting, max_easting,
+        min_northing, max_northing).
+    window_width : float
+        width of the square windows, in the same units as the region.
+    window_overlap : float, optional
+        fraction (0 to <1) of the window width which adjacent windows should overlap
+        by, by default 0.0
+    spacing : float | None, optional
+        if provided, window edges are snapped to multiples of this grid spacing, by
+        default None
+
+    Returns
+    -------
+    list[tuple[float, float, float, float]]
+        list of window regions in the same format as the input region.
+    """
+    if not 0 <= window_overlap < 1:
+        msg = "window_overlap must be greater or equal to 0 and less than 1"
+        raise ValueError(msg)
+    if window_width <= 0:
+        msg = "window_width must be greater than 0"
+        raise ValueError(msg)
+
+    step = window_width * (1 - window_overlap)
+
+    def _starts(minc: float, maxc: float) -> NDArray:
+        if maxc - minc <= window_width:
+            return np.array([minc])
+        centers = bd.line_coordinates(
+            minc + window_width / 2,
+            maxc - window_width / 2,
+            spacing=step,
+            adjust="spacing",
+        )
+        starts = centers - window_width / 2
+        if spacing is not None:
+            starts = minc + np.round((starts - minc) / spacing) * spacing
+        return starts
+
+    windows = []
+    for n_start in _starts(region[2], region[3]):
+        for e_start in _starts(region[0], region[1]):
+            windows.append(  # noqa: PERF401
+                (
+                    e_start,
+                    min(e_start + window_width, region[1]),
+                    n_start,
+                    min(n_start + window_width, region[3]),
+                )
+            )
+    return windows
 
 
 def grid_to_model(
