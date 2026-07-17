@@ -2498,6 +2498,9 @@ class Inversion:
         self.zref_density_optimization_study_fname = None
         self.zref_density_optimization_results_fname = None
         self.windowed_optimization_df: pd.DataFrame | None = None
+        self._prev_top: NDArray | None = None
+        self._prev_bottom: NDArray | None = None
+        self._prev_density: NDArray | None = None
 
         # check invalid deriv type
         valid_deriv_types = ["annulus", "finite_difference"]
@@ -2837,12 +2840,129 @@ class Inversion:
 
         self.step = step
 
+    def _snapshot_model_geometry(self) -> None:
+        """
+        save copies of the current model geometry and density, used to detect which
+        model elements changed during an iteration so the forward gravity can be
+        updated incrementally.
+        """
+        self._prev_top = self.model.top.values.copy()
+        self._prev_bottom = self.model.bottom.values.copy()
+        self._prev_density = self.model.density.values.copy()
+
+    def update_forward_gravity(self) -> None:
+        """
+        Update the data's forward gravity using only the model elements which have
+        changed since the last snapshot taken with `_snapshot_model_geometry`. Since
+        gravity is linear with respect to its sources, the forward gravity of the full
+        model can be updated exactly with;
+        g_new = g_old + g(changed elements, new geometry) - g(changed elements, old geometry)
+        which is typically much faster than recalculating the forward gravity of the
+        entire model since unchanged elements (e.g. masked or converged elements) are
+        excluded.
+        """
+        model = self.model
+        coord_names = model.coord_names
+
+        if self._prev_top is None:
+            # no snapshot available, calculate the full forward gravity instead
+            self.data.inv.forward_gravity(model)
+            self._snapshot_model_geometry()
+            return
+
+        top = model.top.values
+        bottom = model.bottom.values
+        density = model.density.values
+
+        # NaN-safe comparison; elements which are NaN in both snapshots are unchanged
+        def differs(new: NDArray, old: NDArray) -> NDArray:
+            return (new != old) & ~(np.isnan(new) & np.isnan(old))
+
+        changed = (
+            differs(top, self._prev_top)
+            | differs(bottom, self._prev_bottom)
+            | differs(density, self._prev_density)
+        )
+        logger.info(
+            "updating forward gravity for %s of %s model elements",
+            changed.sum(),
+            changed.size,
+        )
+        if not changed.any():
+            self._snapshot_model_geometry()
+            return
+
+        # horizontal boundaries of the changed model elements
+        easting = model[coord_names[0]].values
+        northing = model[coord_names[1]].values
+        half_e = np.median(np.diff(easting)) / 2
+        half_n = np.median(np.diff(northing)) / 2
+        ee, nn = np.meshgrid(easting, northing)
+        west = ee[changed] - half_e
+        east = ee[changed] + half_e
+        south = nn[changed] - half_n
+        north = nn[changed] + half_n
+
+        # gravity observation points
+        df = self.data.inv.df
+        grav_upward = df.upward.to_numpy()
+        if model.model_type == "tesseroids":
+            grav_upward = grav_upward + df.geocentric_radius.to_numpy()
+        coordinates = (
+            df[coord_names[0]].to_numpy(),
+            df[coord_names[1]].to_numpy(),
+            grav_upward,
+        )
+
+        def gravity_effect(
+            bottoms: NDArray,
+            tops: NDArray,
+            densities: NDArray,
+        ) -> NDArray | float:
+            """forward gravity of the changed elements, excluding NaN elements"""
+            boundaries = np.column_stack([west, east, south, north, bottoms, tops])
+            valid = ~(np.isnan(boundaries).any(axis=1) | np.isnan(densities))
+            if not valid.any():
+                return 0.0
+            if model.model_type == "prisms":
+                return hm.prism_gravity(
+                    coordinates,
+                    boundaries[valid],
+                    densities[valid],
+                    field="g_z",
+                )
+            return hm.tesseroid_gravity(
+                coordinates,
+                boundaries[valid],
+                densities[valid],
+                field="g_z",
+            )
+
+        delta = gravity_effect(
+            bottom[changed],
+            top[changed],
+            density[changed],
+        ) - gravity_effect(
+            self._prev_bottom[changed],
+            self._prev_top[changed],
+            self._prev_density[changed],
+        )
+
+        df["forward_gravity"] = df.forward_gravity + delta
+        ds = df.set_index([coord_names[1], coord_names[0]]).to_xarray()
+        self.data["forward_gravity"] = ds["forward_gravity"]
+
+        self._snapshot_model_geometry()
+
     def reinitialize_inversion(self) -> None:
         """
         reset inversion object attributes, gravity data misfit, and model topography to
         what it was before the inversion.
         """
         self.iteration = None
+        self._prev_top = None
+        self._prev_bottom = None
+        self._prev_density = None
 
         self.data["misfit"] = self.data["starting_misfit"]
         self.data["res"] = self.data["starting_res"]
@@ -2938,6 +3058,10 @@ class Inversion:
         # start timing of overall inversion
         self.time_start = time.perf_counter()  # type: ignore[assignment]
 
+        # snapshot the starting model geometry, which the existing forward gravity
+        # corresponds to, enabling incremental forward gravity updates each iteration
+        self._snapshot_model_geometry()
+
         if progressbar is True:
             pbar = tqdm(range(self.max_iterations), initial=1, desc="Iteration")
         elif progressbar is False:
@@ -3006,8 +3130,14 @@ class Inversion:
             # save current residual with iteration number
             self.data[f"iter_{self.iteration}_initial_residual"] = self.data.res
 
-            # update the forward gravity, residual, and the l2 / delta l2 norms
-            self.data.inv._update_gravity_and_residual(self.model)  # pylint: disable=protected-access
+            # update the forward gravity using only the changed model elements
+            self.update_forward_gravity()
+
+            # update the residual misfit with the new forward gravity and the same
+            # regional (see `_update_gravity_and_residual` for details)
+            self.data["res"] = (
+                self.data.gravity_anomaly - self.data.forward_gravity - self.data.reg
+            )
 
             # end iteration timer
             self.iter_time_end = time.perf_counter()  # type: ignore[assignment]
