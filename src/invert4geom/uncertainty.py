@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import polartoolkit as ptk
 import scipy as sp
+import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
@@ -53,6 +54,9 @@ def create_lhc(
         deviation. If 'log' is True, the provided 'loc' and 'scale' values are the base
         10 exponents. For example, a uniform distribution with loc=-4, scale=6 and
         log=True would sample values between 1e-4 and 1e2.
+        An optional 'clip' entry of (min, max) bounds the sampled values (applied
+        after any log transform, in real units) - use it to keep physically-positive
+        parameters positive, e.g. a normal distribution for an equivalent-source depth.
     random_state : int, optional
         random state to use for sampling, by default 1
     criterion : str, optional
@@ -117,6 +121,8 @@ def create_lhc(
             )
         if v.get("log", False) is True:
             values = 10**values
+        if v.get("clip", None) is not None:
+            values = np.clip(values, v["clip"][0], v["clip"][1])
         if v.get("dtype", None) is int:
             values = values.round().astype(int)
         v["sampled_values"] = values
@@ -353,6 +359,81 @@ def starting_topography_uncertainty(
     # pylint: enable=duplicate-code
 
 
+"""
+CHANGES
+1. sample_data / data_uncertainty: the data are resampled within their measurement
+   uncertainty each run. Before, only the fit parameters varied, so observational noise
+   never entered the ensemble.
+2. demean: the data mean is removed before fitting and added back after prediction.
+   harmonica's EquivalentSources doesn't do this, so damping shrinks predictions toward
+   0 mGal. With anomalies around -200 mGal, varying damping without demeaning produces a
+   huge spread that is just the datum offset, not real uncertainty.
+3. weight_by="cv_rmse": members can be weighted by blocked cross-validation RMSE
+   (with the new blocked_cv_rmse helper). The old "score" option used the training R2,
+   which is ~1 for equivalent sources no matter the parameters, so it weights nothing.
+4. grid_points is no longer mutated in place, and one random_state seeds both the Latin
+   hypercube and the per-run noise.
+"""
+
+
+def blocked_cv_rmse(
+    eqs: typing.Any,
+    coords: tuple[NDArray, NDArray, NDArray],
+    data: NDArray,
+    weights: NDArray | None = None,
+    spacing: float | None = None,
+    n_splits: int = 5,
+    random_state: int = 0,
+    cv: typing.Any | None = None,
+) -> float:
+    """
+    RMSE of held-out predictions from spatially blocked K-fold cross-validation.
+
+    Unlike the training score, this measures how well a gridder predicts data it was not
+    fit to. Blocked (rather than random) folds avoid rewarding overfit models via
+    spatially correlated neighboring points.
+
+    Parameters
+    ----------
+    eqs : harmonica.EquivalentSources
+        an unfitted gridder instance to cross-validate
+    coords : tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]
+        coordinates of the data points in the order (easting, northing, upward)
+    data : numpy.ndarray
+        data values to fit and predict
+    weights : numpy.ndarray | None, optional
+        fit weights for the data points, by default None
+    spacing : float | None, optional
+        size of the spatial blocks passed to :class:`verde.BlockKFold`, by default None
+    n_splits : int, optional
+        number of folds, by default 5
+    random_state : int, optional
+        random state for shuffling the blocks, by default 0
+
+    Returns
+    -------
+    float
+        RMSE of the held-out predictions, pooled over all folds
+    """
+    if cv is None:
+        cv = vd.BlockKFold(
+            spacing=spacing,
+            n_splits=n_splits,
+            shuffle=True,
+            random_state=random_state,
+        )
+    residuals = []
+    for train, test in cv.split(np.transpose(coords[:2])):
+        model = copy.deepcopy(eqs)
+        model.fit(
+            tuple(c[train] for c in coords),
+            data[train],
+            weights=None if weights is None else weights[train],
+        )
+        residuals.append(data[test] - model.predict(tuple(c[test] for c in coords)))
+    return float(np.sqrt(np.mean(np.concatenate(residuals) ** 2)))
+
+
 def equivalent_sources_uncertainty(
     runs: int,
     data: NDArray,
@@ -366,6 +447,15 @@ def equivalent_sources_uncertainty(
     deterministic_error: xr.DataArray | None = None,
     weight_by: str | None = None,
     coast: bool = False,
+    data_uncertainty: NDArray | None = None,
+    sample_data: bool = False,
+    demean: bool = True,
+    source_surface: NDArray | float | None = None,
+    cv: typing.Any | None = None,
+    cv_spacing: float | None = None,
+    cv_n_splits: int = 5,
+    random_state: int = 0,
+    criterion: str = "centered",
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
@@ -383,8 +473,8 @@ def equivalent_sources_uncertainty(
         The coordinates of the gravity data points in the order (easting, northing,
         upward).
     parameter_dict : dict[str, typing.Any] | None, optional
-        dictionary of parameters passes to `regional_separation` with the uncertainty
-        distributions defined, by default None
+        dictionary of parameters passed to `harmonica.EquivalentSources` with the
+        uncertainty distributions defined, by default None
     region: tuple[float, float, float, float] | None = None,
         region to calculate statistics within, by default None
     plot : bool, optional
@@ -398,51 +488,171 @@ def equivalent_sources_uncertainty(
         if the deterministic error is known, will make a plot comparing the results, by
         default None
     weight_by : str | None, optional
-        how to weight the models, by default None
+        how to weight the ensemble members, by default None (equal weights). Options:
+        "cv_rmse" weights by 1/RMSE² from spatially blocked K-fold cross-validation of
+        each member (requires `cv_spacing`); "rmse" weights by 1/RMSE² between a
+        `gravity_anomaly` column of `grid_points` and each predicted grid; "score"
+        weights by the training R² (note equivalent sources fit their training data
+        almost exactly regardless of parameters, so training R² is ~1 for every member
+        and weights little — prefer "cv_rmse").
     coast : bool, optional
         whether to plot coastlines, by default False
+    data_uncertainty : numpy.ndarray | None, optional
+        per-point 1σ uncertainty of `data`, required if `sample_data` is True, by
+        default None
+    sample_data : bool, optional
+        resample the data each run from a normal distribution with a standard deviation
+        of `data_uncertainty`, so observational noise is included in the ensemble
+        spread, by default False
+    demean : bool, optional
+        remove the data mean before fitting and restore it after prediction, by default
+        True. `harmonica.EquivalentSources` does not do this internally, so damping
+        shrinks predictions toward 0; for data with a large offset (e.g. Bouguer
+        anomalies of ~-200 mGal) varying the damping without demeaning produces a large
+        ensemble spread which reflects the offset, not interpolation uncertainty.
+    source_surface : numpy.ndarray | float | None, optional
+        reference elevation(s) the sources hang below instead of the observation
+        points. By default (None) harmonica places each source `depth` meters below
+        its own observation, so the source layer copies the station topography -
+        rough terrain then imprints artifacts. Provide a scalar (flat source layer)
+        or a per-station array (e.g. a low-passed topography sampled at the
+        stations) and each run's sources are built as
+        ``(easting, northing, source_surface - depth)`` and passed via ``points``,
+        keeping the sampled ``depth`` parameter meaningful.
+    cv : typing.Any | None, optional
+        a cross-validation splitter for `weight_by="cv_rmse"` (any object with
+        sklearn's split interface), overriding `cv_spacing`/`cv_n_splits`. Use e.g. a
+        region-scored splitter so members are weighted by their skill inside the area
+        of interest, matching an AOI-scored parameter optimization. By default None
+    cv_spacing : float | None, optional
+        block size (in meters) for `weight_by="cv_rmse"`, by default None
+    cv_n_splits : int, optional
+        number of folds for `weight_by="cv_rmse"`, by default 5
+    random_state : int, optional
+        seeds both the Latin Hypercube sampling and the per-run data noise, by default 0
+    criterion : str, optional
+        Latin Hypercube criterion passed to `create_lhc`, by default "centered"
 
     Returns
     -------
     stats_ds: xarray.Dataset,
-        a dataset with the cell-wise statistics of the ensemble of regional gravity
+        a dataset with the cell-wise statistics of the ensemble of predicted gravity.
+        If `weight_by="cv_rmse"`, the per-run RMSE values are stored in
+        `stats_ds.attrs["cv_rmse"]`.
     sampled_parms_dict: dict[str, typing.Any]
         a dictionary of sampled parameter values.
     """
     new_kwargs = copy.deepcopy(kwargs)
 
+    if sample_data and data_uncertainty is None:
+        msg = "data_uncertainty must be provided when sample_data=True"
+        raise ValueError(msg)
+    if weight_by not in (None, "score", "rmse", "cv_rmse"):
+        msg = f"unknown weight_by: {weight_by!r}"
+        raise ValueError(msg)
+    if weight_by == "cv_rmse" and cv_spacing is None and cv is None:
+        msg = "cv_spacing or cv must be provided when weight_by='cv_rmse'"
+        raise ValueError(msg)
+
+    data = np.asarray(data, dtype=float)
+    coords = tuple(np.asarray(c, dtype=float) for c in coords)  # type: ignore[assignment]
+    if data_uncertainty is not None:
+        data_uncertainty = np.asarray(data_uncertainty, dtype=float)
+
     if parameter_dict is not None:
         sampled_param_dict = create_lhc(
             n_samples=runs,
             parameter_dict=parameter_dict,
-            random_state=0,
-            criterion="centered",
+            random_state=random_state,
+            criterion=criterion,
         )
     else:
         sampled_param_dict = None
+
+    # sources at or above the observations produce singular predictions, so refuse
+    # non-positive depths outright (a normal distribution with a wide scale can sample
+    # them silently - use a log-space distribution or a 'clip' bound instead)
+    sampled_depths = (
+        np.asarray(sampled_param_dict["depth"]["sampled_values"])
+        if sampled_param_dict is not None and "depth" in sampled_param_dict
+        else None
+    )
+    fixed_depth = new_kwargs.get("depth")
+    if (sampled_depths is not None and np.any(sampled_depths <= 0)) or (
+        isinstance(fixed_depth, (int, float)) and fixed_depth <= 0
+    ):
+        msg = (
+            "equivalent-source depths must be positive; the sampled or provided values "
+            "include depths <= 0 (sources at or above the observations). Use a "
+            "log-space distribution or a 'clip' bound in the parameter_dict."
+        )
+        raise ValueError(msg)
 
     # weights are passed to fit and score, not the EquivalentSources constructor
     data_weights = new_kwargs.pop("weights", None)
 
     grav_grids = []
     scores = []
-    for i in tqdm(range(runs), desc="starting equivalent sources ensemble"):
+    cv_rmses = []
+    for i in tqdm(range(runs), desc="equivalent sources ensemble"):
+        run_kwargs = dict(new_kwargs)
         if sampled_param_dict is not None:
             for k, v in sampled_param_dict.items():
-                new_kwargs[k] = v["sampled_values"][i]
+                run_kwargs[k] = v["sampled_values"][i]
+
+        run_data = data
+        if sample_data:
+            # each run gets an independent, reproducible noise realization
+            rng = np.random.default_rng(seed=[random_state, i])
+            run_data = rng.normal(data, data_uncertainty)
+
+        if source_surface is not None:
+            # hang the sources below the reference surface instead of the stations,
+            # preserving the sampled depth via the points argument
+            run_depth = run_kwargs.pop("depth", None)
+            if run_depth is None:
+                msg = "source_surface requires a depth (sampled or fixed)"
+                raise ValueError(msg)
+            source_elev = (
+                np.broadcast_to(
+                    np.asarray(source_surface, dtype=float), coords[0].shape
+                )
+                - run_depth
+            )
+            if np.any(source_elev >= coords[2]):
+                msg = (
+                    "sources at or above their observation points; increase depth or "
+                    "lower the source_surface"
+                )
+                raise ValueError(msg)
+            run_kwargs["points"] = (coords[0], coords[1], source_elev)
+
+        shift = run_data.mean() if demean else 0.0
 
         with utils._log_level(logging.WARNING):  # pylint: disable=protected-access
-            # refit EqSources with best parameters
             eqs = hm.EquivalentSources(
-                **new_kwargs,
+                **run_kwargs,
             )
-            eqs.fit(coords, data, weights=data_weights)
+            eqs.fit(coords, run_data - shift, weights=data_weights)
 
         if weight_by == "score":
-            scores.append(eqs.score(coords, data, weights=data_weights))
+            scores.append(eqs.score(coords, run_data - shift, weights=data_weights))
+        elif weight_by == "cv_rmse":
+            cv_rmses.append(
+                blocked_cv_rmse(
+                    hm.EquivalentSources(**run_kwargs),
+                    coords,
+                    run_data - shift,
+                    weights=data_weights,
+                    spacing=cv_spacing,
+                    n_splits=cv_n_splits,
+                    random_state=random_state,
+                    cv=cv,
+                )
+            )
 
-        # predict sources onto grid
-        grid_points["predicted_grav"] = eqs.predict(
+        # predict sources onto grid, restoring the mean
+        predicted = shift + eqs.predict(
             (
                 grid_points.easting,
                 grid_points.northing,
@@ -451,18 +661,23 @@ def equivalent_sources_uncertainty(
         )
 
         grav_grids.append(
-            grid_points.set_index(["northing", "easting"]).to_xarray().predicted_grav
+            grid_points.assign(predicted_grav=predicted)
+            .set_index(["northing", "easting"])
+            .to_xarray()
+            .predicted_grav
         )
 
-    # merge all topos into 1 dataset
+    # merge all grids into 1 dataset
     merged = merge_simulation_results(grav_grids)
 
-    # get constraint point RMSE of each model
+    # get weights for each ensemble member
     if weight_by == "score":
         # scores are R² values where higher is better, so use them directly as
         # weights (1/x² would incorrectly give the best-fitting models the
         # lowest weights)
         weights = scores
+    elif weight_by == "cv_rmse":
+        weights = [1 / (x**2) for x in cv_rmses]
     elif weight_by == "rmse":
         weight_vals = []
         for g in grav_grids:
@@ -483,6 +698,9 @@ def equivalent_sources_uncertainty(
         weights=weights,
         region=region,
     )
+
+    if weight_by == "cv_rmse":
+        stats_ds.attrs["cv_rmse"] = cv_rmses
 
     if plot is True:
         epsg, coast = utils.get_epsg(coast=coast)
@@ -565,6 +783,7 @@ def regional_misfit_uncertainty(
     true_regional: xr.DataArray | None = None,
     coast: bool = False,
     weight_by: str | None = None,
+    points_style="x.3c",
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
@@ -686,6 +905,7 @@ def regional_misfit_uncertainty(
                 unit="mGal",
                 points_label="Topography constraints",
                 region=plot_region,
+                points_style=points_style,
             )
             if true_regional is not None:
                 mean, stdev = _mean_and_stdev(stats_ds)
@@ -708,7 +928,7 @@ def regional_misfit_uncertainty(
                     points=constraints_df.rename(
                         columns={"easting": "x", "northing": "y"}
                     ),
-                    points_style="x.3c",
+                    points_style=points_style,
                 )
                 _ = ptk.grid_compare(
                     true_regional,
@@ -728,7 +948,7 @@ def regional_misfit_uncertainty(
                     points=constraints_df.rename(
                         columns={"easting": "x", "northing": "y"}
                     ),
-                    points_style="x.3c",
+                    points_style=points_style,
                 )
                 # pylint: enable=duplicate-code
         except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
@@ -1093,8 +1313,14 @@ def full_workflow_uncertainty_loop(
                 "model_properties_method",
                 "solver_type",
                 "solver_damping",
+                "sharpness_weight",
+                "sharpness_norm",
+                "irls_epsilon",
+                "irls_iterations",
                 "apply_weighting_grid",
                 "weighting_grid",
+                "apply_residual_weighting_grid",
+                "residual_weighting_grid",
             )
         }
         # run inversion
@@ -1162,6 +1388,57 @@ def full_workflow_uncertainty_loop(
         prism_dfs,
         sampled_param_dict,
     )  # type: ignore[return-value]
+
+
+def topography_gradient_uncertainty(
+    merged: xr.Dataset,
+    threshold: float,
+) -> xr.Dataset:
+    """
+    Convert an ensemble of inverted topographies into fault-location statistics.
+
+    For each ensemble member the horizontal gradient magnitude of the topography is
+    computed. Steep gradients in an inverted surface are candidate fault scarps, so the
+    cell-wise fraction of members whose gradient exceeds ``threshold`` is a probability
+    map of fault locations: cells where every member is steep are robust scarp
+    positions, and the width of a high-probability band maps the horizontal
+    uncertainty of that fault's position.
+
+    Parameters
+    ----------
+    merged : xarray.Dataset
+        ensemble of topographies as one variable per run, in the format returned by
+        :func:`merge_simulation_results`
+    threshold : float
+        gradient magnitude (in grid units, e.g. m/m) above which a cell is counted as
+        a scarp
+
+    Returns
+    -------
+    xarray.Dataset
+        dataset with variables ``gradient_mean``, ``gradient_stdev`` (cell-wise
+        statistics of the ensemble's gradient magnitudes) and ``scarp_probability``
+        (fraction of members exceeding ``threshold``)
+    """
+    original_dims = list(merged[next(iter(merged))].sizes.keys())
+
+    gradients = []
+    for name in merged:
+        topo = merged[name]
+        grad = np.sqrt(
+            topo.differentiate(original_dims[1]) ** 2
+            + topo.differentiate(original_dims[0]) ** 2
+        )
+        gradients.append(grad.rename(name))
+
+    stacked = xr.concat(gradients, dim="runs")
+    return xr.Dataset(
+        {
+            "gradient_mean": stacked.mean("runs"),
+            "gradient_stdev": stacked.std("runs"),
+            "scarp_probability": (stacked > threshold).mean("runs"),
+        }
+    )
 
 
 def model_ensemble_stats(
@@ -1281,6 +1558,7 @@ def merged_stats(
     constraints_df: pd.DataFrame | None = None,
     weight_by: str = "residual",
     region: tuple[float, float, float, float] | None = None,
+    points_style: str = "x.3c",
 ) -> xr.Dataset:
     """
     Use the outputs of the function `uncertainty.full_workflow_uncertainty_loop` to
@@ -1356,6 +1634,7 @@ def merged_stats(
                 reverse_cpt=True,
                 label="inverted topography",
                 points_label="Topography constraints",
+                points_style=points_style,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)

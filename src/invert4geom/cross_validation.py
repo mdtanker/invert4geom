@@ -481,6 +481,7 @@ def eq_sources_score(
     data: pd.Series | NDArray,
     delayed: bool = False,
     weights: NDArray | None = None,
+    cv: typing.Any | None = None,
     **kwargs: typing.Any,
 ) -> float:
     """
@@ -498,6 +499,12 @@ def eq_sources_score(
         compute the scores in parallel if True, by default False
     weights : numpy.ndarray | None, optional
         optional weight values for each gravity data point, by default None
+    cv : typing.Any | None, optional
+        a cross-validation splitter to use instead of the default shuffled KFold.
+        Any object with sklearn's split/get_n_splits interface works - e.g. a
+        splitter that always trains on points outside a region of interest and
+        scores only on points inside it, so the optimum reflects fit quality where
+        it matters. By default None
 
     Keyword Arguments
     -----------------
@@ -560,7 +567,7 @@ def eq_sources_score(
             "ignore", category=sklearn.exceptions.UndefinedMetricWarning
         )
         score = np.nan
-        for n_splits in range(5, 1, -1):
+        if cv is not None:
             try:
                 score = np.mean(
                     vd.cross_val_score(
@@ -569,18 +576,34 @@ def eq_sources_score(
                         data,
                         delayed=delayed,
                         weights=weights,
-                        cv=sklearn.model_selection.KFold(
-                            n_splits=n_splits,
-                            shuffle=True,
-                            random_state=0,
-                        ),
+                        cv=cv,
                         scoring="r2",
                     )
                 )
             except ValueError:
                 score = np.nan
-            if not np.isnan(score):
-                break
+        else:
+            for n_splits in range(5, 1, -1):
+                try:
+                    score = np.mean(
+                        vd.cross_val_score(
+                            eqs,
+                            coordinates,
+                            data,
+                            delayed=delayed,
+                            weights=weights,
+                            cv=sklearn.model_selection.KFold(
+                                n_splits=n_splits,
+                                shuffle=True,
+                                random_state=0,
+                            ),
+                            scoring="r2",
+                        )
+                    )
+                except ValueError:
+                    score = np.nan
+                if not np.isnan(score):
+                    break
             msg = (
                 "eq sources score is NaN with %s splits, reducing n_splits by 1 "
                 "until scoring metric is defined"

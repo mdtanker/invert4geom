@@ -1,5 +1,6 @@
 import pathlib
 import pickle
+import typing
 
 import harmonica as hm
 import numpy as np
@@ -1655,6 +1656,278 @@ def test_solver():
     inv.solver_type = "not_least_squares"
     with pytest.raises(ValueError, match="invalid string for solver_type"):
         inv.solver()
+
+
+def _small_inversion_setup(**kwargs: typing.Any) -> invert4geom.inversion.Inversion:
+    """
+    create a small data / model pair and return an Inversion instance
+    """
+    easting = [0, 5]
+    northing = [0, 5]
+    surface = [
+        [0, 0],
+        [0, 0],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=([[1, 1], [-1, -1]], [[100, 100], [100, 100]]),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(0, 2670, topo)
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    return invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        **kwargs,
+    )
+
+
+@pytest.mark.use_numba
+def test_solver_irls():
+    """
+    test the IRLS (sharp) solver
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e-5,
+        solver_damping=0.01,
+    )
+
+    inv.jacobian_geometry()
+    inv.solver()
+
+    # check step shape is correct
+    assert np.shape(inv.step) == (4,)
+
+    # check step is finite
+    assert np.all(np.isfinite(inv.step))
+
+    # with a tiny sharpness weight, the solution should be close to the pure
+    # least-squares solution
+    step_irls = inv.step
+    inv.solver_type = "scipy least squares"
+    inv.solver()
+    npt.assert_allclose(step_irls, inv.step, rtol=1e-2, atol=1e-3)
+
+
+@pytest.mark.use_numba
+def test_solver_irls_strong_weight_flattens():
+    """
+    a very strong sharpness weight should force the model gradient (and therefore
+    the step differences between cells) towards zero, giving a near-uniform step
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e4,
+    )
+
+    inv.jacobian_geometry()
+    inv.solver()
+
+    # all cell steps should be nearly identical (zero gradient)
+    assert np.ptp(inv.step) < 1e-3
+
+
+def test_gradient_operator():
+    """
+    test the first-difference gradient operator
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e-3,
+    )
+
+    grad_op = inv._gradient_operator()  # pylint: disable=protected-access
+
+    # 2x2 grid has 2 easting-direction pairs and 2 northing-direction pairs
+    assert grad_op.shape == (4, 4)
+
+    # gradient of a constant field is zero
+    npt.assert_allclose(grad_op @ np.ones(4), 0)
+
+    # each row differences exactly 2 cells with coefficients +1 and -1
+    assert np.all(grad_op.getnnz(axis=1) == 2)
+    npt.assert_allclose(np.asarray(grad_op.sum(axis=1)).ravel(), 0)
+
+
+@pytest.mark.use_numba
+def test_solver_residual_weighting_zero():
+    """
+    a residual weighting grid of zeros should zero the residual seen by the solver,
+    giving a zero step
+    """
+    weights = vd.make_xarray_grid(
+        ([0, 5], [0, 5]),
+        data=[[0.0, 0.0], [0.0, 0.0]],
+        data_names="weights",
+    ).weights
+    inv = _small_inversion_setup(
+        apply_residual_weighting_grid=True,
+        residual_weighting_grid=weights,
+    )
+
+    inv.jacobian_geometry()
+    inv.solver()
+
+    npt.assert_allclose(inv.step, 0, atol=1e-10)
+
+
+@pytest.mark.use_numba
+def test_solver_residual_weighting_ones():
+    """
+    a residual weighting grid of ones should give the same step as no weighting
+    """
+    weights = vd.make_xarray_grid(
+        ([0, 5], [0, 5]),
+        data=[[1.0, 1.0], [1.0, 1.0]],
+        data_names="weights",
+    ).weights
+    inv_weighted = _small_inversion_setup(
+        solver_damping=0.01,
+        apply_residual_weighting_grid=True,
+        residual_weighting_grid=weights,
+    )
+    inv_weighted.jacobian_geometry()
+    inv_weighted.solver()
+
+    inv_unweighted = _small_inversion_setup(solver_damping=0.01)
+    inv_unweighted.jacobian_geometry()
+    inv_unweighted.solver()
+
+    npt.assert_allclose(inv_weighted.step, inv_unweighted.step)
+
+
+def test_residual_weighting_grid_errors():
+    """
+    mismatched residual weighting arguments should raise errors
+    """
+    weights = vd.make_xarray_grid(
+        ([0, 5], [0, 5]),
+        data=[[1.0, 1.0], [1.0, 1.0]],
+        data_names="weights",
+    ).weights
+
+    with pytest.raises(ValueError, match="apply_residual_weighting_grid is False"):
+        _small_inversion_setup(residual_weighting_grid=weights)
+
+    with pytest.raises(ValueError, match="must supply residual_weighting_grid"):
+        _small_inversion_setup(apply_residual_weighting_grid=True)
+
+
+def test_solver_irls_missing_sharpness_weight():
+    """
+    an IRLS inversion without a sharpness weight should raise an error
+    """
+    with pytest.raises(ValueError, match="sharpness_weight"):
+        _small_inversion_setup(solver_type="irls")
+
+
+def test_invalid_solver_type():
+    """
+    an invalid solver type should raise an error at initialization
+    """
+    with pytest.raises(ValueError, match="solver_type must be one of"):
+        _small_inversion_setup(solver_type="not_a_solver")
+
+
+def test_optimize_inversion_sharpness_errors():
+    """
+    invalid arguments to the sharpness optimization should raise errors
+    """
+    inv = _small_inversion_setup(solver_damping=0.01)
+    with pytest.raises(ValueError, match="requires solver_type='irls'"):
+        inv.optimize_inversion_sharpness(n_trials=2, sharpness_weight_limits=(1e-3, 1))
+
+    inv = _small_inversion_setup(solver_type="irls", sharpness_weight=1e-3)
+    with pytest.raises(ValueError, match="limits for at least one"):
+        inv.optimize_inversion_sharpness(n_trials=2)
+
+    with pytest.raises(ValueError, match="grid_search is only available"):
+        inv.optimize_inversion_sharpness(
+            n_trials=4,
+            sharpness_weight_limits=(1e-3, 1),
+            sharpness_norm_limits=(0.5, 2),
+            grid_search=True,
+        )
+
+
+@pytest.mark.use_numba
+def test_optimize_inversion_sharpness(tmp_path):
+    """
+    test a small sharpness_weight optimization scored against constraint points
+    """
+    easting = np.arange(0, 40000, 5000)
+    northing = np.arange(0, 40000, 5000)
+    coords = np.meshgrid(easting, northing)
+    topo = np.where(coords[0] < 20000, -300.0, 100.0)
+    true_topo = vd.make_xarray_grid(coords, data=topo, data_names="upward").upward
+    true_model = invert4geom.create_model(0, 400, topography=true_topo.to_dataset())
+
+    grav = vd.make_xarray_grid(
+        coords,
+        data=(np.zeros_like(coords[0]), np.full_like(coords[0], 1000.0)),
+        data_names=("gravity_anomaly", "upward"),
+    )
+    data = invert4geom.create_data(grav)
+    data.inv.forward_gravity(true_model, progressbar=False)
+    data["gravity_anomaly"] = data.forward_gravity
+
+    start = vd.make_xarray_grid(
+        coords, data=np.zeros_like(coords[0]), data_names="upward"
+    )
+    model = invert4geom.create_model(0, 400, topography=start)
+    data.inv.forward_gravity(model, progressbar=False)
+    data.inv.regional_separation(method="constant", constant=0)
+
+    # constraint points sampled from the true topography for scoring
+    constraints = pd.DataFrame(
+        {
+            "easting": [5000, 15000, 25000, 35000],
+            "northing": [5000, 25000, 15000, 35000],
+        }
+    )
+    constraints = invert4geom.sample_grids(
+        constraints, true_topo, sampled_name="upward"
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data,
+        model,
+        solver_type="irls",
+        sharpness_weight=1e-3,
+        max_iterations=3,
+        l2_norm_tolerance=0.1,
+        delta_l2_norm_tolerance=1.001,
+    )
+    inv_best = inv.optimize_inversion_sharpness(
+        n_trials=4,
+        sharpness_weight_limits=(1e-4, 1e-1),
+        constraints_df=constraints,
+        grid_search=True,
+        fname=str(tmp_path / "sharpness_cv"),
+        plot_scores=False,
+        progressbar=False,
+    )
+
+    # a best trial exists, within the limits, and was set on the returned copy
+    best_weight = inv_best.best_trial.params["sharpness_weight"]
+    assert 1e-4 <= best_weight <= 1e-1
+    assert inv_best.sharpness_weight == best_weight
+    # the original object was updated with the best inversion's results
+    assert inv.already_inverted
 
 
 def test_reinitialize_inversion():

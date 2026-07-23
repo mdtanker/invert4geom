@@ -202,24 +202,33 @@ def plot_2_parameter_scores_uneven(
     y = df[param_names[1]].values  # noqa: PD011
     z = df.value.to_numpy()
 
-    x_buffer = (max(x) - min(x)) / 50
-    y_buffer = (max(y) - min(y)) / 50
+    # interpolate in log space for log-scaled parameters so that orders of
+    # magnitude are evenly represented in the interpolated surface
+    x_transformed = np.log10(x) if logx else x
+    y_transformed = np.log10(y) if logy else y
+
+    x_buffer = (max(x_transformed) - min(x_transformed)) / 50
+    y_buffer = (max(y_transformed) - min(y_transformed)) / 50
 
     # 2D grid for interpolation
-    xi = np.linspace(min(x), max(x))
-    yi = np.linspace(min(y), max(y))
-    xi, yi = np.meshgrid(xi, yi)
+    xi_transformed = np.linspace(min(x_transformed), max(x_transformed))
+    yi_transformed = np.linspace(min(y_transformed), max(y_transformed))
+    xi_transformed, yi_transformed = np.meshgrid(xi_transformed, yi_transformed)
 
     try:
         interp = sp.interpolate.CloughTocher2DInterpolator(
-            list(zip(x, y, strict=False)), z
+            list(zip(x_transformed, y_transformed, strict=False)), z
         )
     except ValueError as e:
         logger.error(
             "Error interpolating value in plot_2_parameter_scores_uneven: %s", e
         )
         return
-    zi = interp(xi, yi)
+    zi = interp(xi_transformed, yi_transformed)
+
+    # transform the grid back to the original parameter space for plotting
+    xi = 10**xi_transformed if logx else xi_transformed
+    yi = 10**yi_transformed if logy else yi_transformed
 
     vmin, vmax = ptk.get_min_max(
         df.value,
@@ -264,8 +273,24 @@ def plot_2_parameter_scores_uneven(
     plt.legend(
         loc="best",
     )
-    plt.xlim([min(x) - x_buffer, max(x) + x_buffer])
-    plt.ylim([min(y) - y_buffer, max(y) + y_buffer])
+    if logx:
+        plt.xlim(
+            [
+                10 ** (min(x_transformed) - x_buffer),
+                10 ** (max(x_transformed) + x_buffer),
+            ]
+        )
+    else:
+        plt.xlim([min(x) - x_buffer, max(x) + x_buffer])
+    if logy:
+        plt.ylim(
+            [
+                10 ** (min(y_transformed) - y_buffer),
+                10 ** (max(y_transformed) + y_buffer),
+            ]
+        )
+    else:
+        plt.ylim([min(y) - y_buffer, max(y) + y_buffer])
     plt.xlabel(plot_param_names[0])
     plt.ylabel(plot_param_names[1])
     plt.xticks(rotation=20)
@@ -502,6 +527,39 @@ def grid_inversion_results(
     return (misfit_grids, topo_grids, corrections_grids)
 
 
+def _zero_is_central(values: xr.DataArray | NDArray) -> bool:
+    """
+    return True if 0 falls within the interquartile range (0.25 to 0.75 quantiles) of
+    the values, in which case a diverging colormap centered on 0 is appropriate, and
+    False otherwise
+    """
+    quart25, quart75 = np.nanquantile(values, [0.25, 0.75])
+    return bool(quart25 <= 0 <= quart75)
+
+
+def _gravity_cmaps_and_limits(
+    grids: list[xr.DataArray],
+    robust: bool = True,
+) -> tuple[list[str], list[tuple[float, float] | None]]:
+    """
+    choose default colormaps and color limits for a list of gravity grids: grids with
+    0 within their interquartile range get a red-to-blue colormap ("balance+h0") with
+    symmetric color limits centered on 0, all others get "viridis" with default
+    limits
+    """
+    cmaps: list[str] = []
+    cpt_limits: list[tuple[float, float] | None] = []
+    for grid in grids:
+        if _zero_is_central(grid):
+            lim = vd.maxabs(ptk.get_min_max(grid, robust=robust))
+            cmaps.append("balance+h0")
+            cpt_limits.append((-lim, lim))
+        else:
+            cmaps.append("viridis")
+            cpt_limits.append(None)
+    return cmaps, cpt_limits
+
+
 def plot_inversion_topo_results(
     prisms_ds: xr.Dataset,
     constraints_df: pd.DataFrame | None = None,
@@ -568,6 +626,11 @@ def plot_inversion_grav_results(
     constraint_style: str = "x.3c",
     epsg: str | None = None,
     coast: bool = False,
+    cmap: str | None = None,
+    absolute: bool | None = None,
+    robust: bool = True,
+    hist: bool = True,
+    **kwargs: typing.Any,
 ) -> None:
     """
     plot the initial and final misfit grids from the inversion and their difference
@@ -590,6 +653,21 @@ def plot_inversion_grav_results(
         EPSG code of the data if wanting to plot coastlines, by default None
     coast : bool, optional
         add coastline to plots, by default False
+    cmap : str | None, optional
+        colormap to use for the grids. By default (None, with ``absolute`` also
+        None), each grid with 0 within the interquartile range (0.25 to 0.75
+        quantiles) of its values gets a red-to-blue colormap (``balance+h0``)
+        centered on zero, and all others get ``viridis``
+    absolute : bool | None, optional
+        center the color scales on zero with symmetric limits (best paired with a
+        diverging colormap such as ``balance+h0``), by default None (chosen per grid
+        as described for ``cmap``)
+    robust : bool, optional
+        clip the color ranges to the 2nd-98th percentiles, by default True
+    hist : bool, optional
+        add a colorbar histogram to each plot, by default True
+    kwargs : typing.Any
+        additional keyword arguments passed to :func:`polartoolkit.maps.plot_grid`
     """
     if "easting" in grav_results.columns and "northing" in grav_results.columns:
         coord_names = ["easting", "northing"]
@@ -618,25 +696,34 @@ def plot_inversion_grav_results(
         epsg=epsg,
         coast=coast,
     )
-    robust = True
-    diff_maxabs = vd.maxabs(ptk.get_min_max(dif, robust=robust))
-    initial_maxabs = vd.maxabs(ptk.get_min_max(initial, robust=robust))
-    final_maxabs = vd.maxabs(ptk.get_min_max(final, robust=robust))
+
+    def _cmap_and_absolute(grid: xr.DataArray) -> tuple[str, bool]:
+        """resolve the colormap and centering for a grid, per-grid when not set"""
+        if cmap is None and absolute is None:
+            centered = _zero_is_central(grid)
+            return ("balance+h0" if centered else "viridis"), centered
+        chosen = cmap if cmap is not None else ("balance+h0" if absolute else "viridis")
+        return chosen, bool(absolute)
+
+    initial_cmap, initial_absolute = _cmap_and_absolute(initial)
+    diff_cmap, diff_absolute = _cmap_and_absolute(dif)
+    final_cmap, final_absolute = _cmap_and_absolute(final)
 
     fig = ptk.plot_grid(
         initial,
         fig_height=fig_height,
         region=region,
-        cmap="balance+h0",
-        # robust=True,
-        cpt_lims=(-initial_maxabs, initial_maxabs),
-        hist=True,
+        cmap=initial_cmap,
+        absolute=initial_absolute,
+        robust=robust,
+        hist=hist,
         cbar_label="mGal",
         title=f"Initial residual: RMSE:{round(initial_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
         coast=coast,
         epsg=epsg,
+        **kwargs,
     )
     fig = ptk.plot_grid(
         dif,
@@ -644,15 +731,17 @@ def plot_inversion_grav_results(
         origin_shift="x",
         fig_height=fig_height,
         region=region,
-        cmap="balance+h0",
-        cpt_lims=(-diff_maxabs, diff_maxabs),
-        hist=True,
+        cmap=diff_cmap,
+        absolute=diff_absolute,
+        robust=robust,
+        hist=hist,
         cbar_label="mGal",
         title=f"difference: RMSE:{round(utils.rmse(dif), 2)} mGal",
         points=points,
         points_style=constraint_style,
         coast=coast,
         epsg=epsg,
+        **kwargs,
     )
     fig = ptk.plot_grid(
         final,
@@ -660,16 +749,17 @@ def plot_inversion_grav_results(
         origin_shift="x",
         fig_height=fig_height,
         region=region,
-        cmap="balance+h0",
-        # robust=True,
-        cpt_lims=(-final_maxabs, final_maxabs),
-        hist=True,
+        cmap=final_cmap,
+        absolute=final_absolute,
+        robust=robust,
+        hist=hist,
         cbar_label="mGal",
         title=f"Final residual: RMSE:{round(final_rmse, 2)} mGal",
         points=points,
         points_style=constraint_style,
         coast=coast,
         epsg=epsg,
+        **kwargs,
     )
     fig.show()
 
@@ -686,6 +776,8 @@ def plot_inversion_iteration_results(
     corrections_cmap_perc: float = 1,
     constraints_df: pd.DataFrame | None = None,
     constraint_size: float = 1,
+    misfit_cmap: str | None = None,
+    misfit_absolute: bool | None = None,
 ) -> None:
     """
     plot the starting misfit, updated topography, and correction grids for a specified
@@ -716,9 +808,27 @@ def plot_inversion_iteration_results(
         constraint points to include in the plots
     constraint_size : float, optional
         size for constraint points, by default 1
+    misfit_cmap : str | None, optional
+        colormap to use for the misfit grids. By default (None, with
+        ``misfit_absolute`` also None), a red-to-blue colormap (``RdBu_r``) centered
+        on zero is used if 0 falls within the interquartile range (0.25 to 0.75
+        quantiles) of the misfit values, otherwise ``viridis``
+    misfit_absolute : bool | None, optional
+        center the misfit color scales on zero with symmetric limits (best paired
+        with a diverging colormap such as ``RdBu_r``), by default None (chosen from
+        the misfit values as described for ``misfit_cmap``)
     """
 
     misfit_grids, updated_grids, corrections_grids = grids
+
+    # resolve the misfit colormap and centering from the pooled misfit values
+    if misfit_cmap is None and misfit_absolute is None:
+        pooled_misfits = np.concatenate([np.asarray(g).ravel() for g in misfit_grids])
+        misfit_absolute = _zero_is_central(pooled_misfits)
+        misfit_cmap = "RdBu_r" if misfit_absolute else "viridis"
+    elif misfit_cmap is None:
+        misfit_cmap = "RdBu_r" if misfit_absolute else "viridis"
+    misfit_absolute = bool(misfit_absolute)
 
     # get coordinate names
     coord_names = list(misfit_grids[0].sizes.keys())
@@ -771,8 +881,14 @@ def plot_inversion_iteration_results(
             )
             # set colormaps and limits
             if column == 0:  # misfit grids
-                cmap = "RdBu_r"
-                lims = (-misfit_lim, misfit_lim)
+                cmap = misfit_cmap
+                if misfit_absolute:
+                    lims = (-misfit_lim, misfit_lim)
+                else:
+                    lims = (
+                        misfit_min * misfit_cmap_perc,
+                        misfit_max * misfit_cmap_perc,
+                    )
                 robust = True
                 norm = None
             elif column == 1:  # updated grids
@@ -938,7 +1054,9 @@ def add_light(
     """
 
     # Add a ceiling light
-    west, east, south, north = bd.get_region((prisms.easting, prisms.northing))
+    west, east, south, north = bd.get_region(
+        np.meshgrid(prisms.easting, prisms.northing)
+    )
     easting_center, northing_center = (east + west) / 2, (north + south) / 2
     light = pyvista.Light(
         position=(easting_center, northing_center, 100e3),
@@ -1042,7 +1160,7 @@ def plot_prism_layers(
     if clip_box is True:
         # extract region from first prism layer
         reg = bd.get_region(
-            (prisms[0].easting.to_numpy(), prisms[0].northing.to_numpy())
+            np.meshgrid(prisms[0].easting.to_numpy(), prisms[0].northing.to_numpy())
         )
 
     for i, j in enumerate(prisms):
@@ -1312,6 +1430,7 @@ def plot_stochastic_results(
     label = kwargs.get("label", "ensemble mean")
     points_label = kwargs.get("points_label")
     fig_height = kwargs.get("fig_height", 12)
+    points_style = kwargs.get("points_style", "x.3c")
 
     epsg, coast = utils.get_epsg(coast=coast)
 
@@ -1344,7 +1463,7 @@ def plot_stochastic_results(
             x=points.easting,
             y=points.northing,
             fill="black",
-            style="x.3c",
+            style=points_style,
             pen="1p",
             label=points_label,
         )
@@ -1380,7 +1499,7 @@ def plot_stochastic_results(
             x=points.easting,
             y=points.northing,
             fill="black",
-            style="x.3c",
+            style=points_style,
             pen="1p",
             label=points_label,
         )

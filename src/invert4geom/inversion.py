@@ -999,8 +999,9 @@ class DatasetAccessorInvert4Geom:
 
     def regional_filter(
         self,
-        filter_width: float,
+        filter_width: float | None = None,
         filter_type: str = "lowpass",
+        height_displacement: float | None = None,
         regional_shift: float = 0,
         mask_column: str | None = None,
         reverse_regional_residual: bool = False,
@@ -1010,10 +1011,11 @@ class DatasetAccessorInvert4Geom:
         ``gravity_anomaly`` and ``forward_gravity``. Then separate the misfit into
         regional and residual components where ``residual = misfit - regional``.
 
-        Approximate the regional field by filtering the gravity misfit with a low-pass
-        gaussian filter with a supplied filter width,
-        using :func:`harmonica.gaussian_lowpass`. The grid will automatically be
-        padded to reduce edge effects.
+        Approximate the regional field by filtering the gravity misfit, by default with
+        a low-pass gaussian filter with a supplied filter width,
+        using :func:`harmonica.gaussian_lowpass`. For
+        ``filter_type="up_continue"``, supply ``height_displacement`` instead of
+        ``filter_width``. The grid will automatically be padded to reduce edge effects.
 
         The resulting regional field can be shifted with ``regional_shift``, and the
         calculated residual field can be multiplied by the values in ``mask_column``.
@@ -1024,10 +1026,13 @@ class DatasetAccessorInvert4Geom:
 
         Parameters
         ----------
-        filter_width : float
-            width in meters to use for the low-pass filter
+        filter_width : float | None, optional
+            width in meters to use for low-pass / high-pass filters, by default None
         filter_type : str, optional
             type of filter to apply, by default "lowpass"
+        height_displacement : float | None, optional
+            height displacement in meters for ``filter_type="up_continue"``, by default
+            None
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
@@ -1047,6 +1052,7 @@ class DatasetAccessorInvert4Geom:
             grav_ds=self._ds,
             filter_width=filter_width,
             filter_type=filter_type,
+            height_displacement=height_displacement,
             regional_shift=regional_shift,
             mask_column=mask_column,
             reverse_regional_residual=reverse_regional_residual,
@@ -1385,22 +1391,45 @@ class DatasetAccessorInvert4Geom:
     def plot_observed(
         self,
         coast: bool = False,
+        cmap: str | None = None,
+        absolute: bool | None = None,
+        robust: bool = True,
+        hist: bool = True,
+        **kwargs: typing.Any,
     ) -> None:
-        """plot observed gravity"""
+        """
+        plot observed gravity
+
+        By default (``cmap`` and ``absolute`` both None), if 0 falls within the
+        interquartile range (0.25 to 0.75 quantiles) of the gravity values, a
+        red-to-blue colormap (``balance+h0``) centered on zero is used, otherwise
+        ``viridis``. Override by supplying ``cmap`` and/or ``absolute`` (center the
+        color scale on zero with symmetric limits). Use ``robust`` to clip the color
+        range to the 2nd-98th percentiles. All ``kwargs`` are passed to
+        :func:`polartoolkit.maps.plot_grid`.
+        """
         self._check_correct_dataset_type("data")
 
         epsg, coast = utils.get_epsg(coast=coast)
+
+        if cmap is None and absolute is None:
+            centered = plotting._zero_is_central(self._ds.gravity_anomaly)  # pylint: disable=protected-access
+            cmap = "balance+h0" if centered else "viridis"
+            absolute = centered
+        elif cmap is None:
+            cmap = "balance+h0" if absolute else "viridis"
 
         fig = ptk.plot_grid(
             self._ds.gravity_anomaly,
             title="Observed gravity",
             cbar_label="mGal",
-            cmap="balance+h0",
-            robust=True,
-            absolute=True,
-            hist=True,
+            cmap=cmap,
+            robust=robust,
+            absolute=bool(absolute),
+            hist=hist,
             coast=coast,
             epsg=epsg,
+            **kwargs,
         )
         if self._ds.buffer_width is not None:
             fig.plot(
@@ -1431,8 +1460,23 @@ class DatasetAccessorInvert4Geom:
         points: pd.DataFrame | None = None,
         points_style: str | None = None,
         coast: bool = False,
+        cmap: str | None = None,
+        absolute: bool | None = None,
+        robust: bool = True,
+        hist: bool = True,
+        **kwargs: typing.Any,
     ) -> None:
-        """plot gravity anomalies"""
+        """
+        plot gravity anomalies
+
+        By default (``cmap`` and ``absolute`` both None), each grid with 0 within the
+        interquartile range (0.25 to 0.75 quantiles) of its values gets a red-to-blue
+        colormap (``balance+h0``) centered on zero, and all others get ``viridis``.
+        Override by supplying ``cmap`` and/or ``absolute`` (center the color scales
+        on zero with symmetric limits), which are then used for all grids. Use
+        ``robust`` to clip the color ranges to the 2nd-98th percentiles. All
+        ``kwargs`` are passed to :func:`polartoolkit.maps.subplots`.
+        """
         self._check_correct_dataset_type("data")
 
         epsg, coast = utils.get_epsg(coast=coast)
@@ -1453,18 +1497,21 @@ class DatasetAccessorInvert4Geom:
             "Regional misfit",
             "Residual misfit",
         ]
-        min_max = ptk.get_combined_min_max(
-            grids[0:2],
-            absolute=True,
-            robust=True,
-        )
-        cpt_limits = [
-            min_max,
-            min_max,
-            None,
-            None,
-            None,
-        ]
+
+        if cmap is None and absolute is None:
+            cmaps, cpt_limits = plotting._gravity_cmaps_and_limits(  # pylint: disable=protected-access
+                grids, robust=robust
+            )
+            cmap_kwargs: dict[str, typing.Any] = {
+                "cmaps": cmaps,
+                "cpt_limits": cpt_limits,
+                "absolute": False,
+            }
+        else:
+            if cmap is None:
+                cmap = "balance+h0" if absolute else "viridis"
+            cmap_kwargs = {"cmap": cmap, "absolute": bool(absolute)}
+
         with utils._log_level(logging.CRITICAL, logging.getLogger("polartoolkit")):  # noqa: SIM117 # pylint: disable=protected-access
             with warnings.catch_warnings():
                 warnings.filterwarnings(
@@ -1477,15 +1524,14 @@ class DatasetAccessorInvert4Geom:
                     fig_title="Gravity anomalies",
                     titles=titles,
                     cbar_label="mGal",
-                    cmap="balance+h0",
-                    cpt_limits=cpt_limits,
-                    absolute=True,
-                    robust=True,
-                    hist=True,
+                    robust=robust,
+                    hist=hist,
                     points=points,
                     points_style=points_style,
                     coast=coast,
                     epsg=epsg,
+                    **cmap_kwargs,
+                    **kwargs,
                 )
 
         fig.show()
@@ -1495,8 +1541,23 @@ class DatasetAccessorInvert4Geom:
         points: pd.DataFrame | None = None,
         points_style: str | None = None,
         coast: bool = False,
+        cmap: str | None = None,
+        absolute: bool | None = None,
+        robust: bool = True,
+        hist: bool = True,
+        **kwargs: typing.Any,
     ) -> None:
-        """plot gravity misfit and estimate regional and residual components"""
+        """
+        plot gravity misfit and estimate regional and residual components
+
+        By default (``cmap`` and ``absolute`` both None), each grid with 0 within the
+        interquartile range (0.25 to 0.75 quantiles) of its values gets a red-to-blue
+        colormap (``balance+h0``) centered on zero, and all others get ``viridis``.
+        Override by supplying ``cmap`` and/or ``absolute`` (center the color scales
+        on zero with symmetric limits), which are then used for all grids. Use
+        ``robust`` to clip the color ranges to the 2nd-98th percentiles. All
+        ``kwargs`` are passed to :func:`polartoolkit.maps.subplots`.
+        """
         self._check_correct_dataset_type("data")
 
         epsg, coast = utils.get_epsg(coast=coast)
@@ -1513,27 +1574,41 @@ class DatasetAccessorInvert4Geom:
             "Regional misfit",
             "Residual misfit",
         ]
-        cmaps = [
-            "balance+h0",
-            "balance+h0",
-            "balance+h0",
-        ]
-        fig = ptk.subplots(
-            grids,
-            dims=(1, 3),
-            region=self._ds.inner_region,
-            fig_title="Gravity misfit grids",
-            titles=titles,
-            cbar_label="mGal",
-            cmaps=cmaps,
-            robust=True,
-            absolute=True,
-            hist=True,
-            points=points,
-            points_style=points_style,
-            coast=coast,
-            epsg=epsg,
-        )
+
+        if cmap is None and absolute is None:
+            cmaps, cpt_limits = plotting._gravity_cmaps_and_limits(  # pylint: disable=protected-access
+                grids, robust=robust
+            )
+            cmap_kwargs: dict[str, typing.Any] = {
+                "cmaps": cmaps,
+                "cpt_limits": cpt_limits,
+                "absolute": False,
+            }
+        else:
+            if cmap is None:
+                cmap = "balance+h0" if absolute else "viridis"
+            cmap_kwargs = {"cmap": cmap, "absolute": bool(absolute)}
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message="Since limits were passed to `cpt_lims`"
+            )
+            fig = ptk.subplots(
+                grids,
+                dims=(1, 3),
+                region=self._ds.inner_region,
+                fig_title="Gravity misfit grids",
+                titles=titles,
+                cbar_label="mGal",
+                robust=robust,
+                hist=hist,
+                points=points,
+                points_style=points_style,
+                coast=coast,
+                epsg=epsg,
+                **cmap_kwargs,
+                **kwargs,
+            )
         fig.show()
 
     ###
@@ -1939,7 +2014,10 @@ def create_data(
         buffer_width = min_dimension * 0.1
         buffer_width = round(buffer_width / spacing) * spacing
 
-    assert buffer_width % spacing == 0, (
+    # tolerant modulo check: non-integer spacings (e.g. from verde adjusting the
+    # spacing to fit a region) make exact float modulo unreliable
+    remainder = buffer_width % spacing
+    assert np.isclose(remainder, 0) or np.isclose(remainder, spacing), (
         f"buffer_width ({buffer_width}) must be a multiple of the grid spacing ({spacing}) of the provided gravity dataframe"
     )
     min_region_width = min(region[1] - region[0], region[3] - region[2])
@@ -2430,14 +2508,63 @@ class Inversion:
         between ``itertools``, ``generator``, or ``forloops``, by default ``itertools``
     solver_type : str, optional
         method to use for solving Ax=b to find each iteration's topographic correction
-        grid, by default ``scipy least squares``
+        grid. Choose between ``scipy least squares``, a damped least-squares (L2-norm)
+        solution which favors smooth models, or ``irls``, an iteratively reweighted
+        least squares solution which approximates an Lp-norm (``sharpness_norm``,
+        p=1 by default) penalty on the horizontal gradient of the model, favoring
+        blocky models and allowing recovery of sharp features such as fault scarps,
+        by default ``scipy least squares``
     solver_damping : float | None, optional
         Damping factor for the solver, typically between 0 and 1, by default None
+    sharpness_weight : float | None, optional
+        Weight (often called beta) multiplying the Lp-norm gradient penalty of the
+        ``irls`` solver. Higher values give blockier models at the expense of data
+        fit, and optimal values are best found through cross-validation. Required if
+        ``solver_type`` is ``irls``, by default None
+    sharpness_norm : float, optional
+        The norm (p, between 0 and 2) used by the ``irls`` solver to penalize the
+        horizontal gradient of the model. A value of 1 gives an L1-norm (total
+        variation) style penalty which favors sharp boundaries, values below 1
+        promote even sparser (sharper) gradients, and a value of 2 is equivalent to
+        a smooth L2-norm penalty, by default 1.0
+    irls_epsilon : float, optional
+        Small stabilizing value used by the ``irls`` solver to avoid division by zero
+        for flat model gradients. Should be small relative to the expected
+        cell-to-cell variations of the model (meters for geometry inversions, kg/m3
+        for density inversions), by default 0.1
+    irls_iterations : int, optional
+        Number of reweighting solves the ``irls`` solver performs each inversion
+        iteration. Since the inversion iterations themselves update the IRLS weights,
+        1 is usually sufficient, by default 1
     apply_weighting_grid : bool, optional
         Whether to apply a weighting grid to the inversion, by default False
     weighting_grid : xarray.DataArray | None, optional
         Weighting grid to apply to the inversion, created through
         :func:`normalized_mindist`, by default None
+    apply_residual_weighting_grid : bool, optional
+        Whether to multiply the residual gravity misfit by a weighting grid before
+        each iteration's solve, by default False
+    residual_weighting_grid : xarray.DataArray | None, optional
+        Weighting grid, aligned with the gravity data grid, which multiplies the
+        residual gravity misfit seen by the solver each iteration. For example, a
+        grid created through :func:`normalized_mindist` (0 at constraint points,
+        ramping to 1 away from them) zeroes the residual at the constraints so the
+        solver is not driven by any misfit there, a soft alternative to damping the
+        corrections with ``weighting_grid``, by default None
+    adaptive_damping : bool, optional
+        If True, control ``solver_damping`` Levenberg-Marquardt style: an iteration
+        which increases the L2-norm is rejected (the model is restored to the last
+        accepted iteration) and effectively retried with 2.5x more damping, while
+        each accepted iteration relaxes the damping by 20%, never below the
+        supplied ``solver_damping``. This makes the inversion robust to an overly
+        optimistic (small) ``solver_damping``, which otherwise causes the
+        iterations to overshoot and oscillate or diverge. Requires
+        ``solver_damping``, by default False
+    revert_to_best : bool, optional
+        If True, once the inversion terminates, restore the model of the iteration
+        with the lowest L2-norm instead of keeping the final iteration's model.
+        Useful when the final iterations diverge, which otherwise leaves a worse
+        model than an intermediate iteration's, by default False
     """
 
     def __init__(
@@ -2454,8 +2581,16 @@ class Inversion:
         model_properties_method: str = "itertools",
         solver_type: str = "scipy least squares",
         solver_damping: float | None = None,
+        sharpness_weight: float | None = None,
+        sharpness_norm: float = 1.0,
+        irls_epsilon: float = 0.1,
+        irls_iterations: int = 1,
         apply_weighting_grid: bool = False,
         weighting_grid: xr.DataArray | None = None,
+        apply_residual_weighting_grid: bool = False,
+        residual_weighting_grid: xr.DataArray | None = None,
+        adaptive_damping: bool = False,
+        revert_to_best: bool = False,
     ) -> None:
         """
         Initialize the inversion object.
@@ -2472,8 +2607,20 @@ class Inversion:
         self.model_properties_method = model_properties_method
         self.solver_type = solver_type
         self.solver_damping = solver_damping
+        self.sharpness_weight = sharpness_weight
+        self.sharpness_norm = sharpness_norm
+        self.irls_epsilon = irls_epsilon
+        self.irls_iterations = irls_iterations
         self.apply_weighting_grid = apply_weighting_grid
         self.weighting_grid = weighting_grid
+        self.apply_residual_weighting_grid = apply_residual_weighting_grid
+        self.residual_weighting_grid = residual_weighting_grid
+        self.adaptive_damping = adaptive_damping
+        self.revert_to_best = revert_to_best
+        self.best_iteration: int | None = None
+        self._initial_solver_damping = solver_damping
+        self._last_good_state: dict[str, NDArray] | None = None
+        self._iter0_state: dict[str, NDArray] | None = None
         self.end = None
         self.jac = None
         self.step = None
@@ -2495,18 +2642,61 @@ class Inversion:
         self.study = None
         self.damping_cv_results_fname = None
         self.damping_cv_study_fname = None
+        self.sharpness_cv_results_fname: str | None = None
+        self.sharpness_cv_study_fname: str | None = None
         self.zref_density_optimization_study_fname = None
         self.zref_density_optimization_results_fname = None
         self.windowed_optimization_df: pd.DataFrame | None = None
         self._prev_top: NDArray | None = None
         self._prev_bottom: NDArray | None = None
         self._prev_density: NDArray | None = None
+        self._grad_operator: sp.sparse.csr_matrix | None = None
 
         # check invalid deriv type
         valid_deriv_types = ["annulus", "finite_difference"]
         if self.deriv_type not in valid_deriv_types:
             msg = f"deriv_type must be one of {valid_deriv_types}"
             raise ValueError(msg)
+
+        # check invalid solver type and IRLS parameters
+        valid_solver_types = ["scipy least squares", "irls"]
+        if self.solver_type not in valid_solver_types:
+            msg = f"solver_type must be one of {valid_solver_types}"
+            raise ValueError(msg)
+        if self.solver_type == "irls":
+            if self.sharpness_weight is None:
+                msg = "must provide `sharpness_weight` if solver_type is 'irls'"
+                raise ValueError(msg)
+            if not 0 <= self.sharpness_norm <= 2:
+                msg = "`sharpness_norm` must be between 0 and 2"
+                raise ValueError(msg)
+
+        # check adaptive damping has a damping value to adapt
+        if (self.adaptive_damping is True) and (self.solver_damping is None):
+            msg = "must provide `solver_damping` if adaptive_damping is True"
+            raise ValueError(msg)
+
+        # check and store optional residual weighting grid
+        if (self.residual_weighting_grid is not None) & (
+            self.apply_residual_weighting_grid is False
+        ):
+            msg = (
+                "residual weighting grid supplied but not used because "
+                "apply_residual_weighting_grid is False"
+            )
+            raise ValueError(msg)
+        if self.apply_residual_weighting_grid is True:
+            if self.residual_weighting_grid is None:
+                msg = (
+                    "must supply residual_weighting_grid if "
+                    "apply_residual_weighting_grid is True"
+                )
+                raise ValueError(msg)
+            # store as a data variable so it stays aligned with the gravity data
+            self.data["residual_weights"] = self.residual_weighting_grid
+            if np.isnan(self.data.residual_weights.to_numpy()).any():
+                msg = "residual_weighting_grid must be finite over the gravity data"
+                raise ValueError(msg)
 
         # check that gravity dataset has necessary dimensions
         self.data.inv._check_grav_vars()
@@ -2807,24 +2997,129 @@ class Inversion:
 
         self.jac = jac
 
+    def _gradient_operator(self) -> sp.sparse.csr_matrix:
+        """
+        Build (and cache) a sparse first-difference operator over the active
+        (non-masked) model elements. Each row differences one pair of horizontally
+        adjacent model elements (in either the easting or northing direction),
+        approximating the horizontal gradient of the model.
+        """
+        if self._grad_operator is not None:
+            return self._grad_operator
+
+        coord_names = self.model.coord_names
+        df = self.model.inv.masked_df
+        easting = df[coord_names[0]].to_numpy()
+        northing = df[coord_names[1]].to_numpy()
+
+        # convert coordinates to integer grid indices to robustly find neighbors
+        easting_spacing = np.median(np.diff(np.unique(easting)))
+        northing_spacing = np.median(np.diff(np.unique(northing)))
+        easting_ind = np.rint((easting - easting.min()) / easting_spacing).astype(int)
+        northing_ind = np.rint((northing - northing.min()) / northing_spacing).astype(
+            int
+        )
+
+        cell_index = {
+            (e, n): i
+            for i, (e, n) in enumerate(zip(easting_ind, northing_ind, strict=True))
+        }
+        rows: list[int] = []
+        cols: list[int] = []
+        values: list[float] = []
+        row = 0
+        for i, (e, n) in enumerate(zip(easting_ind, northing_ind, strict=True)):
+            # difference with the eastern and northern neighbors, if active
+            for neighbor in ((e + 1, n), (e, n + 1)):
+                j = cell_index.get(neighbor)
+                if j is not None:
+                    rows.extend((row, row))
+                    cols.extend((j, i))
+                    values.extend((1.0, -1.0))
+                    row += 1
+        self._grad_operator = sp.sparse.csr_matrix(
+            (values, (rows, cols)),
+            shape=(row, easting.size),
+        )
+        return self._grad_operator
+
     def solver(self) -> None:
         """
         Calculate shift to add to prism top or density for each iteration of the
         inversion. Finds the least-squares solution to the Jacobian and the gravity
-        residual.
+        residual, with either an L2-norm (smooth) or approximate Lp-norm (sharp)
+        penalty on the model gradient.
         """
+        grav_df = self.data.inv.df
+        solver_residual = grav_df.res.to_numpy()
+        # optionally scale the residual seen by the solver, e.g. to zero it at
+        # constraint points
+        if self.apply_residual_weighting_grid is True:
+            solver_residual = solver_residual * grav_df.residual_weights.to_numpy()
+
         if self.solver_type == "scipy least squares":
             # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lsqr.html
             damping = 0 if self.solver_damping is None else self.solver_damping
             step = sp.sparse.linalg.lsqr(
                 A=self.jac,
-                b=self.data.inv.df.res.to_numpy(),
+                b=solver_residual,
                 show=False,
                 damp=damping,  # float, typically 0-1
                 # atol= ,
                 # btol=1e-4, # if 1e-6, residuals should be accurate to ~6 digits
                 iter_lim=5000,  # limit of iterations, just in case of issues
             )[0]
+        elif self.solver_type == "irls":
+            # iteratively reweighted least squares approximation of an Lp-norm
+            # (p=sharpness_norm) penalty on the horizontal gradient of the updated
+            # model. With p<2, cells pairs which already have a steep gradient are
+            # penalized weakly, allowing sharp boundaries (e.g. fault scarps) to
+            # develop, while near-flat gradients are penalized strongly towards zero,
+            # giving a blocky model instead of the smeared models of the L2 solver.
+            damping = 0 if self.solver_damping is None else self.solver_damping
+
+            df = self.model.inv.masked_df
+            if self.style == "geometry":
+                x = df.topography.to_numpy()
+                # `add_topography_correction` negates the step for negative-density
+                # model elements, so these signs map the solver's step to the actual
+                # change in topography
+                signs = np.where(df.density.to_numpy() < 0, -1.0, 1.0)
+            else:
+                x = df.density.to_numpy()
+                signs = np.ones_like(x)
+
+            grad_op = self._gradient_operator()
+            # scale columns by the signs so the operator applies to the actual
+            # model change resulting from the solver's step
+            signed_grad_op = grad_op.multiply(signs.reshape(1, -1)).tocsr()
+
+            jac = sp.sparse.csr_matrix(self.jac)
+            residual = solver_residual
+            grad_x = grad_op @ x
+
+            step = np.zeros(x.size)
+            for _ in range(self.irls_iterations):
+                # gradient of the model updated with the current step estimate
+                grad = grad_x + signed_grad_op @ step
+                # IRLS weights; when squared these approximate |grad|^(p-2)
+                weights = self.sharpness_weight * (grad**2 + self.irls_epsilon**2) ** (
+                    (self.sharpness_norm - 2) / 4
+                )
+                # augment the jacobian and residual with the weighted gradient
+                # penalty on the updated model: ||W G (x + S step)||^2
+                augmented_jac = sp.sparse.vstack(
+                    [jac, sp.sparse.diags(weights) @ signed_grad_op],
+                    format="csr",
+                )
+                augmented_residual = np.concatenate([residual, -weights * grad_x])
+                step = sp.sparse.linalg.lsqr(
+                    A=augmented_jac,
+                    b=augmented_residual,
+                    show=False,
+                    damp=damping,
+                    iter_lim=5000,
+                )[0]
         else:
             msg = "invalid string for solver_type"
             raise ValueError(msg)
@@ -2849,6 +3144,61 @@ class Inversion:
         self._prev_top = self.model.top.values.copy()
         self._prev_bottom = self.model.bottom.values.copy()
         self._prev_density = self.model.density.values.copy()
+
+    def _capture_state(self) -> dict[str, NDArray]:
+        """
+        copy the arrays defining the current model and its gravity, for restoring
+        later with `_restore_state`.
+        """
+        return {
+            "top": self.model.top.values.copy(),
+            "bottom": self.model.bottom.values.copy(),
+            "density": self.model.density.values.copy(),
+            "topography": self.model.topography.values.copy(),
+            "forward_gravity": self.data.forward_gravity.values.copy(),
+            "res": self.data.res.values.copy(),
+        }
+
+    def _restore_state(self, state: dict[str, NDArray]) -> None:
+        """
+        restore the model and its gravity from a state captured with
+        `_capture_state`.
+        """
+        for name in ("top", "bottom", "density", "topography"):
+            self.model[name].values[:] = state[name]
+        self.data["forward_gravity"].values[:] = state["forward_gravity"]
+        self.data["res"].values[:] = state["res"]
+        # re-snapshot so the next incremental forward gravity update is relative to
+        # the restored model
+        self._snapshot_model_geometry()
+
+    def _revert_to_best_iteration(self) -> None:
+        """
+        restore the model of the iteration with the lowest L2-norm, and update the
+        forward gravity and residual to match.
+        """
+        best = int(self.stats_df.l2_norm.idxmin())  # type: ignore[attr-defined]
+        self.best_iteration = best
+        if best == int(self.iteration):  # type: ignore[arg-type]
+            return
+        logger.info(
+            "reverting from iteration %s to iteration %s, which had the lowest "
+            "L2-norm (%s)",
+            self.iteration,
+            best,
+            self.stats_df.l2_norm.min(),  # type: ignore[attr-defined]
+        )
+        if best == 0:
+            self._restore_state(self._iter0_state)  # type: ignore[arg-type]
+        else:
+            for name in ("top", "bottom", "density"):
+                self.model[name].values[:] = self.model[f"iter_{best}_{name}"].values
+            self.model["topography"].values[:] = self.model[f"iter_{best}_layer"].values
+            self._snapshot_model_geometry()
+            self.data.inv.forward_gravity(self.model)
+            self.data["res"] = (
+                self.data.gravity_anomaly - self.data.forward_gravity - self.data.reg
+            )
 
     def update_forward_gravity(self) -> None:
         """
@@ -2963,6 +3313,7 @@ class Inversion:
         self._prev_top = None
         self._prev_bottom = None
         self._prev_density = None
+        self._grad_operator = None
 
         self.data["misfit"] = self.data["starting_misfit"]
         self.data["res"] = self.data["starting_res"]
@@ -3062,6 +3413,11 @@ class Inversion:
         # corresponds to, enabling incremental forward gravity updates each iteration
         self._snapshot_model_geometry()
 
+        # snapshot the starting state, used by adaptive damping rejections and by
+        # revert_to_best
+        self._iter0_state = self._capture_state()
+        self._last_good_state = self._iter0_state
+
         if progressbar is True:
             pbar = tqdm(range(self.max_iterations), initial=1, desc="Iteration")
         elif progressbar is False:
@@ -3153,8 +3509,51 @@ class Inversion:
                 self.iter_time_end - self.iter_time_start,  # type: ignore[operator]
             ]
 
+            # accept or reject the iteration, Levenberg-Marquardt style
+            if self.adaptive_damping is True:
+                if self.l2_norm > self.past_l2_norm:
+                    # reject: restore the last accepted model and raise the damping
+                    # so the next iteration retries with a smaller step
+                    self._restore_state(self._last_good_state)  # type: ignore[arg-type]
+                    for name in ("top", "bottom", "density"):
+                        self.model[f"iter_{self.iteration}_{name}"] = self.model[name]
+                    self.model[f"iter_{self.iteration}_layer"] = self.model.topography
+                    self.solver_damping *= 2.5  # type: ignore[operator]
+                    logger.info(
+                        "L2-norm increased, iteration %s rejected and solver_damping "
+                        "raised to %s",
+                        self.iteration,
+                        self.solver_damping,
+                    )
+                    # record the restored state, with a NaN delta so rejections don't
+                    # count towards the delta L2-norm termination criterion
+                    self.stats_df.loc[self.iteration] = [  # type: ignore[attr-defined]
+                        self.iteration,
+                        self.rmse,
+                        self.l2_norm,
+                        np.nan,
+                        self.iter_time_end - self.iter_time_start,  # type: ignore[operator]
+                    ]
+                else:
+                    # accept: keep the model and relax the damping
+                    self._last_good_state = self._capture_state()
+                    self.solver_damping = max(
+                        self.solver_damping * 0.8,  # type: ignore[operator]
+                        self._initial_solver_damping,  # type: ignore[arg-type]
+                    )
+
             # decide if to end the inversion
             self.end_inversion()
+
+            # give up once adaptive damping has shrunk the steps to irrelevance
+            if (self.adaptive_damping is True) and (
+                self.solver_damping > 1e4 * self._initial_solver_damping  # type: ignore[operator]
+            ):
+                self.end = True
+                self.termination_reason = [
+                    *self.termination_reason,  # type: ignore[misc]
+                    "adaptive damping limit",
+                ]
 
             if plot_dynamic_convergence is True:
                 self.plot_dynamic_convergence()
@@ -3169,6 +3568,10 @@ class Inversion:
             # end of inversion loop
 
         self.elapsed_time = time.perf_counter() - self.time_start  # type: ignore[assignment, operator]
+
+        # optionally revert the model to the iteration with the lowest L2-norm
+        if self.revert_to_best is True:
+            self._revert_to_best_iteration()
 
         if plot_convergence is True:
             try:
@@ -3202,6 +3605,9 @@ class Inversion:
             "Deriv type": self.deriv_type,
             "Solver type": self.solver_type,
             "Solver damping": self.solver_damping,
+            "Sharpness weight / norm": "Not used"
+            if self.solver_type != "irls"
+            else f"{self.sharpness_weight} / {self.sharpness_norm}",
             "Upper confining layer": "Not enabled"
             if np.isnan(self.model.upper_confining_layer.values).all()
             else "Enabled",
@@ -3210,6 +3616,9 @@ class Inversion:
             else "Enabled",
             "Regularization weighting grid": "Not enabled"
             if self.apply_weighting_grid is False
+            else "Enabled",
+            "Residual weighting grid": "Not enabled"
+            if self.apply_residual_weighting_grid is False
             else "Enabled",
             # third column
             "Time elapsed": f"{int(self.elapsed_time)} seconds",  # type: ignore[call-overload]
@@ -3651,6 +4060,251 @@ class Inversion:
 
         return inv_copy
 
+    def optimize_inversion_sharpness(
+        self,
+        n_trials: int,
+        sharpness_weight_limits: tuple[float, float] | None = None,
+        sharpness_norm_limits: tuple[float, float] | None = None,
+        irls_epsilon_limits: tuple[float, float] | None = None,
+        constraints_df: pd.DataFrame | None = None,
+        n_startup_trials: int | None = None,
+        score_as_median: bool = False,
+        sampler: optuna.samplers.BaseSampler | None = None,
+        grid_search: bool = False,
+        fname: str | None = None,
+        plot_scores: bool = True,
+        plot_grids: bool = False,
+        logx: bool = True,
+        logy: bool = True,
+        progressbar: bool = True,
+        parallel: bool = False,
+        seed: int = 0,
+    ) -> "Inversion":
+        """
+        Use Optuna to find the optimal IRLS (sharp inversion) parameters for a gravity
+        inversion with ``solver_type="irls"``. Any combination of ``sharpness_weight``
+        (the trade-off between data fit and the Lp-norm gradient penalty),
+        ``sharpness_norm`` (the norm p itself), and ``irls_epsilon`` (the reweighting
+        stabilizer) can be optimized by supplying limits for it; parameters without
+        limits keep their current values.
+
+        Two scoring options are available, following the methods of
+        :footcite:t:`uiedafast2017`:
+
+        - by default, a gravity holdout cross-validation: the data are split into
+          training and testing points (use :func:`add_test_points` on the data
+          beforehand), the inversion runs on the training points, and the score is the
+          root mean (or median) squared error (RMSE) between the testing gravity and
+          the forward gravity of the inverted model.
+        - if ``constraints_df`` is provided, the constraints scoring of
+          :meth:`constraints_score` is used instead: the RMSE between constraint point
+          elevations and the inverted topography. As with the density contrast
+          optimization, the inversion should then not enforce those constraints (no
+          weighting grid or mask), or the score will be insensitive to the parameters.
+
+        The results are saved to a pickle file with the best inversion results and the
+        study.
+
+        Parameters
+        ----------
+        n_trials : int
+            number of parameter combinations to try
+        sharpness_weight_limits : tuple[float, float] | None, optional
+            lower and upper limits for ``sharpness_weight``, sampled in log space, by
+            default None (not optimized)
+        sharpness_norm_limits : tuple[float, float] | None, optional
+            lower and upper limits for ``sharpness_norm``, sampled linearly and should
+            be within [0, 2], by default None (not optimized)
+        irls_epsilon_limits : tuple[float, float] | None, optional
+            lower and upper limits for ``irls_epsilon``, sampled in log space, by
+            default None (not optimized)
+        constraints_df : pandas.DataFrame | None, optional
+            constraint points with columns for coordinates and ``upward``; if provided,
+            scoring uses the misfit between these points and the inverted topography
+            instead of the gravity holdout, by default None
+        n_startup_trials : int | None, optional
+            number of startup trials, by default is automatically determined
+        score_as_median : bool, optional
+            if True, changes the scoring from the root mean square to the root median
+            square, by default False
+        sampler : optuna.samplers.BaseSampler | None, optional
+            customize the optuna sampler, by default either GPsampler or GridSampler
+            depending on if grid_search is True or False
+        grid_search : bool, optional
+            search the parameter space between the limits in n_trial steps; only
+            available when optimizing ``sharpness_weight`` alone, by default False
+        fname : str, optional
+            file name to save both study and inversion results to as pickle files, by
+            default fname is `tmp_x_sharpness_cv` where x is a random integer between 0
+            and 999 and will save study to <fname>_study.pickle and inversion results
+            to <fname>.pickle.
+        plot_scores : bool, optional
+            plot the cross-validation results; a score-vs-parameter plot when one
+            parameter is optimized or a 2D score plot when two are, by default True
+        plot_grids : bool, optional
+            for each trial, plot comparison of predicted and testing gravity data (only
+            for the gravity holdout scoring), by default False
+        logx : bool, optional
+            make x axis of CV result plot on log scale, by default True
+        logy : bool, optional
+            make y axis of CV result plot on log scale, by default True
+        progressbar : bool, optional
+            add a progressbar, by default True
+        parallel : bool, optional
+            run the optimization in parallel, by default False
+        seed : int, optional
+            random seed for the samplers, by default 0
+
+        Returns
+        -------
+        inv_copy : Inversion
+            a copy of the Inversion object after running the inversion with the best
+            parameter values
+        """
+        if self.solver_type != "irls":
+            msg = "optimize_inversion_sharpness requires solver_type='irls'"
+            raise ValueError(msg)
+
+        all_limits: dict[str, tuple[float, float] | None] = {
+            "sharpness_weight": sharpness_weight_limits,
+            "sharpness_norm": sharpness_norm_limits,
+            "irls_epsilon": irls_epsilon_limits,
+        }
+        limits: dict[str, tuple[float, float]] = {
+            k: v for k, v in all_limits.items() if v is not None
+        }
+        if not limits:
+            msg = (
+                "must provide limits for at least one of sharpness_weight, "
+                "sharpness_norm, or irls_epsilon"
+            )
+            raise ValueError(msg)
+        if grid_search and list(limits) != ["sharpness_weight"]:
+            msg = "grid_search is only available when optimizing sharpness_weight alone"
+            raise ValueError(msg)
+
+        # make copies of Inversion and underlying data and model dataset so as not
+        # to alter the original
+        inv_copy = copy.deepcopy(self)
+
+        optuna.logging.set_verbosity(optuna.logging.WARN)
+
+        # set file name for saving results with random number between 0 and 999
+        if fname is None:
+            inv_copy.results_fname = f"tmp_{random.randint(0, 999)}_sharpness_cv"  # type: ignore[assignment]
+        else:
+            inv_copy.results_fname = fname  # type: ignore[assignment]
+
+        storage = _setup_journal_storage(inv_copy.results_fname, parallel)  # type: ignore[arg-type]
+
+        # define the objective function
+        objective = optimization.OptimalInversionSharpness(
+            inversion_obj=inv_copy,
+            sharpness_weight_limits=sharpness_weight_limits,
+            sharpness_norm_limits=sharpness_norm_limits,
+            irls_epsilon_limits=irls_epsilon_limits,
+            constraints_df=constraints_df,
+            rmse_as_median=score_as_median,
+            fname=inv_copy.results_fname,  # type: ignore[arg-type]
+            plot_grids=plot_grids,
+        )
+        if grid_search:
+            if n_trials < 4:
+                msg = (
+                    "if grid_search is True, n_trials must be at least 4, "
+                    "resetting n_trials to 4 now."
+                )
+                logger.warning(msg)
+                n_trials = 4
+            grid_space = {
+                "sharpness_weight": np.logspace(
+                    np.log10(sharpness_weight_limits[0]),  # type: ignore[index]
+                    np.log10(sharpness_weight_limits[1]),  # type: ignore[index]
+                    n_trials,
+                )
+            }
+            enqueue = None
+        else:
+            grid_space = None
+            # warm-start the sampler with the lower and upper corners of the space
+            enqueue = [
+                {k: v[0] for k, v in limits.items()},
+                {k: v[1] for k, v in limits.items()},
+            ]
+
+        study = _run_optuna_with_startup(
+            objective=objective,
+            study_name=inv_copy.results_fname,  # type: ignore[arg-type]
+            storage=storage,
+            n_trials=n_trials,
+            seed=seed,
+            parallel=parallel,
+            progressbar=progressbar,
+            sampler=sampler,
+            grid_space=grid_space,
+            n_startup_trials=n_startup_trials,
+            min_startup_trials=4,
+            enqueue=enqueue,
+        )
+        inv_copy.best_trial = study.best_trial
+
+        # warn if any best parameter values are at their limits
+        optimization.warn_parameter_at_limits(inv_copy.best_trial)
+
+        # log the results of the best trial
+        optimization.log_optuna_results(inv_copy.best_trial)
+
+        # get best inversion result of each set
+        with pathlib.Path(
+            f"{inv_copy.results_fname}_trial_{inv_copy.best_trial.number}.pickle"  # type: ignore[attr-defined]
+        ).open("rb") as f:
+            inv_results = pickle.load(f)
+
+        _save_study_and_results(
+            inv_copy.results_fname,  # type: ignore[arg-type]
+            study,
+            inv_results,
+            n_trials,
+        )
+
+        inv_copy.sharpness_cv_study_fname = f"{inv_copy.results_fname}_study.pickle"
+        inv_copy.sharpness_cv_results_fname = f"{inv_copy.results_fname}.pickle"
+        for param, value in inv_copy.best_trial.params.items():  # type: ignore[attr-defined]
+            setattr(inv_copy, param, value)
+        inv_copy.study = study
+
+        # update the inversion object with the best inversion results
+        self.__dict__.update(inv_results.__dict__)
+
+        if plot_scores is True:
+            try:
+                params = list(limits)
+                if len(params) == 1:
+                    plotting.plot_scores(
+                        study.trials_dataframe().value.to_numpy(),
+                        study.trials_dataframe()[f"params_{params[0]}"].to_numpy(),
+                        param_name=params[0],
+                        logx=logx,
+                        logy=logy,
+                    )
+                elif len(params) == 2:
+                    plotting.plot_2_parameter_scores_uneven(
+                        study,
+                        param_names=(f"params_{params[0]}", f"params_{params[1]}"),
+                        plot_param_names=(params[0], params[1]),
+                        logx=logx,
+                        logy=logy,
+                    )
+                else:
+                    logger.info(
+                        "score plotting is only implemented for 1 or 2 optimized "
+                        "parameters, skipping plot"
+                    )
+            except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
+                logger.error("plotting failed with error: %s", e)
+
+        return inv_copy
+
     def optimize_inversion_zref_density_contrast(
         self,
         n_trials: int,
@@ -4000,8 +4654,14 @@ class Inversion:
                     "jacobian_finite_step_size": inv_copy.jacobian_finite_step_size,
                     "solver_type": inv_copy.solver_type,
                     "solver_damping": inv_copy.solver_damping,
+                    "sharpness_weight": inv_copy.sharpness_weight,
+                    "sharpness_norm": inv_copy.sharpness_norm,
+                    "irls_epsilon": inv_copy.irls_epsilon,
+                    "irls_iterations": inv_copy.irls_iterations,
                     "apply_weighting_grid": inv_copy.apply_weighting_grid,
                     "weighting_grid": inv_copy.weighting_grid,
+                    "apply_residual_weighting_grid": inv_copy.apply_residual_weighting_grid,
+                    "residual_weighting_grid": inv_copy.residual_weighting_grid,
                 },
                 progressbar=False,
             )
@@ -4450,6 +5110,12 @@ class Inversion:
                 model_properties_method=inv_copy.model_properties_method,
                 solver_type=inv_copy.solver_type,
                 solver_damping=inv_copy.solver_damping,
+                sharpness_weight=inv_copy.sharpness_weight,
+                sharpness_norm=inv_copy.sharpness_norm,
+                irls_epsilon=inv_copy.irls_epsilon,
+                irls_iterations=inv_copy.irls_iterations,
+                apply_residual_weighting_grid=inv_copy.apply_residual_weighting_grid,
+                residual_weighting_grid=inv_copy.residual_weighting_grid,
             )
 
             try:
@@ -4625,8 +5291,14 @@ class Inversion:
             model_properties_method=inv_copy.model_properties_method,
             solver_type=inv_copy.solver_type,
             solver_damping=inv_copy.solver_damping,
+            sharpness_weight=inv_copy.sharpness_weight,
+            sharpness_norm=inv_copy.sharpness_norm,
+            irls_epsilon=inv_copy.irls_epsilon,
+            irls_iterations=inv_copy.irls_iterations,
             apply_weighting_grid=inv_copy.apply_weighting_grid,
             weighting_grid=inv_copy.weighting_grid,
+            apply_residual_weighting_grid=inv_copy.apply_residual_weighting_grid,
+            residual_weighting_grid=inv_copy.residual_weighting_grid,
         )
         final_inv.windowed_optimization_df = results_df
 
@@ -4684,10 +5356,15 @@ class Inversion:
         # add buffer to y axis limits
         ax1.set_ylim(0.9 * self.l2_norm_tolerance, self.stats_df.l2_norm.iloc[0])  # type: ignore[attr-defined]
         if self.iteration > 1:  # type: ignore[operator]
-            ax2.set_ylim(
-                self.delta_l2_norm_tolerance,
-                np.nanmax(self.stats_df.delta_l2_norm.to_numpy()[1:]),  # type: ignore[attr-defined]
-            )
+            # rejected adaptive-damping iterations have NaN deltas; only use finite
+            # values for the axis limits
+            deltas = self.stats_df.delta_l2_norm.to_numpy()[1:]  # type: ignore[attr-defined]
+            deltas = deltas[np.isfinite(deltas)]
+            if len(deltas) > 0:
+                ax2.set_ylim(
+                    self.delta_l2_norm_tolerance,
+                    np.nanmax(deltas),
+                )
 
         # set x axis to integer values
         ax1.xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
@@ -4766,10 +5443,15 @@ class Inversion:
 
         # add buffer to y axis limits
         ax1.set_ylim(0.9 * self.l2_norm_tolerance, self.stats_df.l2_norm.iloc[0])  # type: ignore[attr-defined]
-        ax2.set_ylim(
-            self.delta_l2_norm_tolerance,
-            np.nanmax(self.stats_df.delta_l2_norm.to_numpy()[1:]),  # type: ignore[attr-defined]
-        )
+        # rejected adaptive-damping iterations have NaN deltas; only use finite
+        # values for the axis limits
+        deltas = self.stats_df.delta_l2_norm.to_numpy()[1:]  # type: ignore[attr-defined]
+        deltas = deltas[np.isfinite(deltas)]
+        if len(deltas) > 0:
+            ax2.set_ylim(
+                self.delta_l2_norm_tolerance,
+                np.nanmax(deltas),
+            )
 
         # set x axis to integer values
         ax1.xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
@@ -4824,6 +5506,13 @@ class Inversion:
             constraint points to include in the plots
         coast : bool, optional
             whether to plot coastlines, by default False
+        kwargs : typing.Any
+            optional keyword arguments: ``topo_cmap_perc``, ``misfit_cmap_perc``,
+            ``corrections_cmap_perc``, ``constraint_size``, ``misfit_cmap``, and
+            ``misfit_absolute`` for the iteration plots, ``constraint_style`` and
+            ``fig_height`` for the topography and gravity plots, and ``grav_cmap``,
+            ``grav_absolute``, ``grav_robust``, and ``grav_hist`` for the gravity
+            results plots.
         """
         # get lists of columns to grid
         misfits = [
@@ -4895,6 +5584,8 @@ class Inversion:
                 corrections_cmap_perc=kwargs.get("corrections_cmap_perc", 1),
                 constraints_df=constraints_df,
                 constraint_size=kwargs.get("constraint_size", 1),
+                misfit_cmap=kwargs.get("misfit_cmap"),
+                misfit_absolute=kwargs.get("misfit_absolute"),
             )
 
         if self.style == "geometry" and plot_topo_results is True:
@@ -4914,6 +5605,10 @@ class Inversion:
                 fig_height=kwargs.get("fig_height", 12),
                 constraint_style=kwargs.get("constraint_style", "x.3c"),
                 coast=coast,
+                cmap=kwargs.get("grav_cmap"),
+                absolute=kwargs.get("grav_absolute"),
+                robust=kwargs.get("grav_robust", True),
+                hist=kwargs.get("grav_hist", True),
             )
 
 

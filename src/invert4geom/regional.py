@@ -140,8 +140,9 @@ def regional_constant(
 
 def regional_filter(
     grav_ds: xr.Dataset,
-    filter_width: float,
+    filter_width: float | None = None,
     filter_type: str = "lowpass",
+    height_displacement: float | None = None,
     regional_shift: float = 0,
     mask_column: str | None = None,
     reverse_regional_residual: bool = False,
@@ -154,10 +155,12 @@ def regional_filter(
     grav_ds : xr.Dataset
         gravity data with columns "easting", "northing", "gravity_anomaly", and
         "forward_gravity".
-    filter_width : float
-        width in grid units to use for the filter
+    filter_width : float | None, optional
+        width in grid units to use for low-pass / high-pass filters, by default None
     filter_type : str, optional
         type of filter to use, by default "lowpass"
+    height_displacement : float | None, optional
+        height displacement in meters for ``filter_type="up_continue"``, by default None
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
@@ -177,6 +180,7 @@ def regional_filter(
     regional_grid = utils.filter_grid(
         misfit,
         filter_width,
+        height_displacement=height_displacement,
         filter_type=filter_type,
     )
 
@@ -509,11 +513,13 @@ def regional_constraints(
 
         if grid_method == "eq_sources":
             height = constraints_df.sampled_grav_height
-            coordinates, (data, height), (weights, _height_weights) = blockmean.filter(
+            # verde expects one weights array per data component
+            coordinates, (data, height), out_weights = blockmean.filter(
                 coordinates=coordinates,
                 data=(data, height),
-                weights=weights,
+                weights=None if weights is None else (weights, weights),
             )
+            weights = out_weights[0] if isinstance(out_weights, tuple) else out_weights
         else:
             coordinates, data, weights = blockmean.filter(
                 coordinates=coordinates,
