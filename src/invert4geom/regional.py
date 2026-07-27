@@ -52,15 +52,40 @@ def _finalize_separation(
     Apply the optional shift to the estimated regional field, calculate the residual
     field, optionally mask the residual, and optionally swap the two fields.
     """
+    # the mask is now a `mask` variable of the gravity dataset, added by `create_data`
+    if mask_column is not None:
+        warnings.warn(
+            "`mask_column` is deprecated, instead supply the mask as a `mask` variable "
+            "of the gravity dataset passed to `create_data`.",
+            UserWarning,
+            stacklevel=3,
+        )
+    elif "mask" in grav_ds:
+        mask_column = "mask"
+        logger.info("masking the residual with the gravity dataset's `mask` variable")
+
     grav_ds["reg"] = grav_ds.reg + regional_shift
     grav_ds["res"] = grav_ds.misfit - grav_ds.reg
 
+    mask = None
     if mask_column is not None:
-        grav_ds["res"] = grav_ds.res * grav_ds[mask_column]
+        # normalize so that cells marked with either 0 or NaN are zeroed, otherwise a
+        # mask made for a model (where NaNs are excluded) would give NaN residuals
+        mask = utils._normalize_mask(grav_ds[mask_column], grav_ds.misfit)  # pylint: disable=protected-access
+        grav_ds["res"] = grav_ds.res * mask
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
     if reverse_regional_residual:
         grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+
+    # keep a copy of the mask so that the zeroed-out residual values can be excluded
+    # from the inversion convergence statistics, see the `stats_res` accessor property.
+    # after reversing, the mask applies to the regional field instead of the residual
+    if (mask is not None) and not reverse_regional_residual:
+        grav_ds["res_mask"] = mask
+    elif "res_mask" in grav_ds:
+        # remove a stale mask left by a previous separation of the same dataset
+        del grav_ds["res_mask"]
 
 
 def regional_constant(
@@ -88,8 +113,7 @@ def regional_constant(
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
-        Name of optional column with values to multiply estimated regional field by,
-        should have values of 1 or 0, by default None.
+        deprecated, instead supply the mask to :func:`create_data`, by default None
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False
@@ -164,8 +188,7 @@ def regional_filter(
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
-        Name of optional column with values to multiply estimated regional field by,
-        should have values of 1 or 0, by default None.
+        deprecated, instead supply the mask to :func:`create_data`, by default None
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False
@@ -214,8 +237,7 @@ def regional_trend(
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
-        Name of optional column with values to multiply estimated regional field by,
-        should have values of 1 or 0, by default None.
+        deprecated, instead supply the mask to :func:`create_data`, by default None
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False
@@ -281,8 +303,7 @@ def regional_eq_sources(
     weights_column: str | None, optional
         column name for weighting values of each gravity point.
     mask_column : str | None, optional
-        Name of optional column with values to multiply estimated regional field by,
-        should have values of 1 or 0, by default None.
+        deprecated, instead supply the mask to :func:`create_data`, by default None
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False
@@ -343,31 +364,155 @@ def regional_eq_sources(
     )
 
 
+def _sampled_misfit_grid(
+    grav_ds: xr.Dataset,
+    grid_constraints: pd.DataFrame,
+    coord_names: tuple[str, str],
+) -> xr.DataArray:
+    """
+    Grid the misfit sampled at the constraint points which fall on the gravity grid's
+    nodes, leaving the cells without a constraint point as missing values (NaNs). See
+    :func:`regional_constraints`.
+    """
+    registration = ptk.get_grid_info(grav_ds.forward_gravity)[-1]
+    da: xr.DataArray = pygmt.xyz2grd(
+        x=grid_constraints[coord_names[0]],
+        y=grid_constraints[coord_names[1]],
+        z=grid_constraints.sampled_grav,
+        region=grav_ds.region,
+        spacing=grav_ds.spacing,
+        registration=registration,
+        verbose="quiet",
+    ).rename({"x": coord_names[0], "y": coord_names[1]})
+    return da.rename("reg")
+
+
+# methods which grid the sampled misfit at all of the constraint points
+_CONSTRAINT_GRID_METHODS = (
+    "pygmt",
+    "splines",
+    "eq_sources",
+    "nearest",
+    "linear",
+    "cubic",
+)
+# methods which are only available when filling the cells without a constraint point
+_FILL_ONLY_GRID_METHODS = ("nearest", "linear", "cubic")
+
+
+def _block_reduce_constraints(
+    constraints_df: pd.DataFrame,
+    weights: pd.Series | None,
+    weights_col: str | None,
+    coord_names: tuple[str, str],
+    region: tuple[float, float, float, float],
+    block_size: float,
+    block_reduction: str,
+    block_reduction_col: str | None,
+    with_height: bool,
+) -> tuple[pd.DataFrame, pd.Series | None]:
+    """
+    Reduce the sampled constraint points to one value per block, optionally reducing the
+    sampled gravity observation height alongside the sampled misfit. See
+    :func:`regional_constraints`.
+    """
+    if block_reduction_col is None:
+        mask = None
+    elif block_reduction_col not in constraints_df.columns:
+        msg = (
+            f"`block_reduction_col` '{block_reduction_col}' not in `constraints_df` "
+            "columns"
+        )
+        raise ValueError(msg)
+    else:
+        mask = constraints_df[block_reduction_col].to_numpy(dtype=bool)
+
+    data: typing.Any = constraints_df.sampled_grav
+    if with_height:
+        data = (data, constraints_df.sampled_grav_height)
+
+    coords, data, weights = utils._block_reduce_points(  # pylint: disable=protected-access
+        (constraints_df[coord_names[0]], constraints_df[coord_names[1]]),
+        data,
+        weights,
+        block_size,
+        block_reduction,
+        region,
+        mask=mask,
+        # weights are 1 over the data uncertainty squared
+        uncertainty=weights is not None,
+        # use the mean coordinates of the points in each block
+        center_coordinates=False,
+    )
+
+    cols = {
+        coord_names[0]: coords[0],
+        coord_names[1]: coords[1],
+    }
+    if with_height:
+        cols["sampled_grav"], cols["sampled_grav_height"] = data
+    else:
+        cols["sampled_grav"] = data
+    if (weights_col is not None) and (weights is not None):
+        cols[weights_col] = weights
+
+    constraints_df = pd.DataFrame(data=cols).dropna(how="any")
+
+    # rows may have been dropped, so take the weights from the dataframe
+    if (weights_col is not None) and (weights_col in constraints_df.columns):
+        weights = constraints_df[weights_col]
+    else:
+        weights = None
+
+    return constraints_df, weights
+
+
 def regional_constraints(
     grav_ds: xr.Dataset,
     constraints_df: pd.DataFrame,
     grid_method: str = "eq_sources",
-    constraints_block_size: float | None = None,
-    constraints_weights_column: str | None = None,
-    tension_factor: float = 1,
-    spline_dampings: float | list[float] | None = None,
+    block_size: float | None = None,
+    block_reduction: str = "mean",
+    block_reduction_col: str | None = None,
+    weights_col: str | None = None,
+    grid_points_col: str | None = None,
+    tension: float = 1,
+    dampings: float | list[float] | None = None,
+    maxdist: float | None = None,
     depth: float | str | None = None,
     damping: float | None = None,
     cv: bool = False,
-    block_size: float | None = None,
+    eq_source_block_size: float | None = None,
     grav_obs_height: float | None = None,
     cv_kwargs: dict[str, typing.Any] | None = None,
     regional_shift: float = 0,
     mask_column: str | None = None,
     reverse_regional_residual: bool = False,
+    constraints_block_size: float | None = None,
+    constraints_weights_column: str | None = None,
+    tension_factor: float | None = None,
+    spline_dampings: float | list[float] | None = None,
 ) -> None:
     """
     Separate the regional field by sampling and re-gridding the gravity misfit at
     points of known topography (constraint points). The re-gridding can be done with:
     1. Tensioned minimum curvature with PyGMT, using `grid_method` "pygmt", 2.
-    Bi-Harmonica splines with Verde, using `grid_method` "verde", or 3. Equivalent
+    Bi-Harmonic splines with Verde, using `grid_method` "splines", or 3. Equivalent
     Sources with Harmonica, using `grid_method` "eq_sources". Optionally, a dc-shift can
     be added to the calculated regional with `regional_shift`.
+
+    If some of the constraint points fall on the gravity grid's nodes, indicated by a
+    boolean column named by `grid_points_col`, the misfit sampled at those points is
+    used directly as the regional field there, and only the remaining cells are
+    interpolated, with :func:`invert4geom.fill_missing`, from the other constraint
+    points. This makes the residual field exactly zero at those points, instead of
+    approximately zero as with an interpolation of all the points. In this case, the
+    additional `grid_method` values "nearest", "linear" and "cubic" are also available.
+
+    If there are many constraint points, they can be block-reduced before gridding with
+    `block_size`, optionally weighted with `weights_col`, and optionally limited to a
+    subset of the points with `block_reduction_col`. This mirrors the block reduction of
+    :func:`invert4geom.create_topography`.
 
     Parameters
     ----------
@@ -378,18 +523,38 @@ def regional_constraints(
         dataframe of constraints with columns "easting", "northing", and "upward".
     grid_method : str, optional
         method used to grid the sampled gravity data at the constraint points. Choose
-        between "verde", "pygmt", or "eq_sources", by default "eq_sources"
-    constraints_block_size : float | None, optional
-        size of block used in a block-mean reduction of the constraints points, by
+        between "splines", "pygmt", or "eq_sources", or, if `grid_points_col` is
+        provided, "nearest", "linear" or "cubic", by default "eq_sources"
+    block_size : float | None, optional
+        size of block used in a block reduction of the constraint points before
+        gridding, by default None
+    block_reduction : str, optional
+        type of block reduction to apply. If "mean", :class:`verde.BlockMean` is used
+        and the reduced weights are kept for the gridding. If "median",
+        :class:`verde.BlockReduce` is used and any weights are ignored and dropped, by
+        default "mean"
+    block_reduction_col : str | None, optional
+        name of a boolean column of `constraints_df`, where True indicates points which
+        should be block-reduced. Points which are False are left unaltered and added
+        back to the block-reduced points. If None, all points are block-reduced, by
         default None
-    constraints_weights_column : str | None, optional
-       column name for weighting values of each constraint point. Used if
-       `constraints_block_size` is not None or if `grid_method` is "verde" or
-       "eq_sources", by default None
-    tension_factor : float, optional
-        Tension factor used if `grid_method` is "pygmt", by default 1
-    spline_dampings : float | list[float] | None, optional
-        damping values used if `grid_method` is "verde", by default None
+    weights_col : str | None, optional
+       column name for weighting values of each constraint point. Used if `block_size`
+       is not None or if `grid_method` is "splines" or "eq_sources", by default None
+    grid_points_col : str | None, optional
+        name of a boolean column of `constraints_df`, where True indicates points which
+        fall on the nodes of the gravity grid. The misfit at these points is used
+        directly as the regional field, and only the remaining cells are interpolated
+        from the other constraint points. Not available if `grid_method` is
+        "eq_sources", by default None
+    tension : float, optional
+        tension factor used if `grid_method` is "pygmt", by default 1
+    dampings : float | list[float] | None, optional
+        damping values used if `grid_method` is "splines". If more than one is
+        provided, the best is chosen by cross-validation, by default None
+    maxdist : float | None, optional
+        if `grid_points_col` is provided, only interpolate the remaining cells with
+        constraint points within this distance of them, by default None
     depth : float | str | None, optional
         depth of each source relative to the data elevation, positive downwards in
         meters, by default is 4.5 times the mean nearest-neighbor
@@ -401,10 +566,10 @@ def regional_constraints(
         default False, provide dictionary `cv_kwargs` which is passed to
         `optimization.optimize_eq_source_params` and can contain: "n_trials",
         "damping_limits", "depth_limits", "block_size_limits", and "progressbar".
-    block_size : float | None, optional
+    eq_source_block_size : float | None, optional
         block size for defining equivalent sources used if `grid_method` is
         "eq_sources". This block reduction is done after the block reduction of the
-        constraint points set by `constraints_block_size`, by default None
+        constraint points set by `block_size`, by default None
     grav_obs_height : float, optional
         Observation height to use for predictions if `grid_method` is "eq_sources". Note
         that this is separate from the observation height of the gravity data used in
@@ -424,6 +589,14 @@ def regional_constraints(
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False
+    constraints_block_size : float | None, optional
+        deprecated, use `block_size` instead, by default None
+    constraints_weights_column : str | None, optional
+        deprecated, use `weights_col` instead, by default None
+    tension_factor : float | None, optional
+        deprecated, use `tension` instead, by default None
+    spline_dampings : float | list[float] | None, optional
+        deprecated, use `dampings` instead, by default None
     """
 
     _initialize_separation(grav_ds, "regional_constraints")
@@ -433,13 +606,78 @@ def regional_constraints(
         msg = "need to provide constraints_df"
         raise ValueError(msg)
 
+    # map the deprecated parameter names onto the new ones
+    if (
+        (grid_method == "eq_sources")
+        and (block_size is not None)
+        and (eq_source_block_size is None)
+        and (constraints_block_size is None)
+    ):
+        msg = (
+            "`block_size` now block-reduces the constraint points before fitting the "
+            "equivalent sources; use `eq_source_block_size` to set the block size of "
+            "the sources themselves"
+        )
+        logger.warning(msg)
+    block_size = utils._deprecated_parameter(  # pylint: disable=protected-access
+        "constraints_block_size", constraints_block_size, "block_size", block_size
+    )
+    weights_col = utils._deprecated_parameter(  # pylint: disable=protected-access
+        "constraints_weights_column",
+        constraints_weights_column,
+        "weights_col",
+        weights_col,
+    )
+    tension = utils._deprecated_parameter(  # pylint: disable=protected-access
+        "tension_factor", tension_factor, "tension", tension
+    )
+    dampings = utils._deprecated_parameter(  # pylint: disable=protected-access
+        "spline_dampings", spline_dampings, "dampings", dampings
+    )
+    if grid_method == "verde":
+        warnings.warn(
+            "`grid_method` value 'verde' is deprecated, please use 'splines' instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        grid_method = "splines"
+
+    if grid_method not in _CONSTRAINT_GRID_METHODS:
+        msg = (
+            "invalid string for grid_method, choose from "
+            f"{sorted(_CONSTRAINT_GRID_METHODS)}"
+        )
+        raise ValueError(msg)
+
+    # a single damping value is still passed as a list to the spline cross-validation
+    if isinstance(dampings, float | int):
+        dampings = [float(dampings)]
+
     # warn about unused args
-    if (grid_method != "pygmt") & (tension_factor != 1):
-        msg = "`tension_factor` only used if `grid_method` is 'pygmt'"
+    if (grid_method != "pygmt") & (tension != 1):
+        msg = "`tension` only used if `grid_method` is 'pygmt'"
         logger.warning(msg)
-    if (grid_method != "verde") & (spline_dampings is not None):
-        msg = "`spline_dampings` only used if `grid_method` is 'verde'"
+    if (grid_method != "splines") & (dampings is not None):
+        msg = "`dampings` only used if `grid_method` is 'splines'"
         logger.warning(msg)
+    if grid_points_col is None:
+        if grid_method in _FILL_ONLY_GRID_METHODS:
+            msg = (
+                f"`grid_method` '{grid_method}' can only be used if `grid_points_col` "
+                "is provided"
+            )
+            raise ValueError(msg)
+        if maxdist is not None:
+            msg = "`maxdist` only used if `grid_points_col` is provided"
+            logger.warning(msg)
+    else:
+        if grid_method == "eq_sources":
+            msg = "`grid_points_col` can't be used if `grid_method` is 'eq_sources'"
+            raise ValueError(msg)
+        if grid_points_col not in constraints_df.columns:
+            msg = f"`grid_points_col` '{grid_points_col}' not in `constraints_df`"
+            raise ValueError(msg)
+
     if grid_method != "eq_sources":
         if depth is not None:
             msg = "`depth` only used if `grid_method` is 'eq_sources'"
@@ -450,8 +688,8 @@ def regional_constraints(
         if cv is True:
             msg = "`cv` only used if `grid_method` is 'eq_sources'"
             logger.warning(msg)
-        if block_size is not None:
-            msg = "`block_size` only used if `grid_method` is 'eq_sources'"
+        if eq_source_block_size is not None:
+            msg = "`eq_source_block_size` only used if `grid_method` is 'eq_sources'"
             logger.warning(msg)
         if grav_obs_height is not None:
             msg = "`grav_obs_height` only used if `grid_method` is 'eq_sources'"
@@ -477,6 +715,23 @@ def regional_constraints(
     # drop rows with NaN values
     constraints_df = constraints_df[constraints_df.sampled_grav.notna()]
 
+    # split off the points which fall on the gravity grid's nodes; the misfit at these
+    # points is used as-is, so only the remaining points are gridded
+    grid_constraints = None
+    if grid_points_col is not None:
+        on_grid = constraints_df[grid_points_col].to_numpy(dtype=bool)
+        grid_constraints = constraints_df[on_grid]
+        constraints_df = constraints_df[~on_grid]
+        if grid_constraints.empty:
+            msg = f"no constraint points have `{grid_points_col}` set to True"
+            raise ValueError(msg)
+        logger.info(
+            "using %s constraint points as the regional field directly, and %s points "
+            "to interpolate the remaining cells",
+            len(grid_constraints),
+            len(constraints_df),
+        )
+
     if grid_method == "eq_sources":
         # sample gravity observation height at constraint points
         constraints_df = utils.sample_grids(
@@ -491,95 +746,69 @@ def regional_constraints(
         constraints_df = constraints_df[constraints_df.sampled_grav_height.notna()]
 
     # get weights for each constraint point
-    if constraints_weights_column is None:
-        weights = None
-        uncertainty = False
-    else:
-        weights = constraints_df[constraints_weights_column]
-        uncertainty = True
+    weights = None if weights_col is None else constraints_df[weights_col]
 
-    # get weighted mean gravity value of constraint points in each cell
-    if constraints_block_size is not None:
-        blockmean = vd.BlockMean(
-            spacing=constraints_block_size,
-            uncertainty=uncertainty,
+    # reduce the constraint points to one value per block
+    if (block_size is not None) & (not constraints_df.empty):
+        constraints_df, weights = _block_reduce_constraints(
+            constraints_df,
+            weights,
+            weights_col,
+            coord_names,
+            grav_ds.region,
+            block_size,
+            block_reduction,
+            block_reduction_col,
+            with_height=grid_method == "eq_sources",
         )
-
-        data = constraints_df.sampled_grav
-        coordinates = (
-            constraints_df[coord_names[0]],
-            constraints_df[coord_names[1]],
+    ###
+    ###
+    # Interpolation of only the cells without a constraint point
+    ###
+    ###
+    # the misfit at the points which fall on the grid's nodes is used as-is, and the
+    # remaining cells are interpolated from the other constraint points
+    if grid_constraints is not None:
+        grav_ds["reg"] = utils.fill_missing(
+            _sampled_misfit_grid(grav_ds, grid_constraints, coord_names),
+            method=grid_method,
+            constraints_df=None if constraints_df.empty else constraints_df,
+            data_col="sampled_grav",
+            tension=tension,
+            dampings=dampings,
+            maxdist=maxdist,
         )
-
-        if grid_method == "eq_sources":
-            height = constraints_df.sampled_grav_height
-            # verde expects one weights array per data component
-            coordinates, (data, height), out_weights = blockmean.filter(
-                coordinates=coordinates,
-                data=(data, height),
-                weights=None if weights is None else (weights, weights),
-            )
-            weights = out_weights[0] if isinstance(out_weights, tuple) else out_weights
-        else:
-            coordinates, data, weights = blockmean.filter(
-                coordinates=coordinates,
-                data=data,
-                weights=weights,
-            )
-
-        # add reduced coordinates to a dictionary
-        coord_cols = dict(
-            zip([coord_names[0], coord_names[1]], coordinates, strict=False)
-        )
-
-        # add reduced data to a dictionary
-        data_cols = {"sampled_grav": data}
-
-        if constraints_weights_column is not None:
-            data_cols[constraints_weights_column] = weights
-        if grid_method == "eq_sources":
-            data_cols["sampled_grav_height"] = height
-
-        # merge dicts and create dataframe
-        constraints_df = pd.DataFrame(data=coord_cols | data_cols)
-        constraints_df = constraints_df.dropna(how="any")
     ###
     ###
     # Tensioned splines with PyGMT
     ###
     ###
     # grid the entire regional gravity based just on the values at the constraints
-    if grid_method == "pygmt":
+    elif grid_method == "pygmt":
         registration = ptk.get_grid_info(grav_ds.forward_gravity)[-1]
-        da = pygmt.surface(
+        grav_ds["reg"] = pygmt.surface(
             data=constraints_df[[coord_names[0], coord_names[1], "sampled_grav"]],
             region=grav_ds.region,
             spacing=grav_ds.spacing,
             registration=registration,
-            tension=tension_factor,
+            tension=tension,
             verbose="quiet",
         ).rename({"x": coord_names[0], "y": coord_names[1]})
-        grav_ds["reg"] = da
     ###
     ###
-    # Bi-Harmonica splines with Verde
+    # Bi-Harmonic splines with Verde
     ###
     ###
-    elif grid_method == "verde":
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", message="The mindist parameter of verde.Spline"
-            )
-            warnings.filterwarnings("ignore", message="The default scoring will change")
-            spline = utils.optimal_spline_damping(
-                coordinates=(
-                    constraints_df[coord_names[0]],
-                    constraints_df[coord_names[1]],
-                ),
-                data=constraints_df.sampled_grav,
-                weights=weights,
-                dampings=spline_dampings,
-            )
+    elif grid_method == "splines":
+        spline = utils._fit_spline_cv(  # pylint: disable=protected-access
+            (
+                constraints_df[coord_names[0]],
+                constraints_df[coord_names[1]],
+            ),
+            constraints_df.sampled_grav,
+            weights,
+            dampings,
+        )
         # predict fitted grid at gravity points
         grav_ds["reg"] = spline.grid(
             coordinates=(
@@ -622,7 +851,7 @@ def regional_constraints(
                     weights=weights,
                     depth=depth,
                     damping=damping,
-                    block_size=block_size,
+                    block_size=eq_source_block_size,
                     **cv_kwargs,  # type: ignore[arg-type]
                 )
             except ValueError as e:
@@ -635,7 +864,7 @@ def regional_constraints(
                 eqs = hm.EquivalentSources(
                     depth="default",
                     damping=None,
-                    block_size=block_size,
+                    block_size=eq_source_block_size,
                 )
                 eqs.fit(
                     coords,
@@ -648,7 +877,7 @@ def regional_constraints(
             eqs = hm.EquivalentSources(
                 depth=depth,
                 damping=damping,
-                block_size=block_size,
+                block_size=eq_source_block_size,
             )
 
             # fit the source coefficients to the data
@@ -670,9 +899,6 @@ def regional_constraints(
 
         df["reg"] = eqs.predict(coords)
         grav_ds["reg"] = df.set_index([coord_names[1], coord_names[0]]).to_xarray().reg
-    else:
-        msg = "invalid string for grid_method"
-        raise ValueError(msg)
 
     _finalize_separation(
         grav_ds, regional_shift, mask_column, reverse_regional_residual

@@ -748,6 +748,22 @@ def run_inversion(
     raise DeprecationWarning(msg)
 
 
+# variables of the gravity dataset whose NaNs mark excluded cells instead of missing
+# data, so their NaNs shouldn't drop rows from the dataframe representations
+_DATA_MASK_VARS = ("mask", "res_mask")
+
+
+def _dropna_ignoring_masks(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Drop the rows with missing values from a gravity dataframe, ignoring the mask
+    variables. A mask can use either the ``create_model`` convention, where NaNs mark
+    the excluded cells, or the ``mask_column`` convention, where zeros do, and neither
+    means the gravity data are missing there.
+    """
+    subset = [s for s in df.columns if s not in _DATA_MASK_VARS]
+    return df.dropna(how="any", axis=0, subset=subset).reset_index(drop=True)
+
+
 @xr.register_dataset_accessor("inv")
 class DatasetAccessorInvert4Geom:
     """
@@ -764,11 +780,7 @@ class DatasetAccessorInvert4Geom:
     def df(self) -> pd.DataFrame:
         """return the dataframe representation of the xarray dataset without nans"""
         if self._ds.dataset_type == "data":
-            return (
-                vd.grid_to_table(self._ds)
-                .dropna(how="any", axis=0)
-                .reset_index(drop=True)
-            )
+            return _dropna_ignoring_masks(vd.grid_to_table(self._ds))
         if self._ds.dataset_type == "model":
             return vd.grid_to_table(self._ds)
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
@@ -781,11 +793,7 @@ class DatasetAccessorInvert4Geom:
         without nans
         """
         if self._ds.dataset_type == "data":
-            return (
-                vd.grid_to_table(self.inner)
-                .dropna(how="any", axis=0)
-                .reset_index(drop=True)
-            )
+            return _dropna_ignoring_masks(vd.grid_to_table(self.inner))
         if self._ds.dataset_type == "model":
             return vd.grid_to_table(self.inner)
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
@@ -807,6 +815,25 @@ class DatasetAccessorInvert4Geom:
             )
         msg = "dataset must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
         raise ValueError(msg)
+
+    @property
+    def stats_res(self) -> xr.DataArray:
+        """
+        return the residual misfit of the inner region used for the convergence
+        statistics, with any masked-out values set to NaN.
+
+        If a ``mask_column`` was used during the regional-residual separation, the
+        residual is exactly zero wherever the mask is zero. Those values are excluded
+        here so they don't deflate the RMSE and L2-norms, since they can't be altered
+        by the inversion.
+        """
+        self._check_correct_dataset_type("data")
+        inner = self.inner
+        res: xr.DataArray = inner.res
+        if "res_mask" in inner:
+            # exclude cells where the mask is 0 or nan
+            res = res.where(inner.res_mask.fillna(0) != 0)
+        return res
 
     @property
     def masked_df(self) -> xr.Dataset:
@@ -973,8 +1000,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1036,8 +1062,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1089,8 +1114,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1171,8 +1195,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1205,19 +1228,27 @@ class DatasetAccessorInvert4Geom:
         self,
         constraints_df: pd.DataFrame,
         grid_method: str = "eq_sources",
-        constraints_block_size: float | None = None,
-        constraints_weights_column: str | None = None,
-        tension_factor: float = 1,
-        spline_dampings: float | list[float] | None = None,
+        block_size: float | None = None,
+        block_reduction: str = "mean",
+        block_reduction_col: str | None = None,
+        weights_col: str | None = None,
+        grid_points_col: str | None = None,
+        tension: float = 1,
+        dampings: float | list[float] | None = None,
+        maxdist: float | None = None,
         depth: float | str | None = None,
         damping: float | None = None,
         cv: bool = False,
-        block_size: float | None = None,
+        eq_source_block_size: float | None = None,
         grav_obs_height: float | None = None,
         cv_kwargs: dict[str, typing.Any] | None = None,
         regional_shift: float = 0,
         mask_column: str | None = None,
         reverse_regional_residual: bool = False,
+        constraints_block_size: float | None = None,
+        constraints_weights_column: str | None = None,
+        tension_factor: float | None = None,
+        spline_dampings: float | list[float] | None = None,
     ) -> None:
         """
         Calculate the gravity misfit as the difference between dataset variables
@@ -1235,15 +1266,21 @@ class DatasetAccessorInvert4Geom:
 
         Tensioned splines (grid_method="pygmt")
             - uses :func:`pygmt.surface`
-            - amount of tension (0-1) can be set with ``tension_factor``
+            - amount of tension (0-1) can be set with ``tension``
 
-        Bi-harmonic splines (grid_method="verde")
+        Bi-harmonic splines (grid_method="splines")
             - uses :class:`verde.Spline`
-            - amount of damping can be set with ``spline_dampings``, or a list of damping values can be provided to find the optimal damping through cross-validation using :func:`optimal_spline_damping`
+            - amount of damping can be set with ``dampings``, or a list of damping values can be provided to find the optimal damping through cross-validation using :func:`optimal_spline_damping`
 
-        If there are many constraints, they can be block reduced with
-        ``constraints_block_size`` and optional ``constraints_weights_column`` can be
-        used to weight the constraints during block reduction.
+        If some constraints fall on the nodes of the gravity grid, indicated by the
+        boolean column ``grid_points_col``, the misfit there is used as the regional
+        field directly and only the remaining cells are interpolated with
+        :func:`invert4geom.fill_missing`, which also makes the ``grid_method`` values
+        ``nearest``, ``linear`` and ``cubic`` available.
+
+        If there are many constraints, they can be block reduced with ``block_size``,
+        optionally weighted with ``weights_col`` and optionally limited to a subset of
+        the points with ``block_reduction_col``.
 
         The resulting regional field can be shifted with ``regional_shift``, and the
         calculated residual field can be multiplied by the values in ``mask_column``.
@@ -1259,18 +1296,39 @@ class DatasetAccessorInvert4Geom:
             ``longitude``, ``latitude``), and ``upward``.
         grid_method : str, optional
             method used to grid the sampled gravity data at the constraint points. Choose
-            between ``verde``, ``pygmt``, or ``eq_sources``, by default ``eq_sources``
-        constraints_block_size : float | None, optional
-            size of block used in a block-mean reduction of the constraints points, by
-            default None
-        constraints_weights_column : str | None, optional
+            between ``splines``, ``pygmt``, or ``eq_sources``, or, if
+            ``grid_points_col`` is provided, ``nearest``, ``linear`` or ``cubic``, by
+            default ``eq_sources``
+        block_size : float | None, optional
+            size of block used in a block reduction of the constraint points before
+            gridding, by default None
+        block_reduction : str, optional
+            type of block reduction to apply. If ``mean``, :class:`verde.BlockMean` is
+            used and the reduced weights are kept for the gridding. If ``median``,
+            :class:`verde.BlockReduce` is used and any weights are ignored and dropped,
+            by default ``mean``
+        block_reduction_col : str | None, optional
+            name of a boolean column of ``constraints_df``, where True indicates points
+            which should be block-reduced. Points which are False are left unaltered and
+            added back to the block-reduced points, by default None
+        weights_col : str | None, optional
             column name for weighting values of each constraint point. Used if
-            ``constraints_block_size`` is not None or if ``grid_method`` is ``verde`` or
+            ``block_size`` is not None or if ``grid_method`` is ``splines`` or
             ``eq_sources``, by default None
-        tension_factor : float, optional
-            Tension factor used if ``grid_method`` is ``pygmt``, by default 1
-        spline_dampings : float | list[float] | None, optional
-            damping values used if ``grid_method`` is ``verde``, by default None
+        grid_points_col : str | None, optional
+            name of a boolean column of ``constraints_df``, where True indicates points
+            which fall on the nodes of the gravity grid. The misfit at these points is
+            used directly as the regional field, and only the remaining cells are
+            interpolated from the other constraint points with
+            :func:`invert4geom.fill_missing`, making the residual exactly zero at those
+            points. Not available if ``grid_method`` is ``eq_sources``, by default None
+        tension : float, optional
+            tension factor used if ``grid_method`` is ``pygmt``, by default 1
+        dampings : float | list[float] | None, optional
+            damping values used if ``grid_method`` is ``splines``, by default None
+        maxdist : float | None, optional
+            if ``grid_points_col`` is provided, only interpolate the remaining cells
+            with constraint points within this distance of them, by default None
         depth : float | str | None, optional
             depth of each source relative to the data elevation, positive downwards in
             meters, by default None
@@ -1282,8 +1340,9 @@ class DatasetAccessorInvert4Geom:
             ``optimization.optimize_eq_source_params`` and can contain:
             ``n_trials``, ``damping_limits``, ``depth_limits``,
             ``block_size_limits``, and ``progressbar``.
-        block_size : float | None, optional
-            block size used if ``grid_method`` is ``eq_sources``, by default None
+        eq_source_block_size : float | None, optional
+            block size of the equivalent sources, used if ``grid_method`` is
+            ``eq_sources``, by default None
         grav_obs_height : float, optional
             Observation height to use if ``grid_method`` is ``eq_sources``, by default None
         cv_kwargs : dict[str, typing.Any] | None, optional
@@ -1295,11 +1354,18 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
+        constraints_block_size : float | None, optional
+            deprecated, use ``block_size`` instead, by default None
+        constraints_weights_column : str | None, optional
+            deprecated, use ``weights_col`` instead, by default None
+        tension_factor : float | None, optional
+            deprecated, use ``tension`` instead, by default None
+        spline_dampings : float | list[float] | None, optional
+            deprecated, use ``dampings`` instead, by default None
 
         See also
         --------
@@ -1312,19 +1378,27 @@ class DatasetAccessorInvert4Geom:
             grav_ds=self._ds,
             constraints_df=constraints_df,
             grid_method=grid_method,
-            constraints_block_size=constraints_block_size,
-            constraints_weights_column=constraints_weights_column,
-            tension_factor=tension_factor,
-            spline_dampings=spline_dampings,
+            block_size=block_size,
+            block_reduction=block_reduction,
+            block_reduction_col=block_reduction_col,
+            weights_col=weights_col,
+            grid_points_col=grid_points_col,
+            tension=tension,
+            dampings=dampings,
+            maxdist=maxdist,
             depth=depth,
             damping=damping,
             cv=cv,
-            block_size=block_size,
+            eq_source_block_size=eq_source_block_size,
             grav_obs_height=grav_obs_height,
             cv_kwargs=cv_kwargs,
             regional_shift=regional_shift,
             mask_column=mask_column,
             reverse_regional_residual=reverse_regional_residual,
+            constraints_block_size=constraints_block_size,
+            constraints_weights_column=constraints_weights_column,
+            tension_factor=tension_factor,
+            spline_dampings=spline_dampings,
         )
 
         self._save_starting_anomalies()
@@ -1360,8 +1434,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1966,6 +2039,12 @@ def create_data(
         observed gravity values in mGals. If using tesseroids, the dataset must also
         contain a variable ``geocentric_radius`` defining the geocentric radius at each
         observation point in meters. This can be created using the Python package Boule.
+        The dataset can optionally contain a ``mask`` variable, marking the cells to
+        include in the residual gravity field. Cells with values of 0, False, or NaN are
+        excluded, which sets their residual gravity to zero and excludes them from the
+        convergence statistics (see :attr:`DatasetAccessorInvert4Geom.stats_res`). This
+        is typically the same mask used to create the model, where the excluded cells are
+        those which the inversion won't alter.
     buffer_width : float | None, optional
         The width in meters or decimal degrees of a buffer zone used to zoom-in on the
         provided data creating an inner region. This inner region will be used for
@@ -1980,8 +2059,9 @@ def create_data(
     Returns
     -------
     xarray.Dataset
-        A dataset with new attributes ``model_type``, ``dataset_type``, ``spacing``,
-        "buffer_width``, ``spacing``, ``region``, and ``inner_region``.
+        A dataset with an optional ``mask`` variable, and new attributes ``model_type``,
+        ``dataset_type``, ``spacing``, "buffer_width``, ``spacing``, ``region``, and
+        ``inner_region``.
 
     """
     gravity = gravity.copy()
@@ -2255,7 +2335,7 @@ def create_model(
     masked_extent = model.mask.where(np.isfinite(model.mask), drop=True)
     masked_region = ptk.get_grid_info(masked_extent)[1]
 
-    # get inner combinattion of masked_extent and inner_region
+    # get inner combination of masked_extent and inner_region
     inner_region = ptk.regions_overlap(masked_region, inner_region)
 
     # Append some attributes to the xr.Dataset
@@ -2456,6 +2536,121 @@ def _run_optuna_with_startup(
         )
 
 
+def _normalize_fault_traces(
+    fault_trace: pd.DataFrame | NDArray | list[pd.DataFrame | NDArray],
+    coord_names: tuple[str, str],
+) -> list[NDArray]:
+    """
+    Convert the user-supplied fault trace(s) into a list of (n, 2) coordinate arrays.
+
+    Parameters
+    ----------
+    fault_trace : pandas.DataFrame | numpy.ndarray | list
+        vertices of one fault trace, given either as a dataframe with columns matching
+        ``coord_names`` or as an array of shape (n, 2), or a list of several such traces
+    coord_names : tuple[str, str]
+        names of the horizontal coordinates of the model, e.g. ``('easting',
+        'northing')``
+
+    Returns
+    -------
+    list[numpy.ndarray]
+        one (n, 2) array of vertex coordinates per fault trace
+    """
+    # a single dataframe or array, rather than a list of them
+    traces = fault_trace if isinstance(fault_trace, list) else [fault_trace]
+
+    normalized = []
+    for trace in traces:
+        if isinstance(trace, pd.DataFrame):
+            missing = [c for c in coord_names if c not in trace.columns]
+            if len(missing) != 0:
+                msg = (
+                    f"fault trace dataframe must have columns {list(coord_names)}, "
+                    f"missing {missing}"
+                )
+                raise ValueError(msg)
+            vertices = trace[list(coord_names)].to_numpy(dtype=float)
+        else:
+            vertices = np.asarray(trace, dtype=float)
+            if (vertices.ndim != 2) or (vertices.shape[1] != 2):
+                msg = (
+                    "fault trace array must have shape (n, 2), with the columns "
+                    f"giving the {coord_names[0]} and {coord_names[1]} of each vertex, "
+                    f"but has shape {vertices.shape}"
+                )
+                raise ValueError(msg)
+        if len(vertices) < 2:
+            msg = "each fault trace must have at least 2 vertices"
+            raise ValueError(msg)
+        if not np.isfinite(vertices).all():
+            msg = "fault trace vertices must all be finite"
+            raise ValueError(msg)
+        normalized.append(vertices)
+
+    return normalized
+
+
+def _edges_crossing_traces(
+    starts: NDArray,
+    ends: NDArray,
+    traces: list[NDArray],
+) -> NDArray:
+    """
+    Determine which of a set of line segments are crossed by any of the fault traces.
+
+    Each segment is defined by a pair of model element center coordinates, and each
+    trace by its vertices. Segments which only touch a trace, or which are colinear
+    with it, are not considered crossed, so a trace passing exactly through a model
+    element's center does not separate that element from its neighbors.
+
+    Parameters
+    ----------
+    starts : numpy.ndarray
+        array of shape (m, 2) with the coordinates of the first end of each segment
+    ends : numpy.ndarray
+        array of shape (m, 2) with the coordinates of the second end of each segment
+    traces : list[numpy.ndarray]
+        list of (n, 2) arrays of vertex coordinates, as returned by
+        :func:`_normalize_fault_traces`
+
+    Returns
+    -------
+    numpy.ndarray
+        boolean array of shape (m,), True where a segment is crossed by a trace
+    """
+
+    def side(origin: NDArray, end: NDArray, points: NDArray) -> NDArray:
+        """
+        which side of the line through origin and end each point lies on, as the sign
+        of the z-component of the cross product of (end - origin) and (points - origin)
+        """
+        return np.sign(
+            (end[..., 0] - origin[..., 0]) * (points[..., 1] - origin[..., 1])
+            - (end[..., 1] - origin[..., 1]) * (points[..., 0] - origin[..., 0])
+        )
+
+    def straddles(side_a: NDArray, side_b: NDArray) -> NDArray:
+        """True where the two sides are strictly opposite, so zeros don't straddle"""
+        return side_a * side_b < 0
+
+    crossed = np.zeros(len(starts), dtype=bool)
+    # loop over the trace segments, keeping memory use proportional to the number of
+    # model element pairs while vectorizing over them
+    for vertices in traces:
+        for vertex_a, vertex_b in itertools.pairwise(vertices):
+            # the segments cross if each strictly straddles the line through the other
+            crossed |= straddles(
+                side(vertex_a, vertex_b, starts),
+                side(vertex_a, vertex_b, ends),
+            ) & straddles(
+                side(starts, ends, vertex_a),
+                side(starts, ends, vertex_b),
+            )
+
+    return crossed
+
+
 class Inversion:
     """
     A class which holds the gravity dataset, the model dataset, inversion stopping
@@ -2536,6 +2731,16 @@ class Inversion:
         Number of reweighting solves the ``irls`` solver performs each inversion
         iteration. Since the inversion iterations themselves update the IRLS weights,
         1 is usually sufficient, by default 1
+    fault_trace : pandas.DataFrame | numpy.ndarray | list | None, optional
+        Vertices of the map-view trace of one or more known faults, either as a
+        dataframe with columns matching the model's horizontal coordinates
+        (``easting`` and ``northing``, or ``longitude`` and ``latitude`` for
+        tesseroids), or as an array of shape (n, 2) with those coordinates as columns.
+        Supply a list of either for several faults. Pairs of neighboring model
+        elements which are separated by a trace are left out of the ``irls`` solver's
+        gradient penalty, so the model is free to step across the fault while staying
+        coherent within each fault block. Requires ``solver_type='irls'``, by default
+        None
     apply_weighting_grid : bool, optional
         Whether to apply a weighting grid to the inversion, by default False
     weighting_grid : xarray.DataArray | None, optional
@@ -2585,6 +2790,10 @@ class Inversion:
         sharpness_norm: float = 1.0,
         irls_epsilon: float = 0.1,
         irls_iterations: int = 1,
+        fault_trace: pd.DataFrame
+        | NDArray
+        | list[pd.DataFrame | NDArray]
+        | None = None,
         apply_weighting_grid: bool = False,
         weighting_grid: xr.DataArray | None = None,
         apply_residual_weighting_grid: bool = False,
@@ -2611,6 +2820,7 @@ class Inversion:
         self.sharpness_norm = sharpness_norm
         self.irls_epsilon = irls_epsilon
         self.irls_iterations = irls_iterations
+        self.fault_trace = fault_trace
         self.apply_weighting_grid = apply_weighting_grid
         self.weighting_grid = weighting_grid
         self.apply_residual_weighting_grid = apply_residual_weighting_grid
@@ -2651,6 +2861,8 @@ class Inversion:
         self._prev_bottom: NDArray | None = None
         self._prev_density: NDArray | None = None
         self._grad_operator: sp.sparse.csr_matrix | None = None
+        self._fault_traces: list[NDArray] | None = None
+        self.n_cut_edges = 0
 
         # check invalid deriv type
         valid_deriv_types = ["annulus", "finite_difference"]
@@ -2670,6 +2882,19 @@ class Inversion:
             if not 0 <= self.sharpness_norm <= 2:
                 msg = "`sharpness_norm` must be between 0 and 2"
                 raise ValueError(msg)
+
+        # check and store the optional fault traces
+        if self.fault_trace is not None:
+            if self.solver_type != "irls":
+                msg = (
+                    "fault_trace supplied but not used because it only alters the "
+                    "gradient penalty of the 'irls' solver_type"
+                )
+                raise ValueError(msg)
+            self._fault_traces = _normalize_fault_traces(
+                self.fault_trace,
+                self.model.coord_names,
+            )
 
         # check adaptive damping has a damping value to adapt
         if (self.adaptive_damping is True) and (self.solver_damping is None):
@@ -2714,9 +2939,10 @@ class Inversion:
     @property
     def rmse(self) -> float:
         """
-        return the root mean square error of the current residual misfit
+        return the root mean square error of the current residual misfit, excluding
+        any values which were masked out during the regional-residual separation
         """
-        return utils.rmse(self.data.inv.inner.res)
+        return utils.rmse(self.data.inv.stats_res)
 
     @property
     def l2_norm(self) -> float:
@@ -3003,6 +3229,10 @@ class Inversion:
         (non-masked) model elements. Each row differences one pair of horizontally
         adjacent model elements (in either the easting or northing direction),
         approximating the horizontal gradient of the model.
+
+        If ``fault_trace`` was supplied, pairs of elements separated by a fault trace
+        are excluded, so the gradient penalty doesn't couple elements across the fault
+        and the model is free to step there.
         """
         if self._grad_operator is not None:
             return self._grad_operator
@@ -3024,22 +3254,46 @@ class Inversion:
             (e, n): i
             for i, (e, n) in enumerate(zip(easting_ind, northing_ind, strict=True))
         }
-        rows: list[int] = []
-        cols: list[int] = []
-        values: list[float] = []
-        row = 0
+        # collect the pairs of elements to difference
+        pairs: list[tuple[int, int]] = []
         for i, (e, n) in enumerate(zip(easting_ind, northing_ind, strict=True)):
             # difference with the eastern and northern neighbors, if active
             for neighbor in ((e + 1, n), (e, n + 1)):
                 j = cell_index.get(neighbor)
                 if j is not None:
-                    rows.extend((row, row))
-                    cols.extend((j, i))
-                    values.extend((1.0, -1.0))
-                    row += 1
+                    pairs.append((i, j))
+
+        pair_inds = np.array(pairs, dtype=int).reshape(len(pairs), 2)
+
+        # drop the pairs of elements which are separated by a fault trace
+        if self._fault_traces is not None:
+            coords = np.column_stack([easting, northing])
+            cut = _edges_crossing_traces(
+                coords[pair_inds[:, 0]],
+                coords[pair_inds[:, 1]],
+                self._fault_traces,
+            )
+            self.n_cut_edges = int(cut.sum())
+            logger.info(
+                "excluded %s of %s model element pairs which cross a fault trace",
+                self.n_cut_edges,
+                len(pair_inds),
+            )
+            if self.n_cut_edges == 0:
+                logger.warning(
+                    "no model element pairs cross the supplied fault trace(s), so the "
+                    "inversion is unaffected by them; check that the traces are inside "
+                    "the model region and use the same coordinate system"
+                )
+            pair_inds = pair_inds[~cut]
+
+        rows = np.repeat(np.arange(len(pair_inds)), 2)
+        cols = pair_inds[:, ::-1].ravel()
+        values = np.tile([1.0, -1.0], len(pair_inds))
+
         self._grad_operator = sp.sparse.csr_matrix(
             (values, (rows, cols)),
-            shape=(row, easting.size),
+            shape=(len(pair_inds), easting.size),
         )
         return self._grad_operator
 
@@ -3314,6 +3568,7 @@ class Inversion:
         self._prev_bottom = None
         self._prev_density = None
         self._grad_operator = None
+        self.n_cut_edges = 0
 
         self.data["misfit"] = self.data["starting_misfit"]
         self.data["res"] = self.data["starting_res"]
@@ -4041,6 +4296,7 @@ class Inversion:
         inv_copy.damping_cv_study_fname = f"{inv_copy.results_fname}_study.pickle"  # type: ignore[assignment]
         inv_copy.damping_cv_results_fname = f"{inv_copy.results_fname}.pickle"  # type: ignore[assignment]
         inv_copy.solver_damping = inv_copy.best_trial.params["damping"]  # type: ignore[attr-defined]
+        inv_copy._initial_solver_damping = inv_copy.solver_damping
         inv_copy.study = study
 
         # update the inversion object with the best inversion results
@@ -4066,6 +4322,7 @@ class Inversion:
         sharpness_weight_limits: tuple[float, float] | None = None,
         sharpness_norm_limits: tuple[float, float] | None = None,
         irls_epsilon_limits: tuple[float, float] | None = None,
+        damping_limits: tuple[float, float] | None = None,
         constraints_df: pd.DataFrame | None = None,
         n_startup_trials: int | None = None,
         score_as_median: bool = False,
@@ -4084,9 +4341,12 @@ class Inversion:
         Use Optuna to find the optimal IRLS (sharp inversion) parameters for a gravity
         inversion with ``solver_type="irls"``. Any combination of ``sharpness_weight``
         (the trade-off between data fit and the Lp-norm gradient penalty),
-        ``sharpness_norm`` (the norm p itself), and ``irls_epsilon`` (the reweighting
-        stabilizer) can be optimized by supplying limits for it; parameters without
-        limits keep their current values.
+        ``sharpness_norm`` (the norm p itself), ``irls_epsilon`` (the reweighting
+        stabilizer), and ``solver_damping`` (the damping regularization, which the IRLS
+        solver also uses) can be optimized by supplying limits for it; parameters
+        without limits keep their current values. Optimizing ``sharpness_weight`` and
+        ``solver_damping`` together is useful since both penalize the model update and
+        their optimal values are not independent.
 
         Two scoring options are available, following the methods of
         :footcite:t:`uiedafast2017`:
@@ -4117,6 +4377,9 @@ class Inversion:
             be within [0, 2], by default None (not optimized)
         irls_epsilon_limits : tuple[float, float] | None, optional
             lower and upper limits for ``irls_epsilon``, sampled in log space, by
+            default None (not optimized)
+        damping_limits : tuple[float, float] | None, optional
+            lower and upper limits for ``solver_damping``, sampled in log space, by
             default None (not optimized)
         constraints_df : pandas.DataFrame | None, optional
             constraint points with columns for coordinates and ``upward``; if provided,
@@ -4169,6 +4432,7 @@ class Inversion:
             "sharpness_weight": sharpness_weight_limits,
             "sharpness_norm": sharpness_norm_limits,
             "irls_epsilon": irls_epsilon_limits,
+            "solver_damping": damping_limits,
         }
         limits: dict[str, tuple[float, float]] = {
             k: v for k, v in all_limits.items() if v is not None
@@ -4176,7 +4440,7 @@ class Inversion:
         if not limits:
             msg = (
                 "must provide limits for at least one of sharpness_weight, "
-                "sharpness_norm, or irls_epsilon"
+                "sharpness_norm, irls_epsilon, or damping"
             )
             raise ValueError(msg)
         if grid_search and list(limits) != ["sharpness_weight"]:
@@ -4203,6 +4467,7 @@ class Inversion:
             sharpness_weight_limits=sharpness_weight_limits,
             sharpness_norm_limits=sharpness_norm_limits,
             irls_epsilon_limits=irls_epsilon_limits,
+            damping_limits=damping_limits,
             constraints_df=constraints_df,
             rmse_as_median=score_as_median,
             fname=inv_copy.results_fname,  # type: ignore[arg-type]
@@ -4271,6 +4536,8 @@ class Inversion:
         inv_copy.sharpness_cv_results_fname = f"{inv_copy.results_fname}.pickle"
         for param, value in inv_copy.best_trial.params.items():  # type: ignore[attr-defined]
             setattr(inv_copy, param, value)
+        if damping_limits is not None:
+            inv_copy._initial_solver_damping = inv_copy.solver_damping
         inv_copy.study = study
 
         # update the inversion object with the best inversion results
@@ -5028,6 +5295,9 @@ class Inversion:
             grav_vars = ["gravity_anomaly", "upward"]
             if "geocentric_radius" in inv_copy.data:
                 grav_vars.append("geocentric_radius")
+            # the mask isn't derived, so it's kept and cropped along with the data
+            if "mask" in inv_copy.data:
+                grav_vars.append("mask")
             win_data = create_data(
                 _crop_dataset_to_region(
                     inv_copy.data[grav_vars], data_region, coord_names
@@ -5114,6 +5384,7 @@ class Inversion:
                 sharpness_norm=inv_copy.sharpness_norm,
                 irls_epsilon=inv_copy.irls_epsilon,
                 irls_iterations=inv_copy.irls_iterations,
+                fault_trace=inv_copy.fault_trace,
                 apply_residual_weighting_grid=inv_copy.apply_residual_weighting_grid,
                 residual_weighting_grid=inv_copy.residual_weighting_grid,
             )
@@ -5295,6 +5566,7 @@ class Inversion:
             sharpness_norm=inv_copy.sharpness_norm,
             irls_epsilon=inv_copy.irls_epsilon,
             irls_iterations=inv_copy.irls_iterations,
+            fault_trace=inv_copy.fault_trace,
             apply_weighting_grid=inv_copy.apply_weighting_grid,
             weighting_grid=inv_copy.weighting_grid,
             apply_residual_weighting_grid=inv_copy.apply_residual_weighting_grid,

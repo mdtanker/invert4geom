@@ -18,6 +18,9 @@ import xarray as xr
 import xrft
 from numpy.typing import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
+import numpy as np
+import xarray as xr
+from scipy import ndimage
 
 from invert4geom import logger, plotting
 
@@ -74,6 +77,58 @@ class DuplicateFilter:
 
     def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
         self.log.removeFilter(self)
+
+
+def buffer_edges(
+    grid: xr.DataArray,
+    cells: int = 3,
+    grow: bool = False,
+    fill_value: float | None = None,
+) -> xr.DataArray:
+    """
+    Shrink or grow the non-NaN region of a 2D grid by `cells` cells.
+
+    Parameters
+    ----------
+    grid : xarray.DataArray
+        2D grid of values and NaNs.
+    cells : int
+        Number of cell rings to remove (or add if `grow`).
+    grow : bool
+        If True, dilate the valid region instead of eroding it.
+    fill_value : float, optional
+        Value given to newly added cells. Defaults to the mean of the
+        existing non-NaN cells. Ignored if `grow` is False.
+
+    Returns
+    -------
+    xarray.DataArray
+        Grid with the same coords/attrs and an adjusted valid region.
+    """
+    if cells < 1:
+        return grid.copy()
+
+    mask = grid.notnull().values
+    structure = np.ones((3, 3))  # 8-connectivity, includes diagonal corners
+
+    if grow:
+        new_mask = ndimage.binary_dilation(
+            mask,
+            structure=structure,
+            iterations=cells,
+            border_value=0,
+        )
+        if fill_value is None:
+            fill_value = float(grid.mean(skipna=True))
+        return grid.where(mask, fill_value).where(new_mask)
+
+    new_mask = ndimage.binary_erosion(
+        mask,
+        structure=structure,
+        iterations=cells,
+        border_value=1,  # don't erode inward from the array edges
+    )
+    return grid.where(new_mask)
 
 
 def get_epsg(coast: bool) -> tuple[str, bool]:
@@ -244,9 +299,208 @@ def _nearest_grid_fill(
     return _restore_dims(filled, original_dims)
 
 
+def _interpolation_points(
+    grid: xr.DataArray,
+    data_name: typing.Any,
+    dims: list[typing.Any],
+    constraints_df: pd.DataFrame | None,
+    data_col: str,
+    maxdist: float | None,
+) -> tuple[pd.DataFrame, tuple[NDArray, NDArray], NDArray]:
+    """
+    Turn a grid with missing values into a table, and collect the points used to
+    interpolate the missing values; the grid's non-NaN nodes and, optionally, extra
+    point data. See :func:`fill_missing`.
+    """
+    df = vd.grid_to_table(grid)
+    nans = df[data_name].isna().to_numpy()
+
+    # the grid's non-NaN nodes
+    eastings = [df[dims[1]].to_numpy()[~nans]]
+    northings = [df[dims[0]].to_numpy()[~nans]]
+    data = [df[data_name].to_numpy()[~nans]]
+
+    # and any supplied point data
+    if constraints_df is not None:
+        missing_cols = {dims[0], dims[1], data_col} - set(constraints_df.columns)
+        if missing_cols:
+            msg = (
+                f"`constraints_df` is missing the columns {sorted(missing_cols)} needed "
+                "to fill the grid's missing values"
+            )
+            raise ValueError(msg)
+        points = constraints_df[constraints_df[data_col].notna()]
+        eastings.append(points[dims[1]].to_numpy())
+        northings.append(points[dims[0]].to_numpy())
+        data.append(points[data_col].to_numpy())
+
+    coords = (np.concatenate(eastings), np.concatenate(northings))
+    values = np.concatenate(data)
+
+    if maxdist is not None:
+        # only keep points which are within maxdist of a missing value
+        tree = KDTree(
+            np.column_stack(
+                (df[dims[1]].to_numpy()[nans], df[dims[0]].to_numpy()[nans])
+            ).astype(np.float64)
+        )
+        distances, _ = tree.query(
+            np.column_stack(coords).astype(np.float64),
+            k=1,
+        )
+        keep = distances <= maxdist
+        if not np.any(keep):
+            msg = (
+                "maxdist resulted in no points to interpolate with, increase the value"
+            )
+            raise ValueError(msg)
+        coords = (coords[0][keep], coords[1][keep])
+        values = values[keep]
+
+    return df, coords, values
+
+
+def fill_missing(
+    grid: xr.DataArray,
+    method: str = "pygmt",
+    constraints_df: pd.DataFrame | None = None,
+    data_col: str = "upward",
+    tension: float = 1,
+    dampings: list[float] | None = None,
+    maxdist: float | None = None,
+) -> xr.DataArray:
+    """
+    Fill the missing values (NaNs) of a grid by interpolating the grid's non-NaN values
+    with a choice of method. Optionally, additional point data, which doesn't need to
+    align with the grid, can be included in the interpolation with ``constraints_df``.
+    Only the missing values are altered; the grid's existing values are unchanged.
+
+    Parameters
+    ----------
+    grid : xarray.DataArray
+        a 2D grid with missing values (NaNs)
+    method : str, optional
+        method used to interpolate the missing values, either ``pygmt`` for tensioned
+        minimum curvature with :func:`pygmt.surface`, ``splines`` for cross-validated
+        bi-harmonic splines with :class:`verde.Spline`, ``nearest`` for the nearest
+        neighbor with :class:`verde.KNeighbors`, or ``linear`` / ``cubic`` for
+        :class:`verde.Linear` / :class:`verde.Cubic`, by default ``pygmt``
+    constraints_df : pandas.DataFrame | None, optional
+        additional point data to include in the interpolation, with columns matching the
+        grid's dimension names and a data column, by default None
+    data_col : str, optional
+        name of the data column of ``constraints_df``, by default ``upward``
+    tension : float, optional
+        tension factor used if ``method`` is ``pygmt``, between 0 (minimum curvature)
+        and 1 (harmonic surface), by default 1
+    dampings : list[float] | None, optional
+        damping values to use in the spline cross validation if ``method`` is
+        ``splines``, by default None
+    maxdist : float | None, optional
+        only interpolate with points which are within this distance of a missing value.
+        For expensive methods, such as ``splines``, this can significantly speed up the
+        interpolation, by default None
+
+    Returns
+    -------
+    xarray.DataArray
+        the grid with its missing values filled
+    """
+    if method not in ("pygmt", "splines", "nearest", "linear", "cubic"):
+        msg = "method must be 'pygmt', 'splines', 'nearest', 'linear' or 'cubic'"
+        raise ValueError(msg)
+
+    if not np.any(grid.isnull()):  # noqa: PD003
+        logger.info("grid has no missing values, returning it unaltered")
+        return grid
+
+    original_dims = list(grid.sizes.keys())
+    # grid_to_table needs a named variable
+    named_grid = grid if grid.name is not None else grid.rename("data")
+    data_name = named_grid.name
+
+    df, coords, data = _interpolation_points(
+        named_grid,
+        data_name,
+        original_dims,
+        constraints_df,
+        data_col,
+        maxdist,
+    )
+
+    if method == "pygmt":
+        spacing, region, _, _, registration = ptk.get_grid_info(grid)
+        filled = pygmt.surface(
+            x=coords[0],
+            y=coords[1],
+            z=data,
+            region=region,
+            spacing=spacing,
+            registration=registration,
+            tension=tension,
+            verbose="quiet",
+        )
+        filled = _restore_dims(filled, original_dims)
+        if filled.shape != grid.shape:
+            msg = (
+                "the filled grid doesn't match the shape of the supplied grid, "
+                "please raise an issue on GitHub"
+            )
+            raise ValueError(msg)
+        # pygmt returns the coordinates at a lower precision, so reuse the originals
+        for dim in original_dims:
+            if not np.allclose(filled[dim], grid[dim], atol=float(spacing) / 100):
+                msg = (
+                    "the filled grid's coordinates don't match those of the supplied "
+                    "grid, please raise an issue on GitHub"
+                )
+                raise ValueError(msg)
+        filled = filled.assign_coords({dim: grid[dim] for dim in original_dims})
+    else:
+        if method == "nearest":
+            interpolator: typing.Any = vd.KNeighbors(k=1)
+        elif method == "linear":
+            interpolator = vd.Linear()
+        elif method == "cubic":
+            interpolator = vd.Cubic()
+        else:
+            interpolator = _fit_spline_cv(coords, data, None, dampings)
+
+        if method != "splines":
+            interpolator.fit(coords, data)
+
+        # predict only at the missing values
+        nans = df[data_name].isna().to_numpy()
+        # as a float64 array, since the grid may be a lower precision dtype
+        values = df[data_name].to_numpy(dtype=np.float64, copy=True)
+        values[nans] = interpolator.predict(
+            (
+                df[original_dims[1]].to_numpy()[nans],
+                df[original_dims[0]].to_numpy()[nans],
+            )
+        )
+        df[data_name] = values
+        filled = df.set_index([original_dims[0], original_dims[1]]).to_xarray()[
+            data_name
+        ]
+
+    result: xr.DataArray = grid.where(grid.notnull(), filled)  # noqa: PD004
+
+    if np.any(result.isnull()):  # noqa: PD003
+        msg = (
+            "missing values are still present in the grid, this may be due to the "
+            "choice of method; `linear` and `cubic` don't extrapolate outside of the "
+            "supplied points. Re-run with method `pygmt`, `splines` or `nearest` to "
+            "fill the remaining values."
+        )
+        logger.warning(msg)
+
+    return result.rename(grid.name)
+
+
 def region_mask(
     grid: xr.DataArray,
-    region: tuple[float, float, float, float],
+    region: tuple[float, float, float, float] | list[float],
 ) -> xr.DataArray:
     """
     Make a mask with values of 1 inside a region and 0 outside the region.
@@ -492,9 +746,15 @@ def normalize_xarray(
     da: xr.DataArray,
     low: float = 0,
     high: float = 1,
+    low_percentile: float = 0,
+    high_percentile: float = 100,
 ) -> xr.DataArray:
     """
-    Normalize a grid between provided values
+    Normalize a grid between provided values. Be default normalizes the grids minimum
+    values to 0 and maximum value to 1, alternatively, low_percentile and
+    high_percentile can be passed for more robust normilization. For example, values of
+    2% and 98% would set the grids 2nd percentile to 0, and all data below the 2nd
+    percentile would be clipped to 0, and same for the high values of the grid.
 
     Parameters
     ----------
@@ -504,25 +764,37 @@ def normalize_xarray(
         lower value for normalization, by default 0
     high : float, optional
         higher value for normalization, by default 1
+    low_percentile : float, optional
+        which grid value as percentile to normalize to the low value, by default 0, the
+        grids true minimum
+    high_percentile : float, optional
+        which grid value as percentile to normalize to the high value, by default 100,
+        the grids true maximum
 
     Returns
     -------
     xarray.DataArray
         a normalized grid
     """
-    # min_val = da.to_numpy().min()
-    # max_val = da.to_numpy().max()
-
     da = da.copy()
 
-    min_val = da.quantile(0)
-    max_val = da.quantile(1)
+    min_val = da.quantile(low_percentile / 100, skipna=True)
+    max_val = da.quantile(high_percentile / 100, skipna=True)
 
-    da2: xr.DataArray = (high - low) * (
-        ((da - min_val) / (max_val - min_val)).clip(0, 1)
-    ) + low
+    if float(max_val - min_val) == 0:
+        logger.warning(
+            "grid has no range between the %s and %s percentiles, setting all values "
+            "to `low` (%s)",
+            low_percentile,
+            high_percentile,
+            low,
+        )
+        # multiply by 0 instead of zeros_like to keep the grid's nans
+        da2: xr.DataArray = (da * 0) + low
+    else:
+        da2 = (high - low) * (((da - min_val) / (max_val - min_val)).clip(0, 1)) + low
 
-    return da2.drop_vars("quantile")
+    return da2.drop_vars("quantile", errors="ignore")
 
 
 def scale_normalized(
@@ -561,12 +833,25 @@ def normalized_mindist(
     low: float | None = None,
     high: float | None = None,
     mindist: float | None = None,
+    maxdist: float | None = None,
     region: list[float] | None = None,
+    outside_region_value: float | None = None,
+    low_percentile: float = 0,
+    high_percentile: float = 100,
 ) -> xr.DataArray:
     """
     Find the minimum distance between each grid cell and the nearest point. If low and
-    high are provided, normalize the min dists grid between these values. If region is
-    provided, all grid cells outside region are set to a distance of 0.
+    high are provided, normalize the min dists grid between these values. Grid cells
+    closer than `mindist` to a point are set to `low`, and grid cells outside of
+    `region` are set to `outside_region_value` (`low` by default). These fixed-value
+    cells are excluded when calculating the percentiles used for the normalization.
+
+    There are two ways of choosing which distances map to `low` and `high`: either with
+    percentiles of the min dists grid (`low_percentile` and `high_percentile`), or with
+    actual distance values (`mindist` and `maxdist`). Providing `maxdist` switches to
+    the latter, where distances at or below `mindist` (0 by default) are set to `low`,
+    distances at or above `maxdist` are set to `high`, and distances in between are
+    scaled linearly. The two ways are mutually exclusive.
 
     Parameters
     ----------
@@ -579,16 +864,65 @@ def normalized_mindist(
     high : float | None, optional
         higher value for normalization, by default None
     mindist : float | None, optional
-        the minimum allowed distance, all values below are set equal to, by default None
+        the minimum allowed distance, all grid cells with distances below this are set
+        to `low`, by default None
+    maxdist : float | None, optional
+        the distance which is mapped to `high`, with `mindist` (0 if not provided)
+        mapped to `low` and distances in between scaled linearly. Requires `low` and
+        `high`, and can't be used together with `low_percentile` or `high_percentile`.
+        By default None, meaning percentiles are used instead.
     region : list[float] | None, optional
-        bounding region for which all grid cells outside will be set to low, by default
-        None
+        bounding region, in the format (min_easting, max_easting, min_northing,
+        max_northing), for which all grid cells outside will be set to
+        `outside_region_value`, by default None
+    outside_region_value : float | None, optional
+        the value to set for areas outside of the region, by default is `low`. Takes
+        precedence over `mindist` where both apply.
+    low_percentile : float, optional
+        which grid value as percentile to normalize to the low value, by default 0, the
+        grids true minimum
+    high_percentile : float, optional
+        which grid value as percentile to normalize to the high value, by default 100,
+        the grids true maximum
 
     Returns
     -------
     xarray.DataArray
         grid of normalized minimum distances
     """
+
+    if (low is None) != (high is None):
+        msg = "must provide both `low` and `high`, or neither"
+        raise ValueError(msg)
+
+    if not 0 <= low_percentile < high_percentile <= 100:
+        msg = (
+            "must have 0 <= `low_percentile` < `high_percentile` <= 100, got "
+            f"{low_percentile} and {high_percentile}"
+        )
+        raise ValueError(msg)
+
+    if outside_region_value is not None and region is None:
+        msg = "must provide `region` to use `outside_region_value`"
+        raise ValueError(msg)
+
+    if maxdist is not None:
+        if low is None or high is None:
+            msg = "must provide `low` and `high` to use `maxdist`"
+            raise ValueError(msg)
+        if (low_percentile, high_percentile) != (0, 100):
+            msg = (
+                "can't use `maxdist` together with `low_percentile` or "
+                "`high_percentile`, normalize either with distance values or with "
+                "percentiles"
+            )
+            raise ValueError(msg)
+        if maxdist <= (0 if mindist is None else mindist):
+            msg = (
+                f"`maxdist` ({maxdist}) must be greater than `mindist` "
+                f"({0 if mindist is None else mindist})"
+            )
+            raise ValueError(msg)
 
     grid = copy.deepcopy(grid)
 
@@ -603,34 +937,57 @@ def normalized_mindist(
         coord_names=(str(original_dims[1]), str(original_dims[0])),
     ).min_dist
 
-    if (low is None) != (high is None):
-        msg = "must provide both `low` and `high`, or neither"
-        raise ValueError(msg)
+    # without normalizing, distances are in their original units and `low_value` is
+    # just the value given to the fixed-value cells
+    low_value = 0.0 if low is None else low
+    if outside_region_value is None:
+        outside_region_value = low_value
 
-    # set points < mindist to 0 (normalized to `low` below if provided)
-    if mindist is not None:
-        min_dist = xr.where(min_dist < mindist, 0, min_dist)
+    # cells which get a fixed value instead of a distance
+    below_mindist = None if mindist is None else min_dist < mindist
+    outside_region = None if region is None else region_mask(min_dist, region) == 0
 
-    # set points outside of region to 0 (normalized to `low` below if provided)
-    if region is not None:
-        df = vd.grid_to_table(min_dist)
-        df["are_inside"] = bd.inside(
-            (df[original_dims[1]], df[original_dims[0]]),
-            region=region,
+    # nans of the supplied grid, to be restored at the end
+    nan_mask = min_dist.isnull()  # noqa: PD003
+
+    if maxdist is not None:
+        # normalize with distance values instead of percentiles
+        assert low is not None and high is not None
+        low_dist = 0.0 if mindist is None else mindist
+        min_dist = (high - low) * (
+            ((min_dist - low_dist) / (maxdist - low_dist)).clip(0, 1)
+        ) + low
+    elif low is not None and high is not None:
+        # exclude fixed-value cells so they don't influence the percentiles
+        to_normalize = min_dist
+        if below_mindist is not None:
+            to_normalize = to_normalize.where(~below_mindist)
+        if outside_region is not None:
+            to_normalize = to_normalize.where(~outside_region)
+
+        if bool(to_normalize.isnull().all()):  # noqa: PD003
+            msg = (
+                "no grid cells remain to normalize, all are either nans, below "
+                "`mindist`, or outside of `region`"
+            )
+            raise ValueError(msg)
+
+        min_dist = normalize_xarray(
+            to_normalize,
+            low=low,
+            high=high,
+            low_percentile=low_percentile,
+            high_percentile=high_percentile,
         )
-        new_min_dist = df.set_index([original_dims[0], original_dims[1]]).to_xarray()
-        new_min_dist = xr.where(new_min_dist.are_inside, new_min_dist, 0)
 
-        # add nans back
-        new_min_dist = xr.where(min_dist.isnull(), np.nan, new_min_dist)  # noqa: PD003
+    # set the fixed values, region takes precedence where both apply
+    if below_mindist is not None:
+        min_dist = min_dist.where(~below_mindist, low_value)
+    if outside_region is not None:
+        min_dist = min_dist.where(~outside_region, outside_region_value)
 
-        min_dist = new_min_dist.min_dist
-
-    # normalize from low to high
-    if (low is not None) and (high is not None):
-        min_dist = normalize_xarray(min_dist, low=low, high=high)
-
-    return min_dist
+    # add nans back
+    return min_dist.where(~nan_mask)
 
 
 def sample_grids(
@@ -675,50 +1032,185 @@ def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
     raise DeprecationWarning(msg)
 
 
+def _deprecated_parameter(
+    old_name: str,
+    old_value: typing.Any,
+    new_name: str,
+    new_value: typing.Any,
+) -> typing.Any:
+    """
+    Map a deprecated parameter onto its new name, warning if the old name was used.
+    """
+    if old_value is None:
+        return new_value
+    warnings.warn(
+        f"`{old_name}` is deprecated, please use `{new_name}` instead.",
+        UserWarning,
+        stacklevel=3,
+    )
+    return old_value
+
+
+def _normalize_mask(
+    mask: xr.DataArray,
+    reference: xr.DataArray,
+) -> xr.DataArray:
+    """
+    Convert a mask into values of 1 (include) and 0 (exclude), where the excluded cells
+    are those with values of 0, False, or NaN. This allows both the ``mask`` convention
+    of :func:`invert4geom.create_model` (NaNs are excluded) and of ``mask_column``
+    (zeros are excluded) to be used for the gravity data. The mask must be on the same
+    grid as ``reference``.
+    """
+    if dict(mask.sizes) != dict(reference.sizes):
+        msg = (
+            f"mask has dimensions {dict(mask.sizes)} but the gravity data has "
+            f"{dict(reference.sizes)}, they must be on the same grid"
+        )
+        raise ValueError(msg)
+    for dim in reference.dims:
+        if (dim not in mask.coords) or not np.allclose(mask[dim], reference[dim]):
+            msg = (
+                f"mask coordinate '{dim}' doesn't match that of the gravity data, the "
+                "mask must be on the same grid as the gravity data"
+            )
+            raise ValueError(msg)
+
+    values = mask.astype("float64")
+    normalized: xr.DataArray = xr.where(np.isfinite(values) & (values != 0), 1.0, 0.0)
+    return normalized.rename("mask")
+
+
+def _subset_data(values: typing.Any, keep: NDArray) -> typing.Any:
+    """subset an array, a tuple of arrays, or None, with a boolean mask"""
+    if values is None:
+        return None
+    if isinstance(values, tuple):
+        return tuple(np.asarray(v)[keep] for v in values)
+    return np.asarray(values)[keep]
+
+
 def _block_reduce_points(
     coords: tuple[typing.Any, typing.Any],
     data: typing.Any,
     weights: typing.Any,
     block_size: float,
     block_reduction: str,
-    region: tuple[float, float, float, float],
+    region: tuple[float, float, float, float] | None,
+    mask: NDArray | None = None,
+    uncertainty: bool = False,
+    center_coordinates: bool = True,
 ) -> tuple[typing.Any, typing.Any, typing.Any]:
     """
-    Block-reduce point data before fitting a spline. Weighted means are computed
-    with :class:`verde.BlockMean` which also reduces the weights; otherwise
-    :class:`verde.BlockReduce` is used and any weights are dropped.
+    Block-reduce point data before interpolating. Means are computed with
+    :class:`verde.BlockMean`, which also reduces the weights; medians are computed with
+    :class:`verde.BlockReduce` and any weights are dropped. ``data`` can be a tuple of
+    arrays to reduce several data components together, in which case the reduced weights
+    of the first component are returned. If ``mask`` is provided, only the points where
+    it is True are block-reduced, and the remaining points are appended, unaltered, to
+    the reduced points.
     """
-    if block_reduction == "mean" and weights is not None:
+    if mask is None:
+        return _block_reduce_all_points(
+            coords,
+            data,
+            weights,
+            block_size,
+            block_reduction,
+            region,
+            uncertainty=uncertainty,
+            center_coordinates=center_coordinates,
+        )
+
+    mask = np.asarray(mask, dtype=bool)
+    first_component = data[0] if isinstance(data, tuple) else data
+    if mask.shape != np.asarray(first_component).shape:
+        msg = "block reduction mask must be the same length as the data"
+        raise ValueError(msg)
+
+    if not mask.any():
+        logger.warning("no points selected for block-reduction, skipping it")
+        return coords, data, weights
+
+    reduced_coords, reduced_data, reduced_weights = _block_reduce_all_points(
+        tuple(_subset_data(c, mask) for c in coords),
+        _subset_data(data, mask),
+        _subset_data(weights, mask),
+        block_size,
+        block_reduction,
+        region,
+        uncertainty=uncertainty,
+        center_coordinates=center_coordinates,
+    )
+
+    # add back the points which weren't block-reduced
+    coords = tuple(
+        np.concatenate([np.asarray(r), _subset_data(c, ~mask)])
+        for r, c in zip(reduced_coords, coords, strict=True)
+    )
+    if isinstance(data, tuple):
+        data = tuple(
+            np.concatenate([np.asarray(r), np.asarray(d)[~mask]])
+            for r, d in zip(reduced_data, data, strict=True)
+        )
+    else:
+        data = np.concatenate([np.asarray(reduced_data), _subset_data(data, ~mask)])
+    if weights is None or reduced_weights is None:
+        # weights are dropped by verde.BlockReduce, so they can't be reused
+        weights = None
+    else:
+        weights = np.concatenate(
+            [np.asarray(reduced_weights), _subset_data(weights, ~mask)]
+        )
+
+    return coords, data, weights
+
+
+def _block_reduce_all_points(
+    coords: tuple[typing.Any, typing.Any],
+    data: typing.Any,
+    weights: typing.Any,
+    block_size: float,
+    block_reduction: str,
+    region: tuple[float, float, float, float] | None,
+    uncertainty: bool = False,
+    center_coordinates: bool = True,
+) -> tuple[typing.Any, typing.Any, typing.Any]:
+    """
+    Block-reduce all the supplied point data, see :func:`_block_reduce_points`.
+    """
+    multiple_components = isinstance(data, tuple)
+
+    if block_reduction == "mean":
         reducer = vd.BlockMean(
             spacing=block_size,
             region=region,
-            center_coordinates=True,
+            center_coordinates=center_coordinates,
+            uncertainty=uncertainty,
         )
+        if multiple_components and weights is not None:
+            # verde expects one weights array per data component
+            weights = tuple(weights for _ in data)
         coords, data, weights = reducer.filter(
             coordinates=coords,
             data=data,
             weights=weights,
         )
-    else:
-        if block_reduction == "mean":
-            reduction = np.mean
-        elif block_reduction == "median":
-            reduction = np.median
-            if weights is not None:
-                msg = (
-                    "weights are ignored when block_reduction is 'median', to use "
-                    "weights, set block_reduction to 'mean'"
-                )
-                logger.warning(msg)
-        else:
-            msg = "block_reduction must be 'mean' or 'median'"
-            raise ValueError(msg)
+        if multiple_components and isinstance(weights, tuple):
+            weights = weights[0]
+    elif block_reduction == "median":
+        if weights is not None:
+            msg = (
+                "weights are ignored when block_reduction is 'median', to use "
+                "weights, set block_reduction to 'mean'"
+            )
+            logger.warning(msg)
 
         reducer = vd.BlockReduce(
-            reduction=reduction,
+            reduction=np.median,
             spacing=block_size,
             region=region,
-            center_coordinates=True,
+            center_coordinates=center_coordinates,
         )
         coords, data = reducer.filter(
             coordinates=coords,
@@ -726,6 +1218,9 @@ def _block_reduce_points(
         )
         # BlockReduce doesn't reduce the weights, so they can't be reused
         weights = None
+    else:
+        msg = "block_reduction must be 'mean' or 'median'"
+        raise ValueError(msg)
 
     return coords, data, weights
 
@@ -750,6 +1245,117 @@ def _fit_spline_cv(
         )
 
 
+def _check_grid_to_fill(
+    grid_to_fill: xr.DataArray,
+    region: tuple[float, float, float, float],
+    spacing: float,
+    registration: str,
+    coord_names: tuple[str, str],
+) -> xr.DataArray:
+    """
+    Ensure the supplied grid matches the requested grid and restore its dimensions.
+    See :func:`create_topography`.
+    """
+    grid = _restore_dims(grid_to_fill, [coord_names[1], coord_names[0]])
+
+    grid_spacing, grid_region, _, _, grid_registration = ptk.get_grid_info(grid)
+    if (
+        not np.allclose(float(grid_spacing), spacing)
+        or not np.allclose(grid_region, region)
+        or grid_registration != registration
+    ):
+        msg = (
+            f"`grid_to_fill` (spacing: {grid_spacing}, region: {grid_region}, "
+            f"registration: {grid_registration}) doesn't match the requested grid "
+            f"(spacing: {spacing}, region: {region}, registration: {registration}), "
+            "please resample it before passing it to `create_topography`"
+        )
+        raise ValueError(msg)
+
+    return grid
+
+
+def _fill_topography_grid(
+    grid_to_fill: xr.DataArray,
+    method: str,
+    region: tuple[float, float, float, float],
+    spacing: float,
+    registration: str,
+    coord_names: tuple[str, str],
+    constraints_df: pd.DataFrame | None,
+    tension: float,
+    dampings: list[float] | None,
+    maxdist: float | None,
+    block_size: float | None,
+    block_reduction: str,
+    block_reduction_col: str | None,
+    grid_points_col: str,
+) -> xr.DataArray:
+    """
+    Fill the missing values of a supplied topography grid with the constraint points
+    which aren't already included in the grid. See :func:`create_topography`.
+    """
+    grid = _check_grid_to_fill(
+        grid_to_fill,
+        region,
+        spacing,
+        registration,
+        coord_names,
+    )
+
+    fill_points = None
+    if constraints_df is not None:
+        if grid_points_col in constraints_df.columns:
+            # points which are already included in the grid shouldn't be reused
+            fill_points = constraints_df[constraints_df[grid_points_col] == False]  # noqa: E712 # pylint: disable=singleton-comparison
+        else:
+            msg = (
+                f"`constraints_df` has no column `{grid_points_col}`, using all the "
+                "points to fill the missing values of `grid_to_fill`"
+            )
+            logger.info(msg)
+            fill_points = constraints_df
+
+        if block_size is not None:
+            coords = (fill_points[coord_names[0]], fill_points[coord_names[1]])
+            if block_reduction_col is None:
+                mask = None
+            elif block_reduction_col not in fill_points.columns:
+                msg = (
+                    f"`block_reduction_col` '{block_reduction_col}' not in "
+                    "`constraints_df` columns"
+                )
+                raise ValueError(msg)
+            else:
+                mask = fill_points[block_reduction_col].to_numpy(dtype=bool)
+            coords, data, _ = _block_reduce_points(
+                coords,
+                fill_points.upward,
+                None,
+                block_size,
+                block_reduction,
+                region,
+                mask=mask,
+            )
+            fill_points = pd.DataFrame(
+                {
+                    coord_names[0]: coords[0],
+                    coord_names[1]: coords[1],
+                    "upward": data,
+                }
+            )
+
+    return fill_missing(
+        grid,
+        method=method,
+        constraints_df=fill_points,
+        data_col="upward",
+        tension=tension,
+        dampings=dampings,
+        maxdist=maxdist,
+    )
+
+
 def create_topography(
     method: str,
     region: tuple[float, float, float, float],
@@ -765,27 +1371,40 @@ def create_topography(
     weights_col: str | None = None,
     block_size: float | None = None,
     block_reduction: str = "median",
+    block_reduction_col: str | None = None,
+    tension: float = 1,
+    grid_to_fill: xr.DataArray | None = None,
+    maxdist: float | None = None,
+    grid_points_col: str = "grid_points",
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
     dataset_to_add: xr.Dataset | None = None,
 ) -> xr.Dataset:
     """
-    Create a grid of topography data from either the interpolation (with splines) of
-    point data or creating a grid of constant value. Optionally, a subset of point data
-    can be interpolated and then merged with an existing grid. To do this,
+    Create a grid of topography data from either the interpolation of point data, with
+    bi-harmonic splines (:class:`verde.Spline`) or tensioned minimum curvature
+    (:func:`pygmt.surface`), or creating a grid of constant value. Optionally, a subset
+    of point data can be interpolated and then merged with an existing grid. To do this,
     ``constraints_df`` must contain two additional columns of booleans, ``inside`` which
     is True for points inside the region of interest, and False otherwise, and
     ``buffer`` which is True for points within a buffer region around the region of
     interest, and False otherwise. Inside and Buffer points are used to interpolated the
     data, and then the interpolated data (without the buffer zone) is merged with the
     points outside the region of interest. For interpolations, ``block_size`` can be
-    supplied to perform a block-median filtering of the points before fitting the
-    spline, reducing the computational cost.
+    supplied to perform a block-median filtering of the points before interpolating,
+    reducing the computational cost. This block-reduction can be limited to a subset of
+    the points with ``block_reduction_col``. Alternatively, an existing grid with
+    missing values (NaNs) can be supplied with ``grid_to_fill``, and only its missing
+    values will be interpolated, using the constraint points which aren't already
+    included in the grid (where the column named by ``grid_points_col`` is False), or
+    filled with a constant value if ``method`` is ``flat``.
 
     Parameters
     ----------
     method : str
-        method to use, either ``flat`` or ``splines``
+        method to use, either ``flat``, ``splines`` or ``pygmt``. If using
+        ``grid_to_fill``, ``nearest``, ``linear`` and ``cubic`` are also available, see
+        :func:`fill_missing`
     region : tuple[float, float, float, float]
         bounding region to use for the output grid. If you are using projected
         coordinates (meters), this is in the format (min_easting, max_easting,
@@ -801,7 +1420,8 @@ def create_topography(
     registration : str, optional
         choose between gridline ``g`` or pixel ``p`` registration, by default ``g``
     upward : float | None, optional
-        constant elevation in meters to use for method ``flat``, by default None
+        constant elevation in meters to use for method ``flat``. If ``grid_to_fill`` is
+        also provided, its missing values are filled with this value, by default None
     upwards : float | None, optional
         deprecated, use `upward` instead, by default None
     coord_names : tuple[str, str], optional
@@ -810,10 +1430,10 @@ def create_topography(
     projection : pyproj.Proj | None, optional
         if using geographic coordinates (latitude and longitude) and the splines method,
         provide a pyproj Proj object to convert to cartesian coordinates, by default
-        None
+        None. Not needed for method ``pygmt``, which grids in the supplied coordinates.
     constraints_df : pandas.DataFrame | None, optional
-        dataframe with column 'upward' to use for method ``splines``, and optionally
-        columns ``inside`` and ``buffer``, by default None
+        dataframe with column 'upward' to use for methods ``splines`` and ``pygmt``, and
+        optionally columns ``inside`` and ``buffer``, by default None
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
@@ -821,14 +1441,38 @@ def create_topography(
         instead of passing the weights, pass the name of the column containing the
         weights, by default None
     block_size : float | None, optional
-        block size to use for block-reduction of constraint points before fitting
-        splines. In meters if using projected coordinates, or in decimal degrees if
-        using geographic coordinates. If None, no block-reduction is applied, by
+        block size to use for block-reduction of constraint points before
+        interpolating. In meters if using projected coordinates, or in decimal degrees
+        if using geographic coordinates. If None, no block-reduction is applied, by
         default None
     block_reduction: str, optional
-        type of block reduction to apply, if ``median``, weights will be ignored, of
-        ``mean``, and weights are provided, they will be used in the block reduction.
-        Defaults to ``median``.
+        type of block reduction to apply. If ``median``, :class:`verde.BlockReduce` is
+        used and any weights are ignored and dropped. If ``mean``,
+        :class:`verde.BlockMean` is used and the reduced weights are kept for the
+        interpolation. Defaults to ``median``.
+    block_reduction_col : str | None, optional
+        name of a boolean column in ``constraints_df``, where True indicates points
+        which should be block-reduced. Points which are False are left unaltered and
+        added back to the block-reduced points before interpolating. If None, all points
+        are block-reduced, by default None
+    tension : float, optional
+        tension factor used if ``method`` is ``pygmt``, between 0 (minimum curvature)
+        and 1 (harmonic surface), by default 1
+    grid_to_fill : xarray.DataArray | None, optional
+        instead of interpolating all the constraint points, supply an existing grid,
+        with the same region, spacing and registration as requested, whose missing
+        values (NaNs) should be filled with :func:`fill_missing`. The constraint points
+        which aren't already included in the grid, indicated by the boolean column
+        named by ``grid_points_col`` being False, are used in the interpolation. If
+        ``method`` is ``flat``, the missing values are instead filled with the constant
+        value ``upward``, by default None
+    maxdist : float | None, optional
+        if using ``grid_to_fill``, only interpolate with points within this distance of
+        a missing value. Not used with method ``flat``, by default None
+    grid_points_col : str, optional
+        name of the boolean column of ``constraints_df``, where True indicates points
+        which are already included in ``grid_to_fill`` and shouldn't be reused in the
+        interpolation, by default ``grid_points``
     upper_confining_layer : xarray.DataArray | None, optional
         layer which the inverted topography should always be below, by default None
     lower_confining_layer : xarray.DataArray | None, optional
@@ -850,6 +1494,18 @@ def create_topography(
         )
         upward = upwards
 
+    if (method != "pygmt") & (tension != 1):
+        msg = "`tension` is only used if `method` is 'pygmt'"
+        raise ValueError(msg)
+
+    if (grid_to_fill is None) & (maxdist is not None):
+        msg = "`maxdist` is only used if `grid_to_fill` is provided"
+        raise ValueError(msg)
+
+    if (method == "flat") & (maxdist is not None):
+        msg = "`maxdist` can't be used with method 'flat'"
+        raise ValueError(msg)
+
     if method == "flat":
         if registration == "g":
             pixel_register = False
@@ -863,24 +1519,54 @@ def create_topography(
             msg = "upward must be provided if method is `flat`"
             raise ValueError(msg)
 
-        # create grid of coordinates
-        (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
-            region=region,
-            spacing=spacing,
-            pixel_register=pixel_register,
-        )
-        # make flat topography of value = upward
-        grid = vd.make_xarray_grid(
-            (x, y),
-            np.ones_like(x) * upward,
-            data_names="upward",
-            dims=(coord_names[1], coord_names[0]),
-        ).upward
+        if grid_to_fill is not None:
+            # fill the missing values of the supplied grid with the constant value
+            grid = _check_grid_to_fill(
+                grid_to_fill,
+                region,
+                spacing,
+                registration,
+                coord_names,
+            ).fillna(upward)
+        else:
+            # create grid of coordinates
+            (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+                region=region,
+                spacing=spacing,
+                pixel_register=pixel_register,
+            )
+            # make flat topography of value = upward
+            grid = vd.make_xarray_grid(
+                (x, y),
+                np.ones_like(x) * upward,
+                data_names="upward",
+                dims=(coord_names[1], coord_names[0]),
+            ).upward
 
-    elif method == "splines":  # pylint: disable=too-many-nested-blocks
+    elif grid_to_fill is not None:
+        # only interpolate the missing values of the supplied grid
+        grid = _fill_topography_grid(
+            grid_to_fill,
+            method,
+            region,
+            spacing,
+            registration,
+            coord_names,
+            constraints_df,
+            tension,
+            dampings,
+            maxdist,
+            block_size,
+            block_reduction,
+            block_reduction_col,
+            grid_points_col,
+        )
+        grid = grid.assign_attrs(damping=None)
+
+    elif method in ("splines", "pygmt"):  # pylint: disable=too-many-nested-blocks
         # get coordinates of the constraint points
         if constraints_df is None:
-            msg = "constraints_df must be provided if method is `splines`"
+            msg = f"constraints_df must be provided if method is `{method}`"
             raise ValueError(msg)
 
         df = constraints_df.copy()
@@ -900,7 +1586,11 @@ def create_topography(
                 dims=(coord_names[1], coord_names[0]),
             ).upward
         else:
-            if (coord_names == ("longitude", "latitude")) & (projection is None):
+            if (
+                method == "splines"
+                and coord_names == ("longitude", "latitude")
+                and projection is None
+            ):
                 msg = (
                     "If using geographic coordinates (latitude and longitude) and the "
                     "spline method, a pyproj.Proj projection must be provided to "
@@ -909,7 +1599,7 @@ def create_topography(
                 raise ValueError(msg)
 
             # convert to projected coordinates if needed
-            if projection is not None:
+            if method == "splines" and projection is not None:
                 projected_points = [
                     projection(lon, lat)
                     for (lon, lat) in zip(df.longitude, df.latitude, strict=True)
@@ -935,80 +1625,80 @@ def create_topography(
                     min(northings),
                     max(northings),
                 )
-                cartesian_spacing = (
-                    spacing * 111139
-                )  # approx conversion from degrees latitude to meters
-                if block_size is not None:
-                    block_size = (
+                if block_size is None:
+                    cartesian_block_size = None
+                else:
+                    cartesian_block_size = (
                         block_size * 111139
                     )  # approx conversion from degrees latitude to meters
             else:
                 cartesian_region = region
-                cartesian_spacing = spacing
+                cartesian_block_size = block_size
 
-            if {"inside", "buffer"} <= set(df.columns):
+            if method == "pygmt":
+                # pygmt grids in the supplied coordinates, no projection needed
+                fit_coord_names = coord_names
+                fit_region = region
+                fit_block_size = block_size
+            else:
+                # verde splines are fit in projected (cartesian) coordinates
+                fit_coord_names = ("easting", "northing")
+                fit_region = cartesian_region
+                fit_block_size = cartesian_block_size
+
+            # optionally only interpolate the points inside the region and its buffer
+            subset_points = {"inside", "buffer"} <= set(df.columns)
+            if subset_points:
                 df_to_interpolate = df[df.inside | df.buffer]
                 df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
+            else:
+                df_to_interpolate = df
 
-                coords = (
-                    df_to_interpolate[coord_names[0]],
-                    df_to_interpolate[coord_names[1]],
-                )
-                data = df_to_interpolate.upward
-                if weights_col is not None:
-                    weights = df_to_interpolate[weights_col]
+            coords = (
+                df_to_interpolate[fit_coord_names[0]],
+                df_to_interpolate[fit_coord_names[1]],
+            )
+            data = df_to_interpolate.upward
+            if weights_col is not None:
+                weights = df_to_interpolate[weights_col]
 
-                if block_size is not None:
-                    coords, data, weights = _block_reduce_points(
-                        coords,
-                        data,
-                        weights,
-                        block_size,
-                        block_reduction,
-                        cartesian_region,
+            if fit_block_size is not None:
+                if block_reduction_col is None:
+                    block_reduction_mask = None
+                elif block_reduction_col not in df_to_interpolate.columns:
+                    msg = (
+                        f"`block_reduction_col` '{block_reduction_col}' not in "
+                        "`constraints_df` columns"
                     )
+                    raise ValueError(msg)
+                else:
+                    block_reduction_mask = df_to_interpolate[
+                        block_reduction_col
+                    ].to_numpy(dtype=bool)
 
-                # run CV for fitting a spline to the data
-                spline = _fit_spline_cv(coords, data, weights, dampings)
+                coords, data, weights = _block_reduce_points(
+                    coords,
+                    data,
+                    weights,
+                    fit_block_size,
+                    block_reduction,
+                    fit_region,
+                    mask=block_reduction_mask,
+                )
 
-                # grid the fitted spline at desired spacing and region
-                inside_grid = spline.grid(
+            if method == "pygmt":
+                # grid the points with tensioned minimum curvature
+                grid = pygmt.surface(
+                    x=coords[0],
+                    y=coords[1],
+                    z=data,
                     region=region,
                     spacing=spacing,
-                    projection=projection,
-                    dims=(coord_names[1], coord_names[0]),
-                ).scalars
-
-                # merge interpolation of inner / buffer points with outside grid
-                outside_grid = pygmt.xyz2grd(
-                    x=df_outside_buffer[coord_names[0]],
-                    y=df_outside_buffer[coord_names[1]],
-                    z=df_outside_buffer.upward,
-                    region=cartesian_region,
-                    spacing=cartesian_spacing,
+                    registration=registration,
+                    tension=tension,
+                    verbose="quiet",
                 ).rename({"x": coord_names[0], "y": coord_names[1]})
-
-                grid = inside_grid.where(
-                    outside_grid.isnull(),  # noqa: PD003
-                    outside_grid,
-                )
-
             else:
-                coords = (df.easting, df.northing)
-                data = df.upward
-                if weights_col is not None:
-                    weights = df[weights_col]
-
-                if block_size is not None:
-                    coords, data, weights = _block_reduce_points(
-                        coords,
-                        data,
-                        weights,
-                        block_size,
-                        block_reduction,
-                        cartesian_region,
-                    )
-
                 # run CV for fitting a spline to the data
                 spline = _fit_spline_cv(coords, data, weights, dampings)
 
@@ -1020,13 +1710,29 @@ def create_topography(
                     dims=(coord_names[1], coord_names[0]),
                 ).scalars
 
+            if subset_points:
+                # merge interpolation of inner / buffer points with outside grid
+                outside_grid = pygmt.xyz2grd(
+                    x=df_outside_buffer[coord_names[0]],
+                    y=df_outside_buffer[coord_names[1]],
+                    z=df_outside_buffer.upward,
+                    region=region,
+                    spacing=spacing,
+                    registration=registration if method == "pygmt" else "g",
+                ).rename({"x": coord_names[0], "y": coord_names[1]})
+
+                grid = grid.where(
+                    outside_grid.isnull(),  # noqa: PD003
+                    outside_grid,
+                )
+
         try:
             grid = grid.assign_attrs(damping=spline.damping_)
         except UnboundLocalError:
             grid = grid.assign_attrs(damping=None)
 
     else:
-        msg = "method must be 'flat' or 'splines'"
+        msg = "method must be 'flat', 'splines' or 'pygmt'"
         raise ValueError(msg)
 
     # ensure grid doesn't cross supplied confining layers

@@ -119,10 +119,12 @@ from .uncertainty import (  # noqa: E402
 from .utils import (  # noqa: E402
     create_topography,
     create_window_regions,
+    fill_missing,
     filter_grid,
     gravity_decay_buffer,
     normalized_mindist,
     optimal_spline_damping,
     rmse,
     sample_grids,
+    buffer_edges,
 )

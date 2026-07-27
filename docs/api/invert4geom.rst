@@ -27,6 +27,7 @@ Create a topography grid (or provide your own) and convert it into an initial pr
     create_topography
     create_model
     create_window_regions
+    fill_missing
     normalized_mindist
 
 
@@ -63,6 +64,7 @@ Properties of both the gravity and model :class:`xarray.Dataset` can be accessed
 
      DatasetAccessorInvert4Geom.df
      DatasetAccessorInvert4Geom.inner_df
+     DatasetAccessorInvert4Geom.stats_res
      DatasetAccessorInvert4Geom.masked_df
      DatasetAccessorInvert4Geom.masked
 
