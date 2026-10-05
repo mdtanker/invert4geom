@@ -34,7 +34,7 @@ def remove_test_points(ds: xr.Dataset) -> xr.Dataset:
     df = ds.inv.df
 
     try:
-        df = df[df.test == False].copy()  # noqa: E712 # pylint: disable=singleton-comparison
+        df = df[df.test == False].copy()  # pylint: disable=singleton-comparison
         df = df.drop(columns=["test"])
 
         ds_new = df.set_index(list(ds.dims)).to_xarray()
@@ -264,8 +264,8 @@ def random_split_test_train(
 
     if plot is True:
         try:
-            df_train = random_split_df[random_split_df.test == False]  # noqa: E712 # pylint: disable=singleton-comparison
-            df_test = random_split_df[random_split_df.test == True]  # noqa: E712 # pylint: disable=singleton-comparison
+            df_train = random_split_df[random_split_df.test == False]  # pylint: disable=singleton-comparison
+            df_test = random_split_df[random_split_df.test == True]  # pylint: disable=singleton-comparison
 
             region = bd.get_region(
                 (random_split_df[coord_names[0]], random_split_df[coord_names[1]])

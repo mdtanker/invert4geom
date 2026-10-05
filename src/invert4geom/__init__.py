@@ -63,7 +63,7 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
         )
 
 
-from .cross_validation import (  # noqa: E402
+from .cross_validation import (
     add_test_points,
     eq_sources_score,
     kfold_df_to_lists,
@@ -72,14 +72,14 @@ from .cross_validation import (  # noqa: E402
     remove_test_points,
     split_test_train,
 )
-from .inversion import (  # noqa: E402
+from .inversion import (
     DatasetAccessorInvert4Geom,
     Inversion,
     create_data,
     create_model,
     run_inversion_workflow,
 )
-from .optimization import (  # noqa: E402
+from .optimization import (
     optimal_buffer,
     optimize_eq_source_params,
     optimize_regional_constraint_point_minimization,
@@ -87,7 +87,7 @@ from .optimization import (  # noqa: E402
     optimize_regional_filter,
     optimize_regional_trend,
 )
-from .plotting import (  # noqa: E402
+from .plotting import (
     plot_2_parameter_scores,
     plot_2_parameter_scores_uneven,
     plot_edge_effects,
@@ -103,20 +103,20 @@ from .plotting import (  # noqa: E402
     plot_scores,
     plot_stochastic_results,
 )
-from .synthetic import (  # noqa: E402
+from .synthetic import (
     contaminate,
     load_bishop_model,
     load_synthetic_model,
     synthetic_topography_regional,
     synthetic_topography_simple,
 )
-from .uncertainty import (  # noqa: E402
+from .uncertainty import (
     full_workflow_uncertainty_loop,
     merged_stats,
     randomly_sample_data,
     regional_misfit_uncertainty,
 )
-from .utils import (  # noqa: E402
+from .utils import (
     create_topography,
     create_window_regions,
     filter_grid,

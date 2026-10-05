@@ -66,7 +66,7 @@ def test_add_test_points():
     resampled = invert4geom.cross_validation.add_test_points(data)
 
     pd.testing.assert_frame_equal(
-        resampled.inv.df[resampled.inv.df.test == False]  # noqa: E712
+        resampled.inv.df[resampled.inv.df.test == False]
         .drop(columns="test")
         .reset_index(drop=True),
         data.inv.df.reset_index(drop=True),
