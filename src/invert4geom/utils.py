@@ -948,7 +948,7 @@ def create_topography(
 
             if {"inside", "buffer"} <= set(df.columns):
                 df_to_interpolate = df[df.inside | df.buffer]
-                df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
+                df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # pylint: disable=singleton-comparison
 
                 coords = (
                     df_to_interpolate[coord_names[0]],

@@ -3092,10 +3092,10 @@ class Inversion:
 
         inv_copy.results_fname = results_fname  # type: ignore[assignment]
 
-        test = df[df.test == True].copy()  # noqa: E712 # pylint: disable=singleton-comparison
+        test = df[df.test == True].copy()  # pylint: disable=singleton-comparison
 
         # temporarily set the gravity dataframe to only the training data
-        train = df[df.test == False].copy()  # noqa: E712 # pylint: disable=singleton-comparison
+        train = df[df.test == False].copy()  # pylint: disable=singleton-comparison
         inv_copy.data = train.set_index([coord_names[1], coord_names[0]]).to_xarray()
 
         # inv_copy.data = inv_copy.data.where(inv_copy.data.test == False).copy()
