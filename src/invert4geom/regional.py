@@ -5,12 +5,10 @@ import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
-import polartoolkit as ptk
-import pygmt
 import verde as vd
 import xarray as xr
 
-from invert4geom import cross_validation, logger, optimization, utils
+from invert4geom import cross_validation, logger, maps, optimization, utils
 
 
 def _initialize_separation(grav_ds: xr.Dataset, function_name: str) -> None:
@@ -487,8 +485,6 @@ def regional_constraints(
         grid=grav_ds.misfit,
         sampled_name="sampled_grav",
         coord_names=coord_names,
-        no_skip=True,
-        verbose="quiet",
     )
 
     # drop rows with NaN values
@@ -501,8 +497,6 @@ def regional_constraints(
             grid=grav_ds.upward,
             sampled_name="sampled_grav_height",
             coord_names=coord_names,
-            no_skip=True,
-            verbose="quiet",
         )
         # drop rows with NaN values
         constraints_df = constraints_df[constraints_df.sampled_grav_height.notna()]
@@ -565,7 +559,8 @@ def regional_constraints(
     ###
     # grid the entire regional gravity based just on the values at the constraints
     if grid_method == "pygmt":
-        registration = ptk.get_grid_info(grav_ds.forward_gravity)[-1]
+        pygmt = utils._import_pygmt()  # pylint: disable=protected-access
+        registration = maps.get_grid_info(grav_ds.forward_gravity)[-1]
         da = pygmt.surface(
             data=constraints_df[[coord_names[0], coord_names[1], "sampled_grav"]],
             region=grav_ds.region,

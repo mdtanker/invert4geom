@@ -6,13 +6,12 @@ import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
-import polartoolkit as ptk
 import sklearn
 import verde as vd
 import xarray as xr
 from numpy.typing import NDArray
 
-from invert4geom import logger, utils
+from invert4geom import logger, maps, utils
 
 # pylint: enable=duplicate-code
 
@@ -272,27 +271,28 @@ def random_split_test_train(
             )
             plot_region = bd.pad_region(region, (region[1] - region[0]) / 10)
 
-            fig = ptk.basemap(
+            _, ax = maps.basemap(
                 region=plot_region,
                 title="Random split",
             )
-            fig.plot(
-                x=df_train[coord_names[0]],
-                y=df_train[coord_names[1]],
-                style="c.3c",
-                fill="blue",
+            ax.scatter(
+                df_train[coord_names[0]],
+                df_train[coord_names[1]],
+                marker="o",
+                s=20,
+                c="blue",
                 label="Train",
             )
-            fig.plot(
-                x=df_test[coord_names[0]],
-                y=df_test[coord_names[1]],
-                style="t.5c",
-                fill="red",
+            ax.scatter(
+                df_test[coord_names[0]],
+                df_test[coord_names[1]],
+                marker="^",
+                s=30,
+                c="red",
                 label="Test",
             )
-            fig.add_box(box=region)
-            fig.legend()
-            fig.show()
+            maps.add_box(ax, region)
+            ax.legend(loc="upper right", fontsize=8)
         except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
@@ -387,52 +387,47 @@ def split_test_train(
     if plot is True:
         try:
             folds = list(df.columns[df.columns.str.startswith("fold_")])
-            _, ncols = ptk.square_subplots(len(folds))
+            nrows, ncols = maps.square_subplots(len(folds))
             df = df.copy()
-            for i in range(len(folds)):
-                if i == 0:
-                    fig = None
-                    origin_shift = "initialize"
-                    xshift_amount = None
-                    yshift_amount = None
-                elif i % ncols == 0:
-                    origin_shift = "both"
-                    xshift_amount = -ncols + 1
-                    yshift_amount = -1
-                else:
-                    origin_shift = "x"
-                    xshift_amount = 1
-                    yshift_amount = 1
 
+            region = bd.get_region((df[coord_names[0]], df[coord_names[1]]))
+            plot_region = bd.pad_region(region, (region[1] - region[0]) / 10)
+
+            _, axes = maps.map_axes(
+                nrows=nrows,
+                ncols=ncols,
+                region=plot_region,
+            )
+            for i in range(len(folds)):
                 df_test = df[df[f"fold_{i}"] == "test"]
                 df_train = df[df[f"fold_{i}"] == "train"]
-                region = bd.get_region((df[coord_names[0]], df[coord_names[1]]))
-                plot_region = bd.pad_region(region, (region[1] - region[0]) / 10)
-                fig = ptk.basemap(
+                _, ax = maps.basemap(
                     region=plot_region,
+                    ax=axes[i],
                     title=f"Fold {i} ({len(df_test)} testing points)",
-                    origin_shift=origin_shift,
-                    xshift_amount=xshift_amount,
-                    yshift_amount=yshift_amount,
-                    fig=fig,
                 )
-                fig.add_box(box=region)
-                fig.plot(
-                    x=df_train[coord_names[0]],
-                    y=df_train[coord_names[1]],
-                    style="c.4c",
-                    fill="blue",
+                maps.add_box(ax, region)
+                ax.scatter(
+                    df_train[coord_names[0]],
+                    df_train[coord_names[1]],
+                    marker="o",
+                    s=20,
+                    c="blue",
                     label="Train",
                 )
-                fig.plot(
-                    x=df_test[coord_names[0]],
-                    y=df_test[coord_names[1]],
-                    style="t.7c",
-                    fill="red",
+                ax.scatter(
+                    df_test[coord_names[0]],
+                    df_test[coord_names[1]],
+                    marker="^",
+                    s=30,
+                    c="red",
                     label="Test",
                 )
-                fig.legend()
-            fig.show()  # type: ignore[union-attr]
+                ax.legend(loc="upper right", fontsize=8)
+
+            # remove any unused axes
+            for ax in axes[len(folds) :]:
+                ax.remove()
         except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 

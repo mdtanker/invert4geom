@@ -656,7 +656,7 @@ def test_region_mask_full_region_all_ones():
 
 def test_get_epsg_no_env_var_coast_false():
     """without the env vars, should fall back to 3857 without warning"""
-    with utils._environ(POLARTOOLKIT_EPSG=None, POLARTOOLKIT_HEMISPHERE=None):
+    with utils._environ(INVERT4GEOM_EPSG=None, POLARTOOLKIT_EPSG=None):
         epsg, coast = utils.get_epsg(coast=False)
     assert epsg == "3857"
     assert coast is False
@@ -665,20 +665,30 @@ def test_get_epsg_no_env_var_coast_false():
 def test_get_epsg_no_env_var_coast_true_warns():
     """without the env vars, requesting coastlines should warn and disable them"""
     with (
-        utils._environ(POLARTOOLKIT_EPSG=None, POLARTOOLKIT_HEMISPHERE=None),
-        pytest.warns(UserWarning, match="POLARTOOLKIT_EPSG"),
+        utils._environ(INVERT4GEOM_EPSG=None, POLARTOOLKIT_EPSG=None),
+        pytest.warns(UserWarning, match="INVERT4GEOM_EPSG"),
     ):
         epsg, coast = utils.get_epsg(coast=True)
     assert epsg == "3857"
     assert coast is False
 
 
-def test_get_epsg_with_env_var():
+@pytest.mark.parametrize("env_var", ["INVERT4GEOM_EPSG", "POLARTOOLKIT_EPSG"])
+def test_get_epsg_with_env_var(env_var):
     """with the env var set, should return its EPSG code and keep coast enabled"""
-    with utils._environ(POLARTOOLKIT_EPSG="3031"):
+    with utils._environ(**{"INVERT4GEOM_EPSG": None, env_var: "3031"}):
         epsg, coast = utils.get_epsg(coast=True)
     assert str(epsg) == "3031"
     assert coast is True
+
+
+def test_get_epsg_invalid_env_var_raises():
+    """a non-numeric EPSG code should raise"""
+    with (
+        utils._environ(INVERT4GEOM_EPSG="epsg:3031"),
+        pytest.raises(ValueError, match="string of digits"),
+    ):
+        utils.get_epsg(coast=True)
 
 
 ################
@@ -932,6 +942,286 @@ def test_block_reduce_points_invalid_reduction_raises():
             block_size=500,
             block_reduction="mode",
             region=(0, 1000, 0, 1000),
+        )
+
+
+################
+################
+# fill_missing
+################
+################
+
+
+def grid_with_holes() -> tuple[xr.DataArray, xr.DataArray, pd.DataFrame]:
+    """a linear grid, the same grid with a NaN corner, and points covering the hole"""
+    (easting, northing) = vd.grid_coordinates(region=(0, 1000, 0, 1000), spacing=100)
+    truth = vd.make_xarray_grid(
+        (easting, northing),
+        -1000 + easting / 10 + northing / 20,
+        data_names="upward",
+        dims=("northing", "easting"),
+    ).upward
+    holed = truth.where((truth.easting < 400) | (truth.northing < 400))
+
+    rng = np.random.default_rng(seed=0)
+    point_easting = rng.uniform(0, 1000, 40)
+    point_northing = rng.uniform(0, 1000, 40)
+    points = pd.DataFrame(
+        {
+            "easting": point_easting,
+            "northing": point_northing,
+            "upward": -1000 + point_easting / 10 + point_northing / 20,
+            "grid_points": (point_easting < 400) | (point_northing < 400),
+        }
+    )
+    return truth, holed, points
+
+
+@pytest.mark.parametrize("method", ["pygmt", "splines", "nearest"])
+def test_fill_missing(method):
+    """all the extrapolating methods should fill every missing value"""
+    truth, holed, points = grid_with_holes()
+    filled = utils.fill_missing(holed, method=method, constraints_df=points)
+
+    assert not np.any(np.isnan(filled.to_numpy()))
+    assert filled.dims == truth.dims
+    assert filled.name == truth.name
+    # existing values shouldn't be altered
+    existing = ~np.isnan(holed.to_numpy())
+    npt.assert_allclose(filled.to_numpy()[existing], holed.to_numpy()[existing])
+
+
+def test_fill_missing_pygmt_recovers_linear_surface():
+    """filling a linear surface should recover the removed values"""
+    truth, holed, points = grid_with_holes()
+    filled = utils.fill_missing(holed, method="pygmt", constraints_df=points)
+    npt.assert_allclose(filled.to_numpy(), truth.to_numpy(), atol=1e-3)
+
+
+def test_fill_missing_without_points():
+    """the grid's own values should be enough to fill the missing values"""
+    truth, holed, _ = grid_with_holes()
+    filled = utils.fill_missing(holed, method="pygmt")
+    assert not np.any(np.isnan(filled.to_numpy()))
+    npt.assert_allclose(filled.to_numpy(), truth.to_numpy(), atol=1e-3)
+
+
+def test_fill_missing_no_nans_returns_grid():
+    truth, _, _ = grid_with_holes()
+    xrt.assert_identical(utils.fill_missing(truth), truth)
+
+
+def test_fill_missing_maxdist():
+    """restricting the interpolation points shouldn't leave any missing values"""
+    _, holed, points = grid_with_holes()
+    filled = utils.fill_missing(
+        holed,
+        method="splines",
+        constraints_df=points,
+        maxdist=400,
+    )
+    assert not np.any(np.isnan(filled.to_numpy()))
+
+    with pytest.raises(ValueError, match="maxdist resulted in no points"):
+        utils.fill_missing(holed, method="splines", maxdist=1)
+
+
+def test_fill_missing_cubic_leaves_nans(caplog):
+    """methods which can't extrapolate should warn about the remaining NaNs"""
+    _, holed, _ = grid_with_holes()
+    filled = utils.fill_missing(holed, method="cubic")
+    assert np.any(np.isnan(filled.to_numpy()))
+    assert "missing values are still present" in caplog.text
+
+
+def test_fill_missing_invalid_method_raises():
+    _, holed, _ = grid_with_holes()
+    with pytest.raises(ValueError, match="method must be"):
+        utils.fill_missing(holed, method="not_a_method")
+
+
+def test_fill_missing_missing_columns_raises():
+    _, holed, points = grid_with_holes()
+    with pytest.raises(ValueError, match="is missing the columns"):
+        utils.fill_missing(holed, constraints_df=points.drop(columns="easting"))
+
+
+################
+################
+# create_topography
+################
+################
+
+
+def topography_constraints() -> pd.DataFrame:
+    rng = np.random.default_rng(seed=0)
+    easting = rng.uniform(0, 1000, 50)
+    northing = rng.uniform(0, 1000, 50)
+    return pd.DataFrame(
+        {
+            "easting": easting,
+            "northing": northing,
+            "upward": -1000 + easting / 10 + northing / 20,
+        }
+    )
+
+
+def test_create_topography_pygmt():
+    """the pygmt method should grid the constraint points with pygmt.surface"""
+    ds = utils.create_topography(
+        method="pygmt",
+        region=(0, 1000, 0, 1000),
+        spacing=100,
+        constraints_df=topography_constraints(),
+        tension=0.35,
+    )
+    assert ds.upward.shape == (11, 11)
+    assert list(ds.upward.dims) == ["northing", "easting"]
+    assert not np.any(np.isnan(ds.upward))
+    assert ds.upward.attrs["damping"] is None
+
+
+def test_create_topography_pygmt_block_reduction_subset():
+    """block reducing a subset should keep the unreduced points unaltered"""
+    df = topography_constraints()
+    df["reduce"] = df.easting < 500
+
+    ds = utils.create_topography(
+        method="pygmt",
+        region=(0, 1000, 0, 1000),
+        spacing=100,
+        constraints_df=df,
+        block_size=250,
+        block_reduction="median",
+        block_reduction_col="reduce",
+    )
+    assert ds.upward.shape == (11, 11)
+    assert not np.any(np.isnan(ds.upward))
+
+
+def test_create_topography_pygmt_missing_block_reduction_col():
+    with pytest.raises(ValueError, match="`block_reduction_col`"):
+        utils.create_topography(
+            method="pygmt",
+            region=(0, 1000, 0, 1000),
+            spacing=100,
+            constraints_df=topography_constraints(),
+            block_size=250,
+            block_reduction_col="not_a_column",
+        )
+
+
+def test_create_topography_grid_to_fill():
+    """only the missing values of the supplied grid should be interpolated"""
+    truth, holed, points = grid_with_holes()
+    ds = utils.create_topography(
+        method="pygmt",
+        region=(0, 1000, 0, 1000),
+        spacing=100,
+        constraints_df=points,
+        grid_to_fill=holed,
+    )
+    assert not np.any(np.isnan(ds.upward.to_numpy()))
+    existing = ~np.isnan(holed.to_numpy())
+    npt.assert_allclose(ds.upward.to_numpy()[existing], holed.to_numpy()[existing])
+    npt.assert_allclose(ds.upward.to_numpy(), truth.to_numpy(), atol=1e-3)
+
+
+def test_create_topography_grid_to_fill_only_uses_non_grid_points():
+    """points already included in the grid shouldn't be reused"""
+    _, holed, points = grid_with_holes()
+    # corrupting the points already in the grid shouldn't change the result
+    corrupted = points.copy()
+    corrupted.loc[corrupted.grid_points, "upward"] = 1e6
+
+    kwargs = {
+        "method": "pygmt",
+        "region": (0, 1000, 0, 1000),
+        "spacing": 100,
+        "grid_to_fill": holed,
+    }
+    ds = utils.create_topography(constraints_df=points, **kwargs)
+    ds_corrupted = utils.create_topography(constraints_df=corrupted, **kwargs)
+    npt.assert_allclose(ds.upward.to_numpy(), ds_corrupted.upward.to_numpy())
+
+
+def test_create_topography_grid_to_fill_grid_points_col():
+    """the column of points already in the grid should be configurable"""
+    _, holed, points = grid_with_holes()
+    renamed = points.rename(columns={"grid_points": "on_grid"})
+
+    kwargs = {
+        "method": "pygmt",
+        "region": (0, 1000, 0, 1000),
+        "spacing": 100,
+        "grid_to_fill": holed,
+    }
+    ds = utils.create_topography(constraints_df=points, **kwargs)
+    ds_renamed = utils.create_topography(
+        constraints_df=renamed,
+        grid_points_col="on_grid",
+        **kwargs,
+    )
+    npt.assert_allclose(ds.upward.to_numpy(), ds_renamed.upward.to_numpy())
+
+
+def test_create_topography_grid_to_fill_flat():
+    """method 'flat' should fill the missing values with the constant value"""
+    _, holed, _ = grid_with_holes()
+    ds = utils.create_topography(
+        method="flat",
+        region=(0, 1000, 0, 1000),
+        spacing=100,
+        upward=-500,
+        grid_to_fill=holed,
+    )
+    assert not np.any(np.isnan(ds.upward.to_numpy()))
+    existing = ~np.isnan(holed.to_numpy())
+    npt.assert_allclose(ds.upward.to_numpy()[existing], holed.to_numpy()[existing])
+    npt.assert_allclose(ds.upward.to_numpy()[~existing], -500)
+
+
+def test_create_topography_grid_to_fill_mismatched_grid_raises():
+    _, holed, points = grid_with_holes()
+    with pytest.raises(ValueError, match="doesn't match the requested grid"):
+        utils.create_topography(
+            method="pygmt",
+            region=(0, 2000, 0, 1000),
+            spacing=100,
+            constraints_df=points,
+            grid_to_fill=holed,
+        )
+
+
+def test_create_topography_maxdist_without_grid_raises():
+    with pytest.raises(ValueError, match="`maxdist` is only used"):
+        utils.create_topography(
+            method="pygmt",
+            region=(0, 1000, 0, 1000),
+            spacing=100,
+            constraints_df=topography_constraints(),
+            maxdist=100,
+        )
+
+
+def test_create_topography_tension_wrong_method_raises():
+    with pytest.raises(ValueError, match="`tension` is only used"):
+        utils.create_topography(
+            method="splines",
+            region=(0, 1000, 0, 1000),
+            spacing=100,
+            constraints_df=topography_constraints(),
+            tension=0.5,
+        )
+
+
+def test_create_topography_invalid_method_raises():
+    with pytest.raises(ValueError, match="method must be"):
+        utils.create_topography(
+            method="not_a_method",
+            region=(0, 1000, 0, 1000),
+            spacing=100,
+            constraints_df=topography_constraints(),
         )
 
 

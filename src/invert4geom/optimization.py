@@ -1011,7 +1011,10 @@ class OptimalInversionZrefDensity:
                         self.starting_topography_kwargs["upward"] = (
                             self.inversion_obj.model.zref
                         )
-                    elif self.starting_topography_kwargs["method"] == "splines":
+                    elif self.starting_topography_kwargs["method"] in (
+                        "splines",
+                        "pygmt",
+                    ):
                         self.starting_topography_kwargs["constraints_df"] = (
                             training_constraints[i]
                         )

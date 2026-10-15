@@ -2227,7 +2227,7 @@ def test_gravity_score():
     )
     _ = inv.gravity_score()
 
-    assert inv.gravity_best_score == pytest.approx(32.04, 0.01)
+    assert inv.gravity_best_score == pytest.approx(32.96, 0.01)
 
     xr.testing.assert_equal(inv.model, model)
     xr.testing.assert_equal(inv.data, resampled)
@@ -2328,7 +2328,7 @@ def test_constraints_score():
     )
     _ = inv.constraints_score(constraints_df)
 
-    assert inv.constraints_best_score == pytest.approx(102.84, 0.01)
+    assert inv.constraints_best_score == pytest.approx(93.76, 0.01)
 
     xr.testing.assert_equal(inv.model, model)
     xr.testing.assert_equal(inv.data, data)

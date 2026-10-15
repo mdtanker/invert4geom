@@ -9,17 +9,34 @@ import dask
 import harmonica as hm
 import numpy as np
 import pandas as pd
-import polartoolkit as ptk
-import pygmt
 import pyproj
+import rioxarray  # noqa: F401 # registers the `.rio` xarray accessor
 import sklearn
 import verde as vd
 import xarray as xr
 import xrft
 from numpy.typing import NDArray
 from pykdtree.kdtree import KDTree  # pylint: disable=no-name-in-module
+from scipy import ndimage
 
-from invert4geom import logger, plotting
+from invert4geom import logger, maps, plotting
+
+
+def _import_pygmt() -> typing.Any:
+    """
+    Import PyGMT, which is only needed for the ``pygmt`` gridding methods, and raise an
+    informative error if it isn't installed.
+    """
+    try:
+        import pygmt  # noqa: PLC0415 # pylint: disable=import-outside-toplevel
+    except ImportError as e:
+        msg = (
+            "PyGMT is needed for the 'pygmt' gridding method but isn't installed. "
+            "Either install it (`conda install pygmt`) or use one of the other "
+            "methods, such as 'splines'."
+        )
+        raise ImportError(msg) from e
+    return pygmt
 
 
 @contextmanager
@@ -76,11 +93,63 @@ class DuplicateFilter:
         self.log.removeFilter(self)
 
 
+def buffer_edges(
+    grid: xr.DataArray,
+    cells: int = 3,
+    grow: bool = False,
+    fill_value: float | None = None,
+) -> xr.DataArray:
+    """
+    Shrink or grow the non-NaN region of a 2D grid by `cells` cells.
+
+    Parameters
+    ----------
+    grid : xarray.DataArray
+        2D grid of values and NaNs.
+    cells : int
+        Number of cell rings to remove (or add if `grow`).
+    grow : bool
+        If True, dilate the valid region instead of eroding it.
+    fill_value : float, optional
+        Value given to newly added cells. Defaults to the mean of the
+        existing non-NaN cells. Ignored if `grow` is False.
+
+    Returns
+    -------
+    xarray.DataArray
+        Grid with the same coords/attrs and an adjusted valid region.
+    """
+    if cells < 1:
+        return grid.copy()
+
+    mask = ~np.isnan(grid.to_numpy())
+    structure = np.ones((3, 3))  # 8-connectivity, includes diagonal corners
+
+    if grow:
+        new_mask = ndimage.binary_dilation(
+            mask,
+            structure=structure,
+            iterations=cells,
+            border_value=0,
+        )
+        if fill_value is None:
+            fill_value = float(grid.mean(skipna=True))
+        return grid.where(mask, fill_value).where(new_mask)
+
+    new_mask = ndimage.binary_erosion(
+        mask,
+        structure=structure,
+        iterations=cells,
+        border_value=1,  # don't erode inward from the array edges
+    )
+    return grid.where(new_mask)
+
+
 def get_epsg(coast: bool) -> tuple[str, bool]:
     """
-    Get the EPSG code for plotting coastlines. If the environment variable
-    'POLARTOOLKIT_EPSG' is not set, default to EPSG of 3857 and skip plotting
-    coastlines.
+    Get the EPSG code for plotting coastlines. Read from the environment variable
+    'INVERT4GEOM_EPSG', falling back to 'POLARTOOLKIT_EPSG'. If neither is set, default
+    to EPSG of 3857 and skip plotting coastlines.
 
     Parameters
     ----------
@@ -93,15 +162,15 @@ def get_epsg(coast: bool) -> tuple[str, bool]:
     tuple[str, bool]
         epsg code and whether to plot coastlines
     """
-    try:
-        epsg = ptk.default_epsg(None, None)
-    except KeyError:
+    epsg = os.environ.get("INVERT4GEOM_EPSG") or os.environ.get("POLARTOOLKIT_EPSG")
+
+    if epsg is None:
         if coast:
             msg = (
-                "couldn't find environment variable 'POLARTOOLKIT_EPSG' with the EPSG "
+                "couldn't find environment variable 'INVERT4GEOM_EPSG' with the EPSG "
                 "code needed for plotting elements with geographic coordinates, such as"
                 "coastlines. You can set the environment variable "
-                "temporarily with `import os; os.environ['POLARTOOLKIT_EPSG'] = '3031' "
+                "temporarily with `import os; os.environ['INVERT4GEOM_EPSG'] = '3031' "
                 "where 3031 is the EPSG projection of your region. For now defaulting to "
                 "EPSG of 3857 and skipping plotting coastlines."
             )
@@ -113,6 +182,10 @@ def get_epsg(coast: bool) -> tuple[str, bool]:
             logger.warning(msg)
             coast = False
         epsg = "3857"
+    elif not epsg.isdigit():
+        msg = f"the EPSG environment variable must be a string of digits, not {epsg}"
+        raise ValueError(msg)
+
     return epsg, coast
 
 
@@ -136,6 +209,87 @@ def _check_constraints_inside_gravity_region(
             "This may result in unexpected behavior."
         )
         logger.warning(msg)
+
+
+def points_to_grid(
+    x: NDArray | pd.Series,
+    y: NDArray | pd.Series,
+    z: NDArray | pd.Series,
+    region: tuple[float, float, float, float],
+    spacing: float,
+    registration: str = "g",
+    coord_names: tuple[str, str] = ("easting", "northing"),
+) -> xr.DataArray:
+    """
+    Place point data onto the nodes of a regular grid, without interpolating. Each
+    point is snapped to its nearest node, points sharing a node are averaged, and nodes
+    without a point are left as missing values (NaNs).
+
+    Parameters
+    ----------
+    x, y, z : numpy.ndarray | pandas.Series
+        the coordinates and values of the points
+    region : tuple[float, float, float, float]
+        region of the grid in format (xmin, xmax, ymin, ymax)
+    spacing : float
+        spacing of the grid
+    registration : str, optional
+        registration of the grid, ``g`` for gridline or ``p`` for pixel, by default
+        ``g``
+    coord_names : tuple[str, str], optional
+        names to give the grid's x and y dimensions, by default ("easting", "northing")
+
+    Returns
+    -------
+    xarray.DataArray
+        the gridded points
+    """
+    easting, northing = bd.grid_coordinates(
+        region=region,
+        spacing=spacing,
+        pixel_register=registration == "p",
+    )
+    eastings, northings = easting[0, :], northing[:, 0]
+
+    values = np.full((northings.size, eastings.size), np.nan)
+
+    # snap each point to its nearest node
+    east_index = np.rint(
+        (np.asarray(x, dtype=float) - eastings[0]) / (eastings[1] - eastings[0])
+    ).astype(int)
+    north_index = np.rint(
+        (np.asarray(y, dtype=float) - northings[0]) / (northings[1] - northings[0])
+    ).astype(int)
+
+    inside = (
+        (east_index >= 0)
+        & (east_index < eastings.size)
+        & (north_index >= 0)
+        & (north_index < northings.size)
+    )
+
+    # average any points which snapped to the same node
+    means = (
+        pd.DataFrame(
+            {
+                "north_index": north_index[inside],
+                "east_index": east_index[inside],
+                "z": np.asarray(z, dtype=float)[inside],
+            }
+        )
+        .groupby(["north_index", "east_index"])
+        .z.mean()
+    )
+    values[
+        means.index.get_level_values("north_index"),
+        means.index.get_level_values("east_index"),
+    ] = means.to_numpy()
+
+    return xr.DataArray(
+        values,
+        coords={coord_names[1]: northings, coord_names[0]: eastings},
+        dims=(coord_names[1], coord_names[0]),
+    )
 
 
 def rmse(data: NDArray, as_median: bool = False) -> float:
@@ -242,6 +396,206 @@ def _nearest_grid_fill(
 
     # reset coordinate names if changed
     return _restore_dims(filled, original_dims)
+
+
+def _interpolation_points(
+    grid: xr.DataArray,
+    data_name: typing.Any,
+    dims: list[typing.Any],
+    constraints_df: pd.DataFrame | None,
+    data_col: str,
+    maxdist: float | None,
+) -> tuple[pd.DataFrame, tuple[NDArray, NDArray], NDArray]:
+    """
+    Turn a grid with missing values into a table, and collect the points used to
+    interpolate the missing values; the grid's non-NaN nodes and, optionally, extra
+    point data. See :func:`fill_missing`.
+    """
+    df = vd.grid_to_table(grid)
+    nans = df[data_name].isna().to_numpy()
+
+    # the grid's non-NaN nodes
+    eastings = [df[dims[1]].to_numpy()[~nans]]
+    northings = [df[dims[0]].to_numpy()[~nans]]
+    data = [df[data_name].to_numpy()[~nans]]
+
+    # and any supplied point data
+    if constraints_df is not None:
+        missing_cols = {dims[0], dims[1], data_col} - set(constraints_df.columns)
+        if missing_cols:
+            msg = (
+                f"`constraints_df` is missing the columns {sorted(missing_cols)} needed "
+                "to fill the grid's missing values"
+            )
+            raise ValueError(msg)
+        points = constraints_df[constraints_df[data_col].notna()]
+        eastings.append(points[dims[1]].to_numpy())
+        northings.append(points[dims[0]].to_numpy())
+        data.append(points[data_col].to_numpy())
+
+    coords = (np.concatenate(eastings), np.concatenate(northings))
+    values = np.concatenate(data)
+
+    if maxdist is not None:
+        # only keep points which are within maxdist of a missing value
+        tree = KDTree(
+            np.column_stack(
+                (df[dims[1]].to_numpy()[nans], df[dims[0]].to_numpy()[nans])
+            ).astype(np.float64)
+        )
+        distances, _ = tree.query(
+            np.column_stack(coords).astype(np.float64),
+            k=1,
+        )
+        keep = distances <= maxdist
+        if not np.any(keep):
+            msg = (
+                "maxdist resulted in no points to interpolate with, increase the value"
+            )
+            raise ValueError(msg)
+        coords = (coords[0][keep], coords[1][keep])
+        values = values[keep]
+
+    return df, coords, values
+
+
+def fill_missing(
+    grid: xr.DataArray,
+    method: str = "pygmt",
+    constraints_df: pd.DataFrame | None = None,
+    data_col: str = "upward",
+    tension: float = 1,
+    dampings: list[float] | None = None,
+    maxdist: float | None = None,
+) -> xr.DataArray:
+    """
+    Fill the missing values (NaNs) of a grid by interpolating the grid's non-NaN values
+    with a choice of method. Optionally, additional point data, which doesn't need to
+    align with the grid, can be included in the interpolation with ``constraints_df``.
+    Only the missing values are altered; the grid's existing values are unchanged.
+
+    Parameters
+    ----------
+    grid : xarray.DataArray
+        a 2D grid with missing values (NaNs)
+    method : str, optional
+        method used to interpolate the missing values, either ``pygmt`` for tensioned
+        minimum curvature with :func:`pygmt.surface`, ``splines`` for cross-validated
+        bi-harmonic splines with :class:`verde.Spline`, ``nearest`` for the nearest
+        neighbor with :class:`verde.KNeighbors`, or ``linear`` / ``cubic`` for
+        :class:`verde.Linear` / :class:`verde.Cubic`, by default ``pygmt``
+    constraints_df : pandas.DataFrame | None, optional
+        additional point data to include in the interpolation, with columns matching the
+        grid's dimension names and a data column, by default None
+    data_col : str, optional
+        name of the data column of ``constraints_df``, by default ``upward``
+    tension : float, optional
+        tension factor used if ``method`` is ``pygmt``, between 0 (minimum curvature)
+        and 1 (harmonic surface), by default 1
+    dampings : list[float] | None, optional
+        damping values to use in the spline cross validation if ``method`` is
+        ``splines``, by default None
+    maxdist : float | None, optional
+        only interpolate with points which are within this distance of a missing value.
+        For expensive methods, such as ``splines``, this can significantly speed up the
+        interpolation, by default None
+
+    Returns
+    -------
+    xarray.DataArray
+        the grid with its missing values filled
+    """
+    if method not in ("pygmt", "splines", "nearest", "linear", "cubic"):
+        msg = "method must be 'pygmt', 'splines', 'nearest', 'linear' or 'cubic'"
+        raise ValueError(msg)
+
+    if not np.any(grid.isnull()):  # noqa: PD003
+        logger.info("grid has no missing values, returning it unaltered")
+        return grid
+
+    original_dims = list(grid.sizes.keys())
+    # grid_to_table needs a named variable
+    named_grid = grid if grid.name is not None else grid.rename("data")
+    data_name = named_grid.name
+
+    df, coords, data = _interpolation_points(
+        named_grid,
+        data_name,
+        original_dims,
+        constraints_df,
+        data_col,
+        maxdist,
+    )
+
+    if method == "pygmt":
+        pygmt = _import_pygmt()
+        spacing, region, _, _, registration = maps.get_grid_info(grid)
+        filled = pygmt.surface(
+            x=coords[0],
+            y=coords[1],
+            z=data,
+            region=region,
+            spacing=spacing,
+            registration=registration,
+            tension=tension,
+            verbose="quiet",
+        )
+        filled = _restore_dims(filled, original_dims)
+        if filled.shape != grid.shape:
+            msg = (
+                "the filled grid doesn't match the shape of the supplied grid, "
+                "please raise an issue on GitHub"
+            )
+            raise ValueError(msg)
+        # pygmt returns the coordinates at a lower precision, so reuse the originals
+        for dim in original_dims:
+            if not np.allclose(filled[dim], grid[dim], atol=float(spacing) / 100):
+                msg = (
+                    "the filled grid's coordinates don't match those of the supplied "
+                    "grid, please raise an issue on GitHub"
+                )
+                raise ValueError(msg)
+        filled = filled.assign_coords({dim: grid[dim] for dim in original_dims})
+    else:
+        if method == "nearest":
+            interpolator: typing.Any = vd.KNeighbors(k=1)
+        elif method == "linear":
+            interpolator = vd.Linear()
+        elif method == "cubic":
+            interpolator = vd.Cubic()
+        else:
+            interpolator = _fit_spline_cv(coords, data, None, dampings)
+
+        if method != "splines":
+            interpolator.fit(coords, data)
+
+        # predict only at the missing values
+        nans = df[data_name].isna().to_numpy()
+        # as a float64 array, since the grid may be a lower precision dtype
+        values = df[data_name].to_numpy(dtype=np.float64, copy=True)
+        values[nans] = interpolator.predict(
+            (
+                df[original_dims[1]].to_numpy()[nans],
+                df[original_dims[0]].to_numpy()[nans],
+            )
+        )
+        df[data_name] = values
+        filled = df.set_index([original_dims[0], original_dims[1]]).to_xarray()[
+            data_name
+        ]
+
+    result: xr.DataArray = grid.where(grid.notnull(), filled)  # noqa: PD004
+
+    if np.any(result.isnull()):  # noqa: PD003
+        msg = (
+            "missing values are still present in the grid, this may be due to the "
+            "choice of method; `linear` and `cubic` don't extrapolate outside of the "
+            "supplied points. Re-run with method `pygmt`, `splines` or `nearest` to "
+            "fill the remaining values."
+        )
+        logger.warning(msg)
+
+    return result.rename(grid.name)
 
 
 def region_mask(
@@ -741,33 +1095,170 @@ def sample_grids(
     df: pd.DataFrame,
     grid: str | xr.DataArray,
     sampled_name: str,
-    **kwargs: typing.Any,
+    coord_names: tuple[str, str] | None = None,
+    method: str = "cubic",
 ) -> pd.DataFrame:
     """
-    Sample data at every point along a line
+    Sample a grid at the coordinates of each row of a dataframe. Points which fall on
+    a grid node take that node's value exactly, the rest are interpolated.
 
     Parameters
     ----------
     df : pandas.DataFrame
         Dataframe containing columns 'easting', 'northing', 'longitude', 'latitude' or
-        columns with names defined by kwarg "coord_names".
+        columns with names given by ``coord_names``.
     grid : str or xarray.DataArray
         Grid to sample, either file name or xarray.DataArray
-    sampled_name : str,
+    sampled_name : str
         Name for sampled column
+    coord_names : tuple[str, str] | None, optional
+        names of the x and y coordinate columns of ``df``, by default None which uses
+        'easting'/'northing', 'x'/'y' or 'longitude'/'latitude'
+    method : str, optional
+        interpolation method used away from the grid's nodes, either ``cubic``,
+        ``linear`` or ``nearest``, by default ``cubic``
 
     Returns
     -------
     pandas.DataFrame
         Dataframe with new column (sampled_name) of sample values from (grid)
     """
+    if isinstance(grid, str):
+        grid = xr.load_dataarray(grid)
 
-    return ptk.sample_grids(
-        df=df,
-        grid=grid,
-        sampled_name=sampled_name,
-        **kwargs,
+    if len(grid.dims) > 2:
+        grid = grid.squeeze()
+
+    # get the x and y column names of the dataframe
+    if coord_names is None:
+        for names in (("easting", "northing"), ("x", "y"), ("longitude", "latitude")):
+            if all(n in df.columns for n in names):
+                coord_names = names
+                break
+        else:
+            msg = (
+                "dataframe must have coordinate columns 'easting'/'northing', 'x'/'y' "
+                "or 'longitude'/'latitude', or `coord_names` must be supplied"
+            )
+            raise ValueError(msg)
+    elif not all(n in df.columns for n in coord_names):
+        msg = f"dataframe must have columns {coord_names}"
+        raise ValueError(msg)
+
+    # grid dims are ordered (northing, easting)
+    grid_northing, grid_easting = (str(d) for d in grid.dims)
+
+    easting = xr.DataArray(
+        df[coord_names[0]].to_numpy(dtype=float), dims="sample_points"
     )
+    northing = xr.DataArray(
+        df[coord_names[1]].to_numpy(dtype=float), dims="sample_points"
+    )
+    indexers = {grid_easting: easting, grid_northing: northing}
+
+    values = np.asarray(
+        grid.interp(
+            indexers,
+            method=method,
+            kwargs={"bounds_error": False},
+        ),
+        dtype=float,
+    )
+
+    # interpolation introduces floating point error even at the grid's own nodes, so
+    # take the value directly wherever a point falls on a node
+    nearest = grid.sel(indexers, method="nearest")
+    spacing = maps.get_grid_info(grid)[0]
+    on_node = (
+        np.abs(np.asarray(nearest[grid_easting], dtype=float) - easting.to_numpy())
+        <= spacing * 1e-6
+    ) & (
+        np.abs(np.asarray(nearest[grid_northing], dtype=float) - northing.to_numpy())
+        <= spacing * 1e-6
+    )
+    values[on_node] = np.asarray(nearest, dtype=float)[on_node]
+
+    result = df.copy()
+    result[sampled_name] = values
+
+    return result
+
+
+def resample_grid(
+    grid: xr.DataArray,
+    spacing: float | None = None,
+    region: tuple[float, float, float, float] | None = None,
+    registration: str | None = None,
+    method: str = "linear",
+) -> xr.DataArray:
+    """
+    Resample a grid onto a new spacing, region and/or registration by interpolating it
+    at the new grid's coordinates.
+
+    Parameters
+    ----------
+    grid : xarray.DataArray
+        grid to resample
+    spacing : float | None, optional
+        new spacing for the grid, by default None which keeps the current spacing
+    region : tuple[float, float, float, float] | None, optional
+        new region for the grid in format (xmin, xmax, ymin, ymax), by default None
+        which keeps the current region
+    registration : str | None, optional
+        new registration, ``g`` for gridline or ``p`` for pixel, by default None which
+        keeps the current registration
+    method : str, optional
+        interpolation method, either ``linear``, ``nearest`` or ``cubic``, by default
+        ``linear``
+
+    Returns
+    -------
+    xarray.DataArray
+        the resampled grid
+    """
+    initial_spacing, initial_region, _, _, initial_registration = maps.get_grid_info(
+        grid
+    )
+
+    spacing = initial_spacing if spacing is None else spacing
+    region = initial_region if region is None else region
+    registration = initial_registration if registration is None else registration
+
+    if (
+        np.allclose(spacing, initial_spacing)
+        and np.allclose(region, initial_region)
+        and registration == initial_registration
+    ):
+        logger.info("returning original grid")
+        return grid
+
+    if spacing > initial_spacing:
+        logger.info(
+            "requested spacing (%s) is larger than the original (%s), the grid will be "
+            "sub-sampled without filtering",
+            spacing,
+            initial_spacing,
+        )
+
+    # dims are ordered (northing, easting)
+    northing_name, easting_name = (str(d) for d in grid.dims)
+
+    easting, northing = bd.grid_coordinates(
+        region=region,
+        spacing=spacing,
+        pixel_register=registration == "p",
+    )
+
+    resampled: xr.DataArray = grid.interp(
+        {
+            easting_name: easting[0, :],
+            northing_name: northing[:, 0],
+        },
+        method=method,
+        kwargs={"bounds_error": False},
+    )
+
+    return resampled
 
 
 def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
@@ -992,6 +1483,117 @@ def _fit_spline_cv(
         )
 
 
+def _check_grid_to_fill(
+    grid_to_fill: xr.DataArray,
+    region: tuple[float, float, float, float],
+    spacing: float,
+    registration: str,
+    coord_names: tuple[str, str],
+) -> xr.DataArray:
+    """
+    Ensure the supplied grid matches the requested grid and restore its dimensions.
+    See :func:`create_topography`.
+    """
+    grid = _restore_dims(grid_to_fill, [coord_names[1], coord_names[0]])
+
+    grid_spacing, grid_region, _, _, grid_registration = maps.get_grid_info(grid)
+    if (
+        not np.allclose(float(grid_spacing), spacing)
+        or not np.allclose(grid_region, region)
+        or grid_registration != registration
+    ):
+        msg = (
+            f"`grid_to_fill` (spacing: {grid_spacing}, region: {grid_region}, "
+            f"registration: {grid_registration}) doesn't match the requested grid "
+            f"(spacing: {spacing}, region: {region}, registration: {registration}), "
+            "please resample it before passing it to `create_topography`"
+        )
+        raise ValueError(msg)
+
+    return grid
+
+
+def _fill_topography_grid(
+    grid_to_fill: xr.DataArray,
+    method: str,
+    region: tuple[float, float, float, float],
+    spacing: float,
+    registration: str,
+    coord_names: tuple[str, str],
+    constraints_df: pd.DataFrame | None,
+    tension: float,
+    dampings: list[float] | None,
+    maxdist: float | None,
+    block_size: float | None,
+    block_reduction: str,
+    block_reduction_col: str | None,
+    grid_points_col: str,
+) -> xr.DataArray:
+    """
+    Fill the missing values of a supplied topography grid with the constraint points
+    which aren't already included in the grid. See :func:`create_topography`.
+    """
+    grid = _check_grid_to_fill(
+        grid_to_fill,
+        region,
+        spacing,
+        registration,
+        coord_names,
+    )
+
+    fill_points = None
+    if constraints_df is not None:
+        if grid_points_col in constraints_df.columns:
+            # points which are already included in the grid shouldn't be reused
+            fill_points = constraints_df[constraints_df[grid_points_col] == False]  # noqa: E712 # pylint: disable=singleton-comparison
+        else:
+            msg = (
+                f"`constraints_df` has no column `{grid_points_col}`, using all the "
+                "points to fill the missing values of `grid_to_fill`"
+            )
+            logger.info(msg)
+            fill_points = constraints_df
+
+        if block_size is not None:
+            coords = (fill_points[coord_names[0]], fill_points[coord_names[1]])
+            if block_reduction_col is None:
+                mask = None
+            elif block_reduction_col not in fill_points.columns:
+                msg = (
+                    f"`block_reduction_col` '{block_reduction_col}' not in "
+                    "`constraints_df` columns"
+                )
+                raise ValueError(msg)
+            else:
+                mask = fill_points[block_reduction_col].to_numpy(dtype=bool)
+            coords, data, _ = _block_reduce_points(
+                coords,
+                fill_points.upward,
+                None,
+                block_size,
+                block_reduction,
+                region,
+                mask=mask,
+            )
+            fill_points = pd.DataFrame(
+                {
+                    coord_names[0]: coords[0],
+                    coord_names[1]: coords[1],
+                    "upward": data,
+                }
+            )
+
+    return fill_missing(
+        grid,
+        method=method,
+        constraints_df=fill_points,
+        data_col="upward",
+        tension=tension,
+        dampings=dampings,
+        maxdist=maxdist,
+    )
+
+
 def create_topography(
     method: str,
     region: tuple[float, float, float, float],
@@ -1007,27 +1609,40 @@ def create_topography(
     weights_col: str | None = None,
     block_size: float | None = None,
     block_reduction: str = "median",
+    block_reduction_col: str | None = None,
+    tension: float = 1,
+    grid_to_fill: xr.DataArray | None = None,
+    maxdist: float | None = None,
+    grid_points_col: str = "grid_points",
     upper_confining_layer: xr.DataArray | None = None,
     lower_confining_layer: xr.DataArray | None = None,
     dataset_to_add: xr.Dataset | None = None,
 ) -> xr.Dataset:
     """
-    Create a grid of topography data from either the interpolation (with splines) of
-    point data or creating a grid of constant value. Optionally, a subset of point data
-    can be interpolated and then merged with an existing grid. To do this,
+    Create a grid of topography data from either the interpolation of point data, with
+    bi-harmonic splines (:class:`verde.Spline`) or tensioned minimum curvature
+    (:func:`pygmt.surface`), or creating a grid of constant value. Optionally, a subset
+    of point data can be interpolated and then merged with an existing grid. To do this,
     ``constraints_df`` must contain two additional columns of booleans, ``inside`` which
     is True for points inside the region of interest, and False otherwise, and
     ``buffer`` which is True for points within a buffer region around the region of
     interest, and False otherwise. Inside and Buffer points are used to interpolated the
     data, and then the interpolated data (without the buffer zone) is merged with the
     points outside the region of interest. For interpolations, ``block_size`` can be
-    supplied to perform a block-median filtering of the points before fitting the
-    spline, reducing the computational cost.
+    supplied to perform a block-median filtering of the points before interpolating,
+    reducing the computational cost. This block-reduction can be limited to a subset of
+    the points with ``block_reduction_col``. Alternatively, an existing grid with
+    missing values (NaNs) can be supplied with ``grid_to_fill``, and only its missing
+    values will be interpolated, using the constraint points which aren't already
+    included in the grid (where the column named by ``grid_points_col`` is False), or
+    filled with a constant value if ``method`` is ``flat``.
 
     Parameters
     ----------
     method : str
-        method to use, either ``flat`` or ``splines``
+        method to use, either ``flat``, ``splines`` or ``pygmt``. If using
+        ``grid_to_fill``, ``nearest``, ``linear`` and ``cubic`` are also available, see
+        :func:`fill_missing`
     region : tuple[float, float, float, float]
         bounding region to use for the output grid. If you are using projected
         coordinates (meters), this is in the format (min_easting, max_easting,
@@ -1043,7 +1658,8 @@ def create_topography(
     registration : str, optional
         choose between gridline ``g`` or pixel ``p`` registration, by default ``g``
     upward : float | None, optional
-        constant elevation in meters to use for method ``flat``, by default None
+        constant elevation in meters to use for method ``flat``. If ``grid_to_fill`` is
+        also provided, its missing values are filled with this value, by default None
     upwards : float | None, optional
         deprecated, use `upward` instead, by default None
     coord_names : tuple[str, str], optional
@@ -1052,10 +1668,10 @@ def create_topography(
     projection : pyproj.Proj | None, optional
         if using geographic coordinates (latitude and longitude) and the splines method,
         provide a pyproj Proj object to convert to cartesian coordinates, by default
-        None
+        None. Not needed for method ``pygmt``, which grids in the supplied coordinates.
     constraints_df : pandas.DataFrame | None, optional
-        dataframe with column 'upward' to use for method ``splines``, and optionally
-        columns ``inside`` and ``buffer``, by default None
+        dataframe with column 'upward' to use for methods ``splines`` and ``pygmt``, and
+        optionally columns ``inside`` and ``buffer``, by default None
     weights : pandas.Series | numpy.ndarray | None, optional
         weight to use for fitting the spline. Typically, this should be 1 over the data
         uncertainty squared, by default None
@@ -1063,14 +1679,38 @@ def create_topography(
         instead of passing the weights, pass the name of the column containing the
         weights, by default None
     block_size : float | None, optional
-        block size to use for block-reduction of constraint points before fitting
-        splines. In meters if using projected coordinates, or in decimal degrees if
-        using geographic coordinates. If None, no block-reduction is applied, by
+        block size to use for block-reduction of constraint points before
+        interpolating. In meters if using projected coordinates, or in decimal degrees
+        if using geographic coordinates. If None, no block-reduction is applied, by
         default None
     block_reduction: str, optional
-        type of block reduction to apply, if ``median``, weights will be ignored, of
-        ``mean``, and weights are provided, they will be used in the block reduction.
-        Defaults to ``median``.
+        type of block reduction to apply. If ``median``, :class:`verde.BlockReduce` is
+        used and any weights are ignored and dropped. If ``mean``,
+        :class:`verde.BlockMean` is used and the reduced weights are kept for the
+        interpolation. Defaults to ``median``.
+    block_reduction_col : str | None, optional
+        name of a boolean column in ``constraints_df``, where True indicates points
+        which should be block-reduced. Points which are False are left unaltered and
+        added back to the block-reduced points before interpolating. If None, all points
+        are block-reduced, by default None
+    tension : float, optional
+        tension factor used if ``method`` is ``pygmt``, between 0 (minimum curvature)
+        and 1 (harmonic surface), by default 1
+    grid_to_fill : xarray.DataArray | None, optional
+        instead of interpolating all the constraint points, supply an existing grid,
+        with the same region, spacing and registration as requested, whose missing
+        values (NaNs) should be filled with :func:`fill_missing`. The constraint points
+        which aren't already included in the grid, indicated by the boolean column
+        named by ``grid_points_col`` being False, are used in the interpolation. If
+        ``method`` is ``flat``, the missing values are instead filled with the constant
+        value ``upward``, by default None
+    maxdist : float | None, optional
+        if using ``grid_to_fill``, only interpolate with points within this distance of
+        a missing value. Not used with method ``flat``, by default None
+    grid_points_col : str, optional
+        name of the boolean column of ``constraints_df``, where True indicates points
+        which are already included in ``grid_to_fill`` and shouldn't be reused in the
+        interpolation, by default ``grid_points``
     upper_confining_layer : xarray.DataArray | None, optional
         layer which the inverted topography should always be below, by default None
     lower_confining_layer : xarray.DataArray | None, optional
@@ -1092,6 +1732,18 @@ def create_topography(
         )
         upward = upwards
 
+    if (method != "pygmt") & (tension != 1):
+        msg = "`tension` is only used if `method` is 'pygmt'"
+        raise ValueError(msg)
+
+    if (grid_to_fill is None) & (maxdist is not None):
+        msg = "`maxdist` is only used if `grid_to_fill` is provided"
+        raise ValueError(msg)
+
+    if (method == "flat") & (maxdist is not None):
+        msg = "`maxdist` can't be used with method 'flat'"
+        raise ValueError(msg)
+
     if method == "flat":
         if registration == "g":
             pixel_register = False
@@ -1105,24 +1757,54 @@ def create_topography(
             msg = "upward must be provided if method is `flat`"
             raise ValueError(msg)
 
-        # create grid of coordinates
-        (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
-            region=region,
-            spacing=spacing,
-            pixel_register=pixel_register,
-        )
-        # make flat topography of value = upward
-        grid = vd.make_xarray_grid(
-            (x, y),
-            np.ones_like(x) * upward,
-            data_names="upward",
-            dims=(coord_names[1], coord_names[0]),
-        ).upward
+        if grid_to_fill is not None:
+            # fill the missing values of the supplied grid with the constant value
+            grid = _check_grid_to_fill(
+                grid_to_fill,
+                region,
+                spacing,
+                registration,
+                coord_names,
+            ).fillna(upward)
+        else:
+            # create grid of coordinates
+            (x, y) = bd.grid_coordinates(  # pylint: disable=unbalanced-tuple-unpacking
+                region=region,
+                spacing=spacing,
+                pixel_register=pixel_register,
+            )
+            # make flat topography of value = upward
+            grid = vd.make_xarray_grid(
+                (x, y),
+                np.ones_like(x) * upward,
+                data_names="upward",
+                dims=(coord_names[1], coord_names[0]),
+            ).upward
 
-    elif method == "splines":  # pylint: disable=too-many-nested-blocks
+    elif grid_to_fill is not None:
+        # only interpolate the missing values of the supplied grid
+        grid = _fill_topography_grid(
+            grid_to_fill,
+            method,
+            region,
+            spacing,
+            registration,
+            coord_names,
+            constraints_df,
+            tension,
+            dampings,
+            maxdist,
+            block_size,
+            block_reduction,
+            block_reduction_col,
+            grid_points_col,
+        )
+        grid = grid.assign_attrs(damping=None)
+
+    elif method in ("splines", "pygmt"):  # pylint: disable=too-many-nested-blocks
         # get coordinates of the constraint points
         if constraints_df is None:
-            msg = "constraints_df must be provided if method is `splines`"
+            msg = f"constraints_df must be provided if method is `{method}`"
             raise ValueError(msg)
 
         df = constraints_df.copy()
@@ -1142,7 +1824,11 @@ def create_topography(
                 dims=(coord_names[1], coord_names[0]),
             ).upward
         else:
-            if (coord_names == ("longitude", "latitude")) & (projection is None):
+            if (
+                method == "splines"
+                and coord_names == ("longitude", "latitude")
+                and projection is None
+            ):
                 msg = (
                     "If using geographic coordinates (latitude and longitude) and the "
                     "spline method, a pyproj.Proj projection must be provided to "
@@ -1151,7 +1837,7 @@ def create_topography(
                 raise ValueError(msg)
 
             # convert to projected coordinates if needed
-            if projection is not None:
+            if method == "splines" and projection is not None:
                 projected_points = [
                     projection(lon, lat)
                     for (lon, lat) in zip(df.longitude, df.latitude, strict=True)
@@ -1177,80 +1863,84 @@ def create_topography(
                     min(northings),
                     max(northings),
                 )
-                cartesian_spacing = (
-                    spacing * 111139
-                )  # approx conversion from degrees latitude to meters
-                if block_size is not None:
-                    block_size = (
+                if block_size is None:
+                    cartesian_block_size = None
+                else:
+                    cartesian_block_size = (
                         block_size * 111139
                     )  # approx conversion from degrees latitude to meters
             else:
                 cartesian_region = region
-                cartesian_spacing = spacing
+                cartesian_block_size = block_size
 
-            if {"inside", "buffer"} <= set(df.columns):
+            if method == "pygmt":
+                # pygmt grids in the supplied coordinates, no projection needed
+                fit_coord_names = coord_names
+                fit_region = region
+                fit_block_size = block_size
+            else:
+                # verde splines are fit in projected (cartesian) coordinates
+                fit_coord_names = ("easting", "northing")
+                fit_region = cartesian_region
+                fit_block_size = cartesian_block_size
+
+            # optionally only interpolate the points inside the region and its buffer
+            subset_points = {"inside", "buffer"} <= set(df.columns)
+            if subset_points:
                 df_to_interpolate = df[df.inside | df.buffer]
                 df_outside_buffer = df[(df.inside == False) & (df.buffer == False)]  # noqa: E712 # pylint: disable=singleton-comparison
-
-                coords = (
-                    df_to_interpolate[coord_names[0]],
-                    df_to_interpolate[coord_names[1]],
-                )
-                data = df_to_interpolate.upward
-                if weights_col is not None:
-                    weights = df_to_interpolate[weights_col]
-
-                if block_size is not None:
-                    coords, data, weights = _block_reduce_points(
-                        coords,
-                        data,
-                        weights,
-                        block_size,
-                        block_reduction,
-                        cartesian_region,
-                    )
-
-                # run CV for fitting a spline to the data
-                spline = _fit_spline_cv(coords, data, weights, dampings)
-
-                # grid the fitted spline at desired spacing and region
-                inside_grid = spline.grid(
-                    region=region,
-                    spacing=spacing,
-                    projection=projection,
-                    dims=(coord_names[1], coord_names[0]),
-                ).scalars
-
-                # merge interpolation of inner / buffer points with outside grid
-                outside_grid = pygmt.xyz2grd(
-                    x=df_outside_buffer[coord_names[0]],
-                    y=df_outside_buffer[coord_names[1]],
-                    z=df_outside_buffer.upward,
-                    region=cartesian_region,
-                    spacing=cartesian_spacing,
-                ).rename({"x": coord_names[0], "y": coord_names[1]})
-
-                grid = inside_grid.where(
-                    outside_grid.isnull(),  # noqa: PD003
-                    outside_grid,
-                )
-
             else:
-                coords = (df.easting, df.northing)
-                data = df.upward
-                if weights_col is not None:
-                    weights = df[weights_col]
+                df_to_interpolate = df
 
-                if block_size is not None:
-                    coords, data, weights = _block_reduce_points(
-                        coords,
-                        data,
-                        weights,
-                        block_size,
-                        block_reduction,
-                        cartesian_region,
+            coords = (
+                df_to_interpolate[fit_coord_names[0]],
+                df_to_interpolate[fit_coord_names[1]],
+            )
+            data = df_to_interpolate.upward
+            if weights_col is not None:
+                weights = df_to_interpolate[weights_col]
+
+            if fit_block_size is not None:
+                if block_reduction_col is None:
+                    block_reduction_mask = None
+                elif block_reduction_col not in df_to_interpolate.columns:
+                    msg = (
+                        f"`block_reduction_col` '{block_reduction_col}' not in "
+                        "`constraints_df` columns"
                     )
+                    raise ValueError(msg)
+                else:
+                    block_reduction_mask = df_to_interpolate[
+                        block_reduction_col
+                    ].to_numpy(dtype=bool)
 
+                coords, data, weights = _block_reduce_points(
+                    coords,
+                    data,
+                    weights,
+                    fit_block_size,
+                    block_reduction,
+                    fit_region,
+                    mask=block_reduction_mask,
+                )
+
+            if method == "pygmt":
+                # grid the points with tensioned minimum curvature
+                grid = (
+                    _import_pygmt()
+                    .surface(
+                        x=coords[0],
+                        y=coords[1],
+                        z=data,
+                        region=region,
+                        spacing=spacing,
+                        registration=registration,
+                        tension=tension,
+                        verbose="quiet",
+                    )
+                    .rename({"x": coord_names[0], "y": coord_names[1]})
+                )
+            else:
                 # run CV for fitting a spline to the data
                 spline = _fit_spline_cv(coords, data, weights, dampings)
 
@@ -1262,20 +1952,37 @@ def create_topography(
                     dims=(coord_names[1], coord_names[0]),
                 ).scalars
 
+            if subset_points:
+                # merge interpolation of inner / buffer points with outside grid
+                outside_grid = points_to_grid(
+                    x=df_outside_buffer[coord_names[0]],
+                    y=df_outside_buffer[coord_names[1]],
+                    z=df_outside_buffer.upward,
+                    region=region,
+                    spacing=spacing,
+                    registration=registration if method == "pygmt" else "g",
+                    coord_names=coord_names,
+                )
+
+                grid = grid.where(
+                    outside_grid.isnull(),  # noqa: PD003
+                    outside_grid,
+                )
+
         try:
             grid = grid.assign_attrs(damping=spline.damping_)
         except UnboundLocalError:
             grid = grid.assign_attrs(damping=None)
 
     else:
-        msg = "method must be 'flat' or 'splines'"
+        msg = "method must be 'flat', 'splines' or 'pygmt'"
         raise ValueError(msg)
 
     # ensure grid doesn't cross supplied confining layers
     if upper_confining_layer is None or np.all(upper_confining_layer.isnull()):  # noqa: PD003
         pass
     else:
-        da = ptk.resample_grid(
+        da = resample_grid(
             upper_confining_layer,
             spacing=spacing,
             region=region,
@@ -1290,7 +1997,7 @@ def create_topography(
     if lower_confining_layer is None or np.all(lower_confining_layer.isnull()):  # noqa: PD003
         pass
     else:
-        da = ptk.resample_grid(
+        da = resample_grid(
             lower_confining_layer,
             spacing=spacing,
             region=region,

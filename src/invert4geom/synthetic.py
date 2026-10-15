@@ -5,14 +5,13 @@ import bordado as bd
 import harmonica as hm
 import numpy as np
 import pandas as pd
-import polartoolkit as ptk
 import pooch
 import verde as vd
 import xarray as xr
 import xrft
 from numpy.typing import NDArray
 
-from invert4geom import logger, utils
+from invert4geom import logger, maps, utils
 
 
 def load_synthetic_model(
@@ -148,7 +147,7 @@ def load_synthetic_model(
 
         if plot_topography_diff is True:
             try:
-                _ = ptk.grid_compare(
+                _ = maps.grid_compare(
                     true_topography,
                     starting_topography,
                     grid1_name="True topography",
@@ -156,16 +155,11 @@ def load_synthetic_model(
                     robust=True,
                     hist=True,
                     inset=False,
-                    verbose="q",
                     title="difference",
-                    reverse_cpt=True,
-                    cmap="rain",
-                    points=constraint_points.rename(
-                        columns={"easting": "x", "northing": "y"}
-                    ),
+                    cmap="gist_earth",
+                    points=constraint_points,
                     points_style="x.3c",
                     region=region,
-                    epsg="3031",
                     coast=False,
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
@@ -177,20 +171,15 @@ def load_synthetic_model(
     if plot_topography is True:
         try:
             # plot the topography
-            fig = ptk.plot_grid(
+            maps.plot_grid(
                 true_topography,
-                fig_height=10,
                 title="True topography",
-                reverse_cpt=True,
-                cmap="rain",
+                cmap="gist_earth",
                 cbar_label="elevation (m)",
                 hist=True,
-                frame=["nSWe", "xaf10000", "yaf10000"],
                 region=region,
-                epsg="3031",
                 coast=False,
             )
-            fig.show()
         except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
 
@@ -257,18 +246,15 @@ def load_synthetic_model(
         if plot_gravity is True:
             try:
                 # plot the observed gravity
-                fig = ptk.plot_grid(
+                maps.plot_grid(
                     grav_ds.gravity_anomaly,
-                    fig_height=10,
                     title="Forward gravity of true topography",
-                    cmap="balance+h0",
+                    cmap="RdBu_r",
+                    absolute=True,
                     cbar_label="mGal",
-                    frame=["nSWe", "xaf10000", "yaf10000"],
                     hist=True,
-                    epsg="3031",
                     coast=False,
                 )
-                fig.show()
             except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
                 logger.error("plotting failed with error: %s", e)
     else:
@@ -319,7 +305,7 @@ def contaminate_with_long_wavelength_noise(
     original_name = grid.name
 
     # get original spacing and region
-    info = ptk.get_grid_info(grid)
+    info = maps.get_grid_info(grid)
     original_spacing = info[0]
     original_region = info[1]
 
@@ -362,7 +348,7 @@ def contaminate_with_long_wavelength_noise(
     # new_grid = df.to_xarray().noise
 
     # resample back to original spacing
-    new_grid = ptk.resample_grid(
+    new_grid = utils.resample_grid(
         low_res_grid.noise,
         spacing=original_spacing,
         region=original_region,
@@ -628,16 +614,13 @@ def synthetic_topography_simple(
         dims=("northing", "easting"),
     ).upward
     if plot is True:
-        fig = ptk.plot_grid(
+        maps.plot_grid(
             grid,
             title=title,
-            cmap="rain",
-            reverse_cpt=True,
+            cmap="gist_earth",
             hist=True,
             cbar_label="elevation (m)",
-            frame=True,
         )
-        fig.show()
 
     return grid
 

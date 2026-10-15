@@ -17,7 +17,6 @@ import numba
 import numpy as np
 import optuna
 import pandas as pd
-import polartoolkit as ptk
 import scipy as sp
 import seaborn as sns
 import verde as vd
@@ -29,6 +28,7 @@ from tqdm.autonotebook import tqdm
 from invert4geom import (
     cross_validation,
     logger,
+    maps,
     optimization,
     plotting,
     regional,
@@ -1348,54 +1348,78 @@ class DatasetAccessorInvert4Geom:
     def plot_observed(
         self,
         coast: bool = False,
+        cmap: str | None = None,
+        absolute: bool | None = None,
+        robust: bool = True,
+        hist: bool = True,
+        **kwargs: typing.Any,
     ) -> None:
-        """plot observed gravity"""
+        """
+        plot observed gravity
+
+        By default (``cmap`` and ``absolute`` both None), if 0 falls within the
+        interquartile range (0.25 to 0.75 quantiles) of the gravity values, a
+        red-to-blue colormap (``RdBu_r``) centered on zero is used, otherwise
+        ``viridis``. Override by supplying ``cmap`` and/or ``absolute`` (center the
+        color scale on zero with symmetric limits). Use ``robust`` to clip the color
+        range to the 2nd-98th percentiles. All ``kwargs`` are passed to
+        :func:`invert4geom.maps.plot_grid`.
+        """
         self._check_correct_dataset_type("data")
 
         epsg, coast = utils.get_epsg(coast=coast)
 
-        fig = ptk.plot_grid(
+        if cmap is None and absolute is None:
+            centered = plotting._zero_is_central(self._ds.gravity_anomaly)  # pylint: disable=protected-access
+            cmap = "RdBu_r" if centered else "viridis"
+            absolute = centered
+        elif cmap is None:
+            cmap = "RdBu_r" if absolute else "viridis"
+
+        _, ax = maps.plot_grid(
             self._ds.gravity_anomaly,
             title="Observed gravity",
             cbar_label="mGal",
-            cmap="balance+h0",
-            robust=True,
-            absolute=True,
-            hist=True,
+            cmap=cmap,
+            robust=robust,
+            absolute=bool(absolute),
+            hist=hist,
             coast=coast,
             epsg=epsg,
+            **kwargs,
         )
         if self._ds.buffer_width is not None:
-            fig.plot(
-                x=[
-                    self._ds.inner_region[0],
-                    self._ds.inner_region[1],
-                    self._ds.inner_region[1],
-                    self._ds.inner_region[0],
-                    self._ds.inner_region[0],
-                ],
-                y=[
-                    self._ds.inner_region[2],
-                    self._ds.inner_region[2],
-                    self._ds.inner_region[3],
-                    self._ds.inner_region[3],
-                    self._ds.inner_region[2],
-                ],
-                pen="2p,black",
+            maps.add_box(
+                ax,
+                self._ds.inner_region,
+                pen="black",
+                linewidth=2,
                 label="Inner region",
-                region=fig.reg,
-                projection=fig.proj,
             )
-            fig.legend()
-        fig.show()
+            ax.legend(loc="upper right", fontsize=8)
 
     def plot_anomalies(
         self,
         points: pd.DataFrame | None = None,
         points_style: str | None = None,
         coast: bool = False,
+        cmap: str | None = None,
+        absolute: bool | None = None,
+        robust: bool = True,
+        hist: bool = True,
+        **kwargs: typing.Any,
     ) -> None:
-        """plot gravity anomalies"""
+        """
+        plot gravity anomalies
+
+        By default (``cmap`` and ``absolute`` both None), each grid with 0 within the
+        interquartile range (0.25 to 0.75 quantiles) of its values gets a red-to-blue
+        colormap (``RdBu_r``) centered on zero, and all others get ``viridis``.
+        Override by supplying ``cmap`` and/or ``absolute`` (center the color scales
+        on zero with symmetric limits), which are then used for all grids. Use
+        ``robust`` to clip the color ranges to the 2nd-98th percentiles. All
+        ``kwargs`` are passed to :func:`invert4geom.maps.subplots`.
+        """
         self._check_correct_dataset_type("data")
 
         epsg, coast = utils.get_epsg(coast=coast)
@@ -1416,50 +1440,59 @@ class DatasetAccessorInvert4Geom:
             "Regional misfit",
             "Residual misfit",
         ]
-        min_max = ptk.get_combined_min_max(
-            grids[0:2],
-            absolute=True,
-            robust=True,
-        )
-        cpt_limits = [
-            min_max,
-            min_max,
-            None,
-            None,
-            None,
-        ]
-        with utils._log_level(logging.CRITICAL, logging.getLogger("polartoolkit")):  # noqa: SIM117 # pylint: disable=protected-access
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", message="Since limits were passed to `cpt_lims`"
-                )
-                fig = ptk.subplots(
-                    grids,
-                    dims=(1, 5),
-                    region=self._ds.inner_region,
-                    fig_title="Gravity anomalies",
-                    titles=titles,
-                    cbar_label="mGal",
-                    cmap="balance+h0",
-                    cpt_limits=cpt_limits,
-                    absolute=True,
-                    robust=True,
-                    hist=True,
-                    points=points,
-                    points_style=points_style,
-                    coast=coast,
-                    epsg=epsg,
-                )
 
-        fig.show()
+        if cmap is None and absolute is None:
+            cmaps, cpt_limits = plotting._gravity_cmaps_and_limits(  # pylint: disable=protected-access
+                grids, robust=robust
+            )
+            cmap_kwargs: dict[str, typing.Any] = {
+                "cmaps": cmaps,
+                "cpt_limits": cpt_limits,
+            }
+        else:
+            if cmap is None:
+                cmap = "RdBu_r" if absolute else "viridis"
+            cmap_kwargs = {"cmap": cmap, "absolute": bool(absolute)}
+
+        maps.subplots(
+            grids,
+            dims=(1, 5),
+            region=self._ds.inner_region,
+            fig_title="Gravity anomalies",
+            titles=titles,
+            cbar_label="mGal",
+            robust=robust,
+            hist=hist,
+            points=points,
+            points_style=points_style,
+            coast=coast,
+            epsg=epsg,
+            **cmap_kwargs,
+            **kwargs,
+        )
 
     def plot_regional_separation(
         self,
         points: pd.DataFrame | None = None,
         points_style: str | None = None,
         coast: bool = False,
+        cmap: str | None = None,
+        absolute: bool | None = None,
+        robust: bool = True,
+        hist: bool = True,
+        **kwargs: typing.Any,
     ) -> None:
-        """plot gravity misfit and estimate regional and residual components"""
+        """
+        plot gravity misfit and estimate regional and residual components
+
+        By default (``cmap`` and ``absolute`` both None), each grid with 0 within the
+        interquartile range (0.25 to 0.75 quantiles) of its values gets a red-to-blue
+        colormap (``RdBu_r``) centered on zero, and all others get ``viridis``.
+        Override by supplying ``cmap`` and/or ``absolute`` (center the color scales
+        on zero with symmetric limits), which are then used for all grids. Use
+        ``robust`` to clip the color ranges to the 2nd-98th percentiles. All
+        ``kwargs`` are passed to :func:`invert4geom.maps.subplots`.
+        """
         self._check_correct_dataset_type("data")
 
         epsg, coast = utils.get_epsg(coast=coast)
@@ -1476,28 +1509,36 @@ class DatasetAccessorInvert4Geom:
             "Regional misfit",
             "Residual misfit",
         ]
-        cmaps = [
-            "balance+h0",
-            "balance+h0",
-            "balance+h0",
-        ]
-        fig = ptk.subplots(
+
+        if cmap is None and absolute is None:
+            cmaps, cpt_limits = plotting._gravity_cmaps_and_limits(  # pylint: disable=protected-access
+                grids, robust=robust
+            )
+            cmap_kwargs: dict[str, typing.Any] = {
+                "cmaps": cmaps,
+                "cpt_limits": cpt_limits,
+            }
+        else:
+            if cmap is None:
+                cmap = "RdBu_r" if absolute else "viridis"
+            cmap_kwargs = {"cmap": cmap, "absolute": bool(absolute)}
+
+        maps.subplots(
             grids,
             dims=(1, 3),
             region=self._ds.inner_region,
             fig_title="Gravity misfit grids",
             titles=titles,
             cbar_label="mGal",
-            cmaps=cmaps,
-            robust=True,
-            absolute=True,
-            hist=True,
+            robust=robust,
+            hist=hist,
             points=points,
             points_style=points_style,
             coast=coast,
             epsg=epsg,
+            **cmap_kwargs,
+            **kwargs,
         )
-        fig.show()
 
     ###
     ###
@@ -1899,7 +1940,7 @@ def create_data(
     )
 
     # set region and spacing from provided grid
-    spacing, region = ptk.get_grid_info(gravity.upward)[0:2]
+    spacing, region = maps.get_grid_info(gravity.upward)[0:2]
 
     # default buffer width is 10% of the shortest dimension of the region, rounded to
     # nearest multiple of spacing
@@ -2031,7 +2072,7 @@ def create_model(
         f"topography dataset must have dims {coord_names}, you can rename your dimensions with `.rename({{'old_name':'new_name'}})`"
     )
     # set region and spacing from provided grid
-    spacing, region = ptk.get_grid_info(topography.upward)[0:2]
+    spacing, region = maps.get_grid_info(topography.upward)[0:2]
 
     if isinstance(density_contrast, xr.DataArray):
         assert all(s in density_contrast.dims for s in coord_names), (
@@ -2148,10 +2189,10 @@ def create_model(
 
     # use extent of un-masked cells to define a region to use for plotting
     masked_extent = model.mask.where(np.isfinite(model.mask), drop=True)
-    masked_region = ptk.get_grid_info(masked_extent)[1]
+    masked_region = maps.get_grid_info(masked_extent)[1]
 
-    # get inner combinattion of masked_extent and inner_region
-    inner_region = ptk.regions_overlap(masked_region, inner_region)
+    # get inner combination of masked_extent and inner_region
+    inner_region = maps.regions_overlap(masked_region, inner_region)
 
     # Append some attributes to the xr.Dataset
     attrs = {
@@ -3197,7 +3238,7 @@ class Inversion:
 
         # subset to only points inside the inner region so edge effects have less effect
         # on scores
-        test = ptk.points_inside_region(
+        test = maps.points_inside_region(
             test,
             self.data.inner_region,
             names=(coord_names[0], coord_names[1]),
@@ -3219,7 +3260,7 @@ class Inversion:
 
                 epsg, coast = utils.get_epsg(coast=False)
 
-                _ = ptk.grid_compare(
+                _ = maps.grid_compare(
                     pred,
                     obs,
                     grid1_name="Predicted gravity",
@@ -4671,6 +4712,13 @@ class Inversion:
             constraint points to include in the plots
         coast : bool, optional
             whether to plot coastlines, by default False
+        kwargs : typing.Any
+            optional keyword arguments: ``topo_cmap_perc``, ``misfit_cmap_perc``,
+            ``corrections_cmap_perc``, ``constraint_size``, ``misfit_cmap``, and
+            ``misfit_absolute`` for the iteration plots, ``constraint_style`` and
+            ``fig_height`` for the topography and gravity plots, and ``grav_cmap``,
+            ``grav_absolute``, ``grav_robust``, and ``grav_hist`` for the gravity
+            results plots.
         """
         # get lists of columns to grid
         misfits = [
@@ -4742,6 +4790,8 @@ class Inversion:
                 corrections_cmap_perc=kwargs.get("corrections_cmap_perc", 1),
                 constraints_df=constraints_df,
                 constraint_size=kwargs.get("constraint_size", 1),
+                misfit_cmap=kwargs.get("misfit_cmap"),
+                misfit_absolute=kwargs.get("misfit_absolute"),
             )
 
         if self.style == "geometry" and plot_topo_results is True:
@@ -4761,6 +4811,10 @@ class Inversion:
                 fig_height=kwargs.get("fig_height", 12),
                 constraint_style=kwargs.get("constraint_style", "x.3c"),
                 coast=coast,
+                cmap=kwargs.get("grav_cmap"),
+                absolute=kwargs.get("grav_absolute"),
+                robust=kwargs.get("grav_robust", True),
+                hist=kwargs.get("grav_hist", True),
             )
 
 

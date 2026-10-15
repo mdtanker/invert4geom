@@ -8,13 +8,12 @@ import typing
 import harmonica as hm
 import numpy as np
 import pandas as pd
-import polartoolkit as ptk
 import scipy as sp
 import xarray as xr
 from numpy.typing import NDArray
 from tqdm.autonotebook import tqdm
 
-from invert4geom import inversion, logger, plotting, utils
+from invert4geom import inversion, logger, maps, plotting, utils
 
 if typing.TYPE_CHECKING:
     from invert4geom.inversion import Inversion
@@ -296,8 +295,7 @@ def starting_topography_uncertainty(
             plotting.plot_stochastic_results(
                 stats_ds=stats_ds,
                 points=sampled_constraints,
-                cmap="rain",
-                reverse_cpt=True,
+                cmap="gist_earth",
                 label="topography",
                 points_label="Topography constraints",
                 region=plot_region,
@@ -305,44 +303,35 @@ def starting_topography_uncertainty(
             if true_topography is not None:
                 mean, stdev = _mean_and_stdev(stats_ds)
 
-                _ = ptk.grid_compare(
+                _ = maps.grid_compare(
                     np.abs(true_topography - mean),
                     stdev,
-                    fig_height=12,
                     region=plot_region,
                     grid1_name="True error",
                     grid2_name="Stochastic uncertainty",
                     robust=True,
                     hist=True,
                     inset=False,
-                    verbose="q",
                     title="difference",
                     coast=coast,
-                    cmap="thermal",
-                    points=sampled_constraints.rename(
-                        columns={"easting": "x", "northing": "y"}
-                    ),
+                    cmap="inferno",
+                    points=sampled_constraints,
                     points_style="x.3c",
                     epsg=epsg,
                 )
-                _ = ptk.grid_compare(
+                _ = maps.grid_compare(
                     true_topography,
                     mean,
-                    fig_height=12,
                     region=plot_region,
                     grid1_name="True topography",
                     grid2_name="Mean topography",
                     robust=True,
                     hist=True,
                     inset=False,
-                    verbose="q",
                     title="difference",
                     coast=coast,
-                    cmap="rain",
-                    reverse_cpt=True,
-                    points=sampled_constraints.rename(
-                        columns={"easting": "x", "northing": "y"}
-                    ),
+                    cmap="gist_earth",
+                    points=sampled_constraints,
                     points_style="x.3c",
                     epsg=epsg,
                 )
@@ -490,7 +479,6 @@ def equivalent_sources_uncertainty(
             plotting.plot_stochastic_results(
                 stats_ds=stats_ds,
                 cmap="viridis",
-                reverse_cpt=False,
                 label="Predicted gravity",
                 unit="mGal",
                 region=plot_region,
@@ -499,50 +487,44 @@ def equivalent_sources_uncertainty(
                 mean, stdev = _mean_and_stdev(stats_ds)
 
                 # pylint: disable=duplicate-code
-                _ = ptk.grid_compare(
+                _ = maps.grid_compare(
                     np.abs(true_gravity - mean),
                     stdev,
-                    fig_height=12,
                     region=plot_region,
                     grid1_name="Stochastic error",
                     grid2_name="Stochastic uncertainty",
                     robust=True,
                     hist=True,
                     inset=False,
-                    verbose="q",
                     title="difference",
                     coast=coast,
-                    cmap="thermal",
+                    cmap="inferno",
                     epsg=epsg,
                 )
                 if deterministic_error is not None:
-                    _ = ptk.grid_compare(
+                    _ = maps.grid_compare(
                         np.abs(deterministic_error),
                         stdev,
-                        fig_height=12,
                         region=plot_region,
                         grid1_name="Deterministic error",
                         grid2_name="Stochastic uncertainty",
                         robust=True,
                         hist=True,
                         inset=False,
-                        verbose="q",
                         title="difference",
                         coast=coast,
-                        cmap="thermal",
+                        cmap="inferno",
                         epsg=epsg,
                     )
-                _ = ptk.grid_compare(
+                _ = maps.grid_compare(
                     true_gravity,
                     mean,
-                    fig_height=12,
                     region=plot_region,
                     grid1_name="True gravity",
                     grid2_name="Mean gravity",
                     robust=True,
                     hist=True,
                     inset=False,
-                    verbose="q",
                     title="difference",
                     coast=coast,
                     cmap="viridis",
@@ -565,6 +547,7 @@ def regional_misfit_uncertainty(
     true_regional: xr.DataArray | None = None,
     coast: bool = False,
     weight_by: str | None = None,
+    points_style: str = "x.3c",
     **kwargs: typing.Any,
 ) -> tuple[xr.Dataset, dict[str, typing.Any]]:
     """
@@ -681,54 +664,46 @@ def regional_misfit_uncertainty(
                 stats_ds=stats_ds,
                 points=constraints_df,
                 cmap="viridis",
-                reverse_cpt=False,
                 label="Regional gravity",
                 unit="mGal",
                 points_label="Topography constraints",
                 region=plot_region,
+                points_style=points_style,
             )
             if true_regional is not None:
                 mean, stdev = _mean_and_stdev(stats_ds)
                 # pylint: disable=duplicate-code
-                _ = ptk.grid_compare(
+                _ = maps.grid_compare(
                     np.abs(true_regional - mean),
                     stdev,
-                    fig_height=12,
                     region=plot_region,
                     grid1_name="True error",
                     grid2_name="Stochastic uncertainty",
                     robust=True,
                     hist=True,
                     inset=False,
-                    verbose="q",
                     title="difference",
                     coast=coast,
                     epsg=epsg,
-                    cmap="thermal",
-                    points=constraints_df.rename(
-                        columns={"easting": "x", "northing": "y"}
-                    ),
-                    points_style="x.3c",
+                    cmap="inferno",
+                    points=constraints_df,
+                    points_style=points_style,
                 )
-                _ = ptk.grid_compare(
+                _ = maps.grid_compare(
                     true_regional,
                     mean,
-                    fig_height=12,
                     region=plot_region,
                     grid1_name="True regional",
                     grid2_name="Mean regional",
                     robust=True,
                     hist=True,
                     inset=False,
-                    verbose="q",
                     title="difference",
                     coast=coast,
                     epsg=epsg,
                     cmap="viridis",
-                    points=constraints_df.rename(
-                        columns={"easting": "x", "northing": "y"}
-                    ),
-                    points_style="x.3c",
+                    points=constraints_df,
+                    points_style=points_style,
                 )
                 # pylint: enable=duplicate-code
         except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
@@ -1281,6 +1256,7 @@ def merged_stats(
     constraints_df: pd.DataFrame | None = None,
     weight_by: str = "residual",
     region: tuple[float, float, float, float] | None = None,
+    points_style: str = "x.3c",
 ) -> xr.Dataset:
     """
     Use the outputs of the function `uncertainty.full_workflow_uncertainty_loop` to
@@ -1352,10 +1328,10 @@ def merged_stats(
             plotting.plot_stochastic_results(
                 stats_ds=stats_ds,
                 points=constraints_df,
-                cmap="rain",
-                reverse_cpt=True,
+                cmap="gist_earth",
                 label="inverted topography",
                 points_label="Topography constraints",
+                points_style=points_style,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught # noqa: BLE001
             logger.error("plotting failed with error: %s", e)
