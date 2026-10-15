@@ -180,7 +180,7 @@ def test_regional_eq_sources():
 @pytest.mark.parametrize(
     "test_input",
     [
-        "verde",
+        "splines",
         "pygmt",  # issue with pygmt RuntimeWarning
         "eq_sources",
     ],
@@ -206,7 +206,7 @@ def test_regional_constraints(test_input):
         grid_method=test_input,
         grav_obs_height=1e3,
         depth=100e3,
-        spline_dampings=1e-3,
+        dampings=1e-3,
     )
 
     # ptk.grid_compare(
@@ -217,7 +217,7 @@ def test_regional_constraints(test_input):
     #     grid2_name="misfit",
     # )
 
-    if test_input == "verde":
+    if test_input == "splines":
         expected = [
             [-135.44952408, -90.62970577, -49.74718528, -10.56501417, 28.13953372],
             [-101.7301447, -57.61095466, -17.42773067, 21.22809215, 59.99595849],
@@ -274,6 +274,128 @@ def test_regional_constraints(test_input):
     # # test whether regional field has been remove correctly
     # # by whether the range of regional values are lower than the range of misfit values
     # assert reg_range < misfit_range
+
+
+def grid_point_constraints() -> pd.DataFrame:
+    """3 constraints on grid nodes and 1 between them"""
+    return pd.DataFrame(
+        data={
+            "easting": [0.0, 40000.0, 0.0, 15000.0],
+            "northing": [0.0, 0.0, 30000.0, 15000.0],
+            "upward": [500.0, 500.0, 500.0, 500.0],
+            "grid_points": [True, True, True, False],
+        }
+    )
+
+
+@pytest.mark.filterwarnings("ignore:The mindist parameter of verde.Spline")
+@pytest.mark.filterwarnings("ignore:The default scoring will change")
+@pytest.mark.filterwarnings("ignore:Cannot have number of splits")
+@pytest.mark.filterwarnings("ignore:decreasing number of splits by 1")
+@pytest.mark.filterwarnings("ignore:: sklearn.exceptions.UndefinedMetricWarning")
+@pytest.mark.parametrize(
+    "grid_method", ["pygmt", "splines", "nearest", "linear", "cubic"]
+)
+def test_regional_constraints_grid_points(grid_method):
+    """
+    the misfit at the constraints which fall on grid nodes should be used as the
+    regional field directly, giving a residual of exactly zero there
+    """
+    grav_data = observed_gravity()
+    constraints = grid_point_constraints()
+
+    invert4geom.regional.regional_constraints(
+        constraints_df=constraints,
+        grav_ds=grav_data,
+        grid_method=grid_method,
+        grid_points_col="grid_points",
+        dampings=1e-3 if grid_method == "splines" else None,
+    )
+
+    on_grid = constraints[constraints.grid_points]
+    residuals = [
+        float(grav_data.res.sel(easting=e, northing=n))
+        for e, n in zip(on_grid.easting, on_grid.northing, strict=True)
+    ]
+    np.testing.assert_allclose(residuals, 0, atol=1e-8)
+    if grid_method not in ("linear", "cubic"):
+        # `linear` and `cubic` don't extrapolate outside of the supplied points
+        assert not np.any(np.isnan(grav_data.reg.to_numpy()))
+
+
+def test_regional_constraints_grid_points_with_masked_data():
+    """
+    a `mask` which excludes the cells of the on-grid constraints, as when the model
+    holds those cells fixed, shouldn't stop them being used as the regional field
+    """
+    grav_data = observed_gravity()
+    constraints = grid_point_constraints()
+
+    # mask out the cells of the on-grid constraints, using the `create_model`
+    # convention of nans marking the excluded cells
+    on_grid = constraints[constraints.grid_points]
+    mask = xr.ones_like(grav_data.upward)
+    for e, n in zip(on_grid.easting, on_grid.northing, strict=True):
+        mask.loc[{"easting": e, "northing": n}] = np.nan
+    grav_data["mask"] = mask
+
+    # the forward gravity is needed at every cell, including the masked-out ones
+    grav_data.inv.forward_gravity(
+        invert4geom.inversion.create_model(
+            zref=0,
+            density_contrast=2670,
+            topography=grav_data[["upward"]] * 0 + 500,
+        )
+    )
+    assert not np.isnan(grav_data.forward_gravity).any()
+
+    invert4geom.regional.regional_constraints(
+        constraints_df=constraints,
+        grav_ds=grav_data,
+        grid_method="pygmt",
+        grid_points_col="grid_points",
+    )
+
+    # the masked-out cells are zeroed by the mask, which is what the on-grid
+    # constraints give anyway
+    residuals = [
+        float(grav_data.res.sel(easting=e, northing=n))
+        for e, n in zip(on_grid.easting, on_grid.northing, strict=True)
+    ]
+    np.testing.assert_allclose(residuals, 0, atol=1e-8)
+    assert not np.isnan(grav_data.res).any()
+
+
+def test_regional_constraints_grid_points_eq_sources_raises():
+    with pytest.raises(ValueError, match="can't be used if `grid_method`"):
+        invert4geom.regional.regional_constraints(
+            constraints_df=grid_point_constraints(),
+            grav_ds=observed_gravity(),
+            grid_method="eq_sources",
+            grid_points_col="grid_points",
+        )
+
+
+def test_regional_constraints_grid_points_missing_column_raises():
+    with pytest.raises(ValueError, match="not in `constraints_df`"):
+        invert4geom.regional.regional_constraints(
+            constraints_df=grid_point_constraints(),
+            grav_ds=observed_gravity(),
+            grid_method="pygmt",
+            grid_points_col="not_a_column",
+        )
+
+
+def test_regional_constraints_grid_points_none_true_raises():
+    constraints = grid_point_constraints()
+    constraints["grid_points"] = False
+    with pytest.raises(ValueError, match="no constraint points have"):
+        invert4geom.regional.regional_constraints(
+            constraints_df=constraints,
+            grav_ds=observed_gravity(),
+            grid_method="pygmt",
+            grid_points_col="grid_points",
+        )
 
 
 # %%
@@ -460,6 +582,162 @@ def test_regional_constant_both_args_raises():
             grav_ds=grav_data,
             constant=-100,
             constraints_df=constraints,
+        )
+
+
+def scattered_constraints() -> pd.DataFrame:
+    """several constraints per gravity cell, with weights"""
+    rng = np.random.default_rng(seed=0)
+    return pd.DataFrame(
+        data={
+            "easting": rng.uniform(0, 40000, 30),
+            "northing": rng.uniform(0, 30000, 30),
+            "upward": np.full(30, 500.0),
+            "weights": np.full(30, 2.0),
+            "reduce": np.tile([True, False], 15),
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("deprecated", "new"),
+    [
+        ({"tension_factor": 0.5}, {"tension": 0.5}),
+        ({"constraints_block_size": 15000}, {"block_size": 15000}),
+        (
+            {"constraints_block_size": 15000, "constraints_weights_column": "weights"},
+            {"block_size": 15000, "weights_col": "weights"},
+        ),
+    ],
+)
+def test_regional_constraints_deprecated_parameters(deprecated, new):
+    """the deprecated parameter names should warn but give the same result"""
+    constraints = scattered_constraints()
+
+    old_ds = observed_gravity()
+    with pytest.warns(UserWarning, match="is deprecated"):
+        invert4geom.regional.regional_constraints(
+            constraints_df=constraints,
+            grav_ds=old_ds,
+            grid_method="pygmt",
+            **deprecated,
+        )
+
+    new_ds = observed_gravity()
+    invert4geom.regional.regional_constraints(
+        constraints_df=constraints,
+        grav_ds=new_ds,
+        grid_method="pygmt",
+        **new,
+    )
+
+    np.testing.assert_allclose(old_ds.reg.to_numpy(), new_ds.reg.to_numpy())
+
+
+@pytest.mark.filterwarnings("ignore:The mindist parameter of verde.Spline")
+@pytest.mark.filterwarnings("ignore:The default scoring will change")
+@pytest.mark.filterwarnings("ignore:Cannot have number of splits")
+@pytest.mark.filterwarnings("ignore:decreasing number of splits by 1")
+def test_regional_constraints_deprecated_verde_grid_method():
+    """`verde` should warn and give the same result as `splines`"""
+    constraints = scattered_constraints()
+
+    old_ds = observed_gravity()
+    with pytest.warns(UserWarning, match="'verde' is deprecated"):
+        invert4geom.regional.regional_constraints(
+            constraints_df=constraints,
+            grav_ds=old_ds,
+            grid_method="verde",
+            dampings=1e-3,
+        )
+
+    new_ds = observed_gravity()
+    invert4geom.regional.regional_constraints(
+        constraints_df=constraints,
+        grav_ds=new_ds,
+        grid_method="splines",
+        dampings=1e-3,
+    )
+
+    np.testing.assert_allclose(old_ds.reg.to_numpy(), new_ds.reg.to_numpy())
+
+
+@pytest.mark.parametrize("block_reduction", ["mean", "median"])
+def test_regional_constraints_block_reduction(block_reduction):
+    """both block reductions should give a regional field without missing values"""
+    grav_data = observed_gravity()
+
+    invert4geom.regional.regional_constraints(
+        constraints_df=scattered_constraints(),
+        grav_ds=grav_data,
+        grid_method="pygmt",
+        block_size=15000,
+        block_reduction=block_reduction,
+        weights_col="weights",
+    )
+
+    assert not np.any(np.isnan(grav_data.reg.to_numpy()))
+
+
+def test_regional_constraints_block_reduction_col():
+    """only the points where `block_reduction_col` is True should be reduced"""
+    constraints = scattered_constraints()
+
+    subset_ds = observed_gravity()
+    invert4geom.regional.regional_constraints(
+        constraints_df=constraints,
+        grav_ds=subset_ds,
+        grid_method="pygmt",
+        block_size=15000,
+        block_reduction="median",
+        block_reduction_col="reduce",
+    )
+
+    all_ds = observed_gravity()
+    invert4geom.regional.regional_constraints(
+        constraints_df=constraints,
+        grav_ds=all_ds,
+        grid_method="pygmt",
+        block_size=15000,
+        block_reduction="median",
+    )
+
+    assert not np.allclose(subset_ds.reg.to_numpy(), all_ds.reg.to_numpy())
+
+
+def test_regional_constraints_block_reduction_col_missing_raises():
+    with pytest.raises(ValueError, match="`block_reduction_col`"):
+        invert4geom.regional.regional_constraints(
+            constraints_df=scattered_constraints(),
+            grav_ds=observed_gravity(),
+            grid_method="pygmt",
+            block_size=15000,
+            block_reduction_col="not_a_column",
+        )
+
+
+def test_regional_constraints_maxdist():
+    """`maxdist` should limit which points fill the cells without a constraint"""
+    grav_data = observed_gravity()
+
+    invert4geom.regional.regional_constraints(
+        constraints_df=grid_point_constraints(),
+        grav_ds=grav_data,
+        grid_method="pygmt",
+        grid_points_col="grid_points",
+        maxdist=50000,
+    )
+
+    assert not np.any(np.isnan(grav_data.reg.to_numpy()))
+
+
+@pytest.mark.parametrize("grid_method", ["nearest", "linear", "cubic"])
+def test_regional_constraints_fill_only_methods_require_grid_points(grid_method):
+    with pytest.raises(ValueError, match="can only be used if `grid_points_col`"):
+        invert4geom.regional.regional_constraints(
+            constraints_df=grid_point_constraints(),
+            grav_ds=observed_gravity(),
+            grid_method=grid_method,
         )
 
 

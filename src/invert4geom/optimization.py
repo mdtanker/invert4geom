@@ -1695,12 +1695,12 @@ class OptimizeRegionalConstraintsPointMinimization:
         testing_df: pd.DataFrame | list[pd.DataFrame],
         grid_method: str,
         # for tensioned minimum curvature gridding
-        tension_factor_limits: tuple[float, float] = (0, 1),
+        tension_limits: tuple[float, float] = (0, 1),
         # for bi-harmonic spline gridding
         spline_damping_limits: tuple[float, float] | None = None,
         # for eq source gridding
         depth_limits: tuple[float, float] | None = None,
-        block_size_limits: tuple[float, float] | None = None,
+        eq_source_block_size_limits: tuple[float, float] | None = None,
         damping_limits: tuple[float, float] | None = None,
         grav_obs_height_limits: tuple[float, float] | None = None,
         # other args
@@ -1712,10 +1712,10 @@ class OptimizeRegionalConstraintsPointMinimization:
         self.training_df = training_df
         self.testing_df = testing_df
         self.grid_method = grid_method
-        self.tension_factor_limits = tension_factor_limits
+        self.tension_limits = tension_limits
         self.spline_damping_limits = spline_damping_limits
         self.depth_limits = depth_limits
-        self.block_size_limits = block_size_limits
+        self.eq_source_block_size_limits = eq_source_block_size_limits
         self.damping_limits = damping_limits
         self.grav_obs_height_limits = grav_obs_height_limits
         self.optimize_on_true_regional_misfit = optimize_on_true_regional_misfit
@@ -1739,31 +1739,33 @@ class OptimizeRegionalConstraintsPointMinimization:
         new_kwargs = copy.deepcopy(self.kwargs)
 
         if self.grid_method == "pygmt":
-            new_kwargs["tension_factor"] = trial.suggest_float(
-                "tension_factor",
-                self.tension_factor_limits[0],
-                self.tension_factor_limits[1],
+            new_kwargs["tension"] = trial.suggest_float(
+                "tension",
+                self.tension_limits[0],
+                self.tension_limits[1],
             )
-        elif self.grid_method == "verde":
+        elif self.grid_method == "splines":
             if self.spline_damping_limits is None:
-                msg = "if grid_method is 'verde' must provide spline_damping_limits"
+                msg = "if grid_method is 'splines' must provide spline_damping_limits"
                 raise ValueError(msg)
-            new_kwargs["spline_dampings"] = trial.suggest_float(
-                "spline_dampings",
+            new_kwargs["dampings"] = trial.suggest_float(
+                "dampings",
                 self.spline_damping_limits[0],
                 self.spline_damping_limits[1],
                 log=True,
             )
 
         elif self.grid_method == "eq_sources":
-            if self.block_size_limits is not None:
-                new_kwargs["block_size"] = trial.suggest_float(
-                    "block_size",
-                    self.block_size_limits[0],
-                    self.block_size_limits[1],
+            if self.eq_source_block_size_limits is not None:
+                new_kwargs["eq_source_block_size"] = trial.suggest_float(
+                    "eq_source_block_size",
+                    self.eq_source_block_size_limits[0],
+                    self.eq_source_block_size_limits[1],
                 )
             else:
-                new_kwargs["block_size"] = self.kwargs.get("block_size", None)
+                new_kwargs["eq_source_block_size"] = self.kwargs.get(
+                    "eq_source_block_size", None
+                )
 
             if self.damping_limits is not None:
                 new_kwargs["damping"] = trial.suggest_float(
@@ -2382,10 +2384,10 @@ def optimize_regional_constraint_point_minimization(
     grid_method: str,
     grav_ds: xr.Dataset,
     n_trials: int,
-    tension_factor_limits: tuple[float, float] = (0, 1),
+    tension_limits: tuple[float, float] = (0, 1),
     spline_damping_limits: tuple[float, float] | None = None,
     depth_limits: tuple[float, float] | None = None,
-    block_size_limits: tuple[float, float] | None = None,
+    eq_source_block_size_limits: tuple[float, float] | None = None,
     damping_limits: tuple[float, float] | None = None,
     grav_obs_height_limits: tuple[float, float] | None = None,
     sampler: optuna.samplers.BaseSampler | None = None,
@@ -2400,6 +2402,8 @@ def optimize_regional_constraint_point_minimization(
     parallel: bool = False,
     fname: str | None = None,
     seed: int = 0,
+    tension_factor_limits: tuple[float, float] | None = None,
+    block_size_limits: tuple[float, float] | None = None,
     **kwargs: typing.Any,
 ) -> tuple[optuna.study.Study, xr.Dataset, optuna.trial.FrozenTrial]:
     """
@@ -2437,7 +2441,7 @@ def optimize_regional_constraint_point_minimization(
         cross validation and the score for each set of parameters will be the mean of
         the K-scores.
     grid_method : str
-        constraint point minimization method to use, choose between "verde" for
+        constraint point minimization method to use, choose between "splines" for
         bi-harmonic spline gridding, "pygmt" for tensioned minimum curvature gridding,
         or "eq_sources" for equivalent sources gridding.
     grav_ds : xarray.Dataset
@@ -2445,13 +2449,13 @@ def optimize_regional_constraint_point_minimization(
         `gravity_anomaly`.
     n_trials : int
         number of trials to run
-    tension_factor_limits : tuple[float, float], optional
+    tension_limits : tuple[float, float], optional
         limits to use for the PyGMT tension factor gridding, by default (0, 1)
     spline_damping_limits : tuple[float, float] | None, optional
         limits to use for the Verde bi-harmonic spline damping, by default None
     depth_limits : tuple[float, float] | None, optional
         limits to use for the equivalent sources' depths, by default None
-    block_size_limits : tuple[float, float] | None, optional
+    eq_source_block_size_limits : tuple[float, float] | None, optional
         limits to use for the block size for fitting equivalent sources, by default None
     damping_limits : tuple[float, float] | None, optional
         limits to use for the damping value for fitting equivalent sources, by default
@@ -2491,6 +2495,10 @@ def optimize_regional_constraint_point_minimization(
         file name to save the study to, by default None
     seed : int, optional
         random seed for the samplers, by default 0
+    tension_factor_limits : tuple[float, float] | None, optional
+        deprecated, use `tension_limits` instead, by default None
+    block_size_limits : tuple[float, float] | None, optional
+        deprecated, use `eq_source_block_size_limits` instead, by default None
     kwargs : typing.Any
         additional keyword arguments to pass to the :meth:`DatasetAccessorInvert4Geom.regional_separation`
 
@@ -2508,6 +2516,23 @@ def optimize_regional_constraint_point_minimization(
         msg = "Function `optimize_regional_constraint_point_minimization` has been changed, data must be provided to parameter `grav_ds` as an xarray dataset initialized through function `create_data`"
         raise DeprecationWarning(msg)
     optuna.logging.set_verbosity(optuna.logging.WARN)
+
+    tension_limits = utils._deprecated_parameter(  # pylint: disable=protected-access
+        "tension_factor_limits", tension_factor_limits, "tension_limits", tension_limits
+    )
+    eq_source_block_size_limits = utils._deprecated_parameter(  # pylint: disable=protected-access
+        "block_size_limits",
+        block_size_limits,
+        "eq_source_block_size_limits",
+        eq_source_block_size_limits,
+    )
+    if grid_method == "verde":
+        warnings.warn(
+            "`grid_method` value 'verde' is deprecated, please use 'splines' instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        grid_method = "splines"
 
     kwargs = copy.deepcopy(kwargs)
 
@@ -2554,31 +2579,29 @@ def optimize_regional_constraint_point_minimization(
 
     # enqueue limits as trials
     if grid_method == "pygmt":
+        study.enqueue_trial({"tension": tension_limits[0]}, skip_if_exists=True)
+        study.enqueue_trial({"tension": tension_limits[1]}, skip_if_exists=True)
+    elif grid_method == "splines":
         study.enqueue_trial(
-            {"tension_factor": tension_factor_limits[0]}, skip_if_exists=True
-        )
-        study.enqueue_trial(
-            {"tension_factor": tension_factor_limits[1]}, skip_if_exists=True
-        )
-    elif grid_method == "verde":
-        study.enqueue_trial(
-            {"spline_dampings": spline_damping_limits[0]},  # type: ignore[index]
+            {"dampings": spline_damping_limits[0]},  # type: ignore[index]
             skip_if_exists=True,
         )
         study.enqueue_trial(
-            {"spline_dampings": spline_damping_limits[1]},  # type: ignore[index]
+            {"dampings": spline_damping_limits[1]},  # type: ignore[index]
             skip_if_exists=True,
         )
     elif grid_method == "eq_sources":
         if depth_limits is not None:
             study.enqueue_trial({"depth": depth_limits[0]}, skip_if_exists=True)
             study.enqueue_trial({"depth": depth_limits[1]}, skip_if_exists=True)
-        if block_size_limits is not None:
+        if eq_source_block_size_limits is not None:
             study.enqueue_trial(
-                {"block_size": block_size_limits[0]}, skip_if_exists=True
+                {"eq_source_block_size": eq_source_block_size_limits[0]},
+                skip_if_exists=True,
             )
             study.enqueue_trial(
-                {"block_size": block_size_limits[1]}, skip_if_exists=True
+                {"eq_source_block_size": eq_source_block_size_limits[1]},
+                skip_if_exists=True,
             )
         if damping_limits is not None:
             study.enqueue_trial({"damping": damping_limits[0]}, skip_if_exists=True)
@@ -2601,10 +2624,10 @@ def optimize_regional_constraint_point_minimization(
             # kwargs for regional_constraints:
             grav_ds=grav_ds,
             grid_method=grid_method,
-            tension_factor_limits=tension_factor_limits,
+            tension_limits=tension_limits,
             spline_damping_limits=spline_damping_limits,
             depth_limits=depth_limits,
-            block_size_limits=block_size_limits,
+            eq_source_block_size_limits=eq_source_block_size_limits,
             damping_limits=damping_limits,
             grav_obs_height_limits=grav_obs_height_limits,
             # optimization kwargs
@@ -2635,11 +2658,13 @@ def optimize_regional_constraint_point_minimization(
 
     # get optimal hyperparameter values
     # if not included in optimization, get from kwargs
-    tension_factor = best_trial.params.get("tension_factor", 1)
-    spline_dampings = best_trial.params.get("spline_dampings", None)
+    tension = best_trial.params.get("tension", 1)
+    dampings = best_trial.params.get("dampings", None)
     depth = best_trial.params.get("depth", kwargs.pop("depth", "default"))
     damping = best_trial.params.get("damping", kwargs.pop("damping", None))
-    block_size = best_trial.params.get("block_size", kwargs.pop("block_size", None))
+    eq_source_block_size = best_trial.params.get(
+        "eq_source_block_size", kwargs.pop("eq_source_block_size", None)
+    )
     grav_obs_height = best_trial.params.get(
         "grav_obs_height", kwargs.pop("grav_obs_height", None)
     )
@@ -2649,11 +2674,11 @@ def optimize_regional_constraint_point_minimization(
         method="constraints",
         constraints_df=constraints_df,
         grid_method=grid_method,
-        tension_factor=tension_factor,
-        spline_dampings=spline_dampings,
+        tension=tension,
+        dampings=dampings,
         depth=depth,
         damping=damping,
-        block_size=block_size,
+        eq_source_block_size=eq_source_block_size,
         grav_obs_height=grav_obs_height,
         **kwargs,
     )

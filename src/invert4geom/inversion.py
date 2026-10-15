@@ -967,8 +967,9 @@ class DatasetAccessorInvert4Geom:
 
     def regional_filter(
         self,
-        filter_width: float,
+        filter_width: float | None = None,
         filter_type: str = "lowpass",
+        height_displacement: float | None = None,
         regional_shift: float = 0,
         mask_column: str | None = None,
         reverse_regional_residual: bool = False,
@@ -978,10 +979,11 @@ class DatasetAccessorInvert4Geom:
         ``gravity_anomaly`` and ``forward_gravity``. Then separate the misfit into
         regional and residual components where ``residual = misfit - regional``.
 
-        Approximate the regional field by filtering the gravity misfit with a low-pass
-        gaussian filter with a supplied filter width,
-        using :func:`harmonica.gaussian_lowpass`. The grid will automatically be
-        padded to reduce edge effects.
+        Approximate the regional field by filtering the gravity misfit, by default with
+        a low-pass gaussian filter with a supplied filter width,
+        using :func:`harmonica.gaussian_lowpass`. For
+        ``filter_type="up_continue"``, supply ``height_displacement`` instead of
+        ``filter_width``. The grid will automatically be padded to reduce edge effects.
 
         The resulting regional field can be shifted with ``regional_shift``, and the
         calculated residual field can be multiplied by the values in ``mask_column``.
@@ -992,10 +994,13 @@ class DatasetAccessorInvert4Geom:
 
         Parameters
         ----------
-        filter_width : float
-            width in meters to use for the low-pass filter
+        filter_width : float | None, optional
+            width in meters to use for low-pass / high-pass filters, by default None
         filter_type : str, optional
             type of filter to apply, by default "lowpass"
+        height_displacement : float | None, optional
+            height displacement in meters for ``filter_type="up_continue"``, by default
+            None
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
@@ -1014,6 +1019,7 @@ class DatasetAccessorInvert4Geom:
             grav_ds=self._ds,
             filter_width=filter_width,
             filter_type=filter_type,
+            height_displacement=height_displacement,
             regional_shift=regional_shift,
             mask_column=mask_column,
             reverse_regional_residual=reverse_regional_residual,
@@ -1164,19 +1170,27 @@ class DatasetAccessorInvert4Geom:
         self,
         constraints_df: pd.DataFrame,
         grid_method: str = "eq_sources",
-        constraints_block_size: float | None = None,
-        constraints_weights_column: str | None = None,
-        tension_factor: float = 1,
-        spline_dampings: float | list[float] | None = None,
+        block_size: float | None = None,
+        block_reduction: str = "mean",
+        block_reduction_col: str | None = None,
+        weights_col: str | None = None,
+        grid_points_col: str | None = None,
+        tension: float = 1,
+        dampings: float | list[float] | None = None,
+        maxdist: float | None = None,
         depth: float | str | None = None,
         damping: float | None = None,
         cv: bool = False,
-        block_size: float | None = None,
+        eq_source_block_size: float | None = None,
         grav_obs_height: float | None = None,
         cv_kwargs: dict[str, typing.Any] | None = None,
         regional_shift: float = 0,
         mask_column: str | None = None,
         reverse_regional_residual: bool = False,
+        constraints_block_size: float | None = None,
+        constraints_weights_column: str | None = None,
+        tension_factor: float | None = None,
+        spline_dampings: float | list[float] | None = None,
     ) -> None:
         """
         Calculate the gravity misfit as the difference between dataset variables
@@ -1194,15 +1208,21 @@ class DatasetAccessorInvert4Geom:
 
         Tensioned splines (grid_method="pygmt")
             - uses :func:`pygmt.surface`
-            - amount of tension (0-1) can be set with ``tension_factor``
+            - amount of tension (0-1) can be set with ``tension``
 
-        Bi-harmonic splines (grid_method="verde")
+        Bi-harmonic splines (grid_method="splines")
             - uses :class:`verde.Spline`
-            - amount of damping can be set with ``spline_dampings``, or a list of damping values can be provided to find the optimal damping through cross-validation using :func:`optimal_spline_damping`
+            - amount of damping can be set with ``dampings``, or a list of damping values can be provided to find the optimal damping through cross-validation using :func:`optimal_spline_damping`
 
-        If there are many constraints, they can be block reduced with
-        ``constraints_block_size`` and optional ``constraints_weights_column`` can be
-        used to weight the constraints during block reduction.
+        If some constraints fall on the nodes of the gravity grid, indicated by the
+        boolean column ``grid_points_col``, the misfit there is used as the regional
+        field directly and only the remaining cells are interpolated with
+        :func:`invert4geom.fill_missing`, which also makes the ``grid_method`` values
+        ``nearest``, ``linear`` and ``cubic`` available.
+
+        If there are many constraints, they can be block reduced with ``block_size``,
+        optionally weighted with ``weights_col`` and optionally limited to a subset of
+        the points with ``block_reduction_col``.
 
         The resulting regional field can be shifted with ``regional_shift``, and the
         calculated residual field can be multiplied by the values in ``mask_column``.
@@ -1218,18 +1238,39 @@ class DatasetAccessorInvert4Geom:
             ``longitude``, ``latitude``), and ``upward``.
         grid_method : str, optional
             method used to grid the sampled gravity data at the constraint points. Choose
-            between ``verde``, ``pygmt``, or ``eq_sources``, by default ``eq_sources``
-        constraints_block_size : float | None, optional
-            size of block used in a block-mean reduction of the constraints points, by
-            default None
-        constraints_weights_column : str | None, optional
+            between ``splines``, ``pygmt``, or ``eq_sources``, or, if
+            ``grid_points_col`` is provided, ``nearest``, ``linear`` or ``cubic``, by
+            default ``eq_sources``
+        block_size : float | None, optional
+            size of block used in a block reduction of the constraint points before
+            gridding, by default None
+        block_reduction : str, optional
+            type of block reduction to apply. If ``mean``, :class:`verde.BlockMean` is
+            used and the reduced weights are kept for the gridding. If ``median``,
+            :class:`verde.BlockReduce` is used and any weights are ignored and dropped,
+            by default ``mean``
+        block_reduction_col : str | None, optional
+            name of a boolean column of ``constraints_df``, where True indicates points
+            which should be block-reduced. Points which are False are left unaltered and
+            added back to the block-reduced points, by default None
+        weights_col : str | None, optional
             column name for weighting values of each constraint point. Used if
-            ``constraints_block_size`` is not None or if ``grid_method`` is ``verde`` or
+            ``block_size`` is not None or if ``grid_method`` is ``splines`` or
             ``eq_sources``, by default None
-        tension_factor : float, optional
-            Tension factor used if ``grid_method`` is ``pygmt``, by default 1
-        spline_dampings : float | list[float] | None, optional
-            damping values used if ``grid_method`` is ``verde``, by default None
+        grid_points_col : str | None, optional
+            name of a boolean column of ``constraints_df``, where True indicates points
+            which fall on the nodes of the gravity grid. The misfit at these points is
+            used directly as the regional field, and only the remaining cells are
+            interpolated from the other constraint points with
+            :func:`invert4geom.fill_missing`, making the residual exactly zero at those
+            points. Not available if ``grid_method`` is ``eq_sources``, by default None
+        tension : float, optional
+            tension factor used if ``grid_method`` is ``pygmt``, by default 1
+        dampings : float | list[float] | None, optional
+            damping values used if ``grid_method`` is ``splines``, by default None
+        maxdist : float | None, optional
+            if ``grid_points_col`` is provided, only interpolate the remaining cells
+            with constraint points within this distance of them, by default None
         depth : float | str | None, optional
             depth of each source relative to the data elevation, positive downwards in
             meters, by default None
@@ -1241,8 +1282,9 @@ class DatasetAccessorInvert4Geom:
             ``optimization.optimize_eq_source_params`` and can contain:
             ``n_trials``, ``damping_limits``, ``depth_limits``,
             ``block_size_limits``, and ``progressbar``.
-        block_size : float | None, optional
-            block size used if ``grid_method`` is ``eq_sources``, by default None
+        eq_source_block_size : float | None, optional
+            block size of the equivalent sources, used if ``grid_method`` is
+            ``eq_sources``, by default None
         grav_obs_height : float, optional
             Observation height to use if ``grid_method`` is ``eq_sources``, by default None
         cv_kwargs : dict[str, typing.Any] | None, optional
@@ -1258,6 +1300,14 @@ class DatasetAccessorInvert4Geom:
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
+        constraints_block_size : float | None, optional
+            deprecated, use ``block_size`` instead, by default None
+        constraints_weights_column : str | None, optional
+            deprecated, use ``weights_col`` instead, by default None
+        tension_factor : float | None, optional
+            deprecated, use ``tension`` instead, by default None
+        spline_dampings : float | list[float] | None, optional
+            deprecated, use ``dampings`` instead, by default None
 
         See also
         --------
@@ -1270,19 +1320,27 @@ class DatasetAccessorInvert4Geom:
             grav_ds=self._ds,
             constraints_df=constraints_df,
             grid_method=grid_method,
-            constraints_block_size=constraints_block_size,
-            constraints_weights_column=constraints_weights_column,
-            tension_factor=tension_factor,
-            spline_dampings=spline_dampings,
+            block_size=block_size,
+            block_reduction=block_reduction,
+            block_reduction_col=block_reduction_col,
+            weights_col=weights_col,
+            grid_points_col=grid_points_col,
+            tension=tension,
+            dampings=dampings,
+            maxdist=maxdist,
             depth=depth,
             damping=damping,
             cv=cv,
-            block_size=block_size,
+            eq_source_block_size=eq_source_block_size,
             grav_obs_height=grav_obs_height,
             cv_kwargs=cv_kwargs,
             regional_shift=regional_shift,
             mask_column=mask_column,
             reverse_regional_residual=reverse_regional_residual,
+            constraints_block_size=constraints_block_size,
+            constraints_weights_column=constraints_weights_column,
+            tension_factor=tension_factor,
+            spline_dampings=spline_dampings,
         )
 
         self._save_starting_anomalies()
