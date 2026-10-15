@@ -1881,7 +1881,10 @@ def create_data(
         buffer_width = min_dimension * 0.1
         buffer_width = round(buffer_width / spacing) * spacing
 
-    assert buffer_width % spacing == 0, (
+    # tolerant modulo check: non-integer spacings (e.g. from verde adjusting the
+    # spacing to fit a region) make exact float modulo unreliable
+    remainder = buffer_width % spacing
+    assert np.isclose(remainder, 0) or np.isclose(remainder, spacing), (
         f"buffer_width ({buffer_width}) must be a multiple of the grid spacing ({spacing}) of the provided gravity dataframe"
     )
     min_region_width = min(region[1] - region[0], region[3] - region[2])
