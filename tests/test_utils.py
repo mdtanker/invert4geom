@@ -428,6 +428,176 @@ def test_normalized_mindist_high_low():
     assert np.max(min_dist) == pytest.approx(5)
 
 
+def mindist_grid() -> xr.DataArray:
+    """a regular grid with a single constraint point at its lower-left corner"""
+    (x, y) = vd.grid_coordinates(region=(0, 100, 0, 100), spacing=10)
+    return vd.make_xarray_grid(
+        (x, y),
+        np.ones_like(x),
+        data_names="dummy",
+        dims=("northing", "easting"),
+    ).dummy
+
+
+def test_normalized_mindist_mindist_normalized():
+    """
+    cells below `mindist` should be set to `low` and be excluded from the values used
+    to normalize, so the smallest remaining distance is the one mapped to `low`
+    """
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        mindist=50,
+    )
+    # inside `mindist` of the point
+    assert min_dist.sel(easting=0, northing=0) == pytest.approx(0)
+    assert min_dist.sel(easting=30, northing=30) == pytest.approx(0)
+    # smallest distance above `mindist` sets the low end of the normalization
+    assert min_dist.sel(easting=50, northing=0) == pytest.approx(0)
+    # furthest cell sets the high end
+    assert min_dist.sel(easting=100, northing=100) == pytest.approx(1)
+
+
+def test_normalized_mindist_maxdist():
+    """
+    with `maxdist`, the normalization should be anchored on distance values instead of
+    percentiles, with `mindist` mapped to `low` and `maxdist` mapped to `high`
+    """
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        mindist=20,
+        maxdist=70,
+    )
+    # below `mindist`
+    assert min_dist.sel(easting=10, northing=0) == pytest.approx(0)
+    # `mindist` maps to `low`
+    assert min_dist.sel(easting=20, northing=0) == pytest.approx(0)
+    # linearly scaled in between
+    assert min_dist.sel(easting=50, northing=0) == pytest.approx((50 - 20) / (70 - 20))
+    # `maxdist` maps to `high`, and beyond is clipped to it
+    assert min_dist.sel(easting=70, northing=0) == pytest.approx(1)
+    assert min_dist.sel(easting=100, northing=100) == pytest.approx(1)
+
+
+def test_normalized_mindist_maxdist_without_mindist():
+    """without `mindist`, `maxdist` should normalize distances from 0"""
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        maxdist=50,
+    )
+    assert min_dist.sel(easting=0, northing=0) == pytest.approx(0)
+    assert min_dist.sel(easting=20, northing=0) == pytest.approx(0.4)
+    assert min_dist.sel(easting=50, northing=0) == pytest.approx(1)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "msg"),
+    [
+        ({"maxdist": 50}, "must provide `low` and `high`"),
+        (
+            {"low": 0, "high": 1, "maxdist": 50, "high_percentile": 98},
+            "can't use `maxdist` together with",
+        ),
+        (
+            {"low": 0, "high": 1, "mindist": 50, "maxdist": 50},
+            "must be greater than `mindist`",
+        ),
+    ],
+)
+def test_normalized_mindist_maxdist_errors(kwargs, msg):
+    """invalid combinations of `maxdist` with other parameters should raise"""
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    with pytest.raises(ValueError, match=msg):
+        utils.normalized_mindist(
+            points=points,
+            grid=mindist_grid(),
+            **kwargs,
+        )
+
+
+def test_normalized_mindist_outside_region_value_normalized():
+    """
+    `outside_region_value` should be the final value of the cells outside the region,
+    not a value which then gets normalized, and cells outside the region shouldn't
+    influence the normalization of the cells inside it
+    """
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        region=[0, 50, 0, 50],
+        outside_region_value=0.5,
+    )
+    # outside the region
+    assert min_dist.sel(easting=100, northing=100) == pytest.approx(0.5)
+    assert min_dist.sel(easting=60, northing=0) == pytest.approx(0.5)
+    # inside the region, which alone spans the full low to high range
+    assert min_dist.sel(easting=0, northing=0) == pytest.approx(0)
+    assert min_dist.sel(easting=50, northing=50) == pytest.approx(1)
+
+
+def test_normalized_mindist_outside_region_value_defaults_to_low():
+    """without `outside_region_value`, cells outside the region should be set to `low`"""
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0.2,
+        high=5,
+        region=[0, 50, 0, 50],
+    )
+    assert min_dist.sel(easting=100, northing=100) == pytest.approx(0.2)
+    assert min_dist.sel(easting=50, northing=50) == pytest.approx(5)
+
+
+def test_normalized_mindist_percentiles():
+    """
+    percentiles should clip the tails of the distances, giving more than one cell at
+    each of `low` and `high`
+    """
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        low_percentile=20,
+        high_percentile=80,
+    )
+    assert min_dist.min() == pytest.approx(0)
+    assert min_dist.max() == pytest.approx(1)
+    assert (min_dist == 0).sum() > 1
+    assert (min_dist == 1).sum() > 1
+
+
+def test_normalized_mindist_nans_preserved():
+    """nans of the supplied grid should still be nans in the output"""
+    points, da = normalized_mindist_inputs()
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=da,
+        low=0,
+        high=1,
+        mindist=4,
+        region=[-4.0, 0.0, -4.0, 0.0],
+        outside_region_value=0.5,
+    )
+    npt.assert_array_equal(np.isnan(min_dist.values), np.isnan(da.values))
+
+
 ################
 ################
 # region_mask
@@ -543,6 +713,45 @@ def test_normalized_mindist_only_high_raises():
     points, da = normalized_mindist_inputs()
     with pytest.raises(ValueError, match="both `low` and `high`"):
         utils.normalized_mindist(points=points, grid=da, high=5)
+
+
+def test_normalized_mindist_outside_region_value_without_region_raises():
+    """`outside_region_value` is meaningless without a region"""
+    points, da = normalized_mindist_inputs()
+    with pytest.raises(ValueError, match="must provide `region`"):
+        utils.normalized_mindist(points=points, grid=da, outside_region_value=1)
+
+
+@pytest.mark.parametrize(
+    ("low_percentile", "high_percentile"),
+    [(-1, 100), (0, 101), (80, 20), (50, 50)],
+)
+def test_normalized_mindist_invalid_percentiles_raise(
+    low_percentile: float,
+    high_percentile: float,
+):
+    """percentiles must be within 0-100 and increasing"""
+    points, da = normalized_mindist_inputs()
+    with pytest.raises(ValueError, match="`low_percentile` < `high_percentile`"):
+        utils.normalized_mindist(
+            points=points,
+            grid=da,
+            low_percentile=low_percentile,
+            high_percentile=high_percentile,
+        )
+
+
+def test_normalized_mindist_all_cells_fixed_raises():
+    """if no cells are left to normalize, raise instead of returning all nans"""
+    points, da = normalized_mindist_inputs()
+    with pytest.raises(ValueError, match="no grid cells remain"):
+        utils.normalized_mindist(
+            points=points,
+            grid=da,
+            low=0,
+            high=1,
+            mindist=1e6,
+        )
 
 
 ################

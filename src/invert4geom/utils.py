@@ -246,7 +246,7 @@ def _nearest_grid_fill(
 
 def region_mask(
     grid: xr.DataArray,
-    region: tuple[float, float, float, float],
+    region: tuple[float, float, float, float] | list[float],
 ) -> xr.DataArray:
     """
     Make a mask with values of 1 inside a region and 0 outside the region.
@@ -492,9 +492,15 @@ def normalize_xarray(
     da: xr.DataArray,
     low: float = 0,
     high: float = 1,
+    low_percentile: float = 0,
+    high_percentile: float = 100,
 ) -> xr.DataArray:
     """
-    Normalize a grid between provided values
+    Normalize a grid between provided values. Be default normalizes the grids minimum
+    values to 0 and maximum value to 1, alternatively, low_percentile and
+    high_percentile can be passed for more robust normilization. For example, values of
+    2% and 98% would set the grids 2nd percentile to 0, and all data below the 2nd
+    percentile would be clipped to 0, and same for the high values of the grid.
 
     Parameters
     ----------
@@ -504,25 +510,37 @@ def normalize_xarray(
         lower value for normalization, by default 0
     high : float, optional
         higher value for normalization, by default 1
+    low_percentile : float, optional
+        which grid value as percentile to normalize to the low value, by default 0, the
+        grids true minimum
+    high_percentile : float, optional
+        which grid value as percentile to normalize to the high value, by default 100,
+        the grids true maximum
 
     Returns
     -------
     xarray.DataArray
         a normalized grid
     """
-    # min_val = da.to_numpy().min()
-    # max_val = da.to_numpy().max()
-
     da = da.copy()
 
-    min_val = da.quantile(0)
-    max_val = da.quantile(1)
+    min_val = da.quantile(low_percentile / 100, skipna=True)
+    max_val = da.quantile(high_percentile / 100, skipna=True)
 
-    da2: xr.DataArray = (high - low) * (
-        ((da - min_val) / (max_val - min_val)).clip(0, 1)
-    ) + low
+    if float(max_val - min_val) == 0:
+        logger.warning(
+            "grid has no range between the %s and %s percentiles, setting all values "
+            "to `low` (%s)",
+            low_percentile,
+            high_percentile,
+            low,
+        )
+        # multiply by 0 instead of zeros_like to keep the grid's nans
+        da2: xr.DataArray = (da * 0) + low
+    else:
+        da2 = (high - low) * (((da - min_val) / (max_val - min_val)).clip(0, 1)) + low
 
-    return da2.drop_vars("quantile")
+    return da2.drop_vars("quantile", errors="ignore")
 
 
 def scale_normalized(
@@ -561,12 +579,25 @@ def normalized_mindist(
     low: float | None = None,
     high: float | None = None,
     mindist: float | None = None,
+    maxdist: float | None = None,
     region: list[float] | None = None,
+    outside_region_value: float | None = None,
+    low_percentile: float = 0,
+    high_percentile: float = 100,
 ) -> xr.DataArray:
     """
     Find the minimum distance between each grid cell and the nearest point. If low and
-    high are provided, normalize the min dists grid between these values. If region is
-    provided, all grid cells outside region are set to a distance of 0.
+    high are provided, normalize the min dists grid between these values. Grid cells
+    closer than `mindist` to a point are set to `low`, and grid cells outside of
+    `region` are set to `outside_region_value` (`low` by default). These fixed-value
+    cells are excluded when calculating the percentiles used for the normalization.
+
+    There are two ways of choosing which distances map to `low` and `high`: either with
+    percentiles of the min dists grid (`low_percentile` and `high_percentile`), or with
+    actual distance values (`mindist` and `maxdist`). Providing `maxdist` switches to
+    the latter, where distances at or below `mindist` (0 by default) are set to `low`,
+    distances at or above `maxdist` are set to `high`, and distances in between are
+    scaled linearly. The two ways are mutually exclusive.
 
     Parameters
     ----------
@@ -579,16 +610,65 @@ def normalized_mindist(
     high : float | None, optional
         higher value for normalization, by default None
     mindist : float | None, optional
-        the minimum allowed distance, all values below are set equal to, by default None
+        the minimum allowed distance, all grid cells with distances below this are set
+        to `low`, by default None
+    maxdist : float | None, optional
+        the distance which is mapped to `high`, with `mindist` (0 if not provided)
+        mapped to `low` and distances in between scaled linearly. Requires `low` and
+        `high`, and can't be used together with `low_percentile` or `high_percentile`.
+        By default None, meaning percentiles are used instead.
     region : list[float] | None, optional
-        bounding region for which all grid cells outside will be set to low, by default
-        None
+        bounding region, in the format (min_easting, max_easting, min_northing,
+        max_northing), for which all grid cells outside will be set to
+        `outside_region_value`, by default None
+    outside_region_value : float | None, optional
+        the value to set for areas outside of the region, by default is `low`. Takes
+        precedence over `mindist` where both apply.
+    low_percentile : float, optional
+        which grid value as percentile to normalize to the low value, by default 0, the
+        grids true minimum
+    high_percentile : float, optional
+        which grid value as percentile to normalize to the high value, by default 100,
+        the grids true maximum
 
     Returns
     -------
     xarray.DataArray
         grid of normalized minimum distances
     """
+
+    if (low is None) != (high is None):
+        msg = "must provide both `low` and `high`, or neither"
+        raise ValueError(msg)
+
+    if not 0 <= low_percentile < high_percentile <= 100:
+        msg = (
+            "must have 0 <= `low_percentile` < `high_percentile` <= 100, got "
+            f"{low_percentile} and {high_percentile}"
+        )
+        raise ValueError(msg)
+
+    if outside_region_value is not None and region is None:
+        msg = "must provide `region` to use `outside_region_value`"
+        raise ValueError(msg)
+
+    if maxdist is not None:
+        if low is None or high is None:
+            msg = "must provide `low` and `high` to use `maxdist`"
+            raise ValueError(msg)
+        if (low_percentile, high_percentile) != (0, 100):
+            msg = (
+                "can't use `maxdist` together with `low_percentile` or "
+                "`high_percentile`, normalize either with distance values or with "
+                "percentiles"
+            )
+            raise ValueError(msg)
+        if maxdist <= (0 if mindist is None else mindist):
+            msg = (
+                f"`maxdist` ({maxdist}) must be greater than `mindist` "
+                f"({0 if mindist is None else mindist})"
+            )
+            raise ValueError(msg)
 
     grid = copy.deepcopy(grid)
 
@@ -603,34 +683,58 @@ def normalized_mindist(
         coord_names=(str(original_dims[1]), str(original_dims[0])),
     ).min_dist
 
-    if (low is None) != (high is None):
-        msg = "must provide both `low` and `high`, or neither"
-        raise ValueError(msg)
+    # without normalizing, distances are in their original units and `low_value` is
+    # just the value given to the fixed-value cells
+    low_value = 0.0 if low is None else low
+    if outside_region_value is None:
+        outside_region_value = low_value
 
-    # set points < mindist to 0 (normalized to `low` below if provided)
-    if mindist is not None:
-        min_dist = xr.where(min_dist < mindist, 0, min_dist)
+    # cells which get a fixed value instead of a distance
+    below_mindist = None if mindist is None else min_dist < mindist
+    outside_region = None if region is None else region_mask(min_dist, region) == 0
 
-    # set points outside of region to 0 (normalized to `low` below if provided)
-    if region is not None:
-        df = vd.grid_to_table(min_dist)
-        df["are_inside"] = bd.inside(
-            (df[original_dims[1]], df[original_dims[0]]),
-            region=region,
+    # nans of the supplied grid, to be restored at the end
+    nan_mask = min_dist.isnull()  # noqa: PD003
+
+    if maxdist is not None:
+        # normalize with distance values instead of percentiles
+        assert low is not None
+        assert high is not None
+        low_dist = 0.0 if mindist is None else mindist
+        min_dist = (high - low) * (
+            ((min_dist - low_dist) / (maxdist - low_dist)).clip(0, 1)
+        ) + low
+    elif low is not None and high is not None:
+        # exclude fixed-value cells so they don't influence the percentiles
+        to_normalize = min_dist
+        if below_mindist is not None:
+            to_normalize = to_normalize.where(~below_mindist)
+        if outside_region is not None:
+            to_normalize = to_normalize.where(~outside_region)
+
+        if bool(to_normalize.isnull().all()):  # noqa: PD003
+            msg = (
+                "no grid cells remain to normalize, all are either nans, below "
+                "`mindist`, or outside of `region`"
+            )
+            raise ValueError(msg)
+
+        min_dist = normalize_xarray(
+            to_normalize,
+            low=low,
+            high=high,
+            low_percentile=low_percentile,
+            high_percentile=high_percentile,
         )
-        new_min_dist = df.set_index([original_dims[0], original_dims[1]]).to_xarray()
-        new_min_dist = xr.where(new_min_dist.are_inside, new_min_dist, 0)
 
-        # add nans back
-        new_min_dist = xr.where(min_dist.isnull(), np.nan, new_min_dist)  # noqa: PD003
+    # set the fixed values, region takes precedence where both apply
+    if below_mindist is not None:
+        min_dist = min_dist.where(~below_mindist, low_value)
+    if outside_region is not None:
+        min_dist = min_dist.where(~outside_region, outside_region_value)
 
-        min_dist = new_min_dist.min_dist
-
-    # normalize from low to high
-    if (low is not None) and (high is not None):
-        min_dist = normalize_xarray(min_dist, low=low, high=high)
-
-    return min_dist
+    # add nans back
+    return min_dist.where(~nan_mask)
 
 
 def sample_grids(
