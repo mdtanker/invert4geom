@@ -201,29 +201,37 @@ def plot_2_parameter_scores_uneven(
     y = df[param_names[1]].values  # noqa: PD011
     z = df.value.to_numpy()
 
-    x_buffer = (max(x) - min(x)) / 50
-    y_buffer = (max(y) - min(y)) / 50
+    # interpolate in log space for log-scaled parameters so that orders of
+    # magnitude are evenly represented in the interpolated surface
+    x_transformed = np.log10(x) if logx else x
+    y_transformed = np.log10(y) if logy else y
+
+    x_buffer = (max(x_transformed) - min(x_transformed)) / 50
+    y_buffer = (max(y_transformed) - min(y_transformed)) / 50
 
     # 2D grid for interpolation
-    xi = np.linspace(min(x), max(x))
-    yi = np.linspace(min(y), max(y))
-    xi, yi = np.meshgrid(xi, yi)
+    xi_transformed = np.linspace(min(x_transformed), max(x_transformed))
+    yi_transformed = np.linspace(min(y_transformed), max(y_transformed))
+    xi_transformed, yi_transformed = np.meshgrid(xi_transformed, yi_transformed)
 
     try:
         interp = sp.interpolate.CloughTocher2DInterpolator(
-            list(zip(x, y, strict=False)), z
+            list(zip(x_transformed, y_transformed, strict=False)), z
         )
     except ValueError as e:
         logger.error(
             "Error interpolating value in plot_2_parameter_scores_uneven: %s", e
         )
         return
-    zi = interp(xi, yi)
+    zi = interp(xi_transformed, yi_transformed)
+
+    # transform the grid back to the original parameter space for plotting
+    xi = 10**xi_transformed if logx else xi_transformed
+    yi = 10**yi_transformed if logy else yi_transformed
 
     vmin, vmax = maps.get_min_max(
         df.value,
         robust=robust,
-        # robust_percentiles=(.89,.9)
     )
     plt.pcolormesh(
         xi,
@@ -263,8 +271,24 @@ def plot_2_parameter_scores_uneven(
     plt.legend(
         loc="best",
     )
-    plt.xlim([min(x) - x_buffer, max(x) + x_buffer])
-    plt.ylim([min(y) - y_buffer, max(y) + y_buffer])
+    if logx:
+        plt.xlim(
+            [
+                10 ** (min(x_transformed) - x_buffer),
+                10 ** (max(x_transformed) + x_buffer),
+            ]
+        )
+    else:
+        plt.xlim([min(x) - x_buffer, max(x) + x_buffer])
+    if logy:
+        plt.ylim(
+            [
+                10 ** (min(y_transformed) - y_buffer),
+                10 ** (max(y_transformed) + y_buffer),
+            ]
+        )
+    else:
+        plt.ylim([min(y) - y_buffer, max(y) + y_buffer])
     plt.xlabel(plot_param_names[0])
     plt.ylabel(plot_param_names[1])
     plt.xticks(rotation=20)

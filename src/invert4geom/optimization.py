@@ -718,6 +718,10 @@ class OptimalInversionDamping:
             self.damping_limits[1],
             log=True,
         )
+        # keep the adaptive damping baseline in sync with the trial's value
+        self.inversion_obj._initial_solver_damping = (  # pylint: disable=protected-access
+            self.inversion_obj.solver_damping
+        )
 
         trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
 
@@ -729,6 +733,101 @@ class OptimalInversionDamping:
             results_fname=trial.user_attrs.get("fname"),
         )
 
+        return self.inversion_obj.gravity_best_score  # type: ignore[return-value]
+
+
+class OptimalInversionSharpness:
+    """
+    Objective function to use in an Optuna optimization for finding the optimal IRLS
+    sharpness parameters (``sharpness_weight``, ``sharpness_norm``, and
+    ``irls_epsilon``) and / or the damping regularization value (``solver_damping``)
+    for a gravity inversion. Used within method
+    :meth:`Inversion.optimize_inversion_sharpness`.
+    """
+
+    def __init__(
+        self,
+        inversion_obj: "Inversion",
+        fname: str,
+        sharpness_weight_limits: tuple[float, float] | None = None,
+        sharpness_norm_limits: tuple[float, float] | None = None,
+        irls_epsilon_limits: tuple[float, float] | None = None,
+        damping_limits: tuple[float, float] | None = None,
+        constraints_df: pd.DataFrame | None = None,
+        rmse_as_median: bool = False,
+        plot_grids: bool = False,
+    ) -> None:
+        self.inversion_obj = inversion_obj
+        self.fname = fname
+        self.sharpness_weight_limits = sharpness_weight_limits
+        self.sharpness_norm_limits = sharpness_norm_limits
+        self.irls_epsilon_limits = irls_epsilon_limits
+        self.damping_limits = damping_limits
+        self.constraints_df = constraints_df
+        self.rmse_as_median = rmse_as_median
+        self.plot_grids = plot_grids
+
+    def __call__(self, trial: optuna.trial) -> float:
+        """
+        Parameters
+        ----------
+        trial : optuna.trial
+            the trial to run
+
+        Returns
+        -------
+        float
+            the cross-validation score of the trial
+        """
+        if self.sharpness_weight_limits is not None:
+            self.inversion_obj.sharpness_weight = trial.suggest_float(
+                "sharpness_weight",
+                self.sharpness_weight_limits[0],
+                self.sharpness_weight_limits[1],
+                log=True,
+            )
+        if self.sharpness_norm_limits is not None:
+            self.inversion_obj.sharpness_norm = trial.suggest_float(
+                "sharpness_norm",
+                self.sharpness_norm_limits[0],
+                self.sharpness_norm_limits[1],
+            )
+        if self.irls_epsilon_limits is not None:
+            self.inversion_obj.irls_epsilon = trial.suggest_float(
+                "irls_epsilon",
+                self.irls_epsilon_limits[0],
+                self.irls_epsilon_limits[1],
+                log=True,
+            )
+        if self.damping_limits is not None:
+            self.inversion_obj.solver_damping = trial.suggest_float(
+                "solver_damping",
+                self.damping_limits[0],
+                self.damping_limits[1],
+                log=True,
+            )
+            # keep the adaptive damping baseline in sync with the trial's value
+            self.inversion_obj._initial_solver_damping = (  # pylint: disable=protected-access
+                self.inversion_obj.solver_damping
+            )
+
+        trial.set_user_attr("fname", f"{self.fname}_trial_{trial.number}")
+
+        # the score methods run the inversion on a copy and save the score on the
+        # original object, so the returned copies are not needed here
+        if self.constraints_df is not None:
+            self.inversion_obj.constraints_score(
+                constraints_df=self.constraints_df,
+                rmse_as_median=self.rmse_as_median,
+                results_fname=trial.user_attrs.get("fname"),
+            )
+            return self.inversion_obj.constraints_best_score  # type: ignore[return-value]
+
+        self.inversion_obj.gravity_score(
+            rmse_as_median=self.rmse_as_median,
+            plot=self.plot_grids,
+            results_fname=trial.user_attrs.get("fname"),
+        )
         return self.inversion_obj.gravity_best_score  # type: ignore[return-value]
 
 

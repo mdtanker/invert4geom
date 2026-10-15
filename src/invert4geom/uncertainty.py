@@ -1068,8 +1068,14 @@ def full_workflow_uncertainty_loop(
                 "model_properties_method",
                 "solver_type",
                 "solver_damping",
+                "sharpness_weight",
+                "sharpness_norm",
+                "irls_epsilon",
+                "irls_iterations",
                 "apply_weighting_grid",
                 "weighting_grid",
+                "apply_residual_weighting_grid",
+                "residual_weighting_grid",
             )
         }
         # run inversion
