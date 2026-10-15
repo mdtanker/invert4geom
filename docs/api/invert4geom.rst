@@ -63,6 +63,7 @@ Properties of both the gravity and model :class:`xarray.Dataset` can be accessed
 
      DatasetAccessorInvert4Geom.df
      DatasetAccessorInvert4Geom.inner_df
+     DatasetAccessorInvert4Geom.stats_res
      DatasetAccessorInvert4Geom.masked_df
      DatasetAccessorInvert4Geom.masked
 

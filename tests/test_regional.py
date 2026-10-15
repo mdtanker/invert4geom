@@ -334,19 +334,84 @@ def test_reverse_regional_residual_swaps_fields(method, kwargs):
     xr.testing.assert_allclose(grav_data_reversed.res, grav_data.reg)
 
 
-def test_regional_mask_column_zeroes_residual():
+def test_regional_mask_zeroes_residual():
     """a mask of zeros should zero the residual and put the misfit in the regional"""
+    grav_data = observed_gravity()
+    grav_data["mask"] = xr.zeros_like(grav_data.upward)
+
+    invert4geom.regional.regional_constant(grav_ds=grav_data, constant=-100)
+
+    assert (grav_data.res == 0).all()
+    xr.testing.assert_allclose(grav_data.reg, grav_data.misfit)
+
+
+def test_regional_mask_saves_res_mask():
+    """the mask should be saved as `res_mask` for use in the convergence statistics"""
+    grav_data = observed_gravity()
+    grav_data["mask"] = xr.ones_like(grav_data.upward).where(
+        grav_data.easting > grav_data.easting.mean(), 0.0
+    )
+
+    invert4geom.regional.regional_constant(grav_ds=grav_data, constant=-100)
+    xr.testing.assert_allclose(grav_data.res_mask, grav_data.mask)
+
+    # re-running without a mask should remove the now-stale mask
+    no_mask = grav_data.drop_vars("mask")
+    invert4geom.regional.regional_constant(grav_ds=no_mask, constant=-100)
+    assert "res_mask" not in no_mask
+
+
+def test_regional_mask_column_deprecated():
+    """`mask_column` should warn but give the same result as a `mask` variable"""
+    old_ds = observed_gravity()
+    mask = xr.ones_like(old_ds.upward).where(old_ds.easting > 20000.0, 0.0)
+    old_ds["my_mask"] = mask
+    with pytest.warns(UserWarning, match="`mask_column` is deprecated"):
+        invert4geom.regional.regional_constant(
+            grav_ds=old_ds,
+            constant=-100,
+            mask_column="my_mask",
+        )
+
+    new_ds = observed_gravity()
+    new_ds["mask"] = mask
+    invert4geom.regional.regional_constant(grav_ds=new_ds, constant=-100)
+
+    xr.testing.assert_allclose(old_ds.res, new_ds.res)
+    xr.testing.assert_allclose(old_ds.res_mask, new_ds.res_mask)
+
+
+def test_regional_mask_column_with_nans():
+    """
+    a mask using the `create_model` convention of nans marking the excluded cells
+    should zero the residual there, not make it nan
+    """
+    grav_data = observed_gravity()
+    grav_data["mask"] = xr.ones_like(grav_data.upward).where(
+        grav_data.easting > grav_data.easting.mean()
+    )
+
+    invert4geom.regional.regional_constant(grav_ds=grav_data, constant=-100)
+
+    excluded = grav_data.easting <= grav_data.easting.mean()
+    assert not np.isnan(grav_data.res).any()
+    assert (grav_data.res.where(excluded, 0) == 0).all()
+    assert (grav_data.res_mask.where(excluded, 0) == 0).all()
+    assert (grav_data.res.where(~excluded, 1) != 0).all()
+
+
+def test_regional_mask_reversed_saves_no_res_mask():
+    """after reversing, the mask applies to the regional field, not the residual"""
     grav_data = observed_gravity()
     grav_data["mask"] = xr.zeros_like(grav_data.upward)
 
     invert4geom.regional.regional_constant(
         grav_ds=grav_data,
         constant=-100,
-        mask_column="mask",
+        reverse_regional_residual=True,
     )
-
-    assert (grav_data.res == 0).all()
-    xr.testing.assert_allclose(grav_data.reg, grav_data.misfit)
+    assert (grav_data.reg == 0).all()
+    assert "res_mask" not in grav_data
 
 
 @pytest.mark.parametrize(

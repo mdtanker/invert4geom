@@ -779,50 +779,185 @@ def get_spacing(prisms_df: pd.DataFrame) -> None:  # noqa: ARG001
     raise DeprecationWarning(msg)
 
 
+def _deprecated_parameter(
+    old_name: str,
+    old_value: typing.Any,
+    new_name: str,
+    new_value: typing.Any,
+) -> typing.Any:
+    """
+    Map a deprecated parameter onto its new name, warning if the old name was used.
+    """
+    if old_value is None:
+        return new_value
+    warnings.warn(
+        f"`{old_name}` is deprecated, please use `{new_name}` instead.",
+        UserWarning,
+        stacklevel=3,
+    )
+    return old_value
+
+
+def _normalize_mask(
+    mask: xr.DataArray,
+    reference: xr.DataArray,
+) -> xr.DataArray:
+    """
+    Convert a mask into values of 1 (include) and 0 (exclude), where the excluded cells
+    are those with values of 0, False, or NaN. This allows both the ``mask`` convention
+    of :func:`invert4geom.create_model` (NaNs are excluded) and of ``mask_column``
+    (zeros are excluded) to be used for the gravity data. The mask must be on the same
+    grid as ``reference``.
+    """
+    if dict(mask.sizes) != dict(reference.sizes):
+        msg = (
+            f"mask has dimensions {dict(mask.sizes)} but the gravity data has "
+            f"{dict(reference.sizes)}, they must be on the same grid"
+        )
+        raise ValueError(msg)
+    for dim in reference.dims:
+        if (dim not in mask.coords) or not np.allclose(mask[dim], reference[dim]):
+            msg = (
+                f"mask coordinate '{dim}' doesn't match that of the gravity data, the "
+                "mask must be on the same grid as the gravity data"
+            )
+            raise ValueError(msg)
+
+    values = mask.astype("float64")
+    normalized: xr.DataArray = xr.where(np.isfinite(values) & (values != 0), 1.0, 0.0)
+    return normalized.rename("mask")
+
+
+def _subset_data(values: typing.Any, keep: NDArray) -> typing.Any:
+    """subset an array, a tuple of arrays, or None, with a boolean mask"""
+    if values is None:
+        return None
+    if isinstance(values, tuple):
+        return tuple(np.asarray(v)[keep] for v in values)
+    return np.asarray(values)[keep]
+
+
 def _block_reduce_points(
     coords: tuple[typing.Any, typing.Any],
     data: typing.Any,
     weights: typing.Any,
     block_size: float,
     block_reduction: str,
-    region: tuple[float, float, float, float],
+    region: tuple[float, float, float, float] | None,
+    mask: NDArray | None = None,
+    uncertainty: bool = False,
+    center_coordinates: bool = True,
 ) -> tuple[typing.Any, typing.Any, typing.Any]:
     """
-    Block-reduce point data before fitting a spline. Weighted means are computed
-    with :class:`verde.BlockMean` which also reduces the weights; otherwise
-    :class:`verde.BlockReduce` is used and any weights are dropped.
+    Block-reduce point data before interpolating. Means are computed with
+    :class:`verde.BlockMean`, which also reduces the weights; medians are computed with
+    :class:`verde.BlockReduce` and any weights are dropped. ``data`` can be a tuple of
+    arrays to reduce several data components together, in which case the reduced weights
+    of the first component are returned. If ``mask`` is provided, only the points where
+    it is True are block-reduced, and the remaining points are appended, unaltered, to
+    the reduced points.
     """
-    if block_reduction == "mean" and weights is not None:
+    if mask is None:
+        return _block_reduce_all_points(
+            coords,
+            data,
+            weights,
+            block_size,
+            block_reduction,
+            region,
+            uncertainty=uncertainty,
+            center_coordinates=center_coordinates,
+        )
+
+    mask = np.asarray(mask, dtype=bool)
+    first_component = data[0] if isinstance(data, tuple) else data
+    if mask.shape != np.asarray(first_component).shape:
+        msg = "block reduction mask must be the same length as the data"
+        raise ValueError(msg)
+
+    if not mask.any():
+        logger.warning("no points selected for block-reduction, skipping it")
+        return coords, data, weights
+
+    reduced_coords, reduced_data, reduced_weights = _block_reduce_all_points(
+        tuple(_subset_data(c, mask) for c in coords),
+        _subset_data(data, mask),
+        _subset_data(weights, mask),
+        block_size,
+        block_reduction,
+        region,
+        uncertainty=uncertainty,
+        center_coordinates=center_coordinates,
+    )
+
+    # add back the points which weren't block-reduced
+    coords = tuple(
+        np.concatenate([np.asarray(r), _subset_data(c, ~mask)])
+        for r, c in zip(reduced_coords, coords, strict=True)
+    )
+    if isinstance(data, tuple):
+        data = tuple(
+            np.concatenate([np.asarray(r), np.asarray(d)[~mask]])
+            for r, d in zip(reduced_data, data, strict=True)
+        )
+    else:
+        data = np.concatenate([np.asarray(reduced_data), _subset_data(data, ~mask)])
+    if weights is None or reduced_weights is None:
+        # weights are dropped by verde.BlockReduce, so they can't be reused
+        weights = None
+    else:
+        weights = np.concatenate(
+            [np.asarray(reduced_weights), _subset_data(weights, ~mask)]
+        )
+
+    return coords, data, weights
+
+
+def _block_reduce_all_points(
+    coords: tuple[typing.Any, typing.Any],
+    data: typing.Any,
+    weights: typing.Any,
+    block_size: float,
+    block_reduction: str,
+    region: tuple[float, float, float, float] | None,
+    uncertainty: bool = False,
+    center_coordinates: bool = True,
+) -> tuple[typing.Any, typing.Any, typing.Any]:
+    """
+    Block-reduce all the supplied point data, see :func:`_block_reduce_points`.
+    """
+    multiple_components = isinstance(data, tuple)
+
+    if block_reduction == "mean":
         reducer = vd.BlockMean(
             spacing=block_size,
             region=region,
-            center_coordinates=True,
+            center_coordinates=center_coordinates,
+            uncertainty=uncertainty,
         )
+        if multiple_components and weights is not None:
+            # verde expects one weights array per data component
+            weights = tuple(weights for _ in data)
         coords, data, weights = reducer.filter(
             coordinates=coords,
             data=data,
             weights=weights,
         )
-    else:
-        if block_reduction == "mean":
-            reduction = np.mean
-        elif block_reduction == "median":
-            reduction = np.median
-            if weights is not None:
-                msg = (
-                    "weights are ignored when block_reduction is 'median', to use "
-                    "weights, set block_reduction to 'mean'"
-                )
-                logger.warning(msg)
-        else:
-            msg = "block_reduction must be 'mean' or 'median'"
-            raise ValueError(msg)
+        if multiple_components and isinstance(weights, tuple):
+            weights = weights[0]
+    elif block_reduction == "median":
+        if weights is not None:
+            msg = (
+                "weights are ignored when block_reduction is 'median', to use "
+                "weights, set block_reduction to 'mean'"
+            )
+            logger.warning(msg)
 
         reducer = vd.BlockReduce(
-            reduction=reduction,
+            reduction=np.median,
             spacing=block_size,
             region=region,
-            center_coordinates=True,
+            center_coordinates=center_coordinates,
         )
         coords, data = reducer.filter(
             coordinates=coords,
@@ -830,6 +965,9 @@ def _block_reduce_points(
         )
         # BlockReduce doesn't reduce the weights, so they can't be reused
         weights = None
+    else:
+        msg = "block_reduction must be 'mean' or 'median'"
+        raise ValueError(msg)
 
     return coords, data, weights
 

@@ -690,6 +690,22 @@ def run_inversion(
     raise DeprecationWarning(msg)
 
 
+# variables of the gravity dataset whose NaNs mark excluded cells instead of missing
+# data, so their NaNs shouldn't drop rows from the dataframe representations
+_DATA_MASK_VARS = ("mask", "res_mask")
+
+
+def _dropna_ignoring_masks(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Drop the rows with missing values from a gravity dataframe, ignoring the mask
+    variables. A mask can use either the ``create_model`` convention, where NaNs mark
+    the excluded cells, or the ``mask_column`` convention, where zeros do, and neither
+    means the gravity data are missing there.
+    """
+    subset = [s for s in df.columns if s not in _DATA_MASK_VARS]
+    return df.dropna(how="any", axis=0, subset=subset).reset_index(drop=True)
+
+
 @xr.register_dataset_accessor("inv")
 class DatasetAccessorInvert4Geom:
     """
@@ -706,11 +722,7 @@ class DatasetAccessorInvert4Geom:
     def df(self) -> pd.DataFrame:
         """return the dataframe representation of the xarray dataset without nans"""
         if self._ds.dataset_type == "data":
-            return (
-                vd.grid_to_table(self._ds)
-                .dropna(how="any", axis=0)
-                .reset_index(drop=True)
-            )
+            return _dropna_ignoring_masks(vd.grid_to_table(self._ds))
         if self._ds.dataset_type == "model":
             return vd.grid_to_table(self._ds)
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
@@ -723,11 +735,7 @@ class DatasetAccessorInvert4Geom:
         without nans
         """
         if self._ds.dataset_type == "data":
-            return (
-                vd.grid_to_table(self.inner)
-                .dropna(how="any", axis=0)
-                .reset_index(drop=True)
-            )
+            return _dropna_ignoring_masks(vd.grid_to_table(self.inner))
         if self._ds.dataset_type == "model":
             return vd.grid_to_table(self.inner)
         msg = "dataset must have attribute 'dataset_type' which is either 'data' or 'model'"
@@ -749,6 +757,25 @@ class DatasetAccessorInvert4Geom:
             )
         msg = "dataset must have attribute 'model_type' which is either 'prisms' or 'tesseroids'"
         raise ValueError(msg)
+
+    @property
+    def stats_res(self) -> xr.DataArray:
+        """
+        return the residual misfit of the inner region used for the convergence
+        statistics, with any masked-out values set to NaN.
+
+        If a ``mask_column`` was used during the regional-residual separation, the
+        residual is exactly zero wherever the mask is zero. Those values are excluded
+        here so they don't deflate the RMSE and L2-norms, since they can't be altered
+        by the inversion.
+        """
+        self._check_correct_dataset_type("data")
+        inner = self.inner
+        res: xr.DataArray = inner.res
+        if "res_mask" in inner:
+            # exclude cells where the mask is 0 or nan
+            res = res.where(inner.res_mask.fillna(0) != 0)
+        return res
 
     @property
     def masked_df(self) -> xr.Dataset:
@@ -915,8 +942,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -973,8 +999,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1025,8 +1050,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1107,8 +1131,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1231,8 +1254,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1296,8 +1318,7 @@ class DatasetAccessorInvert4Geom:
         regional_shift : float, optional
             shift to add to the regional field, by default 0
         mask_column : str | None, optional
-            Name of optional dataset variable with values to multiply the calculated
-            residual gravity field by, should have values of 1 or 0, by default None.
+            deprecated, instead supply the mask to :func:`create_data`, by default None
         reverse_regional_residual : bool, optional
             if True, reverse the regional and residual fields after calculation, by
             default False
@@ -1833,6 +1854,12 @@ def create_data(
         observed gravity values in mGals. If using tesseroids, the dataset must also
         contain a variable ``geocentric_radius`` defining the geocentric radius at each
         observation point in meters. This can be created using the Python package Boule.
+        The dataset can optionally contain a ``mask`` variable, marking the cells to
+        include in the residual gravity field. Cells with values of 0, False, or NaN are
+        excluded, which sets their residual gravity to zero and excludes them from the
+        convergence statistics (see :attr:`DatasetAccessorInvert4Geom.stats_res`). This
+        is typically the same mask used to create the model, where the excluded cells are
+        those which the inversion won't alter.
     buffer_width : float | None, optional
         The width in meters or decimal degrees of a buffer zone used to zoom-in on the
         provided data creating an inner region. This inner region will be used for
@@ -1847,8 +1874,9 @@ def create_data(
     Returns
     -------
     xarray.Dataset
-        A dataset with new attributes ``model_type``, ``dataset_type``, ``spacing``,
-        "buffer_width``, ``spacing``, ``region``, and ``inner_region``.
+        A dataset with an optional ``mask`` variable, and new attributes ``model_type``,
+        ``dataset_type``, ``spacing``, "buffer_width``, ``spacing``, ``region``, and
+        ``inner_region``.
 
     """
     gravity = gravity.copy()
@@ -2466,9 +2494,10 @@ class Inversion:
     @property
     def rmse(self) -> float:
         """
-        return the root mean square error of the current residual misfit
+        return the root mean square error of the current residual misfit, excluding
+        any values which were masked out during the regional-residual separation
         """
-        return utils.rmse(self.data.inv.inner.res)
+        return utils.rmse(self.data.inv.stats_res)
 
     @property
     def l2_norm(self) -> float:
@@ -4183,6 +4212,9 @@ class Inversion:
             grav_vars = ["gravity_anomaly", "upward"]
             if "geocentric_radius" in inv_copy.data:
                 grav_vars.append("geocentric_radius")
+            # the mask isn't derived, so it's kept and cropped along with the data
+            if "mask" in inv_copy.data:
+                grav_vars.append("mask")
             win_data = create_data(
                 _crop_dataset_to_region(
                     inv_copy.data[grav_vars], data_region, coord_names

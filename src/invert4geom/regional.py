@@ -52,15 +52,40 @@ def _finalize_separation(
     Apply the optional shift to the estimated regional field, calculate the residual
     field, optionally mask the residual, and optionally swap the two fields.
     """
+    # the mask is now a `mask` variable of the gravity dataset, added by `create_data`
+    if mask_column is not None:
+        warnings.warn(
+            "`mask_column` is deprecated, instead supply the mask as a `mask` variable "
+            "of the gravity dataset passed to `create_data`.",
+            UserWarning,
+            stacklevel=3,
+        )
+    elif "mask" in grav_ds:
+        mask_column = "mask"
+        logger.info("masking the residual with the gravity dataset's `mask` variable")
+
     grav_ds["reg"] = grav_ds.reg + regional_shift
     grav_ds["res"] = grav_ds.misfit - grav_ds.reg
 
+    mask = None
     if mask_column is not None:
-        grav_ds["res"] = grav_ds.res * grav_ds[mask_column]
+        # normalize so that cells marked with either 0 or NaN are zeroed, otherwise a
+        # mask made for a model (where NaNs are excluded) would give NaN residuals
+        mask = utils._normalize_mask(grav_ds[mask_column], grav_ds.misfit)  # pylint: disable=protected-access
+        grav_ds["res"] = grav_ds.res * mask
         grav_ds["reg"] = grav_ds.misfit - grav_ds.res
 
     if reverse_regional_residual:
         grav_ds["reg"], grav_ds["res"] = grav_ds["res"], grav_ds["reg"]
+
+    # keep a copy of the mask so that the zeroed-out residual values can be excluded
+    # from the inversion convergence statistics, see the `stats_res` accessor property.
+    # after reversing, the mask applies to the regional field instead of the residual
+    if (mask is not None) and not reverse_regional_residual:
+        grav_ds["res_mask"] = mask
+    elif "res_mask" in grav_ds:
+        # remove a stale mask left by a previous separation of the same dataset
+        del grav_ds["res_mask"]
 
 
 def regional_constant(
@@ -88,8 +113,7 @@ def regional_constant(
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
-        Name of optional column with values to multiply estimated regional field by,
-        should have values of 1 or 0, by default None.
+        deprecated, instead supply the mask to :func:`create_data`, by default None
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False
@@ -161,8 +185,7 @@ def regional_filter(
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
-        Name of optional column with values to multiply estimated regional field by,
-        should have values of 1 or 0, by default None.
+        deprecated, instead supply the mask to :func:`create_data`, by default None
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False
@@ -210,8 +233,7 @@ def regional_trend(
     regional_shift : float, optional
         shift to add to the regional field, by default 0
     mask_column : str | None, optional
-        Name of optional column with values to multiply estimated regional field by,
-        should have values of 1 or 0, by default None.
+        deprecated, instead supply the mask to :func:`create_data`, by default None
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False
@@ -277,8 +299,7 @@ def regional_eq_sources(
     weights_column: str | None, optional
         column name for weighting values of each gravity point.
     mask_column : str | None, optional
-        Name of optional column with values to multiply estimated regional field by,
-        should have values of 1 or 0, by default None.
+        deprecated, instead supply the mask to :func:`create_data`, by default None
     reverse_regional_residual : bool, optional
         if True, reverse the regional and residual fields after calculation, by default
         False

@@ -240,6 +240,44 @@ def test_data_errors(test_input, expected):
         _ = invert4geom.inversion.create_data(**test_input)
 
 
+@pytest.mark.parametrize(
+    "mask_values",
+    [
+        # zeros mark the excluded cells, as used by `mask_column`
+        [1.0, 1.0, 0.0],
+        # nans mark the excluded cells, as used by `create_model`
+        [1.0, 1.0, np.nan],
+        # booleans
+        [True, True, False],
+    ],
+)
+def test_create_data_keeps_mask(mask_values):
+    """
+    a `mask` variable of the gravity dataset should be kept, whichever convention it
+    uses, and is normalized later during the regional-residual separation
+    """
+    gravity = observed_gravity_prisms()
+
+    # mask out the 3rd easting column, keeping the dtype of the supplied values
+    values = np.array(mask_values)
+    row = np.concatenate([values, np.ones(2, dtype=values.dtype)])
+    gravity["mask"] = xr.DataArray(
+        np.broadcast_to(row, gravity.upward.shape),
+        coords=gravity.upward.coords,
+        dims=gravity.upward.dims,
+    )
+
+    data = invert4geom.inversion.create_data(gravity)
+
+    xr.testing.assert_identical(data.mask, gravity.mask)
+
+
+def test_create_data_without_mask():
+    """without a `mask` variable, the data shouldn't have one either"""
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    assert "mask" not in data
+
+
 @pytest.mark.filterwarnings("ignore:Grid may have irregular spacing in the")
 @pytest.mark.filterwarnings("ignore:grid zmax can't be extracted")
 def test_model_attributes_prisms():
@@ -1079,6 +1117,37 @@ def test_inversion_properties():
     assert inv.delta_l2_norm == l2_norm / np.sqrt(
         np.sqrt(np.mean(inv.data.inv.inner.res**2))
     )
+
+
+def test_stats_res_excludes_masked_residuals():
+    """
+    residuals zeroed by the mask shouldn't deflate the rmse and l2-norm
+    """
+    gravity = observed_gravity_prisms()
+    # mask out the western half of the residual
+    gravity["mask"] = xr.ones_like(gravity.upward).where(
+        gravity.easting > gravity.easting.mean(), 0.0
+    )
+    data = invert4geom.inversion.create_data(gravity)
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
+
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(method="constant", constant=10)
+
+    inv = invert4geom.inversion.Inversion(data=data, model=model, max_iterations=1)
+
+    inner = inv.data.inv.inner
+    masked_out = inner.res_mask == 0
+    assert masked_out.sum() > 0
+
+    # the masked cells should be nans, not zeros
+    assert bool(np.isnan(inv.data.inv.stats_res).sum() == masked_out.sum())
+    assert inv.rmse == invert4geom.utils.rmse(inner.res.where(~masked_out))
+
+    # including the zeros would drag the rmse down
+    assert inv.rmse > invert4geom.utils.rmse(inner.res)
 
 
 def test_end_inversion_l2_norm_increasing():

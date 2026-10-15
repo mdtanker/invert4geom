@@ -803,6 +803,125 @@ def test_block_reduce_points_median_drops_weights():
     assert reduced_weights is None
 
 
+def test_block_reduce_points_mask_only_reduces_subset():
+    """points where the mask is False should be passed through unaltered"""
+    coords, data, _ = block_reduce_inputs()
+    mask = np.zeros_like(data, dtype=bool)
+    mask[:20] = True
+
+    reduced_coords, reduced_data, reduced_weights = utils._block_reduce_points(
+        coords,
+        data,
+        None,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+        mask=mask,
+    )
+    # the unreduced points should all still be present
+    assert len(reduced_data) < len(data)
+    assert len(reduced_data) == len(reduced_coords[0])
+    assert set(data[~mask]).issubset(set(reduced_data))
+    assert reduced_weights is None
+
+    # reducing everything should give fewer points than reducing just a subset
+    _, all_reduced_data, _ = utils._block_reduce_points(
+        coords,
+        data,
+        None,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+    )
+    assert len(all_reduced_data) < len(reduced_data)
+
+
+def test_block_reduce_points_mask_keeps_weights():
+    """weights of the unreduced points should be kept alongside the reduced weights"""
+    coords, data, weights = block_reduce_inputs()
+    mask = np.zeros_like(data, dtype=bool)
+    mask[:20] = True
+
+    _, reduced_data, reduced_weights = utils._block_reduce_points(
+        coords,
+        data,
+        weights,
+        block_size=500,
+        block_reduction="mean",
+        region=(0, 1000, 0, 1000),
+        mask=mask,
+    )
+    assert len(reduced_weights) == len(reduced_data)
+
+
+def test_block_reduce_points_empty_mask_skips_reduction():
+    coords, data, weights = block_reduce_inputs()
+    out_coords, out_data, out_weights = utils._block_reduce_points(
+        coords,
+        data,
+        weights,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+        mask=np.zeros_like(data, dtype=bool),
+    )
+    assert len(out_data) == len(data)
+    assert out_weights is weights
+    assert out_coords is coords
+
+
+def test_block_reduce_points_wrong_mask_length_raises():
+    coords, data, weights = block_reduce_inputs()
+    with pytest.raises(ValueError, match="mask must be the same length"):
+        utils._block_reduce_points(
+            coords,
+            data,
+            weights,
+            block_size=500,
+            block_reduction="median",
+            region=(0, 1000, 0, 1000),
+            mask=np.ones(len(data) - 1, dtype=bool),
+        )
+
+
+def test_block_reduce_points_multiple_components():
+    """several data components should be reduced together"""
+    coords, data, weights = block_reduce_inputs()
+    reduced_coords, reduced_data, reduced_weights = utils._block_reduce_points(
+        coords,
+        (data, data * 2),
+        weights,
+        block_size=500,
+        block_reduction="mean",
+        region=(0, 1000, 0, 1000),
+    )
+    assert len(reduced_data) == 2
+    assert len(reduced_data[0]) == len(reduced_coords[0]) < len(data)
+    npt.assert_allclose(reduced_data[1], reduced_data[0] * 2)
+    # only one set of weights should be returned
+    assert len(reduced_weights) == len(reduced_data[0])
+
+
+def test_block_reduce_points_multiple_components_with_mask():
+    """the unreduced points of each component should be added back"""
+    coords, data, _ = block_reduce_inputs()
+    mask = np.zeros_like(data, dtype=bool)
+    mask[:20] = True
+
+    _, reduced_data, _ = utils._block_reduce_points(
+        coords,
+        (data, data * 2),
+        None,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+        mask=mask,
+    )
+    assert len(reduced_data) == 2
+    assert len(reduced_data[0]) == len(reduced_data[1]) < len(data)
+    assert set(data[~mask]).issubset(set(reduced_data[0]))
+
+
 def test_block_reduce_points_invalid_reduction_raises():
     coords, data, weights = block_reduce_inputs()
     with pytest.raises(ValueError, match="block_reduction must be"):
