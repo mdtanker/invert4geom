@@ -392,8 +392,7 @@ def _fill_jacobian_density_prisms(
     gravity effect (in mGal) of the prism with a density of delta, divided by delta
     """
     for j in numba.prange(len(grav_easting)):  # pylint: disable=not-an-iterable
-        for i in range(len(model_properties)):
-            element = model_properties[i]
+        for i, element in enumerate(model_properties):
             # gravity_u returns m/s^2, convert to mGal
             jac[j, i] = (
                 gravity_u(
@@ -545,8 +544,7 @@ def _fill_jacobian_geometry_prisms(
     model element, divided by delta
     """
     for j in numba.prange(len(grav_easting)):  # pylint: disable=not-an-iterable
-        for i in range(len(model_properties)):
-            element = model_properties[i]
+        for i, element in enumerate(model_properties):
             # gravity_u returns m/s^2, convert to mGal
             jac[j, i] = (
                 gravity_u(
@@ -2442,7 +2440,7 @@ def _run_optuna_with_startup(
     if n_startup_trials == 0:
         # no startup trials, all trials use `sampler`
         if sampler is None:
-            sampler = optimization._default_sampler(seed)
+            sampler = optimization._default_sampler(seed)  # pylint: disable=protected-access
         study = optuna.create_study(
             direction="minimize",
             sampler=sampler,
@@ -2494,7 +2492,7 @@ def _run_optuna_with_startup(
 
     # continue with remaining trials using `sampler`
     if sampler is None:
-        sampler = optimization._default_sampler(seed)
+        sampler = optimization._default_sampler(seed)  # pylint: disable=protected-access
     study.sampler = sampler
     with utils.DuplicateFilter(logger):  # type: ignore[no-untyped-call]
         return optimization.run_optuna(
@@ -4274,7 +4272,7 @@ class Inversion:
         inv_copy.damping_cv_study_fname = f"{inv_copy.results_fname}_study.pickle"  # type: ignore[assignment]
         inv_copy.damping_cv_results_fname = f"{inv_copy.results_fname}.pickle"  # type: ignore[assignment]
         inv_copy.solver_damping = inv_copy.best_trial.params["damping"]  # type: ignore[attr-defined]
-        inv_copy._initial_solver_damping = inv_copy.solver_damping
+        inv_copy._initial_solver_damping = inv_copy.solver_damping  # pylint: disable=protected-access
         inv_copy.study = study
 
         # update the inversion object with the best inversion results
@@ -4515,7 +4513,7 @@ class Inversion:
         for param, value in inv_copy.best_trial.params.items():  # type: ignore[attr-defined]
             setattr(inv_copy, param, value)
         if damping_limits is not None:
-            inv_copy._initial_solver_damping = inv_copy.solver_damping
+            inv_copy._initial_solver_damping = inv_copy.solver_damping  # pylint: disable=protected-access
         inv_copy.study = study
 
         # update the inversion object with the best inversion results

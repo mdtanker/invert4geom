@@ -45,8 +45,8 @@ def remove_test_points(ds: xr.Dataset) -> xr.Dataset:
         warnings.warn(msg, stacklevel=2)
 
         return ds
-    else:
-        return ds_new
+
+    return ds_new
 
 
 def add_test_points(

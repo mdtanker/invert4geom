@@ -10,7 +10,7 @@ import harmonica as hm
 import numpy as np
 import pandas as pd
 import pyproj
-import rioxarray  # noqa: F401 # registers the `.rio` xarray accessor
+import rioxarray  # noqa: F401 # pylint: disable=unused-import # registers the `.rio` xarray accessor
 import sklearn
 import verde as vd
 import xarray as xr
