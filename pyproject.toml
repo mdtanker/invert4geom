@@ -199,6 +199,9 @@ ignore = [
   "B018", # useless expression
   "PERF401",
   "PERF102",
+  "PD011",
+  "B905",
+  "RUF001",
 ]
 
 [tool.pylint]

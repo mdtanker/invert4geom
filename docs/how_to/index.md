@@ -5,9 +5,14 @@
 ---
 variable_density_contrast
 density_inversion
+recovering_sharp_features
+sharpness_cross_validation
+fault_bounded_basin
 adhering_to_point_measurements
 constrain_the_inversion
 regional_field_hyperparameters
+regional_over_constrained_targets
+bouguer_referencing_layer
 windowed_zref_density_optimization
 determining_buffer_width
 ```

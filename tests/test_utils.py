@@ -1350,3 +1350,36 @@ def test_create_window_regions():
         utils.create_window_regions((0, 100, 0, 100), 50, window_overlap=1)
     with pytest.raises(ValueError, match="window_width"):
         utils.create_window_regions((0, 100, 0, 100), 0)
+
+
+def test_sample_grids_cubic_with_nans():
+    """
+    check cubic sampling works on a grid containing NaNs, giving NaN only next to the
+    NaN nodes and exact values on the grid's nodes
+    """
+    coords = vd.grid_coordinates(region=(0, 100, 0, 100), spacing=10)
+    grid = vd.make_xarray_grid(coords, data=coords[0] + 2 * coords[1], data_names="z").z
+    grid[0, 0] = np.nan
+
+    points = pd.DataFrame(
+        {
+            # on a node, next to the NaN node, and far from it
+            "easting": [50.0, 5.0, 55.0],
+            "northing": [50.0, 5.0, 55.0],
+        }
+    )
+    sampled = utils.sample_grids(points, grid, sampled_name="z").z
+
+    assert sampled[0] == 150
+    assert np.isnan(sampled[1])
+    npt.assert_allclose(sampled[2], 55 + 2 * 55, rtol=1e-3)
+
+
+def test_sample_grids_cubic_without_nans_unchanged():
+    """check grids without NaNs are sampled with cubic interpolation as before"""
+    coords = vd.grid_coordinates(region=(0, 100, 0, 100), spacing=10)
+    grid = vd.make_xarray_grid(coords, data=coords[0] ** 2 / 100, data_names="z").z
+    points = pd.DataFrame({"easting": [55.0], "northing": [55.0]})
+    sampled = utils.sample_grids(points, grid, sampled_name="z").z
+
+    npt.assert_allclose(sampled[0], 55**2 / 100, rtol=1e-5)

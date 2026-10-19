@@ -1156,14 +1156,24 @@ def sample_grids(
     )
     indexers = {grid_easting: easting, grid_northing: northing}
 
-    values = np.asarray(
-        grid.interp(
-            indexers,
-            method=method,
-            kwargs={"bounds_error": False},
-        ),
-        dtype=float,
-    )
+    def interp(da: xr.DataArray, interp_method: str) -> NDArray:
+        return np.asarray(
+            da.interp(
+                indexers,
+                method=interp_method,
+                kwargs={"bounds_error": False},
+            ),
+            dtype=float,
+        )
+
+    if method == "cubic" and bool(np.isnan(grid.to_numpy()).any()):
+        # scipy's cubic interpolation fails on grids containing NaNs, so fit it to a
+        # filled grid, then set back to NaN any point with a NaN among its neighboring
+        # nodes, which is where linear interpolation gives NaN
+        values = interp(grid.fillna(float(grid.mean())), method)
+        values[np.isnan(interp(grid, "linear"))] = np.nan
+    else:
+        values = interp(grid, method)
 
     # interpolation introduces floating point error even at the grid's own nodes, so
     # take the value directly wherever a point falls on a node
