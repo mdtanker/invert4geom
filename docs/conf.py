@@ -47,7 +47,6 @@ intersphinx_mapping = {
     # pykdtree
     "xrft": ("https://xrft.readthedocs.io/en/stable/", None),
     "harmonica": ("https://www.fatiando.org/harmonica/latest/", None),
-    "polartoolkit": ("https://polartoolkit.readthedocs.io/en/latest/", None),
     "numba": ("https://numba.readthedocs.io/en/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     # numba_progress

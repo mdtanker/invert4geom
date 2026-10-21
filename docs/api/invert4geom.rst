@@ -27,6 +27,7 @@ Create a topography grid (or provide your own) and convert it into an initial pr
     create_topography
     create_model
     create_window_regions
+    fill_missing
     normalized_mindist
 
 
@@ -63,6 +64,7 @@ Properties of both the gravity and model :class:`xarray.Dataset` can be accessed
 
      DatasetAccessorInvert4Geom.df
      DatasetAccessorInvert4Geom.inner_df
+     DatasetAccessorInvert4Geom.stats_res
      DatasetAccessorInvert4Geom.masked_df
      DatasetAccessorInvert4Geom.masked
 
@@ -206,9 +208,39 @@ Plot parameter sampling and uncertainty results.
     plot_sampled_projection_2d
 
 
+Make maps with Matplotlib. These are used internally by all of the map-based
+plotting functions above, and can be used directly for custom figures.
+
+.. autosummary::
+    :toctree: generated/
+
+    plot_grid
+    subplots
+    grid_compare
+    basemap
+
 Other plotting functions.
 
 .. autosummary::
     :toctree: generated/
 
     plot_edge_effects
+
+
+Grid utilities
+--------------
+Helpers for inspecting, resampling and sampling grids.
+
+.. autosummary::
+    :toctree: generated/
+
+    get_grid_info
+    get_min_max
+    get_combined_min_max
+    resample_grid
+    sample_grids
+    points_to_grid
+    filter_grid
+    buffer_edges
+    gravity_decay_buffer
+    rmse

@@ -428,6 +428,176 @@ def test_normalized_mindist_high_low():
     assert np.max(min_dist) == pytest.approx(5)
 
 
+def mindist_grid() -> xr.DataArray:
+    """a regular grid with a single constraint point at its lower-left corner"""
+    (x, y) = vd.grid_coordinates(region=(0, 100, 0, 100), spacing=10)
+    return vd.make_xarray_grid(
+        (x, y),
+        np.ones_like(x),
+        data_names="dummy",
+        dims=("northing", "easting"),
+    ).dummy
+
+
+def test_normalized_mindist_mindist_normalized():
+    """
+    cells below `mindist` should be set to `low` and be excluded from the values used
+    to normalize, so the smallest remaining distance is the one mapped to `low`
+    """
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        mindist=50,
+    )
+    # inside `mindist` of the point
+    assert min_dist.sel(easting=0, northing=0) == pytest.approx(0)
+    assert min_dist.sel(easting=30, northing=30) == pytest.approx(0)
+    # smallest distance above `mindist` sets the low end of the normalization
+    assert min_dist.sel(easting=50, northing=0) == pytest.approx(0)
+    # furthest cell sets the high end
+    assert min_dist.sel(easting=100, northing=100) == pytest.approx(1)
+
+
+def test_normalized_mindist_maxdist():
+    """
+    with `maxdist`, the normalization should be anchored on distance values instead of
+    percentiles, with `mindist` mapped to `low` and `maxdist` mapped to `high`
+    """
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        mindist=20,
+        maxdist=70,
+    )
+    # below `mindist`
+    assert min_dist.sel(easting=10, northing=0) == pytest.approx(0)
+    # `mindist` maps to `low`
+    assert min_dist.sel(easting=20, northing=0) == pytest.approx(0)
+    # linearly scaled in between
+    assert min_dist.sel(easting=50, northing=0) == pytest.approx((50 - 20) / (70 - 20))
+    # `maxdist` maps to `high`, and beyond is clipped to it
+    assert min_dist.sel(easting=70, northing=0) == pytest.approx(1)
+    assert min_dist.sel(easting=100, northing=100) == pytest.approx(1)
+
+
+def test_normalized_mindist_maxdist_without_mindist():
+    """without `mindist`, `maxdist` should normalize distances from 0"""
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        maxdist=50,
+    )
+    assert min_dist.sel(easting=0, northing=0) == pytest.approx(0)
+    assert min_dist.sel(easting=20, northing=0) == pytest.approx(0.4)
+    assert min_dist.sel(easting=50, northing=0) == pytest.approx(1)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "msg"),
+    [
+        ({"maxdist": 50}, "must provide `low` and `high`"),
+        (
+            {"low": 0, "high": 1, "maxdist": 50, "high_percentile": 98},
+            "can't use `maxdist` together with",
+        ),
+        (
+            {"low": 0, "high": 1, "mindist": 50, "maxdist": 50},
+            "must be greater than `mindist`",
+        ),
+    ],
+)
+def test_normalized_mindist_maxdist_errors(kwargs, msg):
+    """invalid combinations of `maxdist` with other parameters should raise"""
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    with pytest.raises(ValueError, match=msg):
+        utils.normalized_mindist(
+            points=points,
+            grid=mindist_grid(),
+            **kwargs,
+        )
+
+
+def test_normalized_mindist_outside_region_value_normalized():
+    """
+    `outside_region_value` should be the final value of the cells outside the region,
+    not a value which then gets normalized, and cells outside the region shouldn't
+    influence the normalization of the cells inside it
+    """
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        region=[0, 50, 0, 50],
+        outside_region_value=0.5,
+    )
+    # outside the region
+    assert min_dist.sel(easting=100, northing=100) == pytest.approx(0.5)
+    assert min_dist.sel(easting=60, northing=0) == pytest.approx(0.5)
+    # inside the region, which alone spans the full low to high range
+    assert min_dist.sel(easting=0, northing=0) == pytest.approx(0)
+    assert min_dist.sel(easting=50, northing=50) == pytest.approx(1)
+
+
+def test_normalized_mindist_outside_region_value_defaults_to_low():
+    """without `outside_region_value`, cells outside the region should be set to `low`"""
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0.2,
+        high=5,
+        region=[0, 50, 0, 50],
+    )
+    assert min_dist.sel(easting=100, northing=100) == pytest.approx(0.2)
+    assert min_dist.sel(easting=50, northing=50) == pytest.approx(5)
+
+
+def test_normalized_mindist_percentiles():
+    """
+    percentiles should clip the tails of the distances, giving more than one cell at
+    each of `low` and `high`
+    """
+    points = pd.DataFrame({"easting": [0.0], "northing": [0.0]})
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=mindist_grid(),
+        low=0,
+        high=1,
+        low_percentile=20,
+        high_percentile=80,
+    )
+    assert min_dist.min() == pytest.approx(0)
+    assert min_dist.max() == pytest.approx(1)
+    assert (min_dist == 0).sum() > 1
+    assert (min_dist == 1).sum() > 1
+
+
+def test_normalized_mindist_nans_preserved():
+    """nans of the supplied grid should still be nans in the output"""
+    points, da = normalized_mindist_inputs()
+    min_dist = utils.normalized_mindist(
+        points=points,
+        grid=da,
+        low=0,
+        high=1,
+        mindist=4,
+        region=[-4.0, 0.0, -4.0, 0.0],
+        outside_region_value=0.5,
+    )
+    npt.assert_array_equal(np.isnan(min_dist.values), np.isnan(da.values))
+
+
 ################
 ################
 # region_mask
@@ -486,7 +656,7 @@ def test_region_mask_full_region_all_ones():
 
 def test_get_epsg_no_env_var_coast_false():
     """without the env vars, should fall back to 3857 without warning"""
-    with utils._environ(POLARTOOLKIT_EPSG=None, POLARTOOLKIT_HEMISPHERE=None):
+    with utils._environ(INVERT4GEOM_EPSG=None, POLARTOOLKIT_EPSG=None):
         epsg, coast = utils.get_epsg(coast=False)
     assert epsg == "3857"
     assert coast is False
@@ -495,20 +665,30 @@ def test_get_epsg_no_env_var_coast_false():
 def test_get_epsg_no_env_var_coast_true_warns():
     """without the env vars, requesting coastlines should warn and disable them"""
     with (
-        utils._environ(POLARTOOLKIT_EPSG=None, POLARTOOLKIT_HEMISPHERE=None),
-        pytest.warns(UserWarning, match="POLARTOOLKIT_EPSG"),
+        utils._environ(INVERT4GEOM_EPSG=None, POLARTOOLKIT_EPSG=None),
+        pytest.warns(UserWarning, match="INVERT4GEOM_EPSG"),
     ):
         epsg, coast = utils.get_epsg(coast=True)
     assert epsg == "3857"
     assert coast is False
 
 
-def test_get_epsg_with_env_var():
+@pytest.mark.parametrize("env_var", ["INVERT4GEOM_EPSG", "POLARTOOLKIT_EPSG"])
+def test_get_epsg_with_env_var(env_var):
     """with the env var set, should return its EPSG code and keep coast enabled"""
-    with utils._environ(POLARTOOLKIT_EPSG="3031"):
+    with utils._environ(**{"INVERT4GEOM_EPSG": None, env_var: "3031"}):
         epsg, coast = utils.get_epsg(coast=True)
     assert str(epsg) == "3031"
     assert coast is True
+
+
+def test_get_epsg_invalid_env_var_raises():
+    """a non-numeric EPSG code should raise"""
+    with (
+        utils._environ(INVERT4GEOM_EPSG="epsg:3031"),
+        pytest.raises(ValueError, match="string of digits"),
+    ):
+        utils.get_epsg(coast=True)
 
 
 ################
@@ -543,6 +723,45 @@ def test_normalized_mindist_only_high_raises():
     points, da = normalized_mindist_inputs()
     with pytest.raises(ValueError, match="both `low` and `high`"):
         utils.normalized_mindist(points=points, grid=da, high=5)
+
+
+def test_normalized_mindist_outside_region_value_without_region_raises():
+    """`outside_region_value` is meaningless without a region"""
+    points, da = normalized_mindist_inputs()
+    with pytest.raises(ValueError, match="must provide `region`"):
+        utils.normalized_mindist(points=points, grid=da, outside_region_value=1)
+
+
+@pytest.mark.parametrize(
+    ("low_percentile", "high_percentile"),
+    [(-1, 100), (0, 101), (80, 20), (50, 50)],
+)
+def test_normalized_mindist_invalid_percentiles_raise(
+    low_percentile: float,
+    high_percentile: float,
+):
+    """percentiles must be within 0-100 and increasing"""
+    points, da = normalized_mindist_inputs()
+    with pytest.raises(ValueError, match="`low_percentile` < `high_percentile`"):
+        utils.normalized_mindist(
+            points=points,
+            grid=da,
+            low_percentile=low_percentile,
+            high_percentile=high_percentile,
+        )
+
+
+def test_normalized_mindist_all_cells_fixed_raises():
+    """if no cells are left to normalize, raise instead of returning all nans"""
+    points, da = normalized_mindist_inputs()
+    with pytest.raises(ValueError, match="no grid cells remain"):
+        utils.normalized_mindist(
+            points=points,
+            grid=da,
+            low=0,
+            high=1,
+            mindist=1e6,
+        )
 
 
 ################
@@ -594,6 +813,125 @@ def test_block_reduce_points_median_drops_weights():
     assert reduced_weights is None
 
 
+def test_block_reduce_points_mask_only_reduces_subset():
+    """points where the mask is False should be passed through unaltered"""
+    coords, data, _ = block_reduce_inputs()
+    mask = np.zeros_like(data, dtype=bool)
+    mask[:20] = True
+
+    reduced_coords, reduced_data, reduced_weights = utils._block_reduce_points(
+        coords,
+        data,
+        None,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+        mask=mask,
+    )
+    # the unreduced points should all still be present
+    assert len(reduced_data) < len(data)
+    assert len(reduced_data) == len(reduced_coords[0])
+    assert set(data[~mask]).issubset(set(reduced_data))
+    assert reduced_weights is None
+
+    # reducing everything should give fewer points than reducing just a subset
+    _, all_reduced_data, _ = utils._block_reduce_points(
+        coords,
+        data,
+        None,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+    )
+    assert len(all_reduced_data) < len(reduced_data)
+
+
+def test_block_reduce_points_mask_keeps_weights():
+    """weights of the unreduced points should be kept alongside the reduced weights"""
+    coords, data, weights = block_reduce_inputs()
+    mask = np.zeros_like(data, dtype=bool)
+    mask[:20] = True
+
+    _, reduced_data, reduced_weights = utils._block_reduce_points(
+        coords,
+        data,
+        weights,
+        block_size=500,
+        block_reduction="mean",
+        region=(0, 1000, 0, 1000),
+        mask=mask,
+    )
+    assert len(reduced_weights) == len(reduced_data)
+
+
+def test_block_reduce_points_empty_mask_skips_reduction():
+    coords, data, weights = block_reduce_inputs()
+    out_coords, out_data, out_weights = utils._block_reduce_points(
+        coords,
+        data,
+        weights,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+        mask=np.zeros_like(data, dtype=bool),
+    )
+    assert len(out_data) == len(data)
+    assert out_weights is weights
+    assert out_coords is coords
+
+
+def test_block_reduce_points_wrong_mask_length_raises():
+    coords, data, weights = block_reduce_inputs()
+    with pytest.raises(ValueError, match="mask must be the same length"):
+        utils._block_reduce_points(
+            coords,
+            data,
+            weights,
+            block_size=500,
+            block_reduction="median",
+            region=(0, 1000, 0, 1000),
+            mask=np.ones(len(data) - 1, dtype=bool),
+        )
+
+
+def test_block_reduce_points_multiple_components():
+    """several data components should be reduced together"""
+    coords, data, weights = block_reduce_inputs()
+    reduced_coords, reduced_data, reduced_weights = utils._block_reduce_points(
+        coords,
+        (data, data * 2),
+        weights,
+        block_size=500,
+        block_reduction="mean",
+        region=(0, 1000, 0, 1000),
+    )
+    assert len(reduced_data) == 2
+    assert len(reduced_data[0]) == len(reduced_coords[0]) < len(data)
+    npt.assert_allclose(reduced_data[1], reduced_data[0] * 2)
+    # only one set of weights should be returned
+    assert len(reduced_weights) == len(reduced_data[0])
+
+
+def test_block_reduce_points_multiple_components_with_mask():
+    """the unreduced points of each component should be added back"""
+    coords, data, _ = block_reduce_inputs()
+    mask = np.zeros_like(data, dtype=bool)
+    mask[:20] = True
+
+    _, reduced_data, _ = utils._block_reduce_points(
+        coords,
+        (data, data * 2),
+        None,
+        block_size=500,
+        block_reduction="median",
+        region=(0, 1000, 0, 1000),
+        mask=mask,
+    )
+    assert len(reduced_data) == 2
+    assert len(reduced_data[0]) == len(reduced_data[1]) < len(data)
+    assert set(data[~mask]).issubset(set(reduced_data[0]))
+
+
 def test_block_reduce_points_invalid_reduction_raises():
     coords, data, weights = block_reduce_inputs()
     with pytest.raises(ValueError, match="block_reduction must be"):
@@ -604,6 +942,286 @@ def test_block_reduce_points_invalid_reduction_raises():
             block_size=500,
             block_reduction="mode",
             region=(0, 1000, 0, 1000),
+        )
+
+
+################
+################
+# fill_missing
+################
+################
+
+
+def grid_with_holes() -> tuple[xr.DataArray, xr.DataArray, pd.DataFrame]:
+    """a linear grid, the same grid with a NaN corner, and points covering the hole"""
+    (easting, northing) = vd.grid_coordinates(region=(0, 1000, 0, 1000), spacing=100)
+    truth = vd.make_xarray_grid(
+        (easting, northing),
+        -1000 + easting / 10 + northing / 20,
+        data_names="upward",
+        dims=("northing", "easting"),
+    ).upward
+    holed = truth.where((truth.easting < 400) | (truth.northing < 400))
+
+    rng = np.random.default_rng(seed=0)
+    point_easting = rng.uniform(0, 1000, 40)
+    point_northing = rng.uniform(0, 1000, 40)
+    points = pd.DataFrame(
+        {
+            "easting": point_easting,
+            "northing": point_northing,
+            "upward": -1000 + point_easting / 10 + point_northing / 20,
+            "grid_points": (point_easting < 400) | (point_northing < 400),
+        }
+    )
+    return truth, holed, points
+
+
+@pytest.mark.parametrize("method", ["pygmt", "splines", "nearest"])
+def test_fill_missing(method):
+    """all the extrapolating methods should fill every missing value"""
+    truth, holed, points = grid_with_holes()
+    filled = utils.fill_missing(holed, method=method, constraints_df=points)
+
+    assert not np.any(np.isnan(filled.to_numpy()))
+    assert filled.dims == truth.dims
+    assert filled.name == truth.name
+    # existing values shouldn't be altered
+    existing = ~np.isnan(holed.to_numpy())
+    npt.assert_allclose(filled.to_numpy()[existing], holed.to_numpy()[existing])
+
+
+def test_fill_missing_pygmt_recovers_linear_surface():
+    """filling a linear surface should recover the removed values"""
+    truth, holed, points = grid_with_holes()
+    filled = utils.fill_missing(holed, method="pygmt", constraints_df=points)
+    npt.assert_allclose(filled.to_numpy(), truth.to_numpy(), atol=1e-3)
+
+
+def test_fill_missing_without_points():
+    """the grid's own values should be enough to fill the missing values"""
+    truth, holed, _ = grid_with_holes()
+    filled = utils.fill_missing(holed, method="pygmt")
+    assert not np.any(np.isnan(filled.to_numpy()))
+    npt.assert_allclose(filled.to_numpy(), truth.to_numpy(), atol=1e-3)
+
+
+def test_fill_missing_no_nans_returns_grid():
+    truth, _, _ = grid_with_holes()
+    xrt.assert_identical(utils.fill_missing(truth), truth)
+
+
+def test_fill_missing_maxdist():
+    """restricting the interpolation points shouldn't leave any missing values"""
+    _, holed, points = grid_with_holes()
+    filled = utils.fill_missing(
+        holed,
+        method="splines",
+        constraints_df=points,
+        maxdist=400,
+    )
+    assert not np.any(np.isnan(filled.to_numpy()))
+
+    with pytest.raises(ValueError, match="maxdist resulted in no points"):
+        utils.fill_missing(holed, method="splines", maxdist=1)
+
+
+def test_fill_missing_cubic_leaves_nans(caplog):
+    """methods which can't extrapolate should warn about the remaining NaNs"""
+    _, holed, _ = grid_with_holes()
+    filled = utils.fill_missing(holed, method="cubic")
+    assert np.any(np.isnan(filled.to_numpy()))
+    assert "missing values are still present" in caplog.text
+
+
+def test_fill_missing_invalid_method_raises():
+    _, holed, _ = grid_with_holes()
+    with pytest.raises(ValueError, match="method must be"):
+        utils.fill_missing(holed, method="not_a_method")
+
+
+def test_fill_missing_missing_columns_raises():
+    _, holed, points = grid_with_holes()
+    with pytest.raises(ValueError, match="is missing the columns"):
+        utils.fill_missing(holed, constraints_df=points.drop(columns="easting"))
+
+
+################
+################
+# create_topography
+################
+################
+
+
+def topography_constraints() -> pd.DataFrame:
+    rng = np.random.default_rng(seed=0)
+    easting = rng.uniform(0, 1000, 50)
+    northing = rng.uniform(0, 1000, 50)
+    return pd.DataFrame(
+        {
+            "easting": easting,
+            "northing": northing,
+            "upward": -1000 + easting / 10 + northing / 20,
+        }
+    )
+
+
+def test_create_topography_pygmt():
+    """the pygmt method should grid the constraint points with pygmt.surface"""
+    ds = utils.create_topography(
+        method="pygmt",
+        region=(0, 1000, 0, 1000),
+        spacing=100,
+        constraints_df=topography_constraints(),
+        tension=0.35,
+    )
+    assert ds.upward.shape == (11, 11)
+    assert list(ds.upward.dims) == ["northing", "easting"]
+    assert not np.any(np.isnan(ds.upward))
+    assert ds.upward.attrs["damping"] is None
+
+
+def test_create_topography_pygmt_block_reduction_subset():
+    """block reducing a subset should keep the unreduced points unaltered"""
+    df = topography_constraints()
+    df["reduce"] = df.easting < 500
+
+    ds = utils.create_topography(
+        method="pygmt",
+        region=(0, 1000, 0, 1000),
+        spacing=100,
+        constraints_df=df,
+        block_size=250,
+        block_reduction="median",
+        block_reduction_col="reduce",
+    )
+    assert ds.upward.shape == (11, 11)
+    assert not np.any(np.isnan(ds.upward))
+
+
+def test_create_topography_pygmt_missing_block_reduction_col():
+    with pytest.raises(ValueError, match="`block_reduction_col`"):
+        utils.create_topography(
+            method="pygmt",
+            region=(0, 1000, 0, 1000),
+            spacing=100,
+            constraints_df=topography_constraints(),
+            block_size=250,
+            block_reduction_col="not_a_column",
+        )
+
+
+def test_create_topography_grid_to_fill():
+    """only the missing values of the supplied grid should be interpolated"""
+    truth, holed, points = grid_with_holes()
+    ds = utils.create_topography(
+        method="pygmt",
+        region=(0, 1000, 0, 1000),
+        spacing=100,
+        constraints_df=points,
+        grid_to_fill=holed,
+    )
+    assert not np.any(np.isnan(ds.upward.to_numpy()))
+    existing = ~np.isnan(holed.to_numpy())
+    npt.assert_allclose(ds.upward.to_numpy()[existing], holed.to_numpy()[existing])
+    npt.assert_allclose(ds.upward.to_numpy(), truth.to_numpy(), atol=1e-3)
+
+
+def test_create_topography_grid_to_fill_only_uses_non_grid_points():
+    """points already included in the grid shouldn't be reused"""
+    _, holed, points = grid_with_holes()
+    # corrupting the points already in the grid shouldn't change the result
+    corrupted = points.copy()
+    corrupted.loc[corrupted.grid_points, "upward"] = 1e6
+
+    kwargs = {
+        "method": "pygmt",
+        "region": (0, 1000, 0, 1000),
+        "spacing": 100,
+        "grid_to_fill": holed,
+    }
+    ds = utils.create_topography(constraints_df=points, **kwargs)
+    ds_corrupted = utils.create_topography(constraints_df=corrupted, **kwargs)
+    npt.assert_allclose(ds.upward.to_numpy(), ds_corrupted.upward.to_numpy())
+
+
+def test_create_topography_grid_to_fill_grid_points_col():
+    """the column of points already in the grid should be configurable"""
+    _, holed, points = grid_with_holes()
+    renamed = points.rename(columns={"grid_points": "on_grid"})
+
+    kwargs = {
+        "method": "pygmt",
+        "region": (0, 1000, 0, 1000),
+        "spacing": 100,
+        "grid_to_fill": holed,
+    }
+    ds = utils.create_topography(constraints_df=points, **kwargs)
+    ds_renamed = utils.create_topography(
+        constraints_df=renamed,
+        grid_points_col="on_grid",
+        **kwargs,
+    )
+    npt.assert_allclose(ds.upward.to_numpy(), ds_renamed.upward.to_numpy())
+
+
+def test_create_topography_grid_to_fill_flat():
+    """method 'flat' should fill the missing values with the constant value"""
+    _, holed, _ = grid_with_holes()
+    ds = utils.create_topography(
+        method="flat",
+        region=(0, 1000, 0, 1000),
+        spacing=100,
+        upward=-500,
+        grid_to_fill=holed,
+    )
+    assert not np.any(np.isnan(ds.upward.to_numpy()))
+    existing = ~np.isnan(holed.to_numpy())
+    npt.assert_allclose(ds.upward.to_numpy()[existing], holed.to_numpy()[existing])
+    npt.assert_allclose(ds.upward.to_numpy()[~existing], -500)
+
+
+def test_create_topography_grid_to_fill_mismatched_grid_raises():
+    _, holed, points = grid_with_holes()
+    with pytest.raises(ValueError, match="doesn't match the requested grid"):
+        utils.create_topography(
+            method="pygmt",
+            region=(0, 2000, 0, 1000),
+            spacing=100,
+            constraints_df=points,
+            grid_to_fill=holed,
+        )
+
+
+def test_create_topography_maxdist_without_grid_raises():
+    with pytest.raises(ValueError, match="`maxdist` is only used"):
+        utils.create_topography(
+            method="pygmt",
+            region=(0, 1000, 0, 1000),
+            spacing=100,
+            constraints_df=topography_constraints(),
+            maxdist=100,
+        )
+
+
+def test_create_topography_tension_wrong_method_raises():
+    with pytest.raises(ValueError, match="`tension` is only used"):
+        utils.create_topography(
+            method="splines",
+            region=(0, 1000, 0, 1000),
+            spacing=100,
+            constraints_df=topography_constraints(),
+            tension=0.5,
+        )
+
+
+def test_create_topography_invalid_method_raises():
+    with pytest.raises(ValueError, match="method must be"):
+        utils.create_topography(
+            method="not_a_method",
+            region=(0, 1000, 0, 1000),
+            spacing=100,
+            constraints_df=topography_constraints(),
         )
 
 
@@ -732,3 +1350,36 @@ def test_create_window_regions():
         utils.create_window_regions((0, 100, 0, 100), 50, window_overlap=1)
     with pytest.raises(ValueError, match="window_width"):
         utils.create_window_regions((0, 100, 0, 100), 0)
+
+
+def test_sample_grids_cubic_with_nans():
+    """
+    check cubic sampling works on a grid containing NaNs, giving NaN only next to the
+    NaN nodes and exact values on the grid's nodes
+    """
+    coords = vd.grid_coordinates(region=(0, 100, 0, 100), spacing=10)
+    grid = vd.make_xarray_grid(coords, data=coords[0] + 2 * coords[1], data_names="z").z
+    grid[0, 0] = np.nan
+
+    points = pd.DataFrame(
+        {
+            # on a node, next to the NaN node, and far from it
+            "easting": [50.0, 5.0, 55.0],
+            "northing": [50.0, 5.0, 55.0],
+        }
+    )
+    sampled = utils.sample_grids(points, grid, sampled_name="z").z
+
+    assert sampled[0] == 150
+    assert np.isnan(sampled[1])
+    npt.assert_allclose(sampled[2], 55 + 2 * 55, rtol=1e-3)
+
+
+def test_sample_grids_cubic_without_nans_unchanged():
+    """check grids without NaNs are sampled with cubic interpolation as before"""
+    coords = vd.grid_coordinates(region=(0, 100, 0, 100), spacing=10)
+    grid = vd.make_xarray_grid(coords, data=coords[0] ** 2 / 100, data_names="z").z
+    points = pd.DataFrame({"easting": [55.0], "northing": [55.0]})
+    sampled = utils.sample_grids(points, grid, sampled_name="z").z
+
+    npt.assert_allclose(sampled[0], 55**2 / 100, rtol=1e-5)

@@ -27,12 +27,10 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
             "pooch",
             "rioxarray",
             "tqdm",
-            "pygmt",
             "harmonica",
             "deprecation",
             "pykdtree",
             "xrft",
-            "polartoolkit",
             "numba",
             "numba-progress",
             "dask",
@@ -50,6 +48,7 @@ class Report(scooby.Report):  # type: ignore[misc] # pylint: disable=missing-cla
         # Optional packages.
         optional = [
             "torch",
+            "pygmt",
         ]
 
         scooby.Report.__init__(
@@ -78,6 +77,15 @@ from .inversion import (  # noqa: E402
     create_data,
     create_model,
     run_inversion_workflow,
+)
+from .maps import (  # noqa: E402
+    basemap,
+    get_combined_min_max,
+    get_grid_info,
+    get_min_max,
+    grid_compare,
+    plot_grid,
+    subplots,
 )
 from .optimization import (  # noqa: E402
     optimal_buffer,
@@ -117,12 +125,16 @@ from .uncertainty import (  # noqa: E402
     regional_misfit_uncertainty,
 )
 from .utils import (  # noqa: E402
+    buffer_edges,
     create_topography,
     create_window_regions,
+    fill_missing,
     filter_grid,
     gravity_decay_buffer,
     normalized_mindist,
     optimal_spline_damping,
+    points_to_grid,
+    resample_grid,
     rmse,
     sample_grids,
 )

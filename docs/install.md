@@ -33,21 +33,10 @@ Activate the environment:
 
 ### Pip
 
-Instead, you can use pip to install `invert4geom`, but first you need to install a few dependencies with conda.
-This is because a few dependencies rely on C packages, which can only be install with conda/mamba and not with pip.
-
-Create a new virtual environment:
+Instead, you can use pip to install `invert4geom` into a new virtual environment:
 
 ```
-mamba create --name invert4geom --yes --force polartoolkit --channel conda-forge
-```
-
-The package `polartoolkit` provides several useful functions used in `invert4geom`.
-Since `polartoolkit` has several dependencies that can't be install with `pip` (mostly `pygmt`), it is easiest to install with `conda` or `mamba`.
-
-activate the environment and use `pip` to install `invert4geom`:
-
-```
+mamba create --name invert4geom --yes --force python --channel conda-forge
 conda activate invert4geom
 pip install invert4geom
 ```
@@ -56,6 +45,16 @@ pip install invert4geom
 to install the optional dependencies, use this instead:
 `pip install invert4geom[all]`
 ```
+
+The `pygmt` gridding methods (`method="pygmt"` / `grid_method="pygmt"`, which use
+tensioned minimum curvature) need the optional `pygmt` dependency. PyGMT relies on the
+GMT C library, which can't be installed with `pip`, so install it with conda or mamba:
+
+```
+mamba install pygmt --channel conda-forge
+```
+
+Without it, use one of the other gridding methods, such as `splines`.
 
 ### Development version
 

@@ -1,5 +1,6 @@
 import pathlib
 import pickle
+import typing
 
 import harmonica as hm
 import numpy as np
@@ -238,6 +239,44 @@ def test_data_errors(test_input, expected):
     """
     with pytest.raises(AssertionError, match=expected):
         _ = invert4geom.inversion.create_data(**test_input)
+
+
+@pytest.mark.parametrize(
+    "mask_values",
+    [
+        # zeros mark the excluded cells, as used by `mask_column`
+        [1.0, 1.0, 0.0],
+        # nans mark the excluded cells, as used by `create_model`
+        [1.0, 1.0, np.nan],
+        # booleans
+        [True, True, False],
+    ],
+)
+def test_create_data_keeps_mask(mask_values):
+    """
+    a `mask` variable of the gravity dataset should be kept, whichever convention it
+    uses, and is normalized later during the regional-residual separation
+    """
+    gravity = observed_gravity_prisms()
+
+    # mask out the 3rd easting column, keeping the dtype of the supplied values
+    values = np.array(mask_values)
+    row = np.concatenate([values, np.ones(2, dtype=values.dtype)])
+    gravity["mask"] = xr.DataArray(
+        np.broadcast_to(row, gravity.upward.shape),
+        coords=gravity.upward.coords,
+        dims=gravity.upward.dims,
+    )
+
+    data = invert4geom.inversion.create_data(gravity)
+
+    xr.testing.assert_identical(data.mask, gravity.mask)
+
+
+def test_create_data_without_mask():
+    """without a `mask` variable, the data shouldn't have one either"""
+    data = invert4geom.inversion.create_data(observed_gravity_prisms())
+    assert "mask" not in data
 
 
 @pytest.mark.filterwarnings("ignore:Grid may have irregular spacing in the")
@@ -1081,6 +1120,37 @@ def test_inversion_properties():
     )
 
 
+def test_stats_res_excludes_masked_residuals():
+    """
+    residuals zeroed by the mask shouldn't deflate the rmse and l2-norm
+    """
+    gravity = observed_gravity_prisms()
+    # mask out the western half of the residual
+    gravity["mask"] = xr.ones_like(gravity.upward).where(
+        gravity.easting > gravity.easting.mean(), 0.0
+    )
+    data = invert4geom.inversion.create_data(gravity)
+    model = invert4geom.inversion.create_model(
+        500, 2669, flat_topography_500m_cartesian()
+    )
+
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(method="constant", constant=10)
+
+    inv = invert4geom.inversion.Inversion(data=data, model=model, max_iterations=1)
+
+    inner = inv.data.inv.inner
+    masked_out = inner.res_mask == 0
+    assert masked_out.sum() > 0
+
+    # the masked cells should be nans, not zeros
+    assert bool(np.isnan(inv.data.inv.stats_res).sum() == masked_out.sum())
+    assert inv.rmse == invert4geom.utils.rmse(inner.res.where(~masked_out))
+
+    # including the zeros would drag the rmse down
+    assert inv.rmse > invert4geom.utils.rmse(inner.res)
+
+
 def test_end_inversion_l2_norm_increasing():
     """
     test the end_inversion method works correctly
@@ -1657,6 +1727,464 @@ def test_solver():
         inv.solver()
 
 
+def _small_inversion_setup(**kwargs: typing.Any) -> invert4geom.inversion.Inversion:
+    """
+    create a small data / model pair and return an Inversion instance
+    """
+    easting = [0, 5]
+    northing = [0, 5]
+    surface = [
+        [0, 0],
+        [0, 0],
+    ]
+    topo = vd.make_xarray_grid(
+        (easting, northing),
+        data=surface,
+        data_names="upward",
+    )
+
+    grav = vd.make_xarray_grid(
+        (easting, northing),
+        data=([[1, 1], [-1, -1]], [[100, 100], [100, 100]]),
+        data_names=("gravity_anomaly", "upward"),
+    )
+
+    data = invert4geom.inversion.create_data(grav)
+    model = invert4geom.inversion.create_model(0, 2670, topo)
+    data.inv.forward_gravity(model)
+    data.inv.regional_separation(
+        method="constant",
+        constant=0,
+    )
+
+    return invert4geom.inversion.Inversion(
+        data=data,
+        model=model,
+        **kwargs,
+    )
+
+
+@pytest.mark.use_numba
+def test_solver_irls():
+    """
+    test the IRLS (sharp) solver
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e-5,
+        solver_damping=0.01,
+    )
+
+    inv.jacobian_geometry()
+    inv.solver()
+
+    # check step shape is correct
+    assert np.shape(inv.step) == (4,)
+
+    # check step is finite
+    assert np.all(np.isfinite(inv.step))
+
+    # with a tiny sharpness weight, the solution should be close to the pure
+    # least-squares solution
+    step_irls = inv.step
+    inv.solver_type = "scipy least squares"
+    inv.solver()
+    npt.assert_allclose(step_irls, inv.step, rtol=1e-2, atol=1e-3)
+
+
+@pytest.mark.use_numba
+def test_solver_irls_strong_weight_flattens():
+    """
+    a very strong sharpness weight should force the model gradient (and therefore
+    the step differences between cells) towards zero, giving a near-uniform step
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e4,
+    )
+
+    inv.jacobian_geometry()
+    inv.solver()
+
+    # all cell steps should be nearly identical (zero gradient)
+    assert np.ptp(inv.step) < 1e-3
+
+
+def test_gradient_operator():
+    """
+    test the first-difference gradient operator
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e-3,
+    )
+
+    grad_op = inv._gradient_operator()  # pylint: disable=protected-access
+
+    # 2x2 grid has 2 easting-direction pairs and 2 northing-direction pairs
+    assert grad_op.shape == (4, 4)
+
+    # gradient of a constant field is zero
+    npt.assert_allclose(grad_op @ np.ones(4), 0)
+
+    # each row differences exactly 2 cells with coefficients +1 and -1
+    assert np.all(grad_op.getnnz(axis=1) == 2)
+    npt.assert_allclose(np.asarray(grad_op.sum(axis=1)).ravel(), 0)
+
+
+# fault traces which separate the 2x2 model of `_small_inversion_setup`, with the
+# number of model element pairs each should exclude
+north_south_fault = pd.DataFrame({"easting": [2.5, 2.5], "northing": [-1, 6]})
+east_west_fault = pd.DataFrame({"easting": [-1, 6], "northing": [2.5, 2.5]})
+
+
+@pytest.mark.parametrize(
+    ("fault_trace", "expected_cut_edges"),
+    [
+        # a north-south trace between the 2 columns cuts the easting-direction pairs
+        (north_south_fault, 2),
+        # an east-west trace between the 2 rows cuts the northing-direction pairs
+        (east_west_fault, 2),
+        # arrays of vertices are accepted as well as dataframes
+        (north_south_fault.to_numpy(), 2),
+        # several traces can be supplied at once, here cutting every pair
+        ([north_south_fault, east_west_fault], 4),
+        # a trace outside of the model region cuts nothing
+        (pd.DataFrame({"easting": [100, 100], "northing": [-1, 6]}), 0),
+    ],
+)
+def test_gradient_operator_fault_trace(fault_trace, expected_cut_edges):
+    """
+    fault traces should exclude the model element pairs which they separate from the
+    gradient operator
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e-3,
+        fault_trace=fault_trace,
+    )
+
+    grad_op = inv._gradient_operator()  # pylint: disable=protected-access
+
+    # the 2x2 grid has 4 pairs in total
+    assert inv.n_cut_edges == expected_cut_edges
+    assert grad_op.shape == (4 - expected_cut_edges, 4)
+
+    # the remaining rows still difference exactly 2 cells with coefficients +1 and -1
+    assert np.all(grad_op.getnnz(axis=1) == 2)
+    npt.assert_allclose(np.asarray(grad_op.sum(axis=1)).ravel(), 0)
+
+
+def test_gradient_operator_fault_trace_through_cell_centers():
+    """
+    a fault trace passing exactly through model element centers shouldn't separate
+    those elements from their neighbors
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e-3,
+        fault_trace=pd.DataFrame({"easting": [0, 0], "northing": [-1, 6]}),
+    )
+
+    inv._gradient_operator()  # pylint: disable=protected-access
+
+    assert inv.n_cut_edges == 0
+
+
+def test_gradient_operator_fault_trace_reinitialize():
+    """
+    the cut edges and cached operator should be reset by reinitializing
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e-3,
+        fault_trace=north_south_fault,
+    )
+
+    inv._gradient_operator()  # pylint: disable=protected-access
+    assert inv.n_cut_edges == 2
+
+    inv.reinitialize_inversion()
+    assert inv.n_cut_edges == 0
+    assert inv._grad_operator is None  # pylint: disable=protected-access
+
+    # and rebuilt the same way on the next solve
+    assert inv._gradient_operator().shape == (2, 4)  # pylint: disable=protected-access
+    assert inv.n_cut_edges == 2
+
+
+def test_fault_trace_pickle(tmp_path):
+    """
+    an inversion with fault traces should be picklable, as inversion results are saved
+    with pickle
+    """
+    inv = _small_inversion_setup(
+        solver_type="irls",
+        sharpness_weight=1e-3,
+        fault_trace=north_south_fault,
+    )
+
+    fname = tmp_path / "inv.pickle"
+    with pathlib.Path(fname).open("wb") as f:
+        pickle.dump(inv, f)
+    with pathlib.Path(fname).open("rb") as f:
+        loaded = pickle.load(f)
+
+    pd.testing.assert_frame_equal(loaded.fault_trace, north_south_fault)
+
+
+def test_fault_trace_requires_irls():
+    """
+    fault traces only alter the IRLS solver, so supplying them to the least squares
+    solver should raise an error
+    """
+    with pytest.raises(ValueError, match="fault_trace supplied but not used"):
+        _small_inversion_setup(fault_trace=north_south_fault)
+
+
+@pytest.mark.parametrize(
+    ("fault_trace", "error_msg"),
+    [
+        # need at least 2 vertices to define a trace
+        (
+            pd.DataFrame({"easting": [2.5], "northing": [0]}),
+            "at least 2 vertices",
+        ),
+        # vertices must be finite
+        (
+            pd.DataFrame({"easting": [2.5, np.nan], "northing": [-1, 6]}),
+            "must all be finite",
+        ),
+        # dataframes must use the model's coordinate names
+        (
+            pd.DataFrame({"x": [2.5, 2.5], "y": [-1, 6]}),
+            "must have columns",
+        ),
+        # arrays must have 2 columns
+        (np.array([0, 1, 2]), r"must have shape \(n, 2\)"),
+    ],
+)
+def test_fault_trace_invalid(fault_trace, error_msg):
+    """
+    invalid fault traces should raise an informative error
+    """
+    with pytest.raises(ValueError, match=error_msg):
+        _small_inversion_setup(
+            solver_type="irls",
+            sharpness_weight=1e-3,
+            fault_trace=fault_trace,
+        )
+
+
+@pytest.mark.use_numba
+def test_solver_residual_weighting_zero():
+    """
+    a residual weighting grid of zeros should zero the residual seen by the solver,
+    giving a zero step
+    """
+    weights = vd.make_xarray_grid(
+        ([0, 5], [0, 5]),
+        data=[[0.0, 0.0], [0.0, 0.0]],
+        data_names="weights",
+    ).weights
+    inv = _small_inversion_setup(
+        apply_residual_weighting_grid=True,
+        residual_weighting_grid=weights,
+    )
+
+    inv.jacobian_geometry()
+    inv.solver()
+
+    npt.assert_allclose(inv.step, 0, atol=1e-10)
+
+
+@pytest.mark.use_numba
+def test_solver_residual_weighting_ones():
+    """
+    a residual weighting grid of ones should give the same step as no weighting
+    """
+    weights = vd.make_xarray_grid(
+        ([0, 5], [0, 5]),
+        data=[[1.0, 1.0], [1.0, 1.0]],
+        data_names="weights",
+    ).weights
+    inv_weighted = _small_inversion_setup(
+        solver_damping=0.01,
+        apply_residual_weighting_grid=True,
+        residual_weighting_grid=weights,
+    )
+    inv_weighted.jacobian_geometry()
+    inv_weighted.solver()
+
+    inv_unweighted = _small_inversion_setup(solver_damping=0.01)
+    inv_unweighted.jacobian_geometry()
+    inv_unweighted.solver()
+
+    npt.assert_allclose(inv_weighted.step, inv_unweighted.step)
+
+
+def test_residual_weighting_grid_errors():
+    """
+    mismatched residual weighting arguments should raise errors
+    """
+    weights = vd.make_xarray_grid(
+        ([0, 5], [0, 5]),
+        data=[[1.0, 1.0], [1.0, 1.0]],
+        data_names="weights",
+    ).weights
+
+    with pytest.raises(ValueError, match="apply_residual_weighting_grid is False"):
+        _small_inversion_setup(residual_weighting_grid=weights)
+
+    with pytest.raises(ValueError, match="must supply residual_weighting_grid"):
+        _small_inversion_setup(apply_residual_weighting_grid=True)
+
+
+def test_solver_irls_missing_sharpness_weight():
+    """
+    an IRLS inversion without a sharpness weight should raise an error
+    """
+    with pytest.raises(ValueError, match="sharpness_weight"):
+        _small_inversion_setup(solver_type="irls")
+
+
+def test_invalid_solver_type():
+    """
+    an invalid solver type should raise an error at initialization
+    """
+    with pytest.raises(ValueError, match="solver_type must be one of"):
+        _small_inversion_setup(solver_type="not_a_solver")
+
+
+def test_optimize_inversion_sharpness_errors():
+    """
+    invalid arguments to the sharpness optimization should raise errors
+    """
+    inv = _small_inversion_setup(solver_damping=0.01)
+    with pytest.raises(ValueError, match="requires solver_type='irls'"):
+        inv.optimize_inversion_sharpness(n_trials=2, sharpness_weight_limits=(1e-3, 1))
+
+    inv = _small_inversion_setup(solver_type="irls", sharpness_weight=1e-3)
+    with pytest.raises(ValueError, match="limits for at least one"):
+        inv.optimize_inversion_sharpness(n_trials=2)
+
+    with pytest.raises(ValueError, match="grid_search is only available"):
+        inv.optimize_inversion_sharpness(
+            n_trials=4,
+            sharpness_weight_limits=(1e-3, 1),
+            sharpness_norm_limits=(0.5, 2),
+            grid_search=True,
+        )
+
+
+def _sharpness_cv_setup() -> tuple[invert4geom.inversion.Inversion, pd.DataFrame]:
+    """
+    create an IRLS inversion of a step-shaped topography and constraint points
+    sampled from the true topography, for use in the sharpness optimizations
+    """
+    easting = np.arange(0, 40000, 5000)
+    northing = np.arange(0, 40000, 5000)
+    coords = np.meshgrid(easting, northing)
+    topo = np.where(coords[0] < 20000, -300.0, 100.0)
+    true_topo = vd.make_xarray_grid(coords, data=topo, data_names="upward").upward
+    true_model = invert4geom.inversion.create_model(
+        0, 400, topography=true_topo.to_dataset()
+    )
+
+    grav = vd.make_xarray_grid(
+        coords,
+        data=(np.zeros_like(coords[0]), np.full_like(coords[0], 1000.0)),
+        data_names=("gravity_anomaly", "upward"),
+    )
+    data = invert4geom.inversion.create_data(grav)
+    data.inv.forward_gravity(true_model, progressbar=False)
+    data["gravity_anomaly"] = data.forward_gravity
+
+    start = vd.make_xarray_grid(
+        coords, data=np.zeros_like(coords[0]), data_names="upward"
+    )
+    model = invert4geom.inversion.create_model(0, 400, topography=start)
+    data.inv.forward_gravity(model, progressbar=False)
+    data.inv.regional_separation(method="constant", constant=0)
+
+    # constraint points sampled from the true topography for scoring
+    constraints = pd.DataFrame(
+        {
+            "easting": [5000, 15000, 25000, 35000],
+            "northing": [5000, 25000, 15000, 35000],
+        }
+    )
+    constraints = invert4geom.utils.sample_grids(
+        constraints, true_topo, sampled_name="upward"
+    )
+
+    inv = invert4geom.inversion.Inversion(
+        data,
+        model,
+        solver_type="irls",
+        sharpness_weight=1e-3,
+        max_iterations=3,
+        l2_norm_tolerance=0.1,
+        delta_l2_norm_tolerance=1.001,
+    )
+    return inv, constraints
+
+
+@pytest.mark.use_numba
+def test_optimize_inversion_sharpness(tmp_path):
+    """
+    test a small sharpness_weight optimization scored against constraint points
+    """
+    inv, constraints = _sharpness_cv_setup()
+
+    inv_best = inv.optimize_inversion_sharpness(
+        n_trials=4,
+        sharpness_weight_limits=(1e-4, 1e-1),
+        constraints_df=constraints,
+        grid_search=True,
+        fname=str(tmp_path / "sharpness_cv"),
+        plot_scores=False,
+        progressbar=False,
+    )
+
+    # a best trial exists, within the limits, and was set on the returned copy
+    best_weight = inv_best.best_trial.params["sharpness_weight"]  # type: ignore[attr-defined]
+    assert 1e-4 <= best_weight <= 1e-1
+    assert inv_best.sharpness_weight == best_weight
+    # the original object was updated with the best inversion's results
+    assert inv.already_inverted
+
+
+@pytest.mark.filterwarnings("ignore:QMCSampler is experimental")
+@pytest.mark.filterwarnings("ignore:GPSampler is experimental")
+@pytest.mark.use_numba
+def test_optimize_inversion_sharpness_and_damping(tmp_path):
+    """
+    test optimizing sharpness_weight and solver_damping together
+    """
+    inv, constraints = _sharpness_cv_setup()
+    inv.solver_damping = 0.1
+
+    inv_best = inv.optimize_inversion_sharpness(
+        n_trials=4,
+        sharpness_weight_limits=(1e-4, 1e-1),
+        damping_limits=(1e-3, 1e-1),
+        constraints_df=constraints,
+        fname=str(tmp_path / "sharpness_damping_cv"),
+        plot_scores=False,
+        progressbar=False,
+    )
+
+    # both parameters were sampled and set on the returned copy
+    best_weight = inv_best.best_trial.params["sharpness_weight"]  # type: ignore[attr-defined]
+    best_damping = inv_best.best_trial.params["solver_damping"]  # type: ignore[attr-defined]
+    assert 1e-4 <= best_weight <= 1e-1
+    assert 1e-3 <= best_damping <= 1e-1
+    assert inv_best.sharpness_weight == best_weight
+    assert inv_best.solver_damping == best_damping
+    assert inv_best._initial_solver_damping == best_damping
+
+
 def test_reinitialize_inversion():
     """
     test the reinitialize inversion function
@@ -2158,7 +2686,7 @@ def test_gravity_score():
     )
     _ = inv.gravity_score()
 
-    assert inv.gravity_best_score == pytest.approx(32.04, 0.01)
+    assert inv.gravity_best_score == pytest.approx(32.96, 0.01)
 
     xr.testing.assert_equal(inv.model, model)
     xr.testing.assert_equal(inv.data, resampled)
@@ -2259,7 +2787,7 @@ def test_constraints_score():
     )
     _ = inv.constraints_score(constraints_df)
 
-    assert inv.constraints_best_score == pytest.approx(102.84, 0.01)
+    assert inv.constraints_best_score == pytest.approx(93.76, 0.01)
 
     xr.testing.assert_equal(inv.model, model)
     xr.testing.assert_equal(inv.data, data)
